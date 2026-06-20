@@ -255,3 +255,35 @@ th.sorted i {
 .no-results-content .reset-btn {
   margin-top: 0.5rem;
 }
+
+/* Responsive Table (Mobile Optimization) */
+@media screen and (max-width: 768px) {
+  .auction-table-container {
+    padding: 0.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  
+  .auction-table th {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    letter-spacing: 0;
+  }
+  
+  .auction-table th i {
+    display: none; /* Hide sorting icons on mobile to save space */
+  }
+  
+  .auction-table td {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .auction-table td.player-name {
+    white-space: normal;
+    min-width: 80px;
+    font-size: 0.8rem;
+  }
+}

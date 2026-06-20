@@ -240,25 +240,28 @@ export async function fetchPlayerAuctionData() {
             SELECT 
                 p.id, p.name, p.position, p.base_value,
                 c.name as current_club,
-                pc.expire_season, pc.salary,
+                pc.start_season, pc.expire_season, pc.salary, pc.signed_value,
                 a.reserve_price, a.winning_bid_amount, a.status
             FROM players p
             LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active'
             LEFT JOIN clubs c ON pc.current_club_id = c.id
-            LEFT JOIN auctions a ON p.id = a.player_id AND LOWER(a.status) = 'active'
+            LEFT JOIN auctions a ON p.id = a.player_id
         `);
         
-        return auctionResult.map((p: any) => ({
-            name: p.name,
-            position: p.position,
-            team: p.current_club || 'Unsold',
-            rating: p.base_value || 0,
-            bidAmount: p.winning_bid_amount || 0,
-            rowId: p.id,
-            contract: p.current_club ? `Active (until Season ${p.expire_season || 'N/A'})` : 'None',
+        return auctionResult.map((p: any) => {
+            const formatSeason = (val: string) => val ? val.replace(/[^0-9.]/g, '').trim() : '?';
+            return {
+                name: p.name,
+                position: p.position,
+                team: p.current_club || 'Unsold',
+                rating: p.base_value || 0,
+                bidAmount: Number(p.signed_value || p.winning_bid_amount || 0),
+                rowId: p.id,
+                contract: p.current_club ? `${formatSeason(p.start_season)} - ${formatSeason(p.expire_season)}` : 'None',
             reservePrice: p.reserve_price || p.base_value || 0,
             salary: p.salary || 0
-        }));
+            };
+        });
     } catch (error) {
         console.error("Error fetching auction data:", error);
         throw new Error("Failed to fetch player auction data");

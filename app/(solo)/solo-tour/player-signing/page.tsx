@@ -151,7 +151,7 @@ export default function PlayerSigning() {
                 {loading && (
                     <div className="loading-backdrop">
                         <div className="loading-spinner"></div>
-                        <div className="loading-text">Synchronizing Google Sheets Ledger...</div>
+                        <div className="loading-text">Loading Player Database...</div>
                     </div>
                 )}
 
@@ -230,7 +230,7 @@ export default function PlayerSigning() {
                                             onClick={() => requestSort('bidAmount')} 
                                             className={sortConfig?.key === 'bidAmount' ? 'sorted' : ''}
                                         >
-                                            Final Bid {renderSortIcon('bidAmount')}
+                                            Signing Value {renderSortIcon('bidAmount')}
                                         </th>
                                         <th 
                                             onClick={() => requestSort('contract')} 
@@ -268,14 +268,14 @@ export default function PlayerSigning() {
                                         </tr>
                                     )}
                                     {filteredPlayers.map((player, i) => (
-                                        <tr key={i} className={getRatingClass(player.rating)}>
-                                            <td className="player-name">{player.name}</td>
-                                            {activeTab === 'all' && <td>{player.position}</td>}
-                                            <td className="base-value">{player.rating}</td>
-                                            <td className="value">{getPlayerValue(player.rating)}</td>
-                                            <td className="team-name">{player.team || 'Unsold'}</td>
-                                            <td className="bid-amount">{player.bidAmount ? `₦${formatCurrency(player.bidAmount)}` : 'Not Bid'}</td>
-                                            <td>{player.contract || 'N/A'}</td>
+                                        <tr key={player.rowId} className={getRatingClass(player.rating)}>
+                                            <td data-label="Player" className="player-name">{player.name}</td>
+                                            {activeTab === 'all' && <td data-label="Position">{player.position}</td>}
+                                            <td data-label="Base Value" className="base-value">{player.rating}</td>
+                                            <td data-label="Value" className="value">{getPlayerValue(player.rating)}</td>
+                                            <td data-label="Signing Club" className="team-name">{player.team || 'Unsold'}</td>
+                                            <td data-label="Signing Value" className="bid-amount">{player.bidAmount ? player.bidAmount : 'Not Bid'}</td>
+                                            <td data-label="Contract">{player.contract || 'N/A'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
