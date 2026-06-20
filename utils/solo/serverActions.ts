@@ -41,25 +41,37 @@ export async function fetchManagers() {
             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id
         `);
 
-        return managersResult.map((m: any) => ({
-            id: m.id,
-            name: m.name,
-            photo: m.photo || '',
-            club: m.club_name || 'No Club',
-            age: m.age || 0,
-            overall_rating: m.overall_rating || 0,
-            star_rating: m.star_rating || 0,
-            club_total_value: Math.floor(m.club_total_value / 1000000) || 0,
-            trophies: m.competitions ? (typeof m.competitions === 'string' ? JSON.parse(m.competitions).length : m.competitions.length) : 0,
-            awards: m.awards ? (typeof m.awards === 'string' ? JSON.parse(m.awards).length : m.awards.length) : 0,
-            balance: (Number(m.r2g_coin_balance) || 0) + (Number(m.r2g_token_balance) || 0),
-            bio: "Experienced tactician.",
-            favorite_formation: "4-3-3",
-            play_style: "Attacking"
-        }));
-    } catch (error) {
+        return managersResult.map((m: any) => {
+            let trophies = 0;
+            let awards = 0;
+            try {
+                if (m.competitions) trophies = typeof m.competitions === 'string' ? JSON.parse(m.competitions).length : m.competitions.length;
+            } catch (e) { console.error("Error parsing competitions:", e); }
+            try {
+                if (m.awards) awards = typeof m.awards === 'string' ? JSON.parse(m.awards).length : m.awards.length;
+            } catch (e) { console.error("Error parsing awards:", e); }
+
+            return {
+                id: m.id,
+                name: m.name,
+                photo: m.photo || '',
+                club: m.club_name || 'No Club',
+                age: m.age || 0,
+                overall_rating: m.overall_rating || 0,
+                star_rating: m.star_rating || 0,
+                club_total_value: Math.floor(m.club_total_value / 1000000) || 0,
+                trophies,
+                awards,
+                balance: (Number(m.r2g_coin_balance) || 0) + (Number(m.r2g_token_balance) || 0),
+                bio: "Experienced tactician.",
+                favorite_formation: "4-3-3",
+                play_style: "Attacking"
+            };
+        });
+    } catch (error: any) {
         console.error("Error fetching managers:", error);
-        throw new Error("Failed to fetch managers");
+        // By throwing a simple string, sometimes Next.js masks it too, but we will return an error object and modify the client.
+        return { error: `Failed to fetch managers: ${error?.message || 'Database connection error'}` } as any;
     }
 }
 
@@ -243,7 +255,7 @@ export async function fetchPlayerAuctionData() {
             rating: p.base_value || 0,
             bidAmount: p.winning_bid_amount || 0,
             rowId: p.id,
-            contract: p.current_club ? \`Active (until Season ${p.expire_season || 'N/A'})\` : 'None',
+            contract: p.current_club ? `Active (until Season ${p.expire_season || 'N/A'})` : 'None',
             reservePrice: p.reserve_price || p.base_value || 0,
             salary: p.salary || 0
         }));
