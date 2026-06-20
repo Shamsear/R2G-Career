@@ -57,9 +57,9 @@ export async function fetchManagers() {
             favorite_formation: "4-3-3",
             play_style: "Attacking"
         }));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching managers:", error);
-        throw new Error("Failed to fetch managers");
+        return { error: error.message || "Failed to fetch managers" };
     }
 }
 
@@ -134,9 +134,9 @@ export async function fetchManagerByName(name: string) {
                 imagePath: p.imagepath || `/assets/images/players/${p.id}.png`
             }))
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching manager by name:", error);
-        throw new Error("Failed to fetch manager details");
+        return { error: error.message || "Failed to fetch manager details" };
     }
 }
 
@@ -188,9 +188,9 @@ export async function fetchPlayerById(id: string | number) {
             validUntil: p.valid_until || '',
             stats: stats
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching player by ID:", error);
-        throw new Error("Failed to fetch player details");
+        return { error: error.message || "Failed to fetch player details" };
     }
 }
 
@@ -216,9 +216,9 @@ export async function fetchPlayersDb() {
             imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
             stats: []
         }));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching players:", error);
-        throw new Error("Failed to fetch players");
+        return { error: error.message || "Failed to fetch players" };
     }
 }
 
@@ -245,9 +245,9 @@ export async function fetchPlayerAuctionData() {
             contract: p.current_club ? 'active' : 'none',
             reservePrice: p.reserve_price || p.base_value || 0
         }));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching auction data:", error);
-        throw new Error("Failed to fetch player auction data");
+        return { error: error.message || "Failed to fetch player auction data" };
     }
 }
 

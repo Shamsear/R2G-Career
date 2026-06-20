@@ -35,6 +35,10 @@ export default function Managers() {
             try {
                 const data = await fetchManagers();
                 
+                if (data && data.error) {
+                    throw new Error(data.error);
+                }
+
                 data.sort((a: any, b: any) => {
                     const rankA = a.age ? a.age.toString().trim() : "";
                     const rankB = b.age ? b.age.toString().trim() : "";
