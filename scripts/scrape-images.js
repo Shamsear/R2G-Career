@@ -47,13 +47,15 @@ function sanitizeName(name) {
     return name.replace(/[/\\?%*:|"<>]/g, '-').trim();
 }
 
+const MAX_CONCURRENCY = 4; // Number of parallel browser tabs
+
 async function scrapePlayers() {
   console.log("Fetching non-legend players from DB...");
   // We explicitly exclude legends from the list as requested
   const { rows: players } = await pool.query("SELECT id, name, position FROM players WHERE card_type != 'Legend' ORDER BY id ASC");
   console.log(`Found ${players.length} standard players to process.`);
 
-  console.log("Launching Stealth Puppeteer...");
+  console.log(`Launching Stealth Puppeteer with ${MAX_CONCURRENCY} workers...`);
   const browser = await puppeteer.launch({
     headless: false, 
     args: [
@@ -65,132 +67,141 @@ async function scrapePlayers() {
     ignoreDefaultArgs: ['--enable-automation']
   });
 
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 800 });
+  let currentIndex = 0;
 
-  console.log("Navigating to futbin.com to clear initial checks...");
-  await page.goto('https://www.futbin.com/', { waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
-  await new Promise(r => setTimeout(r, 4000));
+  async function worker(workerId) {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
 
-  for (const player of players) {
-    // Make folder using player name instead of ID
-    const safePlayerName = sanitizeName(player.name);
-    const playerFolder = path.join(IMAGE_DIR, safePlayerName);
-    
-    // Check if the old [id].png exists or folder already populated to skip
-    const finalPlayerFileId = path.join(IMAGE_DIR, `${player.id}.png`);
-    const finalPlayerFileName = path.join(IMAGE_DIR, `${safePlayerName}.png`);
-    if (fs.existsSync(finalPlayerFileId) || fs.existsSync(finalPlayerFileName)) {
-      console.log(`Skipping [${player.id}] ${player.name} - Final image already exists.`);
-      continue;
-    }
-    
-    if (!fs.existsSync(playerFolder)) {
-      fs.mkdirSync(playerFolder, { recursive: true });
-    } else {
-        const files = fs.readdirSync(playerFolder);
-        if (files.length > 0) {
-            console.log(`Skipping [${player.id}] ${player.name} - Folder already populated.`);
-            continue;
-        }
-    }
+    console.log(`[Worker ${workerId}] Navigating to futbin.com to clear initial checks...`);
+    await page.goto('https://www.futbin.com/', { waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 4000));
 
-    console.log(`Scraping [${player.id}] ${player.name} (Position: ${player.position})...`);
-    
-    try {
-      // Use Futbin's native version filter to automatically exclude promos/legends!
-      const searchUrl = `https://www.futbin.com/26/players?search=${encodeURIComponent(player.name)}&version=gold%2Csilver%2Cbronze`;
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-      await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 5000 }).catch(() => {});
+    while (currentIndex < players.length) {
+      const player = players[currentIndex++];
+      if (!player) break;
+
+      // Make folder using player name instead of ID
+      const safePlayerName = sanitizeName(player.name);
+      const playerFolder = path.join(IMAGE_DIR, safePlayerName);
       
-      const profileUrls = await page.evaluate((playerPos, playerName) => {
-        const rows = document.querySelectorAll('tr');
-        const urls = [];
-        const seen = new Set();
+      // Check if the old [id].png exists or folder already populated to skip
+      const finalPlayerFileId = path.join(IMAGE_DIR, `${player.id}.png`);
+      const finalPlayerFileName = path.join(IMAGE_DIR, `${safePlayerName}.png`);
+      if (fs.existsSync(finalPlayerFileId) || fs.existsSync(finalPlayerFileName)) {
+        console.log(`[Worker ${workerId}] Skipping [${player.id}] ${player.name} - Final image already exists.`);
+        continue;
+      }
+      
+      if (!fs.existsSync(playerFolder)) {
+        fs.mkdirSync(playerFolder, { recursive: true });
+      } else {
+          const files = fs.readdirSync(playerFolder);
+          if (files.length > 0) {
+              console.log(`[Worker ${workerId}] Skipping [${player.id}] ${player.name} - Folder already populated.`);
+              continue;
+          }
+      }
+
+      console.log(`[Worker ${workerId}] Scraping [${player.id}] ${player.name} (Position: ${player.position})...`);
+      
+      try {
+        // Use Futbin's native version filter to automatically exclude promos/legends!
+        const searchUrl = `https://www.futbin.com/26/players?search=${encodeURIComponent(player.name)}&version=gold%2Csilver%2Cbronze`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 5000 }).catch(() => {});
         
-        for (const row of Array.from(rows)) {
-           const linkElement = row.querySelector('a.player-row-playercard, a.table-player-name, td.table-name a');
-           if (!linkElement || !linkElement.href || !linkElement.href.includes('/player/')) continue;
-           
-           // 1. Check position (Loose check)
-           const posEl = row.querySelector('.table-pos, .table-pos-main');
-           const posText = posEl ? posEl.textContent.toUpperCase() : '';
-           const targetPos = playerPos ? playerPos.toUpperCase() : '';
-           
-           // We do a very loose check. For example, if targetPos is "ST", and futbin is "CF", we might want to allow it, 
-           // but since we are relying on Futbin's base card filter, if the first result matches name closely, it's probably right.
-           // However, to be safe, if we have a position, we ensure they share at least one character of the position 
-           // or we just skip strict position matching if it's too restrictive. 
-           // Let's just do a loose include check:
-           if (targetPos && posText) {
-               // AM in database usually means CAM in futbin.
-               // Let's make a translation map for common position differences:
-               let normalizedTarget = targetPos;
-               if (targetPos === 'AM') normalizedTarget = 'CAM';
-               
-               if (!posText.includes(normalizedTarget) && !normalizedTarget.includes(posText)) {
-                   continue; // Skip if position doesn't match
-               }
+        const profileUrls = await page.evaluate((playerPos, playerName) => {
+          const rows = document.querySelectorAll('tr');
+          const urls = [];
+          const seen = new Set();
+          
+          for (const row of Array.from(rows)) {
+             const linkElement = row.querySelector('a.player-row-playercard, a.table-player-name, td.table-name a');
+             if (!linkElement || !linkElement.href || !linkElement.href.includes('/player/')) continue;
+             
+             // 1. Check position (Loose check)
+             const posEl = row.querySelector('.table-pos, .table-pos-main');
+             const posText = posEl ? posEl.textContent.toUpperCase() : '';
+             const targetPos = playerPos ? playerPos.toUpperCase() : '';
+             
+             if (targetPos && posText) {
+                 let normalizedTarget = targetPos;
+                 if (targetPos === 'AM') normalizedTarget = 'CAM';
+                 
+                 if (!posText.includes(normalizedTarget) && !normalizedTarget.includes(posText)) {
+                     continue; // Skip if position doesn't match
+                 }
+             }
+             
+             if (!seen.has(linkElement.href)) {
+                 urls.push(linkElement.href);
+                 seen.add(linkElement.href);
+                 if (urls.length >= 3) break; // Limit to 3 variants to save time
+             }
+          }
+          return urls;
+        }, player.position, player.name);
+
+        if (!profileUrls || profileUrls.length === 0) {
+           console.log(`[Worker ${workerId}]   -> No matching base cards found for ${player.name} with position ${player.position}`);
+           // Clean up empty folder
+           if (fs.existsSync(playerFolder) && fs.readdirSync(playerFolder).length === 0) {
+               fs.rmdirSync(playerFolder);
            }
-           
-           if (!seen.has(linkElement.href)) {
-               urls.push(linkElement.href);
-               seen.add(linkElement.href);
-               if (urls.length >= 3) break; // Limit to 3 variants to save time
-           }
-        }
-        return urls;
-      }, player.position, player.name);
-
-      if (!profileUrls || profileUrls.length === 0) {
-         console.log(`  -> No matching base cards (Gold/Silver/Bronze) found for ${player.name} with position ${player.position}`);
-         // Clean up empty folder
-         if (fs.existsSync(playerFolder) && fs.readdirSync(playerFolder).length === 0) {
-             fs.rmdirSync(playerFolder);
-         }
-         continue;
-      }
-
-      console.log(`  -> Found ${profileUrls.length} profile variants matching criteria. Downloading...`);
-
-      for (let i = 0; i < profileUrls.length; i++) {
-        const profileUrl = profileUrls[i];
-        await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await new Promise(r => setTimeout(r, 1000));
-
-        const imageUrl = await page.evaluate(() => {
-            const pic = document.getElementById('player_pic');
-            if (pic && pic.src && !pic.src.includes('blank')) return pic.src;
-            
-            const cardPic = document.querySelector('.pcdisplay-picture img');
-            if (cardPic && cardPic.src && !cardPic.src.includes('blank')) return cardPic.src;
-
-            const imgs = Array.from(document.querySelectorAll('img'));
-            const playerImg = imgs.find(img => img.src.includes('/players/') && !img.src.includes('silhouettes'));
-            if (playerImg) return playerImg.src;
-
-            return null;
-        });
-
-        if (imageUrl) {
-            const imgPath = path.join(playerFolder, `card_${i+1}.png`);
-            console.log(`     -> Found image ${i+1}: ${imageUrl}`);
-            await downloadImage(imageUrl, imgPath);
-        } else {
-            console.log(`     -> No face image found on profile variant ${i+1}`);
+           continue;
         }
 
-        await new Promise(r => setTimeout(r, 1500));
-      }
-      
-      console.log(`  -> Saved all matching variants to folder /${safePlayerName}/`);
+        console.log(`[Worker ${workerId}]   -> Found ${profileUrls.length} profile variants matching criteria. Downloading...`);
 
-    } catch (error) {
-      console.log(`  -> Error scraping ${player.name}: ${error.message}`);
+        for (let i = 0; i < profileUrls.length; i++) {
+          const profileUrl = profileUrls[i];
+          await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await new Promise(r => setTimeout(r, 1000));
+
+          const imageUrl = await page.evaluate(() => {
+              const pic = document.getElementById('player_pic');
+              if (pic && pic.src && !pic.src.includes('blank')) return pic.src;
+              
+              const cardPic = document.querySelector('.pcdisplay-picture img');
+              if (cardPic && cardPic.src && !cardPic.src.includes('blank')) return cardPic.src;
+
+              const imgs = Array.from(document.querySelectorAll('img'));
+              const playerImg = imgs.find(img => img.src.includes('/players/') && !img.src.includes('silhouettes'));
+              if (playerImg) return playerImg.src;
+
+              return null;
+          });
+
+          if (imageUrl) {
+              const imgPath = path.join(playerFolder, `card_${i+1}.png`);
+              console.log(`[Worker ${workerId}]      -> Found image ${i+1}: ${imageUrl}`);
+              await downloadImage(imageUrl, imgPath);
+          } else {
+              console.log(`[Worker ${workerId}]      -> No face image found on profile variant ${i+1}`);
+          }
+
+          await new Promise(r => setTimeout(r, 1500));
+        }
+        
+        console.log(`[Worker ${workerId}]   -> Saved all matching variants to folder /${safePlayerName}/`);
+
+      } catch (error) {
+        console.log(`[Worker ${workerId}]   -> Error scraping ${player.name}: ${error.message}`);
+      }
+
+      await new Promise(r => setTimeout(r, 2000));
     }
 
-    await new Promise(r => setTimeout(r, 2000));
+    await page.close();
   }
+
+  const workers = [];
+  for (let i = 0; i < MAX_CONCURRENCY; i++) {
+    workers.push(worker(i + 1));
+  }
+
+  await Promise.all(workers);
 
   console.log("Finished scraping!");
   await browser.close();

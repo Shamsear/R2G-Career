@@ -40,12 +40,16 @@ const server = http.createServer(async (req, res) => {
             const folderPath = path.join(IMAGE_DIR, folderName);
             const images = fs.readdirSync(folderPath).filter(f => f.endsWith('.png'));
             
+            const destPath = path.join(IMAGE_DIR, `${matchingDbPlayer.id}.png`);
+            const alreadyExists = fs.existsSync(destPath);
+            
             if (images.length > 0) {
               playersWithVariants.push({
                 id: matchingDbPlayer.id,
                 name: matchingDbPlayer.name,
                 folderName: folderName,
-                images: images
+                images: images,
+                alreadyExists: alreadyExists
               });
             }
           }
@@ -121,6 +125,33 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API to skip a player (deletes their folder without copying)
+  if (req.url === '/api/skip' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { folderName } = JSON.parse(body);
+        const folderPath = path.join(IMAGE_DIR, folderName);
+        
+        if (fs.existsSync(folderPath)) {
+          const files = fs.readdirSync(folderPath);
+          for (const file of files) {
+            fs.unlinkSync(path.join(folderPath, file));
+          }
+          fs.rmdirSync(folderPath);
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // Serve the HTML interface
   if (req.url === '/' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -170,7 +201,44 @@ const server = http.createServer(async (req, res) => {
                 const title = document.createElement('div');
                 title.className = 'player-name';
                 title.innerText = '[' + p.id + '] ' + p.name;
+                
+                if (p.alreadyExists) {
+                  const badge = document.createElement('span');
+                  badge.style.color = '#fbbf24';
+                  badge.style.fontSize = '1rem';
+                  badge.style.marginLeft = '10px';
+                  badge.innerText = '⚠️ Image already exists';
+                  title.appendChild(badge);
+                  
+                  const skipBtn = document.createElement('button');
+                  skipBtn.innerText = 'Skip & Keep Existing';
+                  skipBtn.style.float = 'right';
+                  skipBtn.style.background = '#ef4444';
+                  skipBtn.style.color = 'white';
+                  skipBtn.style.border = 'none';
+                  skipBtn.style.padding = '8px 16px';
+                  skipBtn.style.borderRadius = '6px';
+                  skipBtn.style.cursor = 'pointer';
+                  skipBtn.onclick = () => skipPlayer(p.id, p.folderName);
+                  title.appendChild(skipBtn);
+                }
+                
                 row.appendChild(title);
+                
+                if (p.alreadyExists) {
+                  const currentImageContainer = document.createElement('div');
+                  currentImageContainer.style.marginBottom = '20px';
+                  currentImageContainer.style.padding = '15px';
+                  currentImageContainer.style.background = '#0f172a';
+                  currentImageContainer.style.borderRadius = '8px';
+                  currentImageContainer.innerHTML = '<strong style="color: #10b981;">Current Image:</strong><br><img src="/assets/images/players/' + p.id + '.png?t=' + Date.now() + '" class="variant-img" style="border: 2px solid #10b981; border-radius: 8px; margin-top: 10px; background: #1e293b;">';
+                  row.appendChild(currentImageContainer);
+                }
+                
+                const variantsTitle = document.createElement('div');
+                variantsTitle.innerHTML = '<strong style="color: #38bdf8;">' + (p.alreadyExists ? 'Replacement Options:' : 'Select an Image:') + '</strong>';
+                variantsTitle.style.marginBottom = '15px';
+                row.appendChild(variantsTitle);
                 
                 const variants = document.createElement('div');
                 variants.className = 'variants';
@@ -224,6 +292,35 @@ const server = http.createServer(async (req, res) => {
                 }
               } else {
                 alert('Failed to select image.');
+                row.style.opacity = '1';
+                row.style.pointerEvents = 'auto';
+              }
+            } catch (e) {
+              alert('Error: ' + e.message);
+              row.style.opacity = '1';
+              row.style.pointerEvents = 'auto';
+            }
+          }
+
+          async function skipPlayer(playerId, folderName) {
+            const row = document.getElementById('player-' + playerId);
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+            
+            try {
+              const res = await fetch('/api/skip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderName })
+              });
+              
+              if (res.ok) {
+                row.remove();
+                if (document.querySelectorAll('.player-row').length === 0) {
+                  document.getElementById('app').innerHTML = '<div class="empty">All images have been selected! You can close this tool.</div>';
+                }
+              } else {
+                alert('Failed to skip image.');
                 row.style.opacity = '1';
                 row.style.pointerEvents = 'auto';
               }

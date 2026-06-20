@@ -40,37 +40,7 @@ export default function PlayerStatus() {
         loadData();
     }, []);
 
-    // Lazy load animated backgrounds
-    useEffect(() => {
-        if (loading || players.length === 0) return;
-
-        const lazyBackgrounds = document.querySelectorAll(".lazy-background");
-        if ("IntersectionObserver" in window) {
-            const lazyBackgroundObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        const lazyElement = entry.target as HTMLElement;
-                        const bgUrl = lazyElement.getAttribute("data-src");
-                        if (bgUrl) {
-                            lazyElement.style.backgroundImage = `url('${bgUrl}')`;
-                        }
-                        lazyBackgroundObserver.unobserve(lazyElement);
-                    }
-                });
-            }, { rootMargin: "0px 0px 100px 0px" });
-            lazyBackgrounds.forEach((bg) => lazyBackgroundObserver.observe(bg));
-
-            return () => {
-                lazyBackgrounds.forEach((bg) => lazyBackgroundObserver.unobserve(bg));
-            };
-        } else {
-            lazyBackgrounds.forEach((el) => {
-                const elem = el as HTMLElement;
-                const bgUrl = elem.getAttribute("data-src");
-                if (bgUrl) elem.style.backgroundImage = `url('${bgUrl}')`;
-            });
-        }
-    }, [players, currentPage, loading, searchTerm, starFilter, clubFilter, positionFilters]);
+    // Eager loading - lazy loading logic removed for faster perception
 
     const togglePosition = (pos: string) => {
         setPositionFilters(prev =>
@@ -92,10 +62,11 @@ export default function PlayerStatus() {
             if (searchTerm && !player.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
             if (starFilter !== 'all') {
-                if (starFilter === 'legend' && !player.star.includes('legend')) return false;
-                if (starFilter === '5-star' && player.star !== '5-star-standard') return false;
-                if (starFilter === '4-star' && player.star !== '4-star-standard') return false;
-                if (starFilter === '3-star' && player.star !== '3-star-standard') return false;
+                const baseVal = player.value || 0;
+                if (starFilter === 'legend' && baseVal < 150) return false;
+                if (starFilter === '5-star' && (baseVal < 120 || baseVal >= 150)) return false;
+                if (starFilter === '4-star' && (baseVal < 100 || baseVal >= 120)) return false;
+                if (starFilter === '3-star' && baseVal >= 100) return false;
             }
 
             if (clubFilter !== 'ALL' && player.club !== clubFilter) return false;
@@ -286,18 +257,27 @@ export default function PlayerStatus() {
                     <>
                         <div className="cards-wrapper">
                             {currentPlayers.map(player => {
-                                let themeClass = 'rivals-red';
-                                let staticBg = '/assets/cards/red_static.png';
-                                let animBg = '/assets/cards/red_loop.png';
+                                let themeClass = 'rivals-blue';
+                                let staticBg = '/assets/cards/download_24/backgrounds_23_B_RIVALS_LIVE_BLUE_STATIC.png';
+                                let animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_LIVE_BLUE_LOOP.png';
 
-                                if (player.star && player.star.includes('legend')) {
+                                const baseVal = player.value || 0;
+                                if (baseVal >= 150) {
                                     themeClass = 'prime-icon';
-                                    staticBg = '/assets/cards/icon_static.png';
-                                    animBg = '/assets/cards/icon_loop.png';
-                                } else if (player.star === '5-star-standard') {
+                                    staticBg = '/assets/cards/download_24/backgrounds_23_B_BASE_PRIMEICON_STATIC.png';
+                                    animBg = '/assets/cards/conv_anim_24/playercardui_primeicon_B_BASE_PRIMEICON_LOOP.png';
+                                } else if (baseVal >= 120) {
+                                    themeClass = 'rivals-icon';
+                                    staticBg = '/assets/imgassets/background_blank.png';
+                                    animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_ICON_LOOP.png';
+                                } else if (baseVal >= 100) {
+                                    themeClass = 'rivals-red';
+                                    staticBg = '/assets/cards/download_24/backgrounds_23_B_RIVALS_LIVE_RED_STATIC.png';
+                                    animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_LIVE_RED_LOOP.png';
+                                } else {
                                     themeClass = 'rivals-blue';
-                                    staticBg = '/assets/cards/blue_static.png';
-                                    animBg = '/assets/cards/blue_loop.png';
+                                    staticBg = '/assets/cards/download_24/backgrounds_23_B_RIVALS_LIVE_BLUE_STATIC.png';
+                                    animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_LIVE_BLUE_LOOP.png';
                                 }
 
                                 return (
@@ -306,8 +286,13 @@ export default function PlayerStatus() {
                                         href={`/solo-tour/player-database/${player.id}`}
                                         className={`card ${themeClass}`}
                                     >
-                                        <img className="card-bg-static" src={staticBg} alt="Card Background" />
-                                        <div className="card-bg-animated lazy-background" data-src={animBg}></div>
+                                        <img 
+                                            className="card-bg-static" 
+                                            src={staticBg} 
+                                            alt="Card Background" 
+                                            onError={(e) => { e.currentTarget.src = '/assets/imgassets/background_blank.png'; }} 
+                                        />
+                                        <div className="card-bg-animated" style={{ backgroundImage: `url('${animBg}')` }}></div>
                                         <img
                                             className="player-img"
                                             src={imgErrors.has(player.id) ? '/assets/images/players/default.webp' : player.imagePath}

@@ -67,19 +67,28 @@ export default function PlayerProfilePage() {
         );
     }
 
-    // Card theme based on star rating
-    let themeClass = 'rivals-red';
-    let staticBg = '/assets/cards/red_static.png';
-    let animBg = '/assets/cards/red_loop.png';
-    
-    if (player.star && player.star.includes('legend')) {
+    // Card theme based on base value
+    const baseVal = player.value || 0;
+    let themeClass = 'rivals-blue';
+    let staticBg = '/assets/cards/download_24/backgrounds_23_B_RIVALS_LIVE_BLUE_STATIC.png';
+    let animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_LIVE_BLUE_LOOP.png';
+    let displayTier = '3 Star Standard';
+
+    if (baseVal >= 150) {
         themeClass = 'prime-icon';
-        staticBg = '/assets/cards/icon_static.png';
-        animBg = '/assets/cards/icon_loop.png';
-    } else if (player.star === '5-star-standard') {
-        themeClass = 'rivals-blue';
-        staticBg = '/assets/cards/blue_static.png';
-        animBg = '/assets/cards/blue_loop.png';
+        staticBg = '/assets/cards/download_24/backgrounds_23_B_BASE_PRIMEICON_STATIC.png';
+        animBg = '/assets/cards/conv_anim_24/playercardui_primeicon_B_BASE_PRIMEICON_LOOP.png';
+        displayTier = 'Legend';
+    } else if (baseVal >= 120) {
+        themeClass = 'rivals-icon';
+        staticBg = '/assets/imgassets/background_blank.png';
+        animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_ICON_LOOP.png';
+        displayTier = '5 Star Standard';
+    } else if (baseVal >= 100) {
+        themeClass = 'rivals-red';
+        staticBg = '/assets/cards/download_24/backgrounds_23_B_RIVALS_LIVE_RED_STATIC.png';
+        animBg = '/assets/cards/conv_anim_24/playercardui_rivals24_B_RIVALS_LIVE_RED_LOOP.png';
+        displayTier = '4 Star Standard';
     }
 
     // Parse season values
@@ -195,7 +204,7 @@ export default function PlayerProfilePage() {
                         <div className="stat-chip-text">
                             <span className="stat-chip-label">Card Type</span>
                             <span className="stat-chip-value" style={{ textTransform: 'capitalize' }}>
-                                {player.star.replace(/-/g, ' ')}
+                                {displayTier}
                             </span>
                         </div>
                     </div>
