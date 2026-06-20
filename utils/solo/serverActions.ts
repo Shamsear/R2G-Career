@@ -228,6 +228,7 @@ export async function fetchPlayerAuctionData() {
             SELECT 
                 p.id, p.name, p.position, p.base_value,
                 c.name as current_club,
+                pc.expire_season, pc.salary,
                 a.reserve_price, a.winning_bid_amount, a.status
             FROM players p
             LEFT JOIN player_contracts pc ON p.id = pc.player_id AND pc.status = 'active'
@@ -238,12 +239,13 @@ export async function fetchPlayerAuctionData() {
         return auctionResult.map((p: any) => ({
             name: p.name,
             position: p.position,
-            team: p.current_club || 'FREE AGENT',
-            rating: 0,
+            team: p.current_club || 'Unsold',
+            rating: p.base_value || 0,
             bidAmount: p.winning_bid_amount || 0,
             rowId: p.id,
-            contract: p.current_club ? 'active' : 'none',
-            reservePrice: p.reserve_price || p.base_value || 0
+            contract: p.current_club ? \`Active (until Season ${p.expire_season || 'N/A'})\` : 'None',
+            reservePrice: p.reserve_price || p.base_value || 0,
+            salary: p.salary || 0
         }));
     } catch (error) {
         console.error("Error fetching auction data:", error);
