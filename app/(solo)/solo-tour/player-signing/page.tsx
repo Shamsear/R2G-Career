@@ -6,8 +6,8 @@ import "./player-signing.css";
 import { POSITIONS } from "@/utils/solo/playerAuctionFetcher";
 import { fetchPlayerAuctionData } from "@/utils/solo/serverActions";
 
-function getPlayerValue(baseValue: number) {
-    switch (baseValue) {
+function getPlayerValue(baseValue: any) {
+    switch (Number(baseValue)) {
         case 150: return 'Legend';
         case 120: return '5★ Standard';
         case 100: return '4★ Standard';
@@ -18,15 +18,15 @@ function getPlayerValue(baseValue: number) {
 
 function formatCurrency(value: number) {
     if (!value) return '';
-    return value.toLocaleString('en-US', {
+    return Number(value).toLocaleString('en-US', {
         style: 'decimal',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
 }
 
-function getRatingClass(baseValue: number) {
-    switch (baseValue) {
+function getRatingClass(baseValue: any) {
+    switch (Number(baseValue)) {
         case 150: return 'five-star-legend';
         case 120: return 'five-star-standard';
         case 100: return 'four-star-standard';

@@ -243,9 +243,9 @@ export async function fetchPlayerAuctionData() {
                 pc.expire_season, pc.salary,
                 a.reserve_price, a.winning_bid_amount, a.status
             FROM players p
-            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND pc.status = 'active'
+            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active'
             LEFT JOIN clubs c ON pc.current_club_id = c.id
-            LEFT JOIN auctions a ON p.id = a.player_id AND a.status = 'active'
+            LEFT JOIN auctions a ON p.id = a.player_id AND LOWER(a.status) = 'active'
         `);
         
         return auctionResult.map((p: any) => ({
