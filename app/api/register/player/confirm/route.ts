@@ -1,0 +1,404 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase/admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getTournamentDb } from '@/lib/neon/tournament-config';
+import { fantasySql } from '@/lib/neon/fantasy-config';
+import { triggerNewsGeneration, isPlayerMilestone } from '@/lib/news/trigger';
+
+/**
+ * POST /api/register/player/confirm
+ * Confirm player self-registration
+ * Uses Admin SDK to bypass security rules
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Validate required fields (user_email and user_uid are optional for committee registrations)
+    if (!body.player_id || !body.season_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing required fields: player_id and season_id are required',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { player_id, season_id, user_email, user_uid, player_data, is_admin_registration } = body;
+
+    const sql = getTournamentDb();
+    const registrationId = `${player_id}_${season_id}`;
+    
+    // Check if player already registered for this season in Neon
+    // This check is before transaction to fail fast, but we'll check again during INSERT
+    const existingRegistration = await sql`
+      SELECT id FROM player_seasons WHERE id = ${registrationId}
+    `;
+
+    if (existingRegistration.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Player is already registered for this season',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Use Firestore transaction to atomically check and reserve a slot (prevents race conditions)
+    const seasonRef = adminDb.collection('seasons').doc(season_id);
+    let registrationType: string;
+    let seasonData: any;
+    let confirmedSlotsFilled: number;
+    let confirmedSlotsLimit: number;
+    
+    try {
+      await adminDb.runTransaction(async (transaction) => {
+        const seasonDoc = await transaction.get(seasonRef);
+        
+        if (!seasonDoc.exists) {
+          throw new Error('Season not found');
+        }
+
+        seasonData = seasonDoc.data();
+        const registrationPhase = seasonData?.registration_phase || 'confirmed';
+        confirmedSlotsLimit = seasonData?.confirmed_slots_limit || 999;
+        confirmedSlotsFilled = seasonData?.confirmed_slots_filled || 0;
+        const unconfirmedEnabled = seasonData?.unconfirmed_registration_enabled || false;
+
+        // Determine registration type based on current phase and slots
+        // Admin registrations always bypass slot limits and register as confirmed
+        if (is_admin_registration) {
+          registrationType = 'confirmed';
+          // Increment counter for admin registrations too
+          transaction.update(seasonRef, {
+            confirmed_slots_filled: FieldValue.increment(1),
+          });
+        } else if (registrationPhase === 'paused') {
+          throw new Error('Registration is currently paused. Confirmed slots are filled. Please wait for admin to open unconfirmed registration.');
+        } else if (registrationPhase === 'closed') {
+          throw new Error('Registration is closed for this season');
+        } else if (registrationPhase === 'confirmed' && confirmedSlotsFilled < confirmedSlotsLimit) {
+          // Phase 1: confirmed registration with slots available
+          registrationType = 'confirmed';
+          // Atomically increment the counter to reserve the slot
+          transaction.update(seasonRef, {
+            confirmed_slots_filled: FieldValue.increment(1),
+          });
+        } else if (registrationPhase === 'unconfirmed' && unconfirmedEnabled) {
+          // Phase 2: unconfirmed registration
+          registrationType = 'unconfirmed';
+          // No counter increment for unconfirmed
+        } else {
+          throw new Error('Registration is not available at this time');
+        }
+      });
+    } catch (error: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message || 'Failed to reserve registration slot',
+        },
+        { status: error.message.includes('not found') ? 404 : 403 }
+      );
+    }
+
+    // Calculate next season ID (e.g., SSPSLS16 -> SSPSLS17)
+    const seasonNumber = parseInt(season_id.replace(/\D/g, ''));
+    const seasonPrefix = season_id.replace(/\d+$/, '');
+    const nextSeasonId = `${seasonPrefix}${seasonNumber + 1}`;
+    const nextRegistrationId = `${player_id}_${nextSeasonId}`;
+    
+    // Generate unique contract ID
+    const contractId = `contract_${player_id}_${season_id}_${Date.now()}`;
+    
+    console.log(`📝 Creating 2-season contract for ${player_id}: ${season_id} & ${nextSeasonId}`);
+
+    // Wrap database operations in try-catch to rollback Firestore counter if they fail
+    try {
+      // Create registration for CURRENT season in Neon player_seasons table
+      // Use ON CONFLICT to detect race condition duplicates
+      const insertResult = await sql`
+        INSERT INTO player_seasons (
+          id, player_id, season_id, player_name,
+          contract_id, contract_start_season, contract_end_season, contract_length,
+          is_auto_registered, registration_date, registration_type,
+          star_rating, points,
+          matches_played, goals_scored, assists, wins, draws, losses, clean_sheets, motm_awards,
+          created_at, updated_at
+        )
+        VALUES (
+          ${registrationId}, ${player_id}, ${season_id}, ${player_data?.name || ''},
+          ${contractId}, ${season_id}, ${nextSeasonId}, 2,
+          false, (NOW() AT TIME ZONE 'UTC')::timestamp, ${registrationType},
+          3, 100,
+          0, 0, 0, 0, 0, 0, 0, 0,
+          (NOW() AT TIME ZONE 'UTC')::timestamp, (NOW() AT TIME ZONE 'UTC')::timestamp
+        )
+        ON CONFLICT (id) DO NOTHING
+        RETURNING id
+      `;
+      
+      // If no rows returned, player was already registered (race condition caught)
+      if (insertResult.length === 0) {
+        console.error(`❌ Race condition: Player ${player_id} already registered for ${season_id}`);
+        
+        // Rollback the Firestore counter increment
+        if (registrationType === 'confirmed') {
+          await adminDb.collection('seasons').doc(season_id).update({
+            confirmed_slots_filled: FieldValue.increment(-1),
+          });
+          console.log('⚠️ Rolled back Firestore counter due to duplicate registration');
+        }
+        
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Player is already registered for this season',
+          },
+          { status: 400 }
+        );
+      }
+    
+    // Create registration for NEXT season (auto-registered as part of contract)
+    await sql`
+      INSERT INTO player_seasons (
+        id, player_id, season_id, player_name,
+        contract_id, contract_start_season, contract_end_season, contract_length,
+        is_auto_registered, registration_date, registration_type,
+        star_rating, points,
+        matches_played, goals_scored, assists, wins, draws, losses, clean_sheets, motm_awards,
+        created_at, updated_at
+      )
+      VALUES (
+        ${nextRegistrationId}, ${player_id}, ${nextSeasonId}, ${player_data?.name || ''},
+        ${contractId}, ${season_id}, ${nextSeasonId}, 2,
+        true, (NOW() AT TIME ZONE 'UTC')::timestamp, 'confirmed',
+        3, 100,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        (NOW() AT TIME ZONE 'UTC')::timestamp, (NOW() AT TIME ZONE 'UTC')::timestamp
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
+    
+    console.log(`✅ Created contract ${contractId} for ${player_id}: ${registrationId} & ${nextRegistrationId}`);
+
+    // Counter was already incremented atomically in the transaction above
+    // Calculate new count for milestone checking
+    const newConfirmedCount = registrationType === 'confirmed' ? confirmedSlotsFilled + 1 : confirmedSlotsFilled;
+    
+    // Check milestones and auto-pause if needed
+    if (registrationType === 'confirmed') {
+
+      // Check if this is a milestone worth announcing
+      if (isPlayerMilestone(newConfirmedCount)) {
+        // Trigger AI news generation for milestone
+        triggerNewsGeneration({
+          event_type: 'player_milestone',
+          category: 'milestone',
+          season_id: season_id,
+          season_name: seasonData?.name || season_id,
+          metadata: {
+            player_count: newConfirmedCount,
+            milestone_number: newConfirmedCount,
+          },
+        }).catch(err => console.error('News generation failed:', err));
+      }
+
+      // Auto-pause registration if confirmed slots are now full
+      if (newConfirmedCount >= confirmedSlotsLimit && registrationPhase === 'confirmed') {
+        await adminDb.collection('seasons').doc(season_id).update({
+          registration_phase: 'paused',
+          is_player_registration_open: false, // Also close the registration link
+        });
+        console.log(`📌 Registration auto-paused and closed: Confirmed slots full (${confirmedSlotsLimit}/${confirmedSlotsLimit})`);
+        
+        // Trigger news for confirmed slots filled
+        triggerNewsGeneration({
+          event_type: 'confirmed_slots_filled',
+          category: 'registration',
+          season_id: season_id,
+          season_name: seasonData?.name || season_id,
+          metadata: {
+            player_count: newConfirmedCount,
+          },
+        }).catch(err => console.error('News generation failed:', err));
+      }
+    }
+
+    // Auto-add player to fantasy league if one exists for this season
+    try {
+      const fantasyLeagues = await fantasySql`
+        SELECT league_id, star_rating_prices
+        FROM fantasy_leagues
+        WHERE season_id = ${season_id}
+        LIMIT 1
+      `;
+
+      if (fantasyLeagues.length > 0) {
+        const league = fantasyLeagues[0];
+        const starRating = 5; // Default star rating
+        
+        // Get price from star rating pricing
+        let draftPrice = 10; // Default price
+        if (league.star_rating_prices) {
+          const priceObj = league.star_rating_prices.find((p: any) => p.stars === starRating);
+          if (priceObj) draftPrice = priceObj.price;
+        }
+
+        await fantasySql`
+          INSERT INTO fantasy_players (
+            player_id,
+            league_id,
+            player_name,
+            real_team_id,
+            real_team_name,
+            position,
+            star_rating,
+            draft_price,
+            is_available
+          ) VALUES (
+            ${player_id},
+            ${league.league_id},
+            ${player_data?.name || ''},
+            '',
+            '',
+            'Unknown',
+            ${starRating},
+            ${draftPrice},
+            true
+          )
+          ON CONFLICT (player_id, league_id) DO NOTHING
+        `;
+
+        console.log(`✅ Added ${player_data?.name || player_id} to fantasy league ${league.league_id}`);
+      }
+    } catch (fantasyError) {
+      // Don't fail registration if fantasy addition fails
+      console.error('Warning: Failed to add player to fantasy league:', fantasyError);
+    }
+
+    // Update permanent player data in Firebase realplayers collection
+    const playersQuery = await adminDb
+      .collection('realplayers')
+      .where('player_id', '==', player_id)
+      .limit(1)
+      .get();
+
+    if (!playersQuery.empty) {
+      const playerDoc = playersQuery.docs[0];
+      const updateData: any = {
+        current_season_id: season_id,
+        registration_date: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
+      };
+
+      // Update any missing player data if provided
+      if (player_data) {
+        if (player_data.name) updateData.name = player_data.name;
+        if (player_data.place) updateData.place = player_data.place;
+        if (player_data.date_of_birth) updateData.date_of_birth = player_data.date_of_birth;
+        if (player_data.email) updateData.email = player_data.email;
+        if (player_data.phone) updateData.phone = player_data.phone;
+        if (player_data.photo_url) updateData.photo_url = player_data.photo_url;
+        if (player_data.photo_file_id) updateData.photo_file_id = player_data.photo_file_id;
+      }
+
+      await playerDoc.ref.update(updateData);
+    } else {
+      // Player doesn't exist in master list, create them
+      if (!player_data || !player_data.name) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Player data is required for new players',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Generate new player ID if this is a completely new player
+      const newPlayerId = player_id;
+      
+      await adminDb.collection('realplayers').doc(newPlayerId).set({
+        player_id: newPlayerId,
+        name: player_data.name,
+        place: player_data.place || null,
+        date_of_birth: player_data.date_of_birth || null,
+        email: player_data.email || null,
+        phone: player_data.phone || null,
+        photo_url: player_data.photo_url || null,
+        photo_file_id: player_data.photo_file_id || null,
+        is_registered: true,
+        season_id,
+        registered_email: user_email,
+        registered_user_id: user_uid,
+        is_active: true,
+        is_available: true,
+        role: 'player',
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
+      });
+    }
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Player registration confirmed successfully (2-season contract - ${registrationType.toUpperCase()} slot)`,
+          data: {
+            player_id,
+            season_id,
+            next_season_id: nextSeasonId,
+            registration_id: registrationId,
+            next_registration_id: nextRegistrationId,
+            contract_id: contractId,
+            contract_seasons: [season_id, nextSeasonId],
+            registration_type: registrationType,
+          },
+        },
+        { status: 200 }
+      );
+    } catch (dbError: any) {
+      // Database operation failed after Firestore transaction - ROLLBACK!
+      console.error('❌ Database operation failed, rolling back Firestore counter:', dbError);
+      
+      // Rollback the Firestore counter if it was incremented
+      if (registrationType === 'confirmed') {
+        try {
+          await adminDb.collection('seasons').doc(season_id).update({
+            confirmed_slots_filled: FieldValue.increment(-1),
+          });
+          console.log('✅ Successfully rolled back Firestore counter');
+        } catch (rollbackError) {
+          console.error('❌ Failed to rollback Firestore counter:', rollbackError);
+        }
+      }
+      
+      // Try to delete the player_seasons records if they were created
+      try {
+        await sql`DELETE FROM player_seasons WHERE id IN (${registrationId}, ${nextRegistrationId})`;
+        console.log('✅ Cleaned up player_seasons records');
+      } catch (cleanupError) {
+        console.error('❌ Failed to cleanup player_seasons:', cleanupError);
+      }
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: dbError.message || 'Registration failed due to database error',
+        },
+        { status: 500 }
+      );
+    }
+  } catch (error: any) {
+    console.error('Error confirming player registration:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to confirm registration',
+      },
+      { status: 500 }
+    );
+  }
+}

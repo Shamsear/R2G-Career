@@ -1,0 +1,312 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase/admin';
+
+/**
+ * GET /api/committee/salary-transactions
+ * 
+ * Fetches real player salary transactions by team
+ * Query params:
+ *   - teamId: Filter by specific team (optional, if not provided returns all teams)
+ *   - seasonId: Filter by season (required)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const teamId = searchParams.get('teamId');
+    const seasonId = searchParams.get('seasonId');
+
+    if (!seasonId) {
+      return NextResponse.json(
+        { error: 'seasonId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Build query for transactions - simplified to avoid composite index
+    // Query by season_id and team_id only, then filter in memory
+    let transactionsQuery = adminDb
+      .collection('transactions')
+      .where('season_id', '==', seasonId);
+
+    // Filter by team if specified
+    if (teamId) {
+      transactionsQuery = transactionsQuery.where('team_id', '==', teamId);
+    }
+
+    transactionsQuery = transactionsQuery.limit(5000);
+
+    const transactionsSnapshot = await transactionsQuery.get();
+    console.log(`📊 Total transactions fetched: ${transactionsSnapshot.docs.length}`);
+    
+    // Filter in memory for currency_type and transaction_type
+    const filteredDocs = transactionsSnapshot.docs.filter(doc => {
+      const data = doc.data();
+      const match = data.currency_type === 'real_player' && 
+                    (data.transaction_type === 'salary' || data.transaction_type === 'salary_payment');
+      if (!match) {
+        console.log(`  ⏭️  Skipping: ${data.transaction_type} / ${data.currency_type}`);
+      }
+      return match;
+    });
+    console.log(`✅ Filtered to ${filteredDocs.length} salary transactions`);
+    console.log(`📋 Query params: seasonId=${seasonId}, teamId=${teamId || 'ALL'}`);
+    
+    // Log first few transactions for debugging
+    if (filteredDocs.length > 0) {
+      console.log(`First transaction:`, filteredDocs[0].data());
+    }
+    
+    // Sort by created_at in memory
+    const sortedDocs = filteredDocs.sort((a, b) => {
+      const aTime = a.data().created_at?.toMillis?.() || 0;
+      const bTime = b.data().created_at?.toMillis?.() || 0;
+      return bTime - aTime;
+    }).slice(0, 1000);
+
+    // Fetch all teams for name lookup
+    const teamsSnapshot = await adminDb.collection('teams').get();
+    const teamsMap = new Map();
+    teamsSnapshot.forEach(doc => {
+      teamsMap.set(doc.id, doc.data().teamName || doc.data().name || 'Unknown Team');
+    });
+
+    // Fetch all real players for name lookup
+    const realPlayersSnapshot = await adminDb.collection('realplayers').get();
+    const realPlayersMap = new Map();
+    realPlayersSnapshot.forEach(doc => {
+      const data = doc.data();
+      realPlayersMap.set(doc.id, {
+        name: data.name,
+        salary_per_match: data.salary_per_match || 0,
+        star_rating: data.star_rating || 3,
+      });
+    });
+
+    // Process transactions
+    const transactions: any[] = [];
+
+    sortedDocs.forEach(doc => {
+      const data = doc.data();
+      const metadata = data.metadata || {};
+
+      transactions.push({
+        id: doc.id,
+        team_id: data.team_id,
+        team_name: teamsMap.get(data.team_id) || 'Unknown Team',
+        date: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        transaction_type: data.transaction_type,
+        amount: data.amount || 0,
+        reason: data.reason || data.description || 'Salary payment',
+        balance_after: data.balance_after || 0,
+        // Extract player info from metadata
+        player_id: metadata.player_id,
+        player_name: metadata.player_name || realPlayersMap.get(metadata.player_id)?.name || 'Unknown Player',
+        salary_per_match: metadata.salary_per_match || Math.abs(data.amount || 0),
+        points_change: metadata.points_change || 0,
+        star_rating: metadata.star_rating || realPlayersMap.get(metadata.player_id)?.star_rating || 3,
+        // Match/round info
+        round_number: metadata.round_number,
+        fixture_id: metadata.fixture_id,
+        match_date: metadata.match_date,
+        opponent_team_id: metadata.opponent_team_id,
+        result: metadata.result,
+      });
+    });
+
+    // Group by team and match if needed
+    if (teamId) {
+      // Group by fixture/match for single team view
+      const groupedByMatch = transactions.reduce((acc, txn) => {
+        const key = txn.fixture_id || txn.round_number || 'unknown';
+        if (!acc[key]) {
+          acc[key] = {
+            fixture_id: txn.fixture_id,
+            round_number: txn.round_number,
+            match_date: txn.match_date,
+            created_at: txn.created_at,
+            updated_at: txn.updated_at,
+            team_id: txn.team_id,
+            team_name: txn.team_name,
+            opponent_team_id: txn.opponent_team_id,
+            result: txn.result,
+            players: [],
+            total_salary: 0,
+          };
+        }
+        
+        // Update timestamps to show the latest
+        if (txn.updated_at && (!acc[key].updated_at || new Date(txn.updated_at) > new Date(acc[key].updated_at))) {
+          acc[key].updated_at = txn.updated_at;
+        }
+        
+        acc[key].players.push({
+          transaction_id: txn.id, // Add unique transaction ID (from Firestore doc.id)
+          player_id: txn.player_id,
+          player_name: txn.player_name,
+          salary_per_match: txn.salary_per_match,
+          points_change: txn.points_change,
+          star_rating: txn.star_rating,
+          amount: txn.amount,
+          created_at: txn.created_at,
+          updated_at: txn.updated_at,
+        });
+        
+        acc[key].total_salary += Math.abs(txn.amount);
+        
+        return acc;
+      }, {} as Record<string, any>);
+
+      const result = Object.values(groupedByMatch).sort((a: any, b: any) => {
+        return new Date(b.match_date || 0).getTime() - new Date(a.match_date || 0).getTime();
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: result,
+        count: result.length,
+      });
+    } else {
+      // Return flat list for all teams
+      return NextResponse.json({
+        success: true,
+        data: transactions,
+        count: transactions.length,
+      });
+    }
+
+  } catch (error: any) {
+    console.error('Error fetching salary transactions:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch salary transactions' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/committee/salary-transactions
+ * 
+ * Delete salary transactions
+ * Query params:
+ *   - transactionId: Transaction ID (optional - if provided, deletes by ID directly)
+ *   - fixtureId: Fixture ID (required if transactionId not provided)
+ *   - teamId: Team ID (required if transactionId not provided)
+ *   - playerId: Player ID (optional - if provided, deletes only that player's transaction)
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const transactionId = searchParams.get('transactionId');
+    const fixtureId = searchParams.get('fixtureId');
+    const teamId = searchParams.get('teamId');
+    const playerId = searchParams.get('playerId');
+
+    // If transaction ID provided, delete directly
+    if (transactionId) {
+      console.log(`🗑️  Deleting transaction by ID: ${transactionId}`);
+      
+      const docRef = adminDb.collection('transactions').doc(transactionId);
+      const doc = await docRef.get();
+      
+      if (!doc.exists) {
+        return NextResponse.json(
+          { error: 'Transaction not found' },
+          { status: 404 }
+        );
+      }
+      
+      const deletedData = {
+        id: doc.id,
+        data: doc.data(),
+      };
+      
+      await docRef.delete();
+      
+      console.log('✅ Deleted transaction:', deletedData);
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Transaction deleted successfully',
+        count: 1,
+        deleted: [deletedData],
+      });
+    }
+
+    // Otherwise use legacy method
+    if (!fixtureId || !teamId) {
+      return NextResponse.json(
+        { error: 'Either transactionId or both fixtureId and teamId are required' },
+        { status: 400 }
+      );
+    }
+
+    // Build query to find transactions
+    let query = adminDb
+      .collection('transactions')
+      .where('team_id', '==', teamId)
+      .where('transaction_type', 'in', ['salary', 'salary_payment']);
+
+    const snapshot = await query.get();
+    
+    // Filter by fixture_id and optionally player_id in memory
+    const toDelete = snapshot.docs.filter(doc => {
+      const data = doc.data();
+      const metadata = data.metadata || {};
+      
+      // Match fixture
+      if (metadata.fixture_id !== fixtureId) return false;
+      
+      // If playerId specified, match player
+      if (playerId && metadata.player_id !== playerId) return false;
+      
+      return true;
+    });
+
+    if (toDelete.length === 0) {
+      return NextResponse.json(
+        { error: 'No matching transaction found' },
+        { status: 404 }
+      );
+    }
+
+    // If multiple duplicates found and playerId specified, only delete the first one
+    const transactionsToDelete = playerId && toDelete.length > 1 ? [toDelete[0]] : toDelete;
+    
+    console.log(`🗑️  Deleting ${transactionsToDelete.length} transaction(s) for fixture ${fixtureId}, team ${teamId}${playerId ? `, player ${playerId}` : ''}`);
+    if (toDelete.length > transactionsToDelete.length) {
+      console.log(`⚠️  Found ${toDelete.length} duplicates, deleting only 1`);
+    }
+
+    // Store deleted data for potential restoration
+    const deletedData = transactionsToDelete.map(doc => ({
+      id: doc.id,
+      data: doc.data(),
+    }));
+
+    // Delete transactions
+    const batch = adminDb.batch();
+    transactionsToDelete.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+
+    console.log('✅ Deleted transactions:', deletedData);
+
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${transactionsToDelete.length} transaction(s)${toDelete.length > transactionsToDelete.length ? ` (${toDelete.length - transactionsToDelete.length} duplicate(s) remain)` : ''}`,
+      count: transactionsToDelete.length,
+      deleted: deletedData, // Return deleted data for potential restoration
+    });
+
+  } catch (error: any) {
+    console.error('Error deleting salary transactions:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete salary transactions' },
+      { status: 500 }
+    );
+  }
+}

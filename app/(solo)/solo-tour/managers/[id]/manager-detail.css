@@ -1,0 +1,598 @@
+/* manager-detail.css */
+
+.back-link {
+  width: 100%;
+}
+
+.manager-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+  margin-bottom: 3rem;
+}
+
+/* Glassmorphic Profile Card Header */
+.profile-header-card {
+  position: relative;
+  background: rgba(13, 18, 30, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+.profile-banner {
+  position: relative;
+  height: 240px;
+  background-size: cover;
+  background-position: center;
+  width: 100%;
+}
+
+.profile-banner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(8, 11, 17, 0.15) 0%, rgba(8, 11, 17, 0.85) 100%);
+}
+
+.profile-header-content {
+  position: relative;
+  padding: 0 2rem 2rem 2rem;
+  margin-top: -60px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5rem;
+  z-index: 2;
+}
+
+.manager-avatar-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.manager-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 3px solid rgba(236, 72, 153, 0.25);
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.15),
+              0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.profile-header-card:hover .manager-portrait {
+  border-color: var(--solo-primary);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+}
+
+.manager-club-badge-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #0d1218;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+}
+
+.profile-header-card:hover .manager-club-badge-overlay {
+  border-color: var(--solo-primary);
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.3);
+}
+
+.club-logo-mini {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+.manager-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.manager-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.25rem 0;
+}
+
+.manager-club {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--solo-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 0.5rem 0;
+}
+
+.star-rating {
+  display: flex;
+  gap: 0.15rem;
+  color: #ffd700;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.star-rating i.empty {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.manager-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.manager-badges .badge {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.manager-badges .badge i {
+  color: var(--solo-primary);
+  font-size: 0.85rem;
+}
+
+/* Profile Section Wrappers */
+.profile-section {
+  background: rgba(13, 18, 30, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.section-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 0.75rem;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.section-title i {
+  color: var(--solo-primary);
+  font-size: 1.25rem;
+}
+
+/* Stats Cards Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.stats-grid .stat-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stats-grid .stat-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--solo-primary);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.1);
+}
+
+.stat-icon {
+  font-size: 1.35rem;
+  color: var(--solo-primary);
+  opacity: 0.6;
+  margin-bottom: 0.15rem;
+}
+
+.stats-grid .stat-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stats-grid .stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Squad Roster Cards Grid */
+.squad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.squad-grid .player-card {
+  background: rgba(13, 18, 30, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.squad-grid .player-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--solo-primary);
+  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.15);
+}
+
+.player-position {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Position Colors mapping */
+.player-position.position-GK {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #94a3b8;
+}
+
+.player-position.position-CB,
+.player-position.position-LB,
+.player-position.position-RB {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+}
+
+.player-position.position-DM,
+.player-position.position-CM,
+.player-position.position-AM {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.player-position.position-LW,
+.player-position.position-RW,
+.player-position.position-ST {
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  color: var(--solo-primary);
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.squad-grid .player-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.15rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.player-type {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.player-type.type-Legend {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  color: #ffd700;
+}
+
+.player-type.type-5★-Standard {
+  background: rgba(236, 72, 153, 0.15);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  color: var(--solo-primary);
+}
+
+.player-type.type-4★-Standard {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #a855f7;
+}
+
+.player-type.type-3★-Standard {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.player-details {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.squad-grid .player-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+/* Season History Accordion */
+.seasons-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.season-item {
+  background: rgba(13, 18, 30, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.season-item.active {
+  border-color: var(--solo-border);
+}
+
+.season-header {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  background: transparent;
+  transition: background-color 0.3s ease;
+}
+
+.season-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.season-title {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 0.95rem;
+  flex-wrap: wrap;
+}
+
+.season-number {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--solo-primary);
+  text-shadow: 0 0 8px rgba(236, 72, 153, 0.25);
+}
+
+.season-toggle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.season-toggle i {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.season-item.active .season-toggle i {
+  transform: rotate(180deg);
+  color: var(--solo-primary);
+}
+
+/* Smooth Accordion Content Transition */
+.season-content {
+  display: none;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(8, 11, 17, 0.15);
+}
+
+.season-item.active .season-content {
+  display: block;
+}
+
+.season-content h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #ffffff;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  border-left: 2.5px solid var(--solo-primary);
+  padding-left: 0.65rem;
+}
+
+.season-content h3:first-of-type {
+  margin-top: 0.5rem;
+}
+
+.season-content .season-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.season-content .stat-card {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.season-content .stat-card .stat-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.season-content .stat-card .stat-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Competitions / Awards badges */
+.competitions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.competition-card {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.competition-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.competition-stage {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--solo-primary);
+  text-shadow: 0 0 6px rgba(236, 72, 153, 0.2);
+}
+
+/* Loading Skeletons */
+.skeleton-avatar {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.skeleton-badges {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.skeleton-badge {
+  width: 90px;
+  height: 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skeleton-loader {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .profile-banner {
+    height: 160px;
+  }
+
+  .profile-header-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    margin-top: -55px;
+  }
+  
+  .manager-badges {
+    justify-content: center;
+  }
+
+  .manager-club {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

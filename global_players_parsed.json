@@ -1,0 +1,4797 @@
+[
+  {
+    "name": "LUKASZ FABIANSKI",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "MATTIA PERIN",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "FERNANDO MUSLERA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "V. MILINKOVIC-SAVIC",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "OLIVER KAHN",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "GIANLUIGI DONNARUMMA",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "ALISSON BECKER",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "VITOR BAIA",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "GERONIMO RULLI",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "PETER SCHMEICHEL",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "ANDRE ONANA",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "KEPA",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "DOMINIK LIVAKOVIC",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCO CARNESECCHI",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "DIDA",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "JAN OBLAK",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "MARC TER STEGEN",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ANTHONY LOPES",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "GIORGI MAMARDASHVILI",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "YASSINE BOUNOU",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "FABIO",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "JOAN GARCIA",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "YANN SOMMER",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "DAVID RAYA",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "ALEX MERET",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "DAVID DE GEA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "GUGLIELMO VICARIO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "AARON RAMSDALE",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ALEX REMIRO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "BART VERBRUGGEN",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "JUAN MUSSO",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "IKER CASILLAS",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "JORDAN PICKFORD",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "THIBAUT COURTOIS",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "MIKE MAIGNAN",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "DIOGO COSTA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "PETR CECH",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "MICHELE DI GREGORIO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "WOJCIECH SZCZESNY",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "MANUEL NEUER",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "RUI SILVA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "CHRISTIAN ABBIATI",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "DAVID SEAMAN",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "GIANLUIGI BUFFON",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "JULIO CESAR",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "SHAY GIVEN",
+    "position": "GK",
+    "baseValue": 150
+  },
+  {
+    "name": "GREGOR KOBEL",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "EMILIANO MARTINEZ",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "EDERSON MORAES",
+    "position": "GK",
+    "baseValue": 120
+  },
+  {
+    "name": "UNAI SIMON",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "NICK POPE",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "BERND LENO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "IVAN PROVEDEL",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "BRICE SAMBA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "KEILOR NAVAS",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "LUCAS CHEVALIER",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "OLIVER BAUMANN",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "RUI PATRICIO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "DEAN HENDERSON",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ANDRIY LUNIN",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "DAVID SORIA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ANATOLIY TRUBIN",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "DORDE PETROVIC",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "LUKAS HRADECKY",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "BENTO",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCIN BULKA",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ALEXANDER NUBEL",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "KOEN CASTEELS",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "ALVARO VALLES",
+    "position": "GK",
+    "baseValue": 100
+  },
+  {
+    "name": "PETER GULACSI",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "KASPER SCHMEICHEL",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "FILIP JORGENSEN",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "PIETRO TERRACCIANO",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "JOSE SA",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "EDOUARD MENDY",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "ROBERT SANCHEZ",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "HUGO LLORIS",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "GUILLERMO OCHOA",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "DAVID OSPINA",
+    "position": "GK",
+    "baseValue": 80
+  },
+  {
+    "name": "DANIEL VAN BUYTEN",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "THIAGO SILVA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "NATHAN COLLINS",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "HARRY MAGUIRE",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "BEN MEE",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "SOL CAMPBELL",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "MARC GUEHI",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "JOSKO GVARDIOL",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "MATTHIJS DE LIGT",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MILAN SKRINIAR",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "WILLIAN PACHO",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "A. BUONGIORNO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "LUCAS HERNANDEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "LENY YORO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "RAPHAEL VARANE",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "PAOLO MALDINI",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "PEPE",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "DAVID GARCIA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MATTEO GABBIA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ISSA DIOP",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "AXEL DISASI",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "TONY ADAMS",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "ERIC GARCIA",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "MURILO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "IGOR ZUBELDIA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "T. HARWOOD BELLIS",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "IGOR JULIO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "FRANZ BECKENBAUER",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "NICOLAS OTAMENDI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "STEFAN SAVIC",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "NACHO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "AYMERIC LAPORTE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "BAFOFE DIAKITE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "TREVOH CHALOBAH",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "PAU CUBARSI",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "ABDUKODIR KHUSANOV",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "NIKLAS SULE",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "THOMAS VERMAELEN",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "MAX KILMAN",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DIEGO CARLOS",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DANI VIVIAN",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JARELL QUANSAH",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DANILO PEREIRA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "GIORGIO CHIELLINI",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "YERAY ALVAREZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JAN PAUL VAN HECKE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "GIORGIO SCALVINI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "RONALD KOEMAN",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "NAIF AGUERD",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCOS SENESI",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "GUSTAVO GOMEZ",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "LUIZ FELIPE",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "CRISTHIAN MOSQUERA",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "WALDEMAR ANTON",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JOSE MARIA GIMENEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ANTONIO SILVA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "RIO FERDINAND",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "ALESSANDRO NESTA",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "GABRIEL MAGALHAES",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "KALIDOU KOULIBALY",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "VIRGIL VAN DIJK",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "BENOIT BADIASHILE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JONATHAN TAH",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "INIGO MARTINEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "PAU TORRES",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MANUEL AKANJI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCEL DESAILLY",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "MURILLO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "BREMER",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "AMIR RRAHMANI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "K. MAVROPANOS",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "WILLIAM SALIBA",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "LISANDRO MARTINEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "KIM MIN-JAE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "CRISTIAN ROMERO",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "FACUNDO MEDINA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "L. MARTINEZ QUARTA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JARRAD BRANTHWAITE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "EZRI KONSA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ANDREAS CHRISTENSEN",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "CARLES PUYOL",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "DEAN HUIJSEN",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "MARQUINHOS",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "IBRAHIMA KONATE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "WESLEY FOFANA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JAAP STAM",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "RAFAEL MARQUEZ",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "DAVID ALABA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "KAAN AYHAN",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "ANTONIO RUDIGER",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "EDER MILITAO",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "NICO SCHLOTTERBECK",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "KEVIN DANSO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "SVEN BOTMAN",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MICKY VAN DE VEN",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "MALICK THIAW",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "FABIO CANNAVARO",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "DAYOT UPAMECANO",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "TOTI GOMES",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "FIKAYO TOMORI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANCO BARESI",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "LEWIS DUNK",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "GERARD PIQUE",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "JOHN STONES",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "BENJAMIN PAVARD",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "OUSMANE DIOMANDE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JOE GOMEZ",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "ERIC DIER",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "PIERRE KALULU",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ROBIN LE NORMAND",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "GONCALO INACIO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MARTIN DEMICHELLIS",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "DAVINSON SANCHEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JAKUB KIWIOR",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "STEFAN DE VRIJ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ALDAIR",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "ANTONIO PERCASSI",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "PER MERTESACKER",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "IVAN CORDOBA",
+    "position": "CB",
+    "baseValue": 150
+  },
+  {
+    "name": "RONALD ARAUJO",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "RUBEN DIAS",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "ALESSANDRO BASTONI",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "MATS HUMMELS",
+    "position": "CB",
+    "baseValue": 120
+  },
+  {
+    "name": "LEVI COLWILL",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "NATHAN AKE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "GIANLUCA MANCINI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "EVAN NDICKA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "STRAHINJA PAVLOVIC",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MAXENCE LACROIX",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "NIKOLA MILENKOVIC",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JOACHIM ANDERSEN",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "EDMOND TAPSOBA",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "WILLI ORBAN",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "SERGIO RAMOS",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ODILON KOSSOUNOU",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "LLOYD KELLY",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "WILFRIED SINGO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "PHILIPP LIENHART",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "CALVIN BASSEY",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "PIERO HINCAPIE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANCESCO ACERBI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "JHON LUCUMI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "LOIC BADE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ROGER LBANEZ",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MERIH DEMIRAL",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "HIROKI ITO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MARIO HERMOSO",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ALESSIO ROMAGNOLI",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "ARTHUR THEATE",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "PERR SCHUURS",
+    "position": "CB",
+    "baseValue": 100
+  },
+  {
+    "name": "MIKA MARMOL",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "SAMUEL UMTITI",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "PRESNEL KIMPEMBE",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "VICTOR LINDELOF",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JEAN-CLAIR TODIBO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "NATHAN WOOD",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "SIMON KJAER",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DAVID HANCKO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "ABDULKERIM BARDAKCI",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DALEY BLIND",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "FABRICIO BRUNO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "NEHUEN PEREZ",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JOSIP SUTALO",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "NICO ELVEDI",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "AXEL WITSEL",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "TYRONE MINGS",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "SAM BEUKEMA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "ETHAN PINNOCK",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "CLEMENT LENGLET",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "TOBY ALDERWEIRELD",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JONNY EVANS",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "CHACEL MBEMBA",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "RAUL ALBIOL",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "JAN VERTONGHEN",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "DENYS POPOV",
+    "position": "CB",
+    "baseValue": 80
+  },
+  {
+    "name": "ALEJANDRO GRIMALDO",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "MARC CUCURELLA",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "MATHIAS OLIVERA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "DAN BURN",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "LUCAS DIGNE",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "MARCELO",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "ANDREW ROBERTSON",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "THEO HERNANDEZ",
+    "position": "LB",
+    "baseValue": 120
+  },
+  {
+    "name": "JORDI ALBA",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "G VAN BRONCKHORST",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "BORNA SOSA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "NECO WILLIAMS",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "LUKE SHAW",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "MARCOS ACUNA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "ANDREA CAMBIASO",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "BEN CHILWELL",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "ROBERTO CARLOS",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "NUNO MENDES",
+    "position": "LB",
+    "baseValue": 120
+  },
+  {
+    "name": "A. COSTACURTA",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "JAVIER ZANETTI",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "MARTIN CACERES",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "FERLAND MENDY",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "REINILDO MANDAVA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "SERGI CARDONA",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "JAYDEN OOSTERWOLDE",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "TYRICK MITCHELL",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "NICOLAS TAGLIAFICO",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "NUNO SANTOS",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "DENNIS IRWIN",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "VINCENT CANDELA",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "BIXENTE LIZARAZU",
+    "position": "LB",
+    "baseValue": 150
+  },
+  {
+    "name": "ALPHONSO DAVIES",
+    "position": "LB",
+    "baseValue": 120
+  },
+  {
+    "name": "RICCARDO CALAFIORI",
+    "position": "LB",
+    "baseValue": 120
+  },
+  {
+    "name": "ALEJANDRO BALDE",
+    "position": "LB",
+    "baseValue": 120
+  },
+  {
+    "name": "ANTONEE ROBINSON",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "DESTINY UDOGIE",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "JOAKIM MAEHLE",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "ALVARO CARRERAS",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "CARLOS AUGUSTO",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "RAYAN AIT-NOURI",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "RAPHAEL GUERREIRO",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "PERVIS ESTUPINAN",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "LEWIS HALL",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "RENAN LODI",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "JOSE GAYA",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "DAVID RAUM",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "JORREL HATO",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "NUNO TEVARES",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "IAN MAATSEN",
+    "position": "LB",
+    "baseValue": 100
+  },
+  {
+    "name": "TYRELL MALACIA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "FRAN GARCIA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "M. MITTELSTADT",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "LEONARDO SPINAZZOLA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "OLEKSANDR ZINCHENKO",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "KIERAN TIERNEY",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "MARCOS ALONSO",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "GUILHERME ARANA",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "RICO HENRY",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "CAIO HENRIQUE",
+    "position": "LB",
+    "baseValue": 80
+  },
+  {
+    "name": "CAFU",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "JOAO CANCELO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "MAICON",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "JULIAN RYERSON",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "CESER AZPILICUETA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "ARITZ ELUSTONDO",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "LILIAN THURAM",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "ACHRAF HAKIMI",
+    "position": "RB",
+    "baseValue": 120
+  },
+  {
+    "name": "MATTY CASH",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "TINO LIVRAMENTO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "DANI CARVAJAL",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "JEREMIE FRIMPONG",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "MATTEO DARMIAN",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "KIERAN TRIPPIER",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "DAVIDE CALABRIA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "LUCAS VAZQUEZ",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "T. ALEXANDER-ARNOLD",
+    "position": "RB",
+    "baseValue": 120
+  },
+  {
+    "name": "NELSON SEMEDO",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "KYLE WALKER",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "JULES KOUNDE",
+    "position": "RB",
+    "baseValue": 120
+  },
+  {
+    "name": "FERDI KADIOGLU",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "JURRIEN TIMBER",
+    "position": "RB",
+    "baseValue": 120
+  },
+  {
+    "name": "LUTSHAREL GEERTRUIDA",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "AARON WAN-BISSAKA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "BEN WHITE",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "NAHUEL MOLINA",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "TAKEHIRO TOMIYASU",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "GIOVANNI DI LORENZO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "JONATHAN CLAUSS",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "JUAN FOYTH",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "JOAO MARIO",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "MASSIMO ODDO",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "DANILO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "MALO GUSTO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "REECE JAMES",
+    "position": "RB",
+    "baseValue": 120
+  },
+  {
+    "name": "PHILIPP LAHM",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "BELLETTI",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "ALBERT FERRER",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "BERGOMI",
+    "position": "RB",
+    "baseValue": 150
+  },
+  {
+    "name": "DIOGO DALOT",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "ARNAU MARTINEZ",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "PEDRO PORRO",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "SACHA BOEY",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "RICO LEWIS",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "EMERSON ROYAL",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "RAOUL BELLANOVA",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "VANDERSON",
+    "position": "RB",
+    "baseValue": 100
+  },
+  {
+    "name": "NOUSSAIR MAZRAOUI",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "JOAQUIN GARCIA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "AARON HICKEY",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "SERGINO DEST",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "JOSIP STANISIC",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "ALESSANDRO FLORENZI",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "BENJAMIN HENRICHS",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "SERGI ROBERTO",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "THIERRY CORREIA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "RASMUS KRISTENSEN",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "JESUS NAVAS",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "ODRIOZOLA",
+    "position": "RB",
+    "baseValue": 80
+  },
+  {
+    "name": "SANTIAGO ASCACIBAR",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "MARIO LEMINA",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "JORGINHO",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "IDRISSA GUEYE",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "SOFYAN AMRABAT",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "SANDRO TONALI",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "MOISES CAICEDO",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "MARTIN ZUBIMENDI",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "EMMANUEL PETIT",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "EDMILSON",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "CLAUDE MAKELELE",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "N'GOLO KANTE",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "BOUBACAR KAMARA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "BENAT PRADOS",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "PATRICK VIEIRA",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "FRANK RIJKAARD",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "LOTHAR MATTHAUS",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "GANNARO GATTUSO",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "AURELIEN TCHOUAMENI",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "MORTEN HJULMAND",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "NICO GONZALEZ",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "EMRE CAN",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "MAURO ARAMBARRI",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "DENIS ZAKARIA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "OLIVER SKIPP",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "GUIDO RODRIGUEZ",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "WILFRED NDIDI",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "JOSHUA KIMMICH",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "YVES BISSOUMA",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "LUCAS TORREIRA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "IBRAHIM SANGARE",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "MAXIME LOPEZ",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "ROBERT ANDRICH",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "LEANDRO PAREDES",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "EDGAR DAVIDS",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "STANISLAV LOBOTKA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "MANUEL LOCATELLI",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "GEOFFREY KONDOGBIA",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "WATARU ENDO",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "CASEMIRO",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "DECLAN RICE",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "SAMUELE RICCI",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "ALAN VARELA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "VITALY JANELT",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "GILBERTO SILVA",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "FLORENTINO LUIS",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "XABI ALONSO",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "SERGIO BUSQUETS",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "RUBEN NEVES",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "RODRI",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "ROMEO LAVIA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "RYAN GRAVENBERCH",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "WILIMAR BARRIOS",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "ANDREA PIRLO",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "ALEKSANDER PAVLOVIC",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "KALVIN PHILLIPS",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "JERDY SCHOUTEN",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "ORIOL ROMEU",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "AMADOU ONANA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "JOHN O'SHEA",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "PEP GUARDIOLA",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "SEBASTIAN VERON",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "ESTEBAN CAMBIASSO",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "DEMETRIO ALBERTINI",
+    "position": "DM",
+    "baseValue": 150
+  },
+  {
+    "name": "BRUNO GUIMARAES",
+    "position": "DM",
+    "baseValue": 120
+  },
+  {
+    "name": "PEPELU",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "SCOTT MCTOMINAY",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "MARC CASADO",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "JOAO PALHINHA",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "EDSON ALVAREZ",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "THOMAS PARTEY",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "MANUEL UGARTE",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "KOKE",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "ISMAEL BENNACER",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "CHEICK DOUCOURE",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "MARTEN DE ROON",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "ANDRE",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "TEUN KOOPMEINERS",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCELO BROZOVIC",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "TYLER ADAMS",
+    "position": "DM",
+    "baseValue": 100
+  },
+  {
+    "name": "TOMAS SOUCEK",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "MOHAMED CAMARA",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "MATEUS URIBE",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "BRYAN CRISTANTE",
+    "position": "DM",
+    "baseValue": 80
+  },
+  {
+    "name": "SERGINHO",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "MARCEL SABITZER",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "HENRIKH MKHITARYAN",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "TIJJANI REIJNDERS",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "RODRIGO DE PAUL",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "RIQUI PUIG",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "JORDAN HENDERSON",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "RICHARD RIOS",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "MASSIMO AMBROSINI",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "KONRAD LAIMER",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "DANI CEBALLOS",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "JOAO NEVES",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "MARTIN ODEGAARD",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "GUTI",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "FRENKIE DE JONG",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "ENZO FERNANDEZ",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "WARREN ZAIRE-EMERY",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "STEVEN GERRARD",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "ROBERTO DONADONI",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "DARREN FLETCHER",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "PEDRI",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "EDUARDO CAMAVINGA",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "FEDERICO VALVERDE",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "PIOTR ZIELINSKI",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "CLARENCE SEEDORF",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "ELLIOT ANDERSON",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "LUKA MODRIC",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "ADRIEN RABIOT",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "ORKUN KOKCU",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "CARLOS SOLER",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "JACK WILSHERE",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "FRANK LAMPARD",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "BRYAN ROBSON",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "ANDRES INIESTA",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "PAUL SCHOLES",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "XAVI",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "THIAGO ALCANTARA",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "GARETH BARRY",
+    "position": "CM",
+    "baseValue": 150
+  },
+  {
+    "name": "HAKAN CALHANOGLU",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "ALEXIS MAC ALLISTER",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "NICOLO BARELLA",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "VITINHA",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "PABLO BARRIOS",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "FABIAN RUIZ",
+    "position": "CM",
+    "baseValue": 120
+  },
+  {
+    "name": "MIKEL MERINO",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "MATEO KOVACIC",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANK ZAMBO ANGUISSA",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "GAVI",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "CURTIS JONES",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "WESTON MCKENNIE",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "PASCAL GROB",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "DAVIDE FRATTESI",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "QUINTEN TIMBER",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "PAPE SARR",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "KOBBIE MAINOO",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "TONI KROOS",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "KHEPHREN THURAM",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "EXEQUIEL PALACIOS",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "EDERSON",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "RODRIGO BENTACUR",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "JOELINTON",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "CONOR GALLAGHER",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "ILKAY GUNDOGAN",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "LEON GORETZKA",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "GRANIT XHAKA",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "YOURI TIELEMANS",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "MATHEUS NUNES",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "ANDRE ALMEIDA",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "S. MILINKOVIC-SAVIC",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANK KESSIE",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "BRAIS MENDEZ",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "MATTEO GUENDOUZI",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "JOHN MCGINN",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "JACOB RAMSEY",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "DANI PAREJO",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "YACINE ADLI",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "FREDRIK AURSNES",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "K. DEWSBURY-HALL",
+    "position": "CM",
+    "baseValue": 100
+  },
+  {
+    "name": "ONDREJ DUDA",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "NICOLAS DE LA CRUZ",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "DOUGLAS LUIZ",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "RUBEN LOFTUS-CHEEK",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "ARTHUR",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "DAICHI KAMADA",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "JAMES WARD PROWSE",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "PAUL POGBA",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "SAUL",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "THOMAS LEMAR",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "ANDER HERRERA",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "PIERRE HOJBJERG",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "GEORGINIO WIJNALDUM",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "CHRISTIAN ERIKSEN",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "BITELLO",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "FRED",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "PHILIP BILLING",
+    "position": "CM",
+    "baseValue": 80
+  },
+  {
+    "name": "HAMED TRAORE",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "RUSLAN MALINOVSKYI",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "RICARDO HORTA",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "XAVI SIMONS",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "HARVEY ELLIOT",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "WESLEY SNEIJDER",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "EBERECHI EZE",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "COLE PALMER",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "RUDI GULLIT",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "KAKA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "BRUNO FERNANDES",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "ARDA GULER",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "ISCO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "MORGAN GIBBS-WHITE",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "JAMES MADDISON",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "GIOVANI LO CELSO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "DEJAN KULUSEVSKI",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "TAKUMI MINAMINO",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "JAMES RODRIGUEZ",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "OIHAN SANCET",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "PEPE",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "KEVIN DE BRUYNE",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "MATHEUS CUNHA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "NICO PAZ",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "LORENZO PELLEGRINI",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCO ASENSIO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "FLORIAN WIRTZ",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "RONALDINHO GAUCHO",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "ULI HOENEB",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "JUDE BELLINGHAM",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "MALIK TILLMAN",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "THIAGO ALMADA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "BRAHIM DIAZ",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "LUCAS PAQUETA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCO REUS",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "BERNARDO SILVA",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "RUI COSTA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "JAMAL MUSIALA",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "TOMAS ROSICKY",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "G. DE ARRASCAETA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "ZICO",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "ALEKSANDR GOLOVIN",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "DOMINIK SZOBOSZLAI",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "MORGAN ROGERS",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "RAYAN CHERKI",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "FERMIN LOPEZ",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "MASON MOUNT",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "RAPHAEL VEIGA",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "ELIJIF ELMAS",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "HIDETOSHI NAKATA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "SHUNSUKE NAKAMURA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "DRAGAN STOJKOVIC",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "RAFAEL VAN DER VAART",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "SHINJI KAGAWA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "KENGO NAKAMURA",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "FRANCK RIBERY",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "MICHEL PLATINI",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "RIVALDO",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "PAUL GASCOIGNE",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "DECO",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "SHINJI ONO",
+    "position": "AM",
+    "baseValue": 150
+  },
+  {
+    "name": "NABIL FEKIR",
+    "position": "AM",
+    "baseValue": 120
+  },
+  {
+    "name": "JUSTIN KLUIVERT",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "MIKKEL DAMSGAARD",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "FABIO VIEIRA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "DANI OLMO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "PHILIPPE COUTINHO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "NICOLO ZANIOLO",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "AMINE ADLI",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "EMILE SMITH ROWE",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "LAZAR SAMARDZIC",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "JESPER LINDSTROM",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "GABRI-VEIGA",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "CAN UZUN",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "JULIAN BRANDT",
+    "position": "AM",
+    "baseValue": 100
+  },
+  {
+    "name": "TIAGO PALACIOS",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "PORTU",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "JUAN BRUNETTA",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "DAVID SILVA",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "RODRIGO GARRO",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "SERGIO CANALES",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "SEBASTIAN DRIUSSI",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "ABDOULAYE DOUCOURE",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "TOMAS SUSLOV",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "JOAO MARIO",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "DIMITRI PAYET",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "MARIO PASALIC",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "IVAN MARTIN",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "HANS VANAKEN",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "GANSO",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "XHERDAN SHAQIRI",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "DIEGO VALDES",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "IKER MUNIAIN",
+    "position": "AM",
+    "baseValue": 80
+  },
+  {
+    "name": "JACK GREALISH",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "WILFRIED ZAHA",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "PAVEL NEDVED",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "ANTHONY GORDON",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "ARNAUT DANJUMA",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "FEDERICO CHIESA",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "MATHYS TEL",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "FILIP KOSTIC",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "K. KVARATSKHELIA",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "MOHAMMED KUDUS",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "RAPHINHA",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "RAFAEL LEAO",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "BRADLEY BARCOLA",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "VINICIUS JUNIOR",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "JOAO FELIX",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "FERRAN TORRES",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "MARTIN TERRIER",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "FEDERICO DIMARCO",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "SON HEUNG-MIN",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "LEE KANG-IN",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "EDEN HAZARD",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "LUIS DIAZ",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "GARETH BALE",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "SADIO MANE",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "CODY GAKPO",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "RYAN GIGGS",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "PARK JI-SUNG",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "ZE ROBERTO",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "ROBERT PIRES",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "ANDREI ARSHAVIN",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "DENILSON",
+    "position": "LW",
+    "baseValue": 150
+  },
+  {
+    "name": "GABRIEL MARTINELLI",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "NICO WILLIAMS",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "ALEX BAENA",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "JEREMY DOKU",
+    "position": "LW",
+    "baseValue": 120
+  },
+  {
+    "name": "ALEJANDRO GARNACHO",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCUS RASHFORD",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "KINGSLEY COMAN",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "SERGE GNABRY",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "LEANDRO TROSSARD",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "MATTIA ZACCAGNI",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "ANSU FATI",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "SAMUEL LINO",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "CALLUM HUDSON-ODOI",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "DUSAN TADIC",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "KAORU MITOMA",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "KEREM AKTURKOGLU",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "LORENZO INSIGNE",
+    "position": "LW",
+    "baseValue": 100
+  },
+  {
+    "name": "ALLAN SAINT-MAXIMIN",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "JADON SANCHO",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "STEVEN BERGWIJN",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "RAHEEM STERLING",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "MYKHAILO MUDRYK",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "YANNICK CARRASCO",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "MAXIMILINO ARAUJO",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "ROBIN GOSENS",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "LUCAS OCAMPOS",
+    "position": "LW",
+    "baseValue": 80
+  },
+  {
+    "name": "DOMENICO BERARDI",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "F. BERNARDESCHI",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "FACUNDO TORRES",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "ANTONY",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "STEVEN BERGHUIS",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "MARCOS LLORENTE",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "JUNYA ITO",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "EDIN VISCA",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "OUSMANE DEMBELE",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "JARROD BOWEN",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "ANGEL CORREA",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "JACOB MURPHY",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "LUIS FIGO",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "PHIL FODEN",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "INAKI WILLIAMS",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "RIYAD MAHREZ",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "LAMINE YAMAL",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "SAMUEL CHUKWUEZE",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "ESTEVAO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "DAVID BECKHAM",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "LEROY SANE",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "PEDRO NETO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "MIGUEL ALMIRON",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "LIONEL MESSI",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "GEORGE BEST",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "MICHAEL OLISE",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "DEISIRE DOUE",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "BRYAN MBEUMO",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "HAKIM ZIYECH",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "BOJAN KRKIC",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "FREDRIK LJUNGBERG",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "GAIZKA MENDIETA",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "HASAN SALIHAMIDZIC",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "LUDOVIC GIULY",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "PAULO SERGIO",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "ROY PARLOUR",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "STEFANO FLORE",
+    "position": "RW",
+    "baseValue": 150
+  },
+  {
+    "name": "ANTONIE SEMENYO",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "MOHAMED SALAH",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "BUKAYO SAKA",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "NONI MADUEKE",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "RODRYGO",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "SAVINHO",
+    "position": "RW",
+    "baseValue": 120
+  },
+  {
+    "name": "OTAVIO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "MATTEO POLITANO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "AMAD DIALLO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "TAKEFUSA KUBO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "ANGEL DI MARIA",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "ANTHONY ELANGA",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "BRENNAN JOHNSON",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "DODI LUKEBAKIO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANCISCO CONCEICAO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "FRANSISCO TRINCAO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "JUAN CUADRADO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "MARTIN OJEDA",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "MATIAS SOULE",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "NICOLAS GONZALEZ",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "RICCARDO ORSOLINI",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "VIKTOR TSYGANKOV",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "YEREMY PINO",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "MALCOM",
+    "position": "RW",
+    "baseValue": 100
+  },
+  {
+    "name": "CENGIZ UNDER",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "BARIS YILMAZ",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "BOBBY DECORDOVA-REID",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "DAVID NERES",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "DONYELL MALEN",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "FELIPE ANDERSON",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "LEON BAILEY",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "PABLO SARABIA",
+    "position": "RW",
+    "baseValue": 80
+  },
+  {
+    "name": "JORGEN STRAND LARSEN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "MAXIMILIAN BEIER",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ENDRICK",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "SANTIAGO GIMENEZ",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PEDRO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "FRANCESCO TOTTI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DUVAN ZAPATA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "CALLUM WILSON",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "BREEL EMBOLO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "DIEGO FORLAN",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ANDRIY SHEVCHENKO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "WAYNE ROONEY",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DAVID VILLA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "FERNANDO TORRES",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "VICTOR OSIMHEN",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "JAVIER SAVIOLA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "HUGO EKITIKE",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "ADEMOLA LOOKMAN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "MIKEL OYARZABAL",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ELYE WAHI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "RASMUS HOJLUND",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ENNER VALENCIA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "TIMO WERNER",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ADRIANO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "MICHAEL OWEN",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "LUIS SUAREZ",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "CRISTIANO RONALDO",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "NEYMAR JR",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "KYOGO FURUHASHI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "JOHAN CRUYFF",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "FILIPPO INZAGHI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "RANDAL KOLO MUANI",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "EVAN FERGUSON",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "AYASE UEDA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "IAGO ASPAS",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "HARRY KANE",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "ANDY COLE",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "JOAO PEDRO",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "TALISCA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "BENJAMIN SESKO",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PELE",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ZLATAN IBRAHIMOVIC",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "KAI HAVERTZ",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "CHRISTIAN PULISIC",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "BRIAN BROBBEY",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "NICOLAS JACKSON",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "LUIS MURIEL",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "SAFEE SALI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DIMITAR BERBATOV",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "GIOVANNI SIMEONE",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "CHRISTIAN VIERI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ROMELU LUKAKU",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "RICHARLISON",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "LUCAS BELTRAN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "NICK WOLTEMADE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PAULINHO",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ERIC CHOUPO MOTING",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "LOIS OPENDA",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "CHARLES DE KETELAERE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "TAIWO AWONIYI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ALESSANDRO DEL PIERO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "SAMUEL ETO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DENIS LAW",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ROBERTO BAGGIO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "FOLARIN BALOGUN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "HEINZ RUMMENIGGE",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ERLING HAALAND",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "SUNIL CHHETRI",
+    "position": "ST",
+    "baseValue": 70
+  },
+  {
+    "name": "DARWIN NUNEZ",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "TEREM MOFFI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "KENAN YILDIZ",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PATSON DAKA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "EL-HADJI DIOUF",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "MEMPHIS DEPAY",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PIERRE AUBAMEYANG",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MOKTHAR DAHARI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "NOAH OKAFOR",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "D. CALVERT-LEWIN",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "JULIAN ALVAREZ",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "NICLAS FULLKRUG",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ROBERTO FIRMINO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ALEXANDER SORLOTH",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "EDIN DZEKO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "KYLIAN MBAPPE",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "ROBERT LEWANDOWSKI",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "OMAR MARMOUSH",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ARTEM DOVBYK",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "JHON DURAN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ROMARIO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "RAUL",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ALEXANDER ISAK",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "GONCALO RAMOS",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "LAUTARO MARTINEZ",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "ANTOINE GRIEZMANN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "DUSAN VLAHOVIC",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ALVARO MORATA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "YOUSSOUFA MOUKOKO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "FERNANDO MORIENTES",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "JONATHAN DAVID",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "BEBETO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "BETO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "TAMMY ABRAHAM",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "YOUSSEF EN NESYRI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "GABRIEL BATISTUTA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "MOISE KEAN",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "VITOR ROQUE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "RAFA SILVA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "SHINJI OKAZAKI",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "SEMIH KILICSOY",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ALBERT GUDMUNDSSON",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "DOMINIC SOLANKE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "CIRO IMMOBILE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PATRIK SCHICK",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "PAULO DYBALA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "MARCUS THURAM",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "DIEGO MARADONA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "OLLIE WATKINS",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "FERENC PUSKAS",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DENNIS BERGKAMP",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ERIC CANTONA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "BURAK YILMAZ",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "CLAUDIO PIZARRO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DANIELE MASSARO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DIDIER DROGBA",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DIEGO MILITO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "DWIGHT YORKE",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "GIOVANE ELBER",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "HRISTO STOICHKOV",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "IVAN ZAMORANO",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "JAN KOLLER",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "MARCELO SALAS",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "MARCO VAN BASTEN",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "PATRICK KLUIVERT",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ROBBIE KEANE",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "ROY MAKAAY",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "RUUD VAN NISTELROOIJ",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "EVAIR",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "M. GANZ",
+    "position": "ST",
+    "baseValue": 150
+  },
+  {
+    "name": "KARIM BENZEMA",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "VIKTOR GYOKERES",
+    "position": "ST",
+    "baseValue": 120
+  },
+  {
+    "name": "OLIVER GIROUD",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "CHRISTOPHER NKUNKU",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "GABRIEL JESUS",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ALEXANDRE LACAZATTE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "YOANE WISSA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "ALEKSANDAR MITROVIC",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "DIOGO JOTA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "EVANILSON",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "GERARD DEULOFEU",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "GERARD MORENO",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "GIACOMO RASPADORI",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "GIANLUCA SCAMACCA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "IGOR JESUS",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "IVAN TONEY",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "JEAN-PHILIPPE MATETA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "JONATHAN BURKARDT",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "MATEO RETEGUI",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "MAURO ICARDI",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "RODRIGO MUNIZ",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "SAMU AGHEHOWA",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "THOMAS MULLER",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "VICTOR BONIFACE",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "JOSELU",
+    "position": "ST",
+    "baseValue": 100
+  },
+  {
+    "name": "EDDIE NKETIAH",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "LUUK DE JONG",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MICKEY BATSHUAYI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "HWANG HEE-CHAN",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ALEXIS SANCHEZ",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "SHERALDO BECKER",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "AMINE GOUIRI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "AREK MILIK",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "BORJA MAYORAL",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "EDINSON CAVANI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ENES UNAL",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "GEORGES MIKAUTADZE",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "GERMAN CANO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "GORKA GURUZETA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "JOSHUA ZIRKZEE",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "JULIAN QUINONES",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "LUKA JOVIC",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MAME THIAM",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MEHDI TAREMI",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MICHAIL ANTONIO",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MIGUEL BORJA",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "MIKAEL UHRE",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "ODSONNE EDOUARD",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "PAU VICTOR",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "SARDAR AZMOUN",
+    "position": "ST",
+    "baseValue": 80
+  },
+  {
+    "name": "SEBASTIEN HALLER",
+    "position": "ST",
+    "baseValue": 80
+  }
+]
