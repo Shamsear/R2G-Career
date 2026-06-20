@@ -1,6 +1,6 @@
 "use server";
 
-import { Pool } from 'pg';
+import { Pool } from '@neondatabase/serverless';
 
 const connectionString = process.env.SOLO_DATABASE_URL;
 
