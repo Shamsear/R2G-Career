@@ -215,7 +215,7 @@ body {
   width: 100%;
   max-width: var(--max-content);
   margin: 0 auto;
-  padding: 5rem 1.5rem 3rem;
+  padding: 1rem 1.5rem 3rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1898,7 +1898,7 @@ body {
 @media (min-width: 1600px) {
   .portal-container {
     max-width: 1440px;
-    padding: 6rem 2.5rem 4rem;
+    padding: 1rem 2.5rem 4rem;
   }
   .portal-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
   .portal-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
