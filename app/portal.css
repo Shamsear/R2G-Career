@@ -1909,12 +1909,12 @@ body {
 @media (max-width: 1024px) {
   .portal-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
   .portal-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-  .portal-container { padding: 4rem 1.25rem 2.5rem; }
+  .portal-container { padding: 1rem 1.25rem 2.5rem; }
 }
 
 /* Mobile landscape + small tablet */
 @media (max-width: 768px) {
-  .portal-container { padding: 4.5rem 1rem 2rem; gap: 2rem; }
+  .portal-container { padding: 1.5rem 1rem 2rem; gap: 2rem; }
   .portal-grid,
   .portal-grid.cols-2,
   .portal-grid.cols-3 { grid-template-columns: 1fr; }
@@ -1935,7 +1935,7 @@ body {
 /* Mobile */
 @media (max-width: 480px) {
   :root { font-size: 14px; }
-  .portal-container { padding: 4rem 0.875rem 1.75rem; }
+  .portal-container { padding: 1rem 0.875rem 1.75rem; }
   .portal-title { font-size: 2rem; }
   .portal-card-content { padding: 1.25rem; }
   .glass-panel { padding: 1.5rem; }
