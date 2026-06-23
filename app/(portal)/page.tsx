@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import "../portal.css";
 
 export default function Home() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse parallax on cards
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
@@ -15,57 +18,86 @@ export default function Home() {
     card.style.setProperty("--mouse-y", `${y}px`);
   };
 
-  // Trigger staggered entrance animations on mount
+  // Staggered entrance animations
   useEffect(() => {
-    requestAnimationFrame(() => {
+    const raf = requestAnimationFrame(() => {
       document.querySelectorAll(".animate-entrance").forEach((el) => {
         el.classList.add("animate-entrance-active");
       });
     });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
     <div className="portal-root-wrapper">
-      {/* Floating Particles */}
-      <div className="portal-particles" aria-hidden="true">
-        <div className="particle" style={{ left: "8%", animationDuration: "25s", animationDelay: "0s" }} />
-        <div className="particle" style={{ left: "22%", animationDuration: "32s", animationDelay: "2s" }} />
-        <div className="particle" style={{ left: "40%", animationDuration: "22s", animationDelay: "5s" }} />
-        <div className="particle" style={{ left: "58%", animationDuration: "28s", animationDelay: "1s" }} />
-        <div className="particle" style={{ left: "75%", animationDuration: "35s", animationDelay: "4s" }} />
-        <div className="particle" style={{ left: "90%", animationDuration: "20s", animationDelay: "7s" }} />
-      </div>
-
-      {/* Background Grids and Glow Orbs */}
+      {/* Ambient background */}
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      {/* Main Content Container */}
-      <div className="portal-container">
-        {/* Portal Header */}
+      {/* Floating particles */}
+      <div className="portal-particles" aria-hidden="true">
+        {[8, 20, 36, 52, 68, 82].map((left, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${left}%`,
+              animationDuration: `${18 + i * 4}s`,
+              animationDelay: `${i * 2.5}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Main content */}
+      <div className="portal-container" ref={containerRef}>
+
+        {/* Hero Header */}
         <div className="portal-header">
-          <div className="portal-logo-container animate-entrance" style={{ animationDelay: "0ms" }}>
+          <div
+            className="portal-logo-container animate-entrance"
+            style={{ animationDelay: "0ms" }}
+          >
             <div className="portal-logo-glow" />
             <Image
               src="/assets/images/logo11.webp"
-              alt="R2G Logo"
-              width={140}
-              height={140}
+              alt="Road to Glory Logo"
+              width={130}
+              height={130}
               className="portal-logo"
               priority
             />
           </div>
-          <h1 className="portal-title animate-entrance" style={{ animationDelay: "150ms" }}>
+
+          <div
+            className="portal-page-badge animate-entrance"
+            style={{ animationDelay: "100ms" }}
+          >
+            <i className="fa-solid fa-futbol" />
+            Season 7 — Now Live
+          </div>
+
+          <h1
+            className="portal-title animate-entrance"
+            style={{ animationDelay: "200ms" }}
+          >
             ROAD TO GLORY
           </h1>
-          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "300ms" }}>
-            Choose your path to football immortality. Select a portal to begin.
+          <p
+            className="portal-subtitle animate-entrance"
+            style={{ animationDelay: "300ms" }}
+          >
+            The ultimate virtual football manager simulator. Scout real players,
+            outbid rivals in live auctions, and lead your squad to glory.
           </p>
         </div>
 
-        {/* Stats Ribbon */}
-        <div className="portal-stats-ribbon animate-entrance" style={{ animationDelay: "420ms" }}>
+        {/* Stats ribbon */}
+        <div
+          className="portal-stats-ribbon animate-entrance"
+          style={{ animationDelay: "400ms" }}
+        >
           <div className="stat-pill">
             <i className="fa-solid fa-trophy" />
             <span>12 Seasons</span>
@@ -77,18 +109,23 @@ export default function Home() {
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
+            <i className="fa-solid fa-users" />
+            <span>28 Managers</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-pill">
             <span className="live-dot" />
             <span>Live Now</span>
           </div>
         </div>
 
-        {/* Portal Cards Grid */}
-        <div className="portal-grid">
-          {/* Solo Tour Card */}
+        {/* Portal cards */}
+        <div className="portal-grid cols-2 animate-entrance" style={{ animationDelay: "520ms" }}>
+
+          {/* Solo Tour */}
           <Link
             href="/solo-tour"
-            className="portal-card solo-tour animate-entrance"
-            style={{ animationDelay: "550ms" }}
+            className="portal-card solo-tour"
             onMouseMove={handleMouseMove}
           >
             <div
@@ -100,17 +137,27 @@ export default function Home() {
             <div className="portal-card-overlay" />
             <div className="portal-card-content">
               <span className="portal-card-badge">
-                <i className="fa-solid fa-bolt" style={{ marginRight: "0.4rem", fontSize: "0.65rem" }} />
+                <i className="fa-solid fa-bolt" />
                 Solo Mode
               </span>
               <h2>SOLO TOUR</h2>
               <p>
-                Build your legacy as an individual manager. Scout world-class players, outbid rivals in live auctions, and conquer the league.
+                Build your legacy as an individual manager. Scout world-class
+                players, outbid rivals in live auctions, and conquer the league.
               </p>
               <ul className="portal-card-highlights">
-                <li><i className="fa-solid fa-magnifying-glass" /> Scout &amp; Recruit Real Players</li>
-                <li><i className="fa-solid fa-gavel" /> Live Bidding &amp; Auctions</li>
-                <li><i className="fa-solid fa-trophy" /> Individual Manager Standings</li>
+                <li>
+                  <i className="fa-solid fa-magnifying-glass" />
+                  Scout &amp; Recruit Real Players
+                </li>
+                <li>
+                  <i className="fa-solid fa-gavel" />
+                  Live Bidding &amp; Auctions
+                </li>
+                <li>
+                  <i className="fa-solid fa-trophy" />
+                  Individual Manager Standings
+                </li>
               </ul>
               <div className="portal-card-action">
                 Enter Portal <i className="fas fa-arrow-right" />
@@ -118,10 +165,9 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Team Tournament Card — Coming Soon */}
+          {/* Team Tournament — Coming Soon */}
           <div
-            className="portal-card team-tour coming-soon-card animate-entrance"
-            style={{ animationDelay: "700ms" }}
+            className="portal-card team-tour coming-soon-card"
             aria-disabled="true"
             tabIndex={-1}
           >
@@ -138,29 +184,71 @@ export default function Home() {
             </div>
             <div className="portal-card-content">
               <span className="portal-card-badge coming-soon-badge">
-                <i className="fa-solid fa-clock" style={{ marginRight: "0.4rem", fontSize: "0.65rem" }} />
+                <i className="fa-solid fa-clock" />
                 Coming Soon
               </span>
               <h2>TEAM TOURNAMENT</h2>
               <p>
-                Unite with your squad. Coordinate strategies, compete in massive multi-team knockout stages, and claim the ultimate trophy.
+                Unite with your squad. Coordinate strategies, compete in massive
+                multi-team knockout stages, and claim the ultimate trophy.
               </p>
               <ul className="portal-card-highlights">
-                <li><i className="fa-solid fa-users" /> Multi-player Squads</li>
-                <li><i className="fa-solid fa-shield-halved" /> Team vs Team Matchups</li>
-                <li><i className="fa-solid fa-sitemap" /> Knockout Bracket Stages</li>
+                <li>
+                  <i className="fa-solid fa-users" />
+                  Multi-player Squads
+                </li>
+                <li>
+                  <i className="fa-solid fa-shield-halved" />
+                  Team vs Team Matchups
+                </li>
+                <li>
+                  <i className="fa-solid fa-sitemap" />
+                  Knockout Bracket Stages
+                </li>
               </ul>
               <div className="portal-card-action disabled">
-                Coming Soon <i className="fas fa-lock" style={{ marginLeft: "0.5rem" }} />
+                Coming Soon <i className="fas fa-lock" />
               </div>
             </div>
           </div>
         </div>
+
+        {/* Features panel */}
+        <div className="glass-panel animate-entrance" style={{ animationDelay: "650ms" }}>
+          <h2 className="section-heading">Why Road to Glory?</h2>
+          <p className="section-text">
+            The most immersive virtual football management experience — built for
+            real strategy, real competition, and real glory. Every decision matters.
+          </p>
+          <div className="portal-features-grid">
+            <div className="portal-feature-card">
+              <i className="fa-solid fa-gavel" />
+              <h3>Live Auctions</h3>
+              <p>Compete in real-time blind bidding windows to secure top talent before your rivals.</p>
+            </div>
+            <div className="portal-feature-card">
+              <i className="fa-solid fa-chart-line" />
+              <h3>Manager Progression</h3>
+              <p>Build your reputation from rookie to legend with a deep rating and ranking system.</p>
+            </div>
+            <div className="portal-feature-card">
+              <i className="fa-solid fa-trophy" />
+              <h3>Multi-Season Legacy</h3>
+              <p>Compete across 7 seasons of trophies, records, and historical achievements.</p>
+            </div>
+            <div className="portal-feature-card">
+              <i className="fa-solid fa-users" />
+              <h3>Real Players</h3>
+              <p>Draft, trade, and manage real football stars with accurate valuations and stats.</p>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      {/* Enhanced Portal Footer */}
+      {/* Footer */}
       <footer className="portal-footer">
-        <div className="portal-footer-brand animate-entrance" style={{ animationDelay: "850ms" }}>
+        <div className="portal-footer-brand">
           <Image
             src="/assets/images/logo11.webp"
             alt="R2G"
@@ -170,21 +258,19 @@ export default function Home() {
           />
           <span className="portal-footer-name">Road to Glory</span>
         </div>
-        <div className="portal-status-bar animate-entrance" style={{ animationDelay: "900ms" }}>
+        <div className="portal-status-bar">
           <div className="status-item">
             <span className="status-indicator online" />
             Server: Online
           </div>
-          <div className="status-item">
-            Season: Active
-          </div>
+          <div className="status-item">Season 7: Active</div>
         </div>
-        <div className="portal-footer-social animate-entrance" style={{ animationDelay: "950ms" }}>
+        <div className="portal-footer-social">
           <a href="#" aria-label="Instagram"><i className="fab fa-instagram" /></a>
           <a href="#" aria-label="Twitter"><i className="fab fa-twitter" /></a>
           <a href="#" aria-label="Discord"><i className="fab fa-discord" /></a>
         </div>
-        <div className="portal-copyright animate-entrance" style={{ animationDelay: "1000ms" }}>
+        <div className="portal-copyright">
           &copy; 2026 Road to Glory. All rights reserved.
         </div>
       </footer>

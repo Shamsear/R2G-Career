@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import "../../../portal.css";
+import "./tournament-guide.css";
 
 export default function TournamentGuide() {
   const [modalImage, setModalImage] = useState<string | null>(null);

@@ -1,272 +1,280 @@
 "use client";
 
+import { useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import "../../portal.css";
 
-export default function Home() {
-  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+const NAV_CARDS = [
+  {
+    href: "/solo-tour/tournament-guide",
+    bgImg: "/assets/images/portal/guide_bg.png",
+    badge: "Guides",
+    badgeIcon: "fa-solid fa-book-open",
+    title: "TOURNAMENT GUIDE",
+    desc: "Learn the rules, match structures, salary caps, and guidelines for the Solo Tour.",
+    highlights: [
+      { icon: "fa-solid fa-circle-info", label: "Official Regulations" },
+      { icon: "fa-solid fa-coins", label: "Salary Cap Details" },
+      { icon: "fa-solid fa-shield", label: "Rules of Conduct" },
+    ],
+    action: "View Guide",
+    delay: 0,
+  },
+  {
+    href: "/solo-tour/career-mode",
+    bgImg: "/assets/images/portal/career_bg.png",
+    badge: "Market",
+    badgeIcon: "fa-solid fa-briefcase",
+    title: "CAREER MODE",
+    desc: "Manage your squad list, sign new players, negotiate contracts, and scout top talent.",
+    highlights: [
+      { icon: "fa-solid fa-users-gear", label: "Squad Management" },
+      { icon: "fa-solid fa-handshake", label: "Transfer Window" },
+      { icon: "fa-solid fa-address-card", label: "Player Profiles" },
+    ],
+    action: "Enter Market",
+    delay: 80,
+  },
+  {
+    href: "/solo-tour/manager-ranking",
+    bgImg: "/assets/images/portal/ranking_bg.png",
+    badge: "Ranks",
+    badgeIcon: "fa-solid fa-ranking-star",
+    title: "MANAGER RANKINGS",
+    desc: "Compare your ratings, active career points, and standings against other managers.",
+    highlights: [
+      { icon: "fa-solid fa-list-ol", label: "Global Leaderboard" },
+      { icon: "fa-solid fa-star", label: "Points Breakdown" },
+      { icon: "fa-solid fa-chart-simple", label: "Career Statistics" },
+    ],
+    action: "View Rankings",
+    delay: 160,
+  },
+  {
+    href: "/solo-tour/trophy-cabinet",
+    bgImg: "/assets/images/portal/trophy_bg.png",
+    badge: "Legacy",
+    badgeIcon: "fa-solid fa-trophy",
+    title: "TROPHY CABINET",
+    desc: "Showcase your achievements, league trophies, and accolades earned across the seasons.",
+    highlights: [
+      { icon: "fa-solid fa-medal", label: "Championship Awards" },
+      { icon: "fa-solid fa-history", label: "Season Records" },
+      { icon: "fa-solid fa-crown", label: "Special Accolades" },
+    ],
+    action: "View Cabinet",
+    delay: 240,
+  },
+  {
+    href: "/solo-tour/career-tournament",
+    bgImg: "/assets/images/portal/tournament_bg.png",
+    badge: "Championship",
+    badgeIcon: "fa-solid fa-sitemap",
+    title: "CAREER TOURNAMENT",
+    desc: "Enter active tournaments, check matches, submit starting lineups, and update scores.",
+    highlights: [
+      { icon: "fa-solid fa-calendar-days", label: "Match Fixtures" },
+      { icon: "fa-solid fa-people-group", label: "Active Lineups" },
+      { icon: "fa-solid fa-circle-check", label: "Submit Scores" },
+    ],
+    action: "Enter Arena",
+    delay: 320,
+  },
+];
+
+export default function SoloTourDashboard() {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    card.style.setProperty("--mouse-x", `${x}px`);
-    card.style.setProperty("--mouse-y", `${y}px`);
-  };
+    card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+    card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+  }, []);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      document.querySelectorAll(".animate-entrance").forEach((el) =>
+        el.classList.add("animate-entrance-active")
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
     <div className="portal-root-wrapper">
-      {/* Background Grids and Glow Orbs */}
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      {/* Main Content Container */}
+      <div className="portal-particles" aria-hidden="true">
+        {[10, 30, 55, 75, 90].map((left, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${left}%`,
+              animationDuration: `${20 + i * 3}s`,
+              animationDelay: `${i * 2}s`,
+            }}
+          />
+        ))}
+      </div>
+
       <div className="portal-container">
-        {/* Header Section */}
-        <header className="portal-header">
-          <div className="portal-logo-container">
+        {/* Back breadcrumb */}
+        <div className="portal-breadcrumb animate-entrance" style={{ animationDelay: "0ms" }}>
+          <Link href="/" className="portal-btn btn-secondary back-link-btn">
+            <i className="fas fa-arrow-left" /> Back to Portal
+          </Link>
+        </div>
+
+        {/* Header */}
+        <div className="portal-header">
+          <div className="portal-logo-container animate-entrance" style={{ animationDelay: "80ms" }}>
             <div className="portal-logo-glow" />
-            <Image 
-              src="/assets/images/logo11.webp" 
-              alt="Road to Glory Logo" 
-              className="portal-logo" 
-              width={140} 
-              height={140} 
+            <Image
+              src="/assets/images/logo11.webp"
+              alt="Road to Glory Logo"
+              className="portal-logo"
+              width={110}
+              height={110}
               priority
             />
           </div>
-          <h1 className="portal-title">ROAD TO GLORY</h1>
-          <p className="portal-subtitle">
-            Welcome to the Solo Tour portal. Manage your squad, outbid your rivals, and build your legacy.
+          <div className="portal-page-badge animate-entrance" style={{ animationDelay: "140ms" }}>
+            <i className="fa-solid fa-bolt" />
+            Solo Tour Mode
+          </div>
+          <h1 className="portal-title animate-entrance" style={{ animationDelay: "200ms" }}>
+            ROAD TO GLORY
+          </h1>
+          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "300ms" }}>
+            Manage your squad, outbid your rivals, and build your legacy across every season.
           </p>
-        </header>
-
-        {/* Reusable Navigation Grid (3 Columns on Desktop) */}
-        <div className="portal-grid cols-3">
-          {/* Card 1: Tournament Guide */}
-          <Link 
-            href="/solo-tour/tournament-guide" 
-            className="portal-card solo-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div 
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/guide_bg.png')" }}
-            />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">Guides</span>
-              <h2>TOURNAMENT GUIDE</h2>
-              <p>
-                Learn the rules, match structures, salary caps, and guidelines for the Solo Tour.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-circle-info"></i> Official Regulations
-                </li>
-                <li>
-                  <i className="fa-solid fa-coins"></i> Salary Cap Details
-                </li>
-                <li>
-                  <i className="fa-solid fa-shield"></i> Rules of Conduct
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                View Guide <i className="fas fa-arrow-right"></i>
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 2: Career Mode */}
-          <Link 
-            href="/solo-tour/career-mode" 
-            className="portal-card solo-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div 
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/career_bg.png')" }}
-            />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">Market</span>
-              <h2>CAREER MODE</h2>
-              <p>
-                Manage your squad list, sign new players, negotiate contracts, and scout top talent.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-users-gear"></i> Squad Management
-                </li>
-                <li>
-                  <i className="fa-solid fa-handshake"></i> Transfer Window
-                </li>
-                <li>
-                  <i className="fa-solid fa-address-card"></i> Player Profiles
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                Enter Market <i className="fas fa-arrow-right"></i>
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 3: Manager Ranking */}
-          <Link 
-            href="/solo-tour/manager-ranking" 
-            className="portal-card solo-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div 
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/ranking_bg.png')" }}
-            />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">Ranks</span>
-              <h2>MANAGER RANKINGS</h2>
-              <p>
-                Compare your ratings, active career points, and standings against other managers.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-list-ol"></i> Global Leaderboard
-                </li>
-                <li>
-                  <i className="fa-solid fa-star"></i> Points Breakdown
-                </li>
-                <li>
-                  <i className="fa-solid fa-chart-simple"></i> Career Statistics
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                View Rankings <i className="fas fa-arrow-right"></i>
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 4: Trophy Cabinet */}
-          <Link 
-            href="/solo-tour/trophy-cabinet" 
-            className="portal-card solo-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div 
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/trophy_bg.png')" }}
-            />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">Legacy</span>
-              <h2>TROPHY CABINET</h2>
-              <p>
-                Showcase your achievements, league trophies, and accolades earned across the seasons.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-medal"></i> Championship Awards
-                </li>
-                <li>
-                  <i className="fa-solid fa-history"></i> Season Records
-                </li>
-                <li>
-                  <i className="fa-solid fa-crown"></i> Special Accolades
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                View Cabinet <i className="fas fa-arrow-right"></i>
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 5: Career Tournament */}
-          <Link 
-            href="/solo-tour/career-tournament" 
-            className="portal-card solo-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div 
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/tournament_bg.png')" }}
-            />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">Championship</span>
-              <h2>CAREER TOURNAMENT</h2>
-              <p>
-                Enter active tournaments, check matches, submit starting lineups, and update scores.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-calendar-days"></i> Match Fixtures
-                </li>
-                <li>
-                  <i className="fa-solid fa-people-group"></i> Active Lineups
-                </li>
-                <li>
-                  <i className="fa-solid fa-circle-check"></i> Submit Scores
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                Enter Arena <i className="fas fa-arrow-right"></i>
-              </div>
-            </div>
-          </Link>
         </div>
 
-        {/* Reusable Glass Panel Description */}
-        <div className="glass-panel">
+        {/* Stats ribbon */}
+        <div className="portal-stats-ribbon animate-entrance" style={{ animationDelay: "380ms" }}>
+          <div className="stat-pill">
+            <i className="fa-solid fa-trophy" />
+            <span>Season 7</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-pill">
+            <i className="fa-solid fa-users" />
+            <span>28 Managers</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-pill">
+            <i className="fa-solid fa-futbol" />
+            <span>500+ Players</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-pill">
+            <span className="live-dot" />
+            <span>Season Active</span>
+          </div>
+        </div>
+
+        {/* Navigation cards */}
+        <div className="portal-grid cols-3">
+          {NAV_CARDS.map((card) => (
+            <Link
+              key={card.href}
+              href={card.href}
+              className={`portal-card solo-tour animate-entrance`}
+              style={{ animationDelay: `${460 + card.delay}ms` }}
+              onMouseMove={handleMouseMove}
+            >
+              <div
+                className="portal-card-bg"
+                style={{ backgroundImage: `url('${card.bgImg}')` }}
+              />
+              <div className="portal-card-shimmer" />
+              <div className="portal-card-glow" />
+              <div className="portal-card-overlay" />
+              <div className="portal-card-content">
+                <span className="portal-card-badge">
+                  <i className={card.badgeIcon} />
+                  {card.badge}
+                </span>
+                <h2>{card.title}</h2>
+                <p>{card.desc}</p>
+                <ul className="portal-card-highlights">
+                  {card.highlights.map((hl) => (
+                    <li key={hl.label}>
+                      <i className={hl.icon} />
+                      {hl.label}
+                    </li>
+                  ))}
+                </ul>
+                <div className="portal-card-action">
+                  {card.action} <i className="fas fa-arrow-right" />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Features panel */}
+        <div className="glass-panel animate-entrance" style={{ animationDelay: "850ms" }}>
           <h2 className="section-heading">Your Road to Glory Journey</h2>
           <p className="section-text">
-            Welcome to Road to Glory, the ultimate virtual football manager simulator. Scout real players, compete in live auctions, and manage your budget to lead your squad to the top tier of competitive leagues.
+            Welcome to Road to Glory — the ultimate virtual football manager simulator. Scout real
+            players, compete in live auctions, and manage your budget to lead your squad to the top
+            tier of competitive leagues.
           </p>
           <div className="portal-features-grid">
             <div className="portal-feature-card">
-              <i className="fa-solid fa-trophy"></i>
+              <i className="fa-solid fa-trophy" />
               <h3>Tournaments</h3>
-              <p>Compete in regular tournaments with various formats. Test your strategic skills against other managers and claim rewards.</p>
+              <p>Compete in regular tournaments with various formats and claim rewards.</p>
             </div>
             <div className="portal-feature-card">
-              <i className="fa-solid fa-chart-line"></i>
+              <i className="fa-solid fa-chart-line" />
               <h3>Progression</h3>
-              <p>Track your manager profile with detailed statistics, win percentages, and progression from rookie to hall-of-fame status.</p>
+              <p>Track your manager profile with detailed statistics and progression metrics.</p>
             </div>
           </div>
         </div>
 
-        {/* Reusable Glowing CTA Banner */}
-        <div className="portal-cta-banner">
+        {/* CTA banner */}
+        <div className="portal-cta-banner animate-entrance" style={{ animationDelay: "1000ms" }}>
           <div className="portal-cta-banner-content">
             <h3>Ready to Begin Your Journey?</h3>
-            <p>Join other active managers competing in tournaments and building elite clubs today.</p>
-            <Link href="#" className="portal-btn btn-primary">JOIN NOW</Link>
-            <Link href="/" className="portal-btn btn-secondary">
-              <i className="fa-solid fa-arrow-left" style={{ marginRight: '0.5rem' }}></i> RETURN TO PORTAL
-            </Link>
+            <p>Join active managers competing in tournaments and building elite clubs today.</p>
+            <div className="portal-cta-banner-actions">
+              <Link href="/solo-tour/career-mode" className="portal-btn btn-primary">
+                <i className="fa-solid fa-rocket" /> Start Now
+              </Link>
+              <Link href="/" className="portal-btn btn-secondary">
+                <i className="fa-solid fa-arrow-left" /> Return to Portal
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Cohesive Footer */}
+      {/* Footer */}
       <footer className="portal-footer">
+        <div className="portal-footer-brand">
+          <Image
+            src="/assets/images/logo11.webp"
+            alt="R2G"
+            width={26}
+            height={26}
+            className="portal-footer-logo"
+          />
+          <span className="portal-footer-name">Road to Glory</span>
+        </div>
         <div className="portal-status-bar">
           <div className="status-item">
-            <span className="status-indicator online"></span>
+            <span className="status-indicator online" />
             Solo Tour: Active
           </div>
-          <div className="status-item">
-            Current Season: Active
-          </div>
+          <div className="status-item">Current Season: 7</div>
         </div>
-        <div className="portal-copyright">
-          &copy; 2026 Road to Glory. All rights reserved.
-        </div>
+        <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
       </footer>
     </div>
   );

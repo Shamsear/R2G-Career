@@ -16,7 +16,7 @@ const pool = new Pool({
 export async function fetchManagers() {
     try {
         const { rows: managersResult } = await pool.query(`
-            SELECT 
+            SELECT DISTINCT ON (m.id)
                 m.id, m.name, m.avatar_path as photo,
                 c.name as club_name,
                 ms.manager_rank as age,
@@ -31,7 +31,7 @@ export async function fetchManagers() {
                     SELECT SUM(base_value) 
                     FROM players p 
                     JOIN player_contracts pc ON p.id = pc.player_id 
-                    WHERE pc.current_club_id = m.id AND pc.status = 'active'
+                    WHERE pc.current_club_id = m.id AND LOWER(pc.status) = 'active'
                 ), 0) as club_total_value,
                 ms.awards,
                 ms.competitions
@@ -39,16 +39,23 @@ export async function fetchManagers() {
             LEFT JOIN clubs c ON m.id = c.id
             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id
             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id
+            ORDER BY m.id, ms.id DESC
         `);
 
         return managersResult.map((m: any) => {
             let trophies = 0;
-            let awards = 0;
+            let awardsCount = 0;
             try {
-                if (m.competitions) trophies = typeof m.competitions === 'string' ? JSON.parse(m.competitions).length : m.competitions.length;
+                if (m.competitions) {
+                    const comp = typeof m.competitions === 'string' ? JSON.parse(m.competitions) : m.competitions;
+                    trophies = Array.isArray(comp) ? comp.length : Object.keys(comp).length;
+                }
             } catch (e) { console.error("Error parsing competitions:", e); }
             try {
-                if (m.awards) awards = typeof m.awards === 'string' ? JSON.parse(m.awards).length : m.awards.length;
+                if (m.awards) {
+                    const awds = typeof m.awards === 'string' ? JSON.parse(m.awards) : m.awards;
+                    awardsCount = Array.isArray(awds) ? awds.length : Object.keys(awds).length;
+                }
             } catch (e) { console.error("Error parsing awards:", e); }
 
             return {
@@ -61,7 +68,7 @@ export async function fetchManagers() {
                 star_rating: m.star_rating || 0,
                 club_total_value: Math.floor(m.club_total_value / 1000000) || 0,
                 trophies,
-                awards,
+                awards: awardsCount,
                 balance: (Number(m.r2g_coin_balance) || 0) + (Number(m.r2g_token_balance) || 0),
                 bio: "Experienced tactician.",
                 favorite_formation: "4-3-3",
@@ -135,8 +142,20 @@ export async function fetchManagerByName(name: string) {
                 goalsAgainst: m.goals_conceded || 0,
                 cleanSheets: m.clean_sheets || 0
             },
-            trophies: m.competitions ? (typeof m.competitions === 'string' ? JSON.parse(m.competitions) : m.competitions) : [],
-            awards: m.awards ? (typeof m.awards === 'string' ? JSON.parse(m.awards) : m.awards) : [],
+            trophies: (() => {
+                try {
+                    if (!m.competitions) return 0;
+                    const comp = typeof m.competitions === 'string' ? JSON.parse(m.competitions) : m.competitions;
+                    return Array.isArray(comp) ? comp.length : Object.keys(comp).length;
+                } catch { return 0; }
+            })(),
+            awards: (() => {
+                try {
+                    if (!m.awards) return 0;
+                    const awds = typeof m.awards === 'string' ? JSON.parse(m.awards) : m.awards;
+                    return Array.isArray(awds) ? awds.length : Object.keys(awds).length;
+                } catch { return 0; }
+            })(),
             players: playersResult.map((p: any) => ({
                 id: p.id,
                 name: p.name,

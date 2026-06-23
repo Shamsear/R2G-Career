@@ -19,90 +19,83 @@ export default function Navbar() {
   if (pathname === "/") return null;
 
   const navLinks = [
-    { href: prefix, label: "Dashboard" },
-    { href: `${prefix}/tournament-guide`, label: "Guide" },
-    { href: `${prefix}/career-mode`, label: "Career" },
-    { href: `${prefix}/manager-ranking`, label: "Rankings" },
-    { href: `${prefix}/trophy-cabinet`, label: "Trophies" },
-    { href: `${prefix}/career-tournament`, label: "Tournament" },
+    { href: prefix, label: "01//HUB" },
+    { href: `${prefix}/tournament-guide`, label: "02//GUIDE" },
+    { href: `${prefix}/career-mode`, label: "03//CAREER" },
+    { href: `${prefix}/manager-ranking`, label: "04//RANK" },
+    { href: `${prefix}/trophy-cabinet`, label: "05//TROPHY" },
+    { href: `${prefix}/career-tournament`, label: "06//TOUR" },
   ];
 
   return (
     <>
-      <header className="top-bar-header">
-        <div className="top-bar">
+      <header className="tech-header">
+        <div className="tech-header-container">
+          
           {/* Logo Section */}
-          <Link href="/" className="mini-logo">
+          <Link href="/" className="tech-logo">
             <Image 
               src="/assets/images/logo11.webp" 
-              alt="Mini Logo" 
-              width={42} 
-              height={42} 
-              className="cursor-pointer logo-img" 
+              alt="Logo" 
+              width={26} 
+              height={26} 
+              className="logo-img" 
             />
-            <span className="logo-text">{isTeamTour ? "R2G TEAM" : "R2G SOLO"}</span>
+            <span className="logo-text">{isTeamTour ? "SYS.TEAM" : "R2G.CAREER"}</span>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="desktop-nav">
+          {/* Desktop Navigation Links (Monospace, Tech Style) */}
+          <nav className="tech-nav">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive = link.href === prefix ? pathname === prefix : pathname.startsWith(link.href);
               return (
                 <Link 
                   key={link.href} 
                   href={link.href}
-                  className={`nav-link-item ${isActive ? "active" : ""}`}
+                  className={`tech-nav-item ${isActive ? "active" : ""}`}
                 >
                   {link.label}
-                  <span className="active-indicator" />
                 </Link>
               );
             })}
           </nav>
 
-          {/* Controls / Social / Portal */}
-          <div className="controls">
-            <div className="social-icons">
-              <a href="#" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
-              <a href="#" aria-label="Twitter"><i className="fab fa-twitter"></i></a>
-              <a href="#" aria-label="Instagram"><i className="fab fa-instagram"></i></a>
-              <a href="#" aria-label="Youtube"><i className="fab fa-youtube"></i></a>
-            </div>
-            
-            {/* Return button */}
-            <Link href="/" className="portal-back-btn" title="Return to Portal">
-              <i className="fa-solid fa-right-from-bracket"></i>
-              <span>PORTAL</span>
+          {/* Right Action Section */}
+          <div className="tech-controls">
+            {/* Return Button */}
+            <Link href="/" className="tech-portal-btn" title="Back to Portal">
+              <span>[ ESC_PORTAL ]</span>
             </Link>
 
-            {/* Mobile Hamburger */}
+            {/* Mobile Hamburger Trigger */}
             <button 
-              className={`hamburger ${isMenuOpen ? "open" : ""}`} 
+              className={`tech-hamburger ${isMenuOpen ? "open" : ""}`} 
               aria-label="Toggle menu" 
               onClick={toggleMenu}
             >
               <span></span>
               <span></span>
-              <span></span>
             </button>
           </div>
+
         </div>
       </header>
 
-      {/* Slide-out Mobile Menu Drawer */}
-      <div className={`mobile-menu ${isMenuOpen ? "active" : ""}`}>
-        <button className="close-menu" onClick={toggleMenu} aria-label="Close menu">
-          <i className="fas fa-times"></i>
-        </button>
-        
-        <div className="mobile-logo-header">
-          <Image src="/assets/images/logo11.webp" alt="Logo" width={60} height={60} />
-          <span>ROAD TO GLORY</span>
+      {/* Top Slide-Down Mobile Menu */}
+      <div className={`tech-mobile-menu ${isMenuOpen ? "active" : ""}`}>
+        <div className="tech-mobile-header">
+          <div className="tech-mobile-logo">
+            <Image src="/assets/images/logo11.webp" alt="Logo" width={24} height={24} />
+            <span>SYS.R2G.NAV</span>
+          </div>
+          <button className="tech-close-menu" onClick={toggleMenu} aria-label="Close menu">
+            [ CLOSE ]
+          </button>
         </div>
 
-        <div className="mobile-menu-links">
+        <div className="tech-mobile-links">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = link.href === prefix ? pathname === prefix : pathname.startsWith(link.href);
             return (
               <Link 
                 key={link.href} 
@@ -115,8 +108,8 @@ export default function Navbar() {
             );
           })}
           
-          <Link href="/" onClick={toggleMenu} className="mobile-portal-link">
-            <i className="fa-solid fa-arrow-left"></i> Return to Portal
+          <Link href="/" onClick={toggleMenu} className="tech-mobile-portal">
+            [ EXIT TO PORTAL ]
           </Link>
         </div>
       </div>

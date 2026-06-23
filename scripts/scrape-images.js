@@ -49,11 +49,24 @@ function sanitizeName(name) {
 
 const MAX_CONCURRENCY = 4; // Number of parallel browser tabs
 
+const unmatchedPlayers = [];
+
 async function scrapePlayers() {
   console.log("Fetching non-legend players from DB...");
   // We explicitly exclude legends from the list as requested
-  const { rows: players } = await pool.query("SELECT id, name, position FROM players WHERE card_type != 'Legend' ORDER BY id ASC");
-  console.log(`Found ${players.length} standard players to process.`);
+  const { rows: allPlayers } = await pool.query("SELECT id, name, position FROM players WHERE card_type != 'Legend' ORDER BY id ASC");
+    
+  const players = allPlayers.filter(player => {
+    const safePlayerName = sanitizeName(player.name);
+    const finalPlayerFileId = path.join(IMAGE_DIR, `${player.id}.png`);
+    const finalPlayerFileName = path.join(IMAGE_DIR, `${safePlayerName}.png`);
+    if (fs.existsSync(finalPlayerFileId) || fs.existsSync(finalPlayerFileName)) return false;
+    const playerFolder = path.join(IMAGE_DIR, safePlayerName);
+    if (fs.existsSync(playerFolder) && fs.readdirSync(playerFolder).length > 0) return false;
+    return true;
+  });
+
+  console.log(`Found ${players.length} missing players to process. Launching workers...`);
 
   console.log(`Launching Stealth Puppeteer with ${MAX_CONCURRENCY} workers...`);
   const browser = await puppeteer.launch({
@@ -108,8 +121,8 @@ async function scrapePlayers() {
       try {
         // Use Futbin's native version filter to automatically exclude promos/legends!
         const searchUrl = `https://www.futbin.com/26/players?search=${encodeURIComponent(player.name)}&version=gold%2Csilver%2Cbronze`;
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 5000 }).catch(() => {});
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 15000 }).catch(() => {});
         
         const profileUrls = await page.evaluate((playerPos, playerName) => {
           const rows = document.querySelectorAll('tr');
@@ -130,7 +143,8 @@ async function scrapePlayers() {
                  if (targetPos === 'AM') normalizedTarget = 'CAM';
                  
                  if (!posText.includes(normalizedTarget) && !normalizedTarget.includes(posText)) {
-                     continue; // Skip if position doesn't match
+                     // We will still keep it, but maybe as a secondary option if needed.
+                     // Removing the 'continue' allows players like Pulisic (RW in game, ST in DB) to be found.
                  }
              }
              
@@ -145,6 +159,7 @@ async function scrapePlayers() {
 
         if (!profileUrls || profileUrls.length === 0) {
            console.log(`[Worker ${workerId}]   -> No matching base cards found for ${player.name} with position ${player.position}`);
+           unmatchedPlayers.push({ id: player.id, name: player.name, position: player.position });
            // Clean up empty folder
            if (fs.existsSync(playerFolder) && fs.readdirSync(playerFolder).length === 0) {
                fs.rmdirSync(playerFolder);
@@ -156,8 +171,8 @@ async function scrapePlayers() {
 
         for (let i = 0; i < profileUrls.length; i++) {
           const profileUrl = profileUrls[i];
-          await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await new Promise(r => setTimeout(r, 1000));
+          await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+          await new Promise(r => setTimeout(r, 2000));
 
           const imageUrl = await page.evaluate(() => {
               const pic = document.getElementById('player_pic');
@@ -202,6 +217,11 @@ async function scrapePlayers() {
   }
 
   await Promise.all(workers);
+
+  if (unmatchedPlayers.length > 0) {
+      fs.writeFileSync(path.join(__dirname, 'unmatched-players.json'), JSON.stringify(unmatchedPlayers, null, 2));
+      console.log(`Saved ${unmatchedPlayers.length} unmatched players to scripts/unmatched-players.json`);
+  }
 
   console.log("Finished scraping!");
   await browser.close();

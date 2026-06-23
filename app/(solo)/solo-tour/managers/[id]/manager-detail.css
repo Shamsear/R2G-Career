@@ -15,7 +15,7 @@
 /* Glassmorphic Profile Card Header */
 .profile-header-card {
   position: relative;
-  background: rgba(13, 18, 30, 0.45);
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   overflow: hidden;
@@ -65,8 +65,8 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  border: 3px solid rgba(236, 72, 153, 0.25);
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.15),
+  border: 3px solid rgba(244, 63, 94, 0.25);
+  box-shadow: 0 0 15px rgba(244, 63, 94, 0.15),
               0 4px 10px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
   background-color: rgba(255, 255, 255, 0.03);
@@ -74,7 +74,7 @@
 
 .profile-header-card:hover .manager-portrait {
   border-color: var(--solo-primary);
-  box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.35);
 }
 
 .manager-club-badge-overlay {
@@ -95,7 +95,7 @@
 
 .profile-header-card:hover .manager-club-badge-overlay {
   border-color: var(--solo-primary);
-  box-shadow: 0 0 8px rgba(236, 72, 153, 0.3);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
 }
 
 .club-logo-mini {
@@ -172,7 +172,7 @@
 
 /* Profile Section Wrappers */
 .profile-section {
-  background: rgba(13, 18, 30, 0.25);
+  background: rgba(17, 19, 24, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 16px;
   padding: 2rem;
@@ -224,7 +224,7 @@
   transform: translateY(-4px);
   border-color: var(--solo-primary);
   background: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.1);
+  box-shadow: 0 4px 15px rgba(244, 63, 94, 0.1);
 }
 
 .stat-icon {
@@ -258,7 +258,7 @@
 }
 
 .squad-grid .player-card {
-  background: rgba(13, 18, 30, 0.45);
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 1rem;
@@ -272,7 +272,7 @@
 .squad-grid .player-card:hover {
   transform: translateY(-3px);
   border-color: var(--solo-primary);
-  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.15);
+  box-shadow: 0 8px 20px rgba(244, 63, 94, 0.15);
 }
 
 .player-position {
@@ -298,8 +298,8 @@
 .player-position.position-CB,
 .player-position.position-LB,
 .player-position.position-RB {
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.25);
   color: #3b82f6;
 }
 
@@ -308,14 +308,14 @@
 .player-position.position-AM {
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #10b981;
+  color: var(--accent-emerald);
 }
 
 .player-position.position-LW,
 .player-position.position-RW,
 .player-position.position-ST {
-  background: rgba(236, 72, 153, 0.12);
-  border: 1px solid rgba(236, 72, 153, 0.25);
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.25);
   color: var(--solo-primary);
 }
 
@@ -358,20 +358,20 @@
 }
 
 .player-type.type-5★-Standard {
-  background: rgba(236, 72, 153, 0.15);
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
   color: var(--solo-primary);
 }
 
 .player-type.type-4★-Standard {
-  background: rgba(168, 85, 247, 0.15);
-  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   color: #a855f7;
 }
 
 .player-type.type-3★-Standard {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
   color: #3b82f6;
 }
 
@@ -397,7 +397,7 @@
 }
 
 .season-item {
-  background: rgba(13, 18, 30, 0.35);
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   overflow: hidden;
@@ -437,7 +437,7 @@
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--solo-primary);
-  text-shadow: 0 0 8px rgba(236, 72, 153, 0.25);
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.25);
 }
 
 .season-toggle {
@@ -543,7 +543,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--solo-primary);
-  text-shadow: 0 0 6px rgba(236, 72, 153, 0.2);
+  text-shadow: 0 0 6px rgba(244, 63, 94, 0.2);
 }
 
 /* Loading Skeletons */

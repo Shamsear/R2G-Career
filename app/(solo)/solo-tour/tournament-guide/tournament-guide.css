@@ -1,0 +1,315 @@
+/* =============================================================================
+   TOURNAMENT GUIDE — Component Styles
+   Inherits design tokens from portal.css
+   ============================================================================= */
+
+/* Bridge: map old --solo-primary to new brand rose */
+:root {
+  --solo-primary: var(--rose);
+}
+
+/* ─── Guide Layout ──────────────────────────────────────────────────────────── */
+.guide-wrapper {
+  width: 100%;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 2rem;
+  width: 100%;
+  align-items: start;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────────────────────── */
+.guide-sidebar {
+  position: sticky;
+  top: 5.5rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem 1rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.guide-sidebar-title {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-body);
+}
+.sidebar-link i {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  width: 14px;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+.sidebar-link:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+.sidebar-link.active {
+  background: var(--rose-dim);
+  border: 1px solid var(--rose-border);
+  color: var(--rose-lighter);
+}
+.sidebar-link.active i { color: var(--rose-light); }
+
+/* ─── Content Area ───────────────────────────────────────────────────────────── */
+.guide-content-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ─── FAQ Accordion ──────────────────────────────────────────────────────────── */
+.faq-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.faq-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.25s ease;
+}
+.faq-item.active {
+  border-color: var(--rose-border);
+  background: var(--rose-dim);
+}
+.faq-item:hover { border-color: var(--border-hover); }
+
+.faq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.2s ease;
+}
+.faq-header:hover { color: var(--rose-lighter); }
+.faq-icon-indicator {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  transition: transform 0.3s ease, color 0.2s ease;
+}
+.faq-item.active .faq-icon-indicator {
+  transform: rotate(180deg);
+  color: var(--rose-light);
+}
+
+.faq-body {
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 1.25rem;
+  transition: max-height 0.4s var(--ease-out), padding 0.3s ease;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+.faq-item.active .faq-body {
+  max-height: 400px;
+  padding: 0 1.25rem 1.1rem;
+}
+
+.highlight {
+  color: var(--rose-light);
+  font-weight: 600;
+}
+
+/* ─── Roadmap / Guide Images ─────────────────────────────────────────────────── */
+.roadmap-img-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: zoom-in;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  margin-top: 1.25rem;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.roadmap-img-card:hover {
+  transform: scale(1.01);
+  border-color: var(--rose-border);
+}
+.roadmap-img-card img { display: block; width: 100%; height: auto; }
+
+.image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* ─── Guide Info Grids ───────────────────────────────────────────────────────── */
+.guide-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.guide-info-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  transition: border-color 0.25s ease;
+}
+.guide-info-card:hover { border-color: var(--rose-border); }
+.guide-info-card h4 {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+.guide-info-card p {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+/* ─── Exchange / Scoring Tables ──────────────────────────────────────────────── */
+.exchange-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+}
+.exchange-table th {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+}
+.exchange-table td {
+  padding: 0.7rem 1rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.exchange-table td strong { color: var(--text-primary); font-weight: 600; }
+.exchange-table td:last-child { color: var(--rose-light); font-weight: 600; }
+.exchange-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+.exchange-table tbody tr:last-child td { border-bottom: none; }
+
+/* ─── Ordered List with Rose Bullets ────────────────────────────────────────── */
+.guide-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  list-style: none;
+}
+.guide-rule-list li {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  transition: background 0.2s ease;
+}
+.guide-rule-list li:hover { background: rgba(255,255,255,0.025); }
+.guide-rule-list li::before {
+  content: counter(list-item);
+  counter-increment: list-item;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--rose-dim);
+  border: 1px solid var(--rose-border);
+  color: var(--rose-lighter);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.guide-rule-list li strong { color: var(--text-primary); font-weight: 600; }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .guide-layout {
+    grid-template-columns: 200px 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .guide-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .guide-sidebar {
+    position: relative;
+    top: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .guide-sidebar-title {
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+  .sidebar-link {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.65rem;
+  }
+  .sidebar-link span { display: none; }
+  .sidebar-link { justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .guide-sidebar {
+    overflow-x: auto;
+    padding: 0.75rem;
+  }
+}

@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import "./manager-detail.css";
+import { useParams } from "next/navigation";
 import { fetchManagerByName } from "@/utils/solo/serverActions";
 
-export default function ManagerDetail({ params }: { params: { id: string } }) {
-    const managerName = decodeURIComponent(params.id);
+export default function ManagerDetail() {
+    const params = useParams();
+    const managerName = decodeURIComponent(params.id as string);
     const [manager, setManager] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

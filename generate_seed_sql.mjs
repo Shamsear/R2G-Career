@@ -63,14 +63,14 @@ for (const m of data) {
     const managerId = nextManagerId++;
     
     managerValues.push(`('${managerName}')`);
-    walletValues.push(`(${managerId}, (SELECT id FROM seasons WHERE season_number = 9), ${clubId || 'NULL'}, ${m.r2g_token_balance || 0}, ${m.r2g_coin_balance || 0}, 0, ${m.overall_rating || 0}, ${m.star_rating || 0})`);
+    walletValues.push(`(${managerId}, (SELECT id FROM seasons WHERE season_number = 9), ${clubId || 'NULL'}, ${m.manager_rank || m.rank || 'NULL'}, ${m.club_total_value || 0}, ${m.r2g_token_balance || 0}, ${m.r2g_coin_balance || 0}, 0, ${m.overall_rating || 0}, ${m.star_rating || 0})`);
 }
 
 if (clubValues.length > 0) sql += `INSERT INTO clubs (name) VALUES\n${clubValues.join(',\n')};\n\n`;
 if (managerValues.length > 0) sql += `INSERT INTO managers (name) VALUES\n${managerValues.join(',\n')};\n\n`;
 if (walletValues.length > 0) {
     sql += `-- MANAGER WALLETS\n`;
-    sql += `INSERT INTO manager_wallets (manager_id, season_id, current_club_id, r2g_token_balance, r2g_coin_balance, r2g_voucher_balance, overall_rating, star_rating) VALUES\n`;
+    sql += `INSERT INTO manager_wallets (manager_id, season_id, current_club_id, manager_rank, club_total_value, r2g_token_balance, r2g_coin_balance, r2g_voucher_balance, overall_rating, star_rating) VALUES\n`;
     sql += walletValues.join(',\n') + `;\n\n`;
 }
 
@@ -157,9 +157,10 @@ for (const m of data) {
                     }
                 }
                 
+                const signedValue = p.value || 0;
                 const salary = p.salary || 0;
                 
-                contractValues.push(`(${playerId}, (SELECT id FROM seasons WHERE season_number = 9), ${clubId || 'NULL'}, ${salary}, ${startSeason}, ${expireSeason}, 'Active')`);
+                contractValues.push(`(${playerId}, (SELECT id FROM seasons WHERE season_number = 9), ${clubId || 'NULL'}, ${signedValue}, ${salary}, ${startSeason}, ${expireSeason}, 'Active')`);
                 
                 if (isPrime) {
                     let validUntil = p.validity ? `'${p.validity.replace(/'/g, "''")}'` : 'NULL';
@@ -196,7 +197,7 @@ if (playerValues.length > 0) {
     
     if (contractValues.length > 0) {
         sql += `-- PLAYER CONTRACTS\n`;
-        sql += `INSERT INTO player_contracts (player_id, season_id, current_club_id, salary, start_season, expire_season, status) VALUES\n`;
+        sql += `INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status) VALUES\n`;
         sql += contractValues.join(',\n') + `;\n\n`;
     }
     
@@ -214,14 +215,20 @@ const historyValues = [];
 for (const m of data) {
     const managerName = m.name.replace(/'/g, "''").trim();
     const managerId = managers.get(managerName);
-    const clubName = m.club && m.club !== 'No Club' ? m.club.replace(/'/g, "''").trim() : null;
-    const clubId = clubName ? clubs.get(clubName) : null;
     
     if (m.seasons && m.seasons.length > 0) {
         for (const s of m.seasons) {
             const seasonIdQuery = `(SELECT id FROM seasons WHERE season_number = ${s.number})`;
             
-            const rank = s.manager_rank === '-' ? 'NULL' : s.manager_rank || 'NULL';
+            // Check if club exists in clubs map, otherwise assume same club or leave NULL
+            let clubId = clubs.get(m.club && m.club !== 'No Club' ? m.club.trim() : null) || 'NULL';
+            
+            let rank = s.manager_rank === '-' || s.manager_rank == null ? 'NULL' : s.manager_rank;
+            // If it's the active season (9) and rank is NULL, fallback to the current rank from wallet
+            if (s.number === 9 && rank === 'NULL') {
+                rank = m.manager_rank || m.rank || 'NULL';
+            }
+            
             const rankPoints = s.rank_point || 0;
             const income = s.team_income || 0;
             const expense = s.team_expense || 0;

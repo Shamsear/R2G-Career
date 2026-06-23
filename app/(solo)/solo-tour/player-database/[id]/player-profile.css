@@ -24,8 +24,8 @@
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 15px rgba(236, 72, 153, 0.15); }
-  50%      { box-shadow: 0 0 30px rgba(236, 72, 153, 0.3); }
+  0%, 100% { box-shadow: 0 0 15px rgba(244, 63, 94, 0.15); }
+  50%      { box-shadow: 0 0 30px rgba(244, 63, 94, 0.3); }
 }
 
 @keyframes shimmer {
@@ -34,13 +34,13 @@
 }
 
 @keyframes borderGlow {
-  0%, 100% { border-color: rgba(236, 72, 153, 0.2); }
-  50%      { border-color: rgba(236, 72, 153, 0.5); }
+  0%, 100% { border-color: rgba(244, 63, 94, 0.2); }
+  50%      { border-color: rgba(244, 63, 94, 0.5); }
 }
 
 @keyframes dotPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.4); }
-  50%      { box-shadow: 0 0 0 6px rgba(236, 72, 153, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
 }
 
 /* ── Back Button ── */
@@ -53,7 +53,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1.2rem;
-  background: rgba(13, 18, 30, 0.7);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50px;
@@ -69,10 +69,10 @@
 }
 
 .profile-back-btn:hover {
-  background: rgba(236, 72, 153, 0.15);
+  background: rgba(244, 63, 94, 0.15);
   border-color: var(--solo-primary, #ec4899);
   transform: translateX(-3px);
-  box-shadow: 0 4px 20px rgba(236, 72, 153, 0.2);
+  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.2);
 }
 
 .profile-back-btn i {
@@ -105,7 +105,7 @@
   transform: translateX(-50%);
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.08) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -137,15 +137,27 @@
   backdrop-filter: none;
 }
 
+.hero-card-showcase .card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .hero-card-showcase .large-card {
   --card-width: 240px;
   --card-height: 350px;
-  filter: drop-shadow(0 15px 40px rgba(236, 72, 153, 0.2)) drop-shadow(0 6px 15px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 15px 40px rgba(244, 63, 94, 0.2)) drop-shadow(0 6px 15px rgba(0, 0, 0, 0.5));
   transition: filter 0.4s ease, transform 0.4s ease;
 }
 
+.hero-card-showcase .large-card.rivals-icon .position,
+.hero-card-showcase .large-card.rivals-icon .name {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9), -1px -1px 3px rgba(0, 0, 0, 0.9) !important;
+}
+
 .hero-card-showcase:hover .large-card {
-  filter: drop-shadow(0 25px 70px rgba(236, 72, 153, 0.3)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 25px 70px rgba(244, 63, 94, 0.3)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
   transform: translateY(-8px);
 }
 
@@ -213,7 +225,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
-  background: rgba(13, 18, 30, 0.65);
+  background: var(--bg-elevated);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -239,9 +251,9 @@
 }
 
 .stat-chip-icon.icon-position {
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(244, 63, 94, 0.12);
   color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(244, 63, 94, 0.2);
 }
 
 .stat-chip-icon.icon-value {
@@ -257,15 +269,15 @@
 }
 
 .stat-chip-icon.icon-card {
-  background: rgba(236, 72, 153, 0.12);
+  background: rgba(244, 63, 94, 0.12);
   color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  border: 1px solid rgba(244, 63, 94, 0.2);
 }
 
 .stat-chip-icon.icon-tier {
-  background: rgba(168, 85, 247, 0.12);
+  background: rgba(99, 102, 241, 0.12);
   color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .stat-chip-text {
@@ -302,7 +314,7 @@
 /* ── Contract Section ── */
 .contract-section {
   position: relative;
-  background: rgba(13, 18, 30, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -324,7 +336,7 @@
 }
 
 .contract-section:hover {
-  border-color: rgba(236, 72, 153, 0.15);
+  border-color: rgba(244, 63, 94, 0.15);
 }
 
 .section-header {
@@ -338,8 +350,8 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(236, 72, 153, 0.1);
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -481,7 +493,7 @@
   background: #ffffff;
   border-radius: 50%;
   border: 2px solid var(--solo-primary, #ec4899);
-  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
 }
 
 /* ── Market History Timeline ── */
@@ -503,7 +515,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(to bottom, var(--solo-primary, #ec4899), rgba(168, 85, 247, 0.3), transparent);
+  background: linear-gradient(to bottom, var(--solo-primary, #ec4899), rgba(99, 102, 241, 0.3), transparent);
   border-radius: 1px;
 }
 
@@ -534,12 +546,12 @@
 }
 
 .timeline-entry:not(:first-child)::before {
-  background: rgba(168, 85, 247, 0.6);
+  background: rgba(99, 102, 241, 0.6);
   animation: none;
 }
 
 .timeline-card {
-  background: rgba(13, 18, 30, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
@@ -553,7 +565,7 @@
 
 .timeline-card:hover {
   transform: translateX(6px);
-  border-color: rgba(236, 72, 153, 0.2);
+  border-color: rgba(244, 63, 94, 0.2);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
@@ -612,7 +624,7 @@
   justify-content: center;
   padding: 5rem 2rem;
   text-align: center;
-  background: rgba(13, 18, 30, 0.45);
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   backdrop-filter: blur(12px);
@@ -623,7 +635,7 @@
 
 .error-container h2 {
   font-family: 'Space Grotesk', sans-serif;
-  color: #ef4444;
+  color: var(--accent-rose);
   margin: 0;
 }
 
