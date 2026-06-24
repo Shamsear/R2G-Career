@@ -12,7 +12,7 @@
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-deep:       #07080f;
+  --bg-deep:       #090a14;
   --bg-surface:    #0e101a;
   --bg-elevated:   #161927;
   --bg-card:       rgba(14, 16, 26, 0.72);
@@ -119,9 +119,9 @@ body {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(244, 63, 94, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 90%, rgba(251, 191, 36, 0.04) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 0% 80%,   rgba(244, 63, 94, 0.04) 0%, transparent 55%);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(244, 63, 94, 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 90%, rgba(251, 191, 36, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 80%,   rgba(244, 63, 94, 0.12) 0%, transparent 55%);
   background-color: var(--bg-deep);
 }
 
@@ -131,8 +131,8 @@ body {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
   background-size: 60px 60px;
   mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 90%);
 }
@@ -154,7 +154,7 @@ body {
   height: min(700px, 90vw);
   top: -20%;
   left: -15%;
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.09) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.22) 0%, transparent 70%);
 }
 
 .portal-glow-orb-2 {
@@ -162,7 +162,7 @@ body {
   height: min(600px, 80vw);
   bottom: -15%;
   right: -10%;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.16) 0%, transparent 70%);
   animation-delay: -12s;
   animation-duration: 30s;
 }

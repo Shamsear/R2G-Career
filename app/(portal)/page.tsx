@@ -51,7 +51,7 @@ export default function Home() {
       </div>
 
       {/* Main content */}
-      <div className="portal-container" ref={containerRef}>
+      <div className="portal-container main-portal-page" ref={containerRef}>
 
         {/* Hero Header */}
         <div className="portal-header">
