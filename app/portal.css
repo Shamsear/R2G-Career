@@ -2311,3 +2311,27 @@ body {
     display: none;
   }
 }
+
+/* ─── Main Portal Page Padding Overrides (5 on large, 4 on small) ─── */
+.portal-container.main-portal-page {
+  padding: 3rem 5rem 5rem;
+}
+
+@media (max-width: 1024px) {
+  .portal-container.main-portal-page {
+    padding: 2.5rem 4.5rem 4.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .portal-container.main-portal-page {
+    padding: 2rem 4rem 4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .portal-container.main-portal-page {
+    padding: 1.5rem 3rem 3rem;
+  }
+}
+
