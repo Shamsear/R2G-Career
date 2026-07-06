@@ -32,8 +32,8 @@
 .club-card:hover {
   transform: translateY(-6px);
   border-color: var(--solo-primary);
-  box-shadow: 0 15px 30px rgba(244, 63, 94, 0.2), 
-              0 0 20px rgba(244, 63, 94, 0.1);
+  box-shadow: 0 15px 30px rgba(45, 212, 191, 0.2), 
+              0 0 20px rgba(45, 212, 191, 0.1);
 }
 
 .club-card-header {
@@ -48,11 +48,11 @@
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--solo-primary);
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.2);
   padding: 0.25rem 0.65rem;
   border-radius: 20px;
-  text-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
+  text-shadow: 0 0 8px rgba(45, 212, 191, 0.2);
 }
 
 .club-card-icon {
@@ -106,7 +106,7 @@
 
 .club-card:hover .manager-avatar-frame {
   border-color: var(--solo-primary);
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.3);
 }
 
 .manager-avatar-frame img {

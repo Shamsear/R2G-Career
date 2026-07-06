@@ -1,0 +1,477 @@
+/* ═══════════════════════════════════════════════════════════════
+   R2G WORLD SERIES (RWS) — Premium Stylesheet
+   Theme: Same as Solo (Rose-Pink Accent + Dark + Monospace/Tech)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Variables Bridge ─── */
+:root {
+  --rws-primary: var(--accent);
+  --rws-secondary: var(--gold);
+  --rws-rose-glow: rgba(45, 212, 191, 0.25);
+}
+
+/* ─── Common Page Layouts ─── */
+@keyframes rwsFadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rws-page-hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem 0 1.5rem;
+  animation: rwsFadeUp 0.5s ease-out both;
+}
+
+.rws-hero-title {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.rws-hero-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  font-weight: 500;
+  max-width: 600px;
+}
+
+/* ─── Dashboard Cards Grid ─── */
+.rws-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  margin-top: 1.5rem;
+  animation: rwsFadeUp 0.5s ease-out both;
+  animation-delay: 0.2s;
+}
+
+@media (max-width: 900px) {
+  .rws-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+
+
+/* ─── Selected Candidates Page ─── */
+.candidates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  margin-top: 1.5rem;
+  animation: rwsFadeUp 0.5s ease-out both;
+  animation-delay: 0.25s;
+}
+
+.candidate-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.candidate-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-soft);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.candidate-header {
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.candidate-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--rose-border);
+  object-fit: cover;
+}
+
+.candidate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.candidate-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: #ffffff;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-role {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.candidate-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.candidate-badge.selected {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.candidate-badge.nominated {
+  background: var(--gold-dim);
+  border: 1px solid rgba(217, 179, 112, 0.25);
+  color: var(--gold);
+}
+
+.candidate-stats {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.cand-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cand-stat-val {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.cand-stat-lbl {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+.candidate-footer {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+}
+
+.candidate-club {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.candidate-rating {
+  font-family: var(--font-mono);
+  color: var(--rose-light);
+  font-weight: 700;
+}
+
+/* ─── Fixtures Page ─── */
+.rws-round-section {
+  width: 100%;
+  margin-top: 2rem;
+  animation: rwsFadeUp 0.5s ease-out both;
+}
+
+.round-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.round-header i {
+  color: var(--rws-primary);
+  font-size: 0.9rem;
+}
+
+.fixtures-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .fixtures-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.fixture-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.fixture-card:hover {
+  border-color: rgba(45, 212, 191, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.fixture-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.fixture-time {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.fixture-status {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.65rem;
+}
+
+.fixture-status.live {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  animation: pulseGlow 1.5s infinite alternate;
+}
+
+.fixture-status.upcoming {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.fixture-status.finished {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+}
+
+.fixture-matchup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.fixture-team {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.fixture-team.home {
+  justify-content: flex-end;
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+.team-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--rose-light);
+}
+
+.team-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fixture-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(8, 11, 17, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  min-width: 70px;
+}
+
+.score-divider {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Album Page ─── */
+.album-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  width: 100%;
+  margin-top: 1.5rem;
+  animation: rwsFadeUp 0.5s ease-out both;
+  animation-delay: 0.25s;
+}
+
+@media (max-width: 900px) {
+  .album-gallery {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 550px) {
+  .album-gallery {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.album-item {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0.75rem 0.75rem 1.5rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Polaroid Tilt Variation */
+.album-item.tilt-left { transform: rotate(-2deg); }
+.album-item.tilt-right { transform: rotate(2.5deg); }
+.album-item.tilt-straight { transform: rotate(-0.5deg); }
+
+.album-item:hover {
+  transform: translateY(-8px) scale(1.02) rotate(0deg) !important;
+  box-shadow: 0 20px 40px rgba(45, 212, 191, 0.25);
+  z-index: 10;
+}
+
+.album-image-wrapper {
+  aspect-ratio: 4/3;
+  width: 100%;
+  background: #080b11;
+  border: 1px solid rgba(0,0,0,0.1);
+  overflow: hidden;
+  border-radius: 4px;
+  position: relative;
+}
+
+.album-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.album-item:hover .album-img {
+  transform: scale(1.06);
+}
+
+.album-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.85));
+  opacity: 0.8;
+}
+
+.album-details {
+  margin-top: 1rem;
+  padding: 0 0.25rem;
+}
+
+.album-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #080b11; /* Dark text for polaroid style */
+  margin: 0;
+}
+
+.album-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: #64748b;
+  font-weight: 600;
+}
+
+.album-tag {
+  color: var(--rws-primary);
+  text-transform: uppercase;
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 4px rgba(34, 197, 94, 0.2); }
+  100% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.6); }
+}

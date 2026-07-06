@@ -4,8 +4,8 @@
 
 /* Variable bridge: resolve legacy --solo-primary to new brand rose */
 :root {
-  --solo-primary: #f43f5e;
-  --accent-rose: #f43f5e;
+  --solo-primary: var(--accent);
+  --accent-rose: var(--accent);
 }
 
 /* ── Animations ── */
@@ -47,8 +47,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(244, 63, 94, 0.12);
-  border: 1px solid rgba(244, 63, 94, 0.25);
+  background: var(--rose-dim);
+  border: 1px solid rgba(45, 212, 191, 0.25);
   color: var(--solo-primary, #ec4899);
   font-size: 0.8rem;
   font-weight: 700;
@@ -114,7 +114,7 @@
 
 .toolbar-search input:focus {
   border-color: var(--solo-primary, #ec4899);
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.15);
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.15);
   background: rgba(8, 11, 17, 0.7);
 }
 
@@ -168,7 +168,7 @@
 
 .toolbar-select:focus {
   border-color: var(--solo-primary, #ec4899);
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.15);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.15);
 }
 
 /* Position Toggle Row */
@@ -210,10 +210,10 @@
 .pos-btn.active.pos-CB,
 .pos-btn.active.pos-LB,
 .pos-btn.active.pos-RB {
-  background: rgba(244, 63, 94, 0.15);
+  background: rgba(45, 212, 191, 0.15);
   border-color: #3b82f6;
   color: #93c5fd;
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.2);
 }
 
 .pos-btn.active.pos-DM,
@@ -228,10 +228,10 @@
 .pos-btn.active.pos-LW,
 .pos-btn.active.pos-RW,
 .pos-btn.active.pos-ST {
-  background: rgba(244, 63, 94, 0.15);
+  background: rgba(45, 212, 191, 0.15);
   border-color: var(--solo-primary, #ec4899);
   color: #fbcfe8;
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.2);
 }
 
 .toolbar-reset-btn {
@@ -270,8 +270,8 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.25rem 0.6rem;
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.2);
   border-radius: 20px;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.7rem;
@@ -384,8 +384,8 @@
 
 .pagination-btn:hover:not(:disabled) {
   border-color: var(--solo-primary, #ec4899);
-  background: rgba(244, 63, 94, 0.08);
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.15);
+  background: rgba(45, 212, 191, 0.08);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.15);
 }
 
 .pagination-btn:disabled {
@@ -419,7 +419,7 @@
   background: var(--solo-primary, #ec4899);
   border-color: var(--solo-primary, #ec4899);
   color: #ffffff;
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.3);
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.3);
 }
 
 .page-ellipsis {
@@ -512,7 +512,7 @@
   height: 40px;
   border-radius: 50%;
   border: none;
-  box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4);
+  box-shadow: 0 4px 15px rgba(45, 212, 191, 0.4);
   font-size: 0.9rem;
   z-index: 999;
   cursor: pointer;

@@ -2,19 +2,26 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchManagerRanking } from "@/utils/solo/serverActions";
+import { fetchManagerRanking, fetchActiveSeason } from "@/utils/solo/serverActions";
 import "../../../portal.css";
 
 export default function ManagerRanking() {
   const [searchTerm, setSearchTerm] = useState("");
   const [managers, setManagers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seasonNum, setSeasonNum] = useState<number>(7);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await fetchManagerRanking();
-        setManagers(data);
+        const [rankingData, seasonData] = await Promise.all([
+          fetchManagerRanking(),
+          fetchActiveSeason()
+        ]);
+        setManagers(rankingData);
+        if (seasonData && seasonData.season_number) {
+          setSeasonNum(seasonData.season_number);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -57,7 +64,7 @@ export default function ManagerRanking() {
 
         {/* Stats block */}
         <div className="club-info intro-block">
-          <h2>Season 7 Rankings</h2>
+          <h2>Season {seasonNum} Rankings</h2>
           <p>
             Manager ratings calculated based on match result streaks, cup tournament runs, and
             achievements.

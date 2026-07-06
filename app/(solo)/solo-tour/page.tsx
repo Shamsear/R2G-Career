@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { fetchActiveSeason } from "@/utils/solo/serverActions";
 import "../../portal.css";
 
 const NAV_CARDS = [
@@ -91,12 +92,27 @@ export default function SoloTourDashboard() {
     card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
   }, []);
 
+  const [seasonNum, setSeasonNum] = useState<number>(7);
+
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       document.querySelectorAll(".animate-entrance").forEach((el) =>
         el.classList.add("animate-entrance-active")
       );
     });
+
+    async function loadSeason() {
+      try {
+        const season = await fetchActiveSeason();
+        if (season && season.season_number) {
+          setSeasonNum(season.season_number);
+        }
+      } catch (e) {
+        console.error("Failed to load active season:", e);
+      }
+    }
+    loadSeason();
+
     return () => cancelAnimationFrame(raf);
   }, []);
 
@@ -122,9 +138,12 @@ export default function SoloTourDashboard() {
 
       <div className="portal-container">
         {/* Back breadcrumb */}
-        <div className="portal-breadcrumb animate-entrance" style={{ animationDelay: "0ms" }}>
+        <div className="portal-breadcrumb animate-entrance" style={{ animationDelay: "0ms", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <Link href="/" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Portal
+          </Link>
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+            <i className="fa-solid fa-user-gear" /> Admin Console
           </Link>
         </div>
 
@@ -157,7 +176,7 @@ export default function SoloTourDashboard() {
         <div className="portal-stats-ribbon animate-entrance" style={{ animationDelay: "380ms" }}>
           <div className="stat-pill">
             <i className="fa-solid fa-trophy" />
-            <span>Season 7</span>
+            <span>Season {seasonNum}</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">

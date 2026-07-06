@@ -51,10 +51,10 @@
 }
 
 .position-tab.active {
-  background: rgba(244, 63, 94, 0.1);
+  background: rgba(45, 212, 191, 0.1);
   border-color: var(--solo-primary);
   color: #ffffff;
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.25);
 }
 
 /* Glass table card */
@@ -144,7 +144,7 @@ th.sorted i {
 .five-star-standard .value {
   color: var(--solo-primary);
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+  text-shadow: 0 0 10px rgba(45, 212, 191, 0.25);
 }
 
 .four-star-standard {
@@ -202,11 +202,11 @@ th.sorted i {
 .loading-spinner {
   width: 50px;
   height: 50px;
-  border: 3px solid rgba(244, 63, 94, 0.1);
+  border: 3px solid rgba(45, 212, 191, 0.1);
   border-top: 3px solid var(--solo-primary);
   border-radius: 50%;
   animation: spinnerRotate 1s linear infinite;
-  box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 0 15px rgba(45, 212, 191, 0.2);
 }
 
 .loading-text {

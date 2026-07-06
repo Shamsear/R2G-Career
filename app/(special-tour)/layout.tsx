@@ -7,11 +7,11 @@ import SoloNavbar from "@/components/solo/SoloNavbar";
 import SoloFooter from "@/components/solo/SoloFooter";
 
 export const metadata: Metadata = {
-  title: "Road To Glory - Solo Tour",
-  description: "Solo Tour Dashboard",
+  title: "Road To Glory - Special Tour",
+  description: "Special Tour Dashboard",
 };
 
-export default function SoloLayout({
+export default function SpecialTourLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;

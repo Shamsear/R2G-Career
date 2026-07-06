@@ -44,8 +44,8 @@
 .manager-card:hover {
   transform: translateY(-6px);
   border-color: var(--solo-primary);
-  box-shadow: 0 15px 30px rgba(244, 63, 94, 0.2), 
-              0 0 20px rgba(244, 63, 94, 0.1);
+  box-shadow: 0 15px 30px rgba(45, 212, 191, 0.2), 
+              0 0 20px rgba(45, 212, 191, 0.1);
 }
 
 /* Card Header with Club BG & Avatar */
@@ -87,7 +87,7 @@
 
 .manager-card:hover .manager-photo {
   border-color: var(--solo-primary);
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.4);
 }
 
 .manager-info {
@@ -204,10 +204,10 @@
 }
 
 .view-profile:hover {
-  background: rgba(244, 63, 94, 0.08);
+  background: rgba(45, 212, 191, 0.08);
   border-color: var(--solo-primary);
   color: #ffffff;
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.15);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.15);
 }
 
 /* Loading Skeletons */

@@ -1,12 +1,28 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import "../portal.css";
+import { fetchActiveSeason } from "@/utils/solo/serverActions";
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [seasonNum, setSeasonNum] = useState<number>(7);
+
+  useEffect(() => {
+    async function loadSeason() {
+      try {
+        const season = await fetchActiveSeason();
+        if (season && season.season_number) {
+          setSeasonNum(season.season_number);
+        }
+      } catch (e) {
+        console.error("Failed to load active season:", e);
+      }
+    }
+    loadSeason();
+  }, []);
 
   // Mouse parallax on cards
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
@@ -75,7 +91,7 @@ export default function Home() {
             style={{ animationDelay: "100ms" }}
           >
             <i className="fa-solid fa-futbol" />
-            Season 7 — Now Live
+            Season {seasonNum} — Now Live
           </div>
 
           <h1
@@ -120,7 +136,22 @@ export default function Home() {
         </div>
 
         {/* Portal cards */}
-        <div className="portal-grid cols-2 animate-entrance" style={{ animationDelay: "520ms" }}>
+        <style>{`
+          .portal-grid.cols-4 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+          }
+          @media (max-width: 768px) {
+            .portal-grid.cols-4 {
+              grid-template-columns: 1fr;
+              gap: 1.5rem;
+            }
+          }
+        `}</style>
+        <div className="portal-grid cols-4 animate-entrance" style={{ animationDelay: "520ms" }}>
 
           {/* Solo Tour */}
           <Link
@@ -161,6 +192,97 @@ export default function Home() {
               </ul>
               <div className="portal-card-action">
                 Enter Portal <i className="fas fa-arrow-right" />
+              </div>
+            </div>
+          </Link>
+
+          {/* Special Tour */}
+          <Link
+            href="/special-tour"
+            className="portal-card special-tour"
+            onMouseMove={handleMouseMove}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/portal/special_bg.png')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/tournament_bg.png')";
+              }}
+            />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
+            <div className="portal-card-overlay" />
+            <div className="portal-card-content">
+              <span className="portal-card-badge" style={{ backgroundColor: "rgba(168, 85, 247, 0.15)", color: "#c084fc", borderColor: "rgba(168, 85, 247, 0.3)" }}>
+                <i className="fa-solid fa-wand-magic-sparkles" />
+                Special Tour
+              </span>
+              <h2>SPECIAL TOUR</h2>
+              <p>
+                Exclusive invitational tournaments. Compete with custom financial templates, match rewards, and unique rosters.
+              </p>
+              <ul className="portal-card-highlights">
+                <li>
+                  <i className="fa-solid fa-sliders" />
+                  Custom Financial Rules
+                </li>
+                <li>
+                  <i className="fa-solid fa-gift" />
+                  Exclusive Reward Milestones
+                </li>
+                <li>
+                  <i className="fa-solid fa-ranking-star" />
+                  Invitational Standings
+                </li>
+              </ul>
+              <div className="portal-card-action">
+                Enter Special Tour <i className="fas fa-arrow-right" />
+              </div>
+            </div>
+          </Link>
+
+          {/* R2G World Series (RWS) */}
+          <Link
+            href="/rws"
+            className="portal-card rws-tour"
+            onMouseMove={handleMouseMove}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/portal/rws_bg.png')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
+            />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
+            <div className="portal-card-overlay" />
+            <div className="portal-card-content">
+              <span className="portal-card-badge">
+                <i className="fa-solid fa-crown" />
+                World Series
+              </span>
+              <h2>R2G WORLD SERIES</h2>
+              <p>
+                The ultimate championship arena. Inspect nominated candidates,
+                track matches/brackets, and browse the trophy highlights album.
+              </p>
+              <ul className="portal-card-highlights">
+                <li>
+                  <i className="fa-solid fa-user-check" />
+                  Selected Candidates
+                </li>
+                <li>
+                  <i className="fa-solid fa-calendar-days" />
+                  Series Fixtures &amp; Brackets
+                </li>
+                <li>
+                  <i className="fa-solid fa-images" />
+                  Trophy &amp; Moments Album
+                </li>
+              </ul>
+              <div className="portal-card-action">
+                Enter RWS Portal <i className="fas fa-arrow-right" />
               </div>
             </div>
           </Link>
@@ -263,7 +385,7 @@ export default function Home() {
             <span className="status-indicator online" />
             Server: Online
           </div>
-          <div className="status-item">Season 7: Active</div>
+          <div className="status-item">Season {seasonNum}: Active</div>
         </div>
         <div className="portal-footer-social">
           <a href="#" aria-label="Instagram"><i className="fab fa-instagram" /></a>

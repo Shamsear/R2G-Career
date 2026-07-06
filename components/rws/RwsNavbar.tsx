@@ -5,38 +5,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-export default function Navbar() {
-  const pathname = usePathname();
+export default function RwsNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
-  // Determine which tour we are currently in
-  const isTeamTour = pathname.startsWith("/team-tour");
-  const prefix = isTeamTour ? "/team-tour" : "/solo-tour";
-  const isAdmin = pathname.startsWith("/solo-tour/admin");
-  const activePrefix = isAdmin ? "/solo-tour/admin" : prefix;
-
-  // Hide the navbar entirely on the root portal page
-  if (pathname === "/") return null;
-
-  const navLinks = isAdmin
-    ? [
-        { href: "/solo-tour/admin", label: "01//HUB" },
-        { href: "/solo-tour/admin/clubs", label: "02//CLUBS" },
-        { href: "/solo-tour/admin/tournaments", label: "03//TOURNEYS" },
-        { href: "/solo-tour/admin/fixtures", label: "04//FIXTURES" },
-        { href: "/solo-tour/admin/players", label: "05//PLAYERS" },
-        { href: "/solo-tour/admin/financial-ops", label: "06//FINANCES" },
-      ]
-    : [
-        { href: prefix, label: "01//HUB" },
-        { href: `${prefix}/tournament-guide`, label: "02//GUIDE" },
-        { href: `${prefix}/career-mode`, label: "03//CAREER" },
-        { href: `${prefix}/manager-ranking`, label: "04//RANK" },
-        { href: `${prefix}/trophy-cabinet`, label: "05//TROPHY" },
-        { href: `${prefix}/career-tournament`, label: "06//TOUR" },
-      ];
+  const navLinks = [
+    { href: "/rws", label: "01//DASHBOARD" },
+    { href: "/rws/selected-candidates", label: "02//CANDIDATES" },
+    { href: "/rws/fixtures", label: "03//FIXTURES" },
+    { href: "/rws/album", label: "04//ALBUM" },
+  ];
 
   return (
     <>
@@ -52,15 +32,13 @@ export default function Navbar() {
               height={26} 
               className="logo-img" 
             />
-            <span className="logo-text">
-              {isTeamTour ? "SYS.TEAM" : (isAdmin ? "R2G.ADMIN" : "R2G.CAREER")}
-            </span>
+            <span className="logo-text">R2G.RWS</span>
           </Link>
 
-          {/* Desktop Navigation Links (Monospace, Tech Style) */}
+          {/* Desktop Navigation Links */}
           <nav className="tech-nav">
             {navLinks.map((link) => {
-              const isActive = link.href === activePrefix ? pathname === activePrefix : pathname.startsWith(link.href);
+              const isActive = link.href === "/rws" ? pathname === "/rws" : pathname.startsWith(link.href);
               return (
                 <Link 
                   key={link.href} 
@@ -75,7 +53,6 @@ export default function Navbar() {
 
           {/* Right Action Section */}
           <div className="tech-controls">
-            {/* Return Button */}
             <Link href="/" className="tech-portal-btn" title="Back to Portal">
               <span>[ ESC_PORTAL ]</span>
             </Link>
@@ -99,7 +76,7 @@ export default function Navbar() {
         <div className="tech-mobile-header">
           <div className="tech-mobile-logo">
             <Image src="/assets/images/logo11.webp" alt="Logo" width={24} height={24} />
-            <span>SYS.R2G.NAV</span>
+            <span>SYS.RWS.NAV</span>
           </div>
           <button className="tech-close-menu" onClick={toggleMenu} aria-label="Close menu">
             [ CLOSE ]
@@ -108,7 +85,7 @@ export default function Navbar() {
 
         <div className="tech-mobile-links">
           {navLinks.map((link) => {
-            const isActive = link.href === prefix ? pathname === prefix : pathname.startsWith(link.href);
+            const isActive = link.href === "/rws" ? pathname === "/rws" : pathname.startsWith(link.href);
             return (
               <Link 
                 key={link.href} 

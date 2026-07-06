@@ -3,15 +3,16 @@ import "../globals.css";
 import "../portal.css";
 import "../styles.css";
 import "../pwa.css";
-import SoloNavbar from "@/components/solo/SoloNavbar";
-import SoloFooter from "@/components/solo/SoloFooter";
+import "./rws/rws.css";
+import RwsNavbar from "@/components/rws/RwsNavbar";
+import RwsFooter from "@/components/rws/RwsFooter";
 
 export const metadata: Metadata = {
-  title: "Road To Glory - Solo Tour",
-  description: "Solo Tour Dashboard",
+  title: "Road To Glory - World Series",
+  description: "R2G World Series Dashboard",
 };
 
-export default function SoloLayout({
+export default function RwsLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -29,11 +30,11 @@ export default function SoloLayout({
       </head>
       <body>
         <div className="app-container">
-          <SoloNavbar />
+          <RwsNavbar />
           <main className="main-content">
             {children}
           </main>
-          <SoloFooter />
+          <RwsFooter />
         </div>
       </body>
     </html>

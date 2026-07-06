@@ -1,0 +1,1261 @@
+/* =============================================================================
+   ADMIN COMMAND CENTER — Premium Design System
+   Theme: Dark Glassmorphism | Module-Specific Accent Colors | Fully Responsive
+   ============================================================================= */
+
+/* ─── Module Accent Color System ─────────────────────────────────────────────── */
+:root {
+  /* Module Colors — each admin module gets a unique accent */
+  --mod-financial:    #6366f1;  /* Indigo */
+  --mod-clubs:        #10b981;  /* Emerald */
+  --mod-tournaments:  #a855f7;  /* Purple */
+  --mod-fixtures:     #f59e0b;  /* Amber */
+  --mod-players:      #06b6d4;  /* Cyan */
+  --mod-nominees:     var(--accent);  /* Rose */
+  --mod-album:        #0ea5e9;  /* Sky */
+  --mod-awards:       #eab308;  /* Gold */
+  --mod-finops:       #14b8a6;  /* Teal */
+
+  /* Active module accent (overridden per page via data-module) */
+  --admin-accent:     #6366f1;
+  --admin-accent-dim: rgba(99, 102, 241, 0.10);
+  --admin-accent-border: rgba(99, 102, 241, 0.25);
+  --admin-accent-glow: rgba(99, 102, 241, 0.35);
+
+  /* Admin-specific tokens */
+  --admin-card-bg:    rgba(255, 255, 255, 0.025);
+  --admin-card-border: rgba(255, 255, 255, 0.06);
+  --admin-hover-bg:   rgba(255, 255, 255, 0.04);
+  --admin-input-bg:   rgba(0, 0, 0, 0.25);
+  --admin-input-border: rgba(255, 255, 255, 0.10);
+  --admin-table-header: rgba(255, 255, 255, 0.025);
+  --admin-table-stripe: rgba(255, 255, 255, 0.015);
+}
+
+/* Module-specific accent overrides */
+[data-module="financial-rules"] { --admin-accent: var(--mod-financial); --admin-accent-dim: rgba(99,102,241,.10); --admin-accent-border: rgba(99,102,241,.25); --admin-accent-glow: rgba(99,102,241,.35); }
+[data-module="clubs"]           { --admin-accent: var(--mod-clubs); --admin-accent-dim: rgba(16,185,129,.10); --admin-accent-border: rgba(16,185,129,.25); --admin-accent-glow: rgba(16,185,129,.35); }
+[data-module="tournaments"]     { --admin-accent: var(--mod-tournaments); --admin-accent-dim: rgba(168,85,247,.10); --admin-accent-border: rgba(168,85,247,.25); --admin-accent-glow: rgba(168,85,247,.35); }
+[data-module="fixtures"]        { --admin-accent: var(--mod-fixtures); --admin-accent-dim: rgba(245,158,11,.10); --admin-accent-border: rgba(245,158,11,.25); --admin-accent-glow: rgba(245,158,11,.35); }
+[data-module="players"]         { --admin-accent: var(--mod-players); --admin-accent-dim: rgba(6,182,212,.10); --admin-accent-border: rgba(6,182,212,.25); --admin-accent-glow: rgba(6,182,212,.35); }
+[data-module="nominees"]        { --admin-accent: var(--mod-nominees); --admin-accent-dim: rgba(45,212,191,.10); --admin-accent-border: rgba(45,212,191,.25); --admin-accent-glow: rgba(45,212,191,.35); }
+[data-module="album"]           { --admin-accent: var(--mod-album); --admin-accent-dim: rgba(14,165,233,.10); --admin-accent-border: rgba(14,165,233,.25); --admin-accent-glow: rgba(14,165,233,.35); }
+[data-module="awards"]          { --admin-accent: var(--mod-awards); --admin-accent-dim: rgba(234,179,8,.10); --admin-accent-border: rgba(234,179,8,.25); --admin-accent-glow: rgba(234,179,8,.35); }
+[data-module="financial-ops"]   { --admin-accent: var(--mod-finops); --admin-accent-dim: rgba(20,184,166,.10); --admin-accent-border: rgba(20,184,166,.25); --admin-accent-glow: rgba(20,184,166,.35); }
+
+/* ─── Entrance Animations ────────────────────────────────────────────────────── */
+@keyframes adminFadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes adminFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes adminSlideIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes adminScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmerSlide {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulseRing {
+  0%, 100% { box-shadow: 0 0 0 0 var(--admin-accent-glow); }
+  50%      { box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes toastSlideIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes borderGlow {
+  0%, 100% { border-color: var(--admin-accent-border); }
+  50%      { border-color: var(--admin-accent); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Admin Wrapper ──────────────────────────────────────────────────────────── */
+.admin-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  animation: adminFadeUp 0.5s var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both;
+}
+
+/* ─── Admin Card (Primary Container) ─────────────────────────────────────────── */
+.admin-card {
+  position: relative;
+  width: 100%;
+  background: var(--admin-card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--admin-card-border);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  animation: adminFadeUp 0.6s var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both;
+  animation-delay: 0.1s;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Top accent line */
+.admin-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--admin-accent), transparent);
+  opacity: 0.6;
+}
+
+.admin-card:hover {
+  border-color: var(--admin-accent-border);
+}
+
+.admin-card-title {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary, #f0f2f7);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-card-title i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--admin-accent-dim);
+  border: 1px solid var(--admin-accent-border);
+  color: var(--admin-accent);
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* ─── Sub Cards (Nested Sections) ────────────────────────────────────────────── */
+.sub-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.25s ease;
+}
+
+.sub-card:hover {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.sub-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sub-card-title i {
+  color: var(--admin-accent);
+  font-size: 0.85rem;
+}
+
+/* ─── Form System ────────────────────────────────────────────────────────────── */
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-form-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary, #9ba3b8);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.admin-input,
+.admin-select,
+.admin-textarea {
+  background: var(--admin-input-bg);
+  border: 1px solid var(--admin-input-border);
+  color: var(--text-primary, #f0f2f7);
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  width: 100%;
+}
+
+.admin-input:focus,
+.admin-select:focus,
+.admin-textarea:focus {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-dim), 0 0 20px var(--admin-accent-dim);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.admin-input::placeholder,
+.admin-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.admin-select option {
+  background: #1a1a2e;
+  color: #f0f2f7;
+}
+
+.admin-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Currency input containers */
+.currency-input-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.currency-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.currency-input-wrapper input {
+  padding-left: 2.25rem !important;
+}
+
+.currency-icon {
+  position: absolute;
+  left: 0.75rem;
+  font-size: 0.85rem;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.currency-icon.rc      { color: var(--gold); }
+.currency-icon.rt      { color: #38bdf8; }
+.currency-icon.voucher { color: #ec4899; }
+
+/* ─── Button Row ─────────────────────────────────────────────────────────────── */
+.admin-btn-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* Danger button styling */
+.btn-danger,
+.portal-btn.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  transition: all 0.25s ease;
+}
+
+.btn-danger:hover,
+.portal-btn.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+/* ─── Tab Navigation ─────────────────────────────────────────────────────────── */
+.admin-nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-tab-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary, #9ba3b8);
+  padding: 0.55rem 1.1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.admin-tab-btn:hover {
+  background: var(--admin-hover-bg);
+  color: var(--text-primary, #f0f2f7);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.admin-tab-btn.active {
+  background: var(--admin-accent-dim);
+  color: var(--admin-accent);
+  border-color: var(--admin-accent-border);
+  box-shadow: 0 0 16px var(--admin-accent-dim);
+}
+
+.admin-tab-btn i {
+  font-size: 0.78rem;
+}
+
+/* ─── Data Tables ────────────────────────────────────────────────────────────── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* Scroll hint gradient */
+.table-responsive::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40px;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(9, 10, 20, 0.9), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.admin-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+}
+
+.admin-list-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admin-list-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary, #9ba3b8);
+  background: var(--admin-table-header);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.admin-list-table td {
+  padding: 0.7rem 1rem;
+  text-align: left;
+  font-size: 0.84rem;
+  color: var(--text-secondary, #9ba3b8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.2s ease;
+}
+
+/* Zebra striping */
+.admin-list-table tbody tr:nth-child(even) td {
+  background: var(--admin-table-stripe);
+}
+
+/* Row hover */
+.admin-list-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Active row accent */
+.admin-list-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+}
+
+.admin-list-table td strong {
+  color: var(--text-primary, #f0f2f7);
+  font-weight: 600;
+}
+
+/* Inline table inputs */
+.admin-list-table td input {
+  background: var(--admin-input-bg);
+  border: 1px solid var(--admin-input-border);
+  color: var(--text-primary, #f0f2f7);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  width: 60px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.admin-list-table td input:focus {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 2px var(--admin-accent-dim);
+}
+
+/* ─── Badges ─────────────────────────────────────────────────────────────────── */
+.badge-banned {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-suspended {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--gold);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-info {
+  background: var(--admin-accent-dim);
+  color: var(--admin-accent);
+  border: 1px solid var(--admin-accent-border);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ─── Two-Column Financial Layout ────────────────────────────────────────────── */
+.financial-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  width: 100%;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1rem;
+  animation: adminFadeUp 0.5s var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both;
+  animation-delay: 0.15s;
+}
+
+.financial-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.financial-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ─── Card-Select Pattern (Sidebar Lists) ────────────────────────────────────── */
+.rules-list-container,
+.clubs-scroll-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.rule-select-card,
+.club-select-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Left accent bar on cards */
+.rule-select-card::before,
+.club-select-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.25s ease;
+  border-radius: 0 3px 3px 0;
+}
+
+.rule-select-card:hover,
+.club-select-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.rule-select-card:hover::before,
+.club-select-card:hover::before {
+  background: var(--admin-accent);
+}
+
+.rule-select-card.active,
+.club-select-card.active {
+  border-color: var(--admin-accent-border);
+  background: var(--admin-accent-dim);
+  box-shadow: 0 0 20px var(--admin-accent-dim);
+}
+
+.rule-select-card.active::before,
+.club-select-card.active::before {
+  background: var(--admin-accent);
+}
+
+/* Card headers */
+.rule-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 0.75rem;
+}
+
+.club-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rule-card-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Pills inside cards */
+.rule-card-pills,
+.club-card-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #9ba3b8);
+  margin-top: 0.15rem;
+}
+
+.rule-pill,
+.club-pill-item {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.74rem;
+  transition: background 0.2s ease;
+}
+
+.rule-pill:hover,
+.club-pill-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Card actions footer */
+.rule-card-actions,
+.club-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Club-specific card elements */
+.club-card-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--admin-accent-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  border: 1px solid var(--admin-accent-border);
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: box-shadow 0.25s ease;
+}
+
+.club-select-card.active .club-card-avatar {
+  box-shadow: 0 0 12px var(--admin-accent-glow);
+}
+
+.club-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.club-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.club-card-details h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.club-card-details span {
+  font-size: 0.74rem;
+  color: var(--text-secondary, #9ba3b8);
+}
+
+/* ─── Toast Notifications ────────────────────────────────────────────────────── */
+.toast-popup {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #fff;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 24px rgba(16, 185, 129, 0.2);
+  z-index: 99999;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  animation: toastSlideIn 0.4s var(--ease-spring, cubic-bezier(0.175, 0.885, 0.32, 1.275)) both;
+  backdrop-filter: blur(12px);
+}
+
+.toast-popup i {
+  font-size: 1rem;
+}
+
+/* ─── Fine / Ban Modal ───────────────────────────────────────────────────────── */
+.fine-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+  animation: adminFadeIn 0.25s ease both;
+}
+
+.fine-modal-content {
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 1.75rem;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  animation: modalSlideUp 0.35s var(--ease-spring, cubic-bezier(0.175, 0.885, 0.32, 1.275)) both;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Modal accent header line */
+.fine-modal-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #ef4444);
+}
+
+.fine-modal-content h3 {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fine-modal-content h3 i {
+  color: #f87171;
+}
+
+/* ─── Admin Hub Module Cards ─────────────────────────────────────────────────── */
+.admin-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.admin-module-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-decoration: none;
+  color: var(--text-primary, #f0f2f7);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.35s var(--ease-out, cubic-bezier(0.22,1,0.36,1));
+  will-change: transform, box-shadow;
+}
+
+/* Staggered entrance */
+.admin-module-card:nth-child(1)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.05s; }
+.admin-module-card:nth-child(2)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.10s; }
+.admin-module-card:nth-child(3)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.15s; }
+.admin-module-card:nth-child(4)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.20s; }
+.admin-module-card:nth-child(5)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.25s; }
+.admin-module-card:nth-child(6)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.30s; }
+.admin-module-card:nth-child(7)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.35s; }
+.admin-module-card:nth-child(8)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.40s; }
+.admin-module-card:nth-child(9)  { animation: adminFadeUp 0.5s ease both; animation-delay: 0.45s; }
+
+/* Top accent line per module */
+.admin-module-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--card-accent, var(--admin-accent)), transparent);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.admin-module-card:hover::before {
+  opacity: 1;
+}
+
+/* Background shimmer on hover */
+.admin-module-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    var(--card-accent-dim, rgba(99, 102, 241, 0.06)),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.admin-module-card:hover::after {
+  opacity: 1;
+}
+
+.admin-module-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: var(--card-accent-border, var(--admin-accent-border));
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.3),
+    0 0 0 1px var(--card-accent-border, rgba(99, 102, 241, 0.18));
+}
+
+/* Module icon container */
+.module-icon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--card-accent-dim, var(--admin-accent-dim));
+  border: 1px solid var(--card-accent-border, var(--admin-accent-border));
+  font-size: 1.15rem;
+  color: var(--card-accent, var(--admin-accent));
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.admin-module-card:hover .module-icon {
+  box-shadow: 0 0 20px var(--card-accent-dim, var(--admin-accent-dim));
+  transform: scale(1.05);
+}
+
+/* Module text content */
+.module-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.module-content h3 {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.module-content p {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #9ba3b8);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Module action arrow */
+.module-action {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--card-accent, var(--admin-accent));
+  margin-top: auto;
+  padding-top: 0.5rem;
+  transition: gap 0.25s ease;
+}
+
+.admin-module-card:hover .module-action {
+  gap: 0.65rem;
+}
+
+.module-action i {
+  transition: transform 0.25s ease;
+  font-size: 0.72rem;
+}
+
+.admin-module-card:hover .module-action i {
+  transform: translateX(4px);
+}
+
+/* Per-module accent color variables */
+.admin-module-card[data-accent="financial"]   { --card-accent: #6366f1; --card-accent-dim: rgba(99,102,241,.08);  --card-accent-border: rgba(99,102,241,.20); }
+.admin-module-card[data-accent="clubs"]       { --card-accent: #10b981; --card-accent-dim: rgba(16,185,129,.08);  --card-accent-border: rgba(16,185,129,.20); }
+.admin-module-card[data-accent="tournaments"] { --card-accent: #a855f7; --card-accent-dim: rgba(168,85,247,.08);  --card-accent-border: rgba(168,85,247,.20); }
+.admin-module-card[data-accent="fixtures"]    { --card-accent: #f59e0b; --card-accent-dim: rgba(245,158,11,.08);  --card-accent-border: rgba(245,158,11,.20); }
+.admin-module-card[data-accent="players"]     { --card-accent: #06b6d4; --card-accent-dim: rgba(6,182,212,.08);   --card-accent-border: rgba(6,182,212,.20); }
+.admin-module-card[data-accent="nominees"]    { --card-accent: var(--accent); --card-accent-dim: rgba(45,212,191,.08);   --card-accent-border: rgba(45,212,191,.20); }
+.admin-module-card[data-accent="album"]       { --card-accent: #0ea5e9; --card-accent-dim: rgba(14,165,233,.08);  --card-accent-border: rgba(14,165,233,.20); }
+.admin-module-card[data-accent="awards"]      { --card-accent: #eab308; --card-accent-dim: rgba(234,179,8,.08);   --card-accent-border: rgba(234,179,8,.20); }
+.admin-module-card[data-accent="finops"]      { --card-accent: #14b8a6; --card-accent-dim: rgba(20,184,166,.08);  --card-accent-border: rgba(20,184,166,.20); }
+
+/* ─── Stats Row ──────────────────────────────────────────────────────────────── */
+.admin-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  width: 100%;
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+  animation: adminFadeUp 0.5s ease both;
+  animation-delay: 0.08s;
+}
+
+.admin-stat-card {
+  position: relative;
+  padding: 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+
+.admin-stat-card:hover {
+  border-color: var(--admin-accent-border);
+  transform: translateY(-2px);
+}
+
+/* Left accent strip */
+.admin-stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--admin-accent);
+  border-radius: 0 3px 3px 0;
+  opacity: 0.6;
+}
+
+.admin-stat-card .stat-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary, #9ba3b8);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.admin-stat-card .stat-value {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Loading State ──────────────────────────────────────────────────────────── */
+.admin-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary, #9ba3b8);
+}
+
+.admin-loading i {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  display: block;
+  animation: spin 1s linear infinite;
+  color: var(--admin-accent);
+}
+
+/* ─── Empty State ────────────────────────────────────────────────────────────── */
+.admin-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--text-secondary, #9ba3b8);
+  font-size: 0.88rem;
+}
+
+.admin-empty i {
+  display: block;
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.2;
+  color: var(--admin-accent);
+}
+
+/* ─── Scrollbar Customization ────────────────────────────────────────────────── */
+.table-responsive::-webkit-scrollbar,
+.rules-list-container::-webkit-scrollbar,
+.clubs-scroll-container::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.table-responsive::-webkit-scrollbar-track,
+.rules-list-container::-webkit-scrollbar-track,
+.clubs-scroll-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+.rules-list-container::-webkit-scrollbar-thumb,
+.clubs-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover,
+.rules-list-container::-webkit-scrollbar-thumb:hover,
+.clubs-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ─── Financial Sidebar (narrow table override) ──────────────────────────────── */
+.financial-sidebar .admin-list-table {
+  min-width: 100%;
+}
+
+/* ─── Responsive Breakpoints ─────────────────────────────────────────────────── */
+
+/* Ultrawide */
+@media (min-width: 1600px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  .admin-module-card {
+    padding: 1.75rem;
+  }
+  .admin-stats-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Large desktop */
+@media (max-width: 1200px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .financial-layout {
+    grid-template-columns: 320px 1fr;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .financial-layout {
+    grid-template-columns: 1fr;
+  }
+  .admin-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .admin-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile Landscape / Small Tablet */
+@media (max-width: 768px) {
+  .admin-hub-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem;
+  }
+  .admin-module-card {
+    padding: 1.15rem;
+  }
+  .module-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 1rem;
+  }
+  .module-content h3 {
+    font-size: 0.9rem;
+  }
+  .module-content p {
+    font-size: 0.72rem;
+  }
+  .admin-card {
+    padding: 1.25rem;
+    border-radius: 14px;
+  }
+  .admin-card-title {
+    font-size: 1.05rem;
+  }
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .currency-input-container {
+    grid-template-columns: 1fr;
+  }
+  .admin-list-table {
+    min-width: 600px;
+  }
+  .admin-stats-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .admin-hub-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .admin-module-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem;
+    gap: 0.85rem;
+  }
+  .module-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .module-content p {
+    display: none;
+  }
+  .module-action {
+    display: none;
+  }
+  .admin-card {
+    padding: 1rem;
+    border-radius: 12px;
+    margin-top: 0.25rem;
+  }
+  .admin-card-title {
+    font-size: 0.95rem;
+    gap: 0.5rem;
+  }
+  .admin-card-title i {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+  .sub-card {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+  .admin-btn-row {
+    flex-direction: column;
+    width: 100%;
+  }
+  .admin-btn-row button,
+  .admin-btn-row a {
+    width: 100%;
+    justify-content: center;
+  }
+  .admin-stat-card {
+    padding: 0.85rem;
+  }
+  .admin-stat-card .stat-value {
+    font-size: 1.3rem;
+  }
+  .admin-list-table {
+    min-width: 550px;
+  }
+  .admin-list-table th,
+  .admin-list-table td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.78rem;
+  }
+  .fine-modal-content {
+    margin: 0 0.5rem;
+    padding: 1.25rem;
+    border-radius: 14px;
+  }
+  .toast-popup {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+    font-size: 0.82rem;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    justify-content: center;
+  }
+  .admin-nav-tabs {
+    gap: 0.35rem;
+  }
+  .admin-tab-btn {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Very Small Screens */
+@media (max-width: 360px) {
+  .admin-hub-grid { gap: 0.65rem; }
+  .admin-module-card { padding: 0.85rem; gap: 0.65rem; }
+  .module-icon { width: 38px; height: 38px; font-size: 0.9rem; }
+  .module-content h3 { font-size: 0.82rem; }
+  .admin-card { padding: 0.85rem; }
+  .admin-card-title { font-size: 0.88rem; }
+  .admin-stats-row { grid-template-columns: 1fr; }
+}

@@ -24,8 +24,8 @@
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 15px rgba(244, 63, 94, 0.15); }
-  50%      { box-shadow: 0 0 30px rgba(244, 63, 94, 0.3); }
+  0%, 100% { box-shadow: 0 0 15px rgba(45, 212, 191, 0.15); }
+  50%      { box-shadow: 0 0 30px rgba(45, 212, 191, 0.3); }
 }
 
 @keyframes shimmer {
@@ -34,12 +34,12 @@
 }
 
 @keyframes borderGlow {
-  0%, 100% { border-color: rgba(244, 63, 94, 0.2); }
-  50%      { border-color: rgba(244, 63, 94, 0.5); }
+  0%, 100% { border-color: rgba(45, 212, 191, 0.2); }
+  50%      { border-color: rgba(45, 212, 191, 0.5); }
 }
 
 @keyframes dotPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4); }
   50%      { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
 }
 
@@ -69,10 +69,10 @@
 }
 
 .profile-back-btn:hover {
-  background: rgba(244, 63, 94, 0.15);
+  background: rgba(45, 212, 191, 0.15);
   border-color: var(--solo-primary, #ec4899);
   transform: translateX(-3px);
-  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 4px 20px rgba(45, 212, 191, 0.2);
 }
 
 .profile-back-btn i {
@@ -105,7 +105,7 @@
   transform: translateX(-50%);
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.08) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.08) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -146,7 +146,7 @@
 .hero-card-showcase .large-card {
   --card-width: 240px;
   --card-height: 350px;
-  filter: drop-shadow(0 15px 40px rgba(244, 63, 94, 0.2)) drop-shadow(0 6px 15px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 15px 40px rgba(45, 212, 191, 0.2)) drop-shadow(0 6px 15px rgba(0, 0, 0, 0.5));
   transition: filter 0.4s ease, transform 0.4s ease;
 }
 
@@ -157,7 +157,7 @@
 }
 
 .hero-card-showcase:hover .large-card {
-  filter: drop-shadow(0 25px 70px rgba(244, 63, 94, 0.3)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 25px 70px rgba(45, 212, 191, 0.3)) drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
   transform: translateY(-8px);
 }
 
@@ -251,9 +251,9 @@
 }
 
 .stat-chip-icon.icon-position {
-  background: rgba(244, 63, 94, 0.12);
+  background: var(--rose-dim);
   color: #60a5fa;
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(45, 212, 191, 0.2);
 }
 
 .stat-chip-icon.icon-value {
@@ -264,14 +264,14 @@
 
 .stat-chip-icon.icon-salary {
   background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
+  color: var(--gold);
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .stat-chip-icon.icon-card {
-  background: rgba(244, 63, 94, 0.12);
+  background: var(--rose-dim);
   color: #f472b6;
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(45, 212, 191, 0.2);
 }
 
 .stat-chip-icon.icon-tier {
@@ -336,7 +336,7 @@
 }
 
 .contract-section:hover {
-  border-color: rgba(244, 63, 94, 0.15);
+  border-color: rgba(45, 212, 191, 0.15);
 }
 
 .section-header {
@@ -350,8 +350,8 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,7 +493,7 @@
   background: #ffffff;
   border-radius: 50%;
   border: 2px solid var(--solo-primary, #ec4899);
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
 }
 
 /* ── Market History Timeline ── */
@@ -565,7 +565,7 @@
 
 .timeline-card:hover {
   transform: translateX(6px);
-  border-color: rgba(244, 63, 94, 0.2);
+  border-color: rgba(45, 212, 191, 0.2);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 

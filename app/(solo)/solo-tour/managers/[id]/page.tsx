@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import "./manager-detail.css";
 import { useParams } from "next/navigation";
-import { fetchManagerByName } from "@/utils/solo/serverActions";
+import { fetchManagerByName, fetchManagerTransactions } from "@/utils/solo/serverActions";
 
 export default function ManagerDetail() {
     const params = useParams();
@@ -14,6 +14,26 @@ export default function ManagerDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeSeasons, setActiveSeasons] = useState<Record<number, boolean>>({});
+
+    const [selectedCurrency, setSelectedCurrency] = useState<'coin' | 'token' | 'voucher'>('coin');
+    const [logs, setLogs] = useState<any[]>([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+
+    useEffect(() => {
+        if (!manager) return;
+        async function loadTransactionLogs() {
+            setLoadingLogs(true);
+            try {
+                const data = await fetchManagerTransactions(manager.id, selectedCurrency);
+                setLogs(data || []);
+            } catch (e) {
+                console.error("Failed to load transactions:", e);
+            } finally {
+                setLoadingLogs(false);
+            }
+        }
+        loadTransactionLogs();
+    }, [manager, selectedCurrency]);
 
     useEffect(() => {
         async function loadData() {
@@ -185,11 +205,25 @@ export default function ManagerDetail() {
                                         <i className="fas fa-trophy"></i>
                                         <span>Trophies: {manager.trophies || 0}</span>
                                     </div>
-                                    <div className="badge">
+                                    <div 
+                                        className="badge clickable"
+                                        onClick={() => {
+                                            setSelectedCurrency('coin');
+                                            document.getElementById('transaction-section')?.scrollIntoView({ behavior: 'smooth' });
+                                        }}
+                                        title="Click to view Coin transactions"
+                                    >
                                         <i className="fas fa-coins"></i>
                                         <span>Coins: {manager.r2g_coin_balance || 0}</span>
                                     </div>
-                                    <div className="badge">
+                                    <div 
+                                        className="badge clickable"
+                                        onClick={() => {
+                                            setSelectedCurrency('token');
+                                            document.getElementById('transaction-section')?.scrollIntoView({ behavior: 'smooth' });
+                                        }}
+                                        title="Click to view Token transactions"
+                                    >
                                         <i className="fas fa-medal"></i>
                                         <span>Tokens: {manager.r2g_token_balance || 0}</span>
                                     </div>
@@ -277,6 +311,64 @@ export default function ManagerDetail() {
                                 <i className="fas fa-users stat-icon"></i>
                                 <span className="stat-value">{sortedPlayers.length}</span>
                                 <span className="stat-label">Squad Size</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Transaction History Section */}
+                    <div className="profile-section" id="transaction-section">
+                        <h2 className="section-title"><i className="fa-solid fa-receipt"></i> Wallet Transaction Logs</h2>
+                        <div className="transaction-container">
+                            <div className="transaction-tabs">
+                                <button 
+                                    type="button"
+                                    className={`transaction-tab ${selectedCurrency === 'coin' ? 'active' : ''}`}
+                                    onClick={() => setSelectedCurrency('coin')}
+                                >
+                                    <i className="fas fa-coins" style={{ color: "#fbbf24", marginRight: "6px" }} /> Coins (RC) Logs
+                                </button>
+                                <button 
+                                    type="button"
+                                    className={`transaction-tab ${selectedCurrency === 'token' ? 'active' : ''}`}
+                                    onClick={() => setSelectedCurrency('token')}
+                                >
+                                    <i className="fas fa-medal" style={{ color: "#38bdf8", marginRight: "6px" }} /> Tokens (RT) Logs
+                                </button>
+                                <button 
+                                    type="button"
+                                    className={`transaction-tab ${selectedCurrency === 'voucher' ? 'active' : ''}`}
+                                    onClick={() => setSelectedCurrency('voucher')}
+                                >
+                                    <i className="fas fa-ticket" style={{ color: "#ec4899", marginRight: "6px" }} /> Vouchers Logs
+                                </button>
+                            </div>
+
+                            <div className="transaction-list-card">
+                                {loadingLogs ? (
+                                    <div className="logs-loading"><i className="fa-solid fa-spinner fa-spin" /> Loading logs...</div>
+                                ) : logs.length === 0 ? (
+                                    <div className="logs-empty">
+                                        <i className="fa-solid fa-receipt" style={{ opacity: 0.3, fontSize: "2rem", marginBottom: "0.5rem" }} />
+                                        <p>No transaction history found for this currency.</p>
+                                    </div>
+                                ) : (
+                                    <div className="logs-scroll-box">
+                                        {logs.map((log: any, idx: number) => {
+                                            const isPositive = Number(log.amount) >= 0;
+                                            return (
+                                                <div key={idx} className="log-row-item">
+                                                    <div className="log-row-left">
+                                                        <span className="log-row-desc">{log.description}</span>
+                                                        <span className="log-row-date">{new Date(log.created_at).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className={`log-row-amount ${isPositive ? 'positive' : 'negative'}`}>
+                                                        {isPositive ? '+' : ''}{log.amount}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
