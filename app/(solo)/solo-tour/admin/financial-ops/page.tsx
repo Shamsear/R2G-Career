@@ -11,7 +11,8 @@ import {
   fetchTournaments,
   deductMatchdayPlayerSalaries,
   applyTemplateAdjustment,
-  applyCustomAdjustment
+  applyCustomAdjustment,
+  processTournamentMatchBonuses
 } from "@/utils/solo/serverActions";
 
 export default function FinancialOperations() {
@@ -91,6 +92,24 @@ export default function FinancialOperations() {
     });
   };
 
+  const handleProcessMatchBonuses = () => {
+    if (!finOp.targetTournamentId) return showToast("Select Tournament!");
+    startTransition(async () => {
+      try {
+        const res = await processTournamentMatchBonuses(
+          parseInt(finOp.targetTournamentId),
+          activeSeason?.id || 6
+        );
+        if (res.success) {
+          showToast(`Match bonuses processed! Paid rewards for ${res.processedCount} match-managers.`);
+          loadData();
+        }
+      } catch (e: any) {
+        showToast(e.message || "Error processing match bonuses!");
+      }
+    });
+  };
+
   const handleApplyCustomAdj = () => {
     if (!finOp.targetManagerId) return showToast("Select Manager!");
     startTransition(async () => {
@@ -152,6 +171,28 @@ export default function FinancialOperations() {
               </div>
               <button className="portal-btn btn-primary" onClick={handleProcessSalaries} disabled={isPending}>
                 Deduct Matchday {finOp.matchday} Salaries
+              </button>
+            </div>
+          </div>
+
+          {/* Section 1.5: Bulk Played Match Bonuses */}
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "1.5rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}><i className="fa-solid fa-wand-magic-sparkles" style={{ color: "var(--solo-primary)" }} /> Process Played Match Bonuses (Bulk Auto-payout)</h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              Scan the app's fixture records for all completed matches in the selected tournament, evaluate win/draw/loss bonuses, credit manager wallets, and prevent double payouts.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
+              <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
+                <label>Select Tournament</label>
+                <select className="admin-select" value={finOp.targetTournamentId} onChange={(e) => setFinOp(prev => ({ ...prev, targetTournamentId: e.target.value }))}>
+                  <option value="">-- Select Tournament --</option>
+                  {tournaments.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button className="portal-btn btn-primary" onClick={handleProcessMatchBonuses} disabled={isPending}>
+                Process &amp; Payout Match Bonuses
               </button>
             </div>
           </div>

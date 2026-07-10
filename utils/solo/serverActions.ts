@@ -704,15 +704,21 @@ export async function createFinancialRule(rule: any) {
       INSERT INTO career_financial_rules (
         name, 
         match_bonus_rc, match_bonus_rt, match_bonus_voucher,
+        match_win_bonus_rc, match_win_bonus_rt, match_win_bonus_voucher,
+        match_draw_bonus_rc, match_draw_bonus_rt, match_draw_bonus_voucher,
+        match_loss_bonus_rc, match_loss_bonus_rt, match_loss_bonus_voucher,
         tournament_bonus_rc, tournament_bonus_rt, tournament_bonus_voucher,
         season_bonus_rc, season_bonus_rt, season_bonus_voucher,
         walkover_fine_rc, walkover_fine_rt, walkover_fine_voucher,
         match_extension_fee_rc, match_extension_fee_rt, match_extension_fee_voucher
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
       RETURNING *
     `, [
       rule.name,
       rule.match_bonus_rc || 0, rule.match_bonus_rt || 0, rule.match_bonus_voucher || 0,
+      rule.match_win_bonus_rc || 0, rule.match_win_bonus_rt || 0, rule.match_win_bonus_voucher || 0,
+      rule.match_draw_bonus_rc || 0, rule.match_draw_bonus_rt || 0, rule.match_draw_bonus_voucher || 0,
+      rule.match_loss_bonus_rc || 0, rule.match_loss_bonus_rt || 0, rule.match_loss_bonus_voucher || 0,
       rule.tournament_bonus_rc || 0, rule.tournament_bonus_rt || 0, rule.tournament_bonus_voucher || 0,
       rule.season_bonus_rc || 0, rule.season_bonus_rt || 0, rule.season_bonus_voucher || 0,
       rule.walkover_fine_rc || 0, rule.walkover_fine_rt || 0, rule.walkover_fine_voucher || 0,
@@ -731,16 +737,22 @@ export async function updateFinancialRule(id: number, rule: any) {
       UPDATE career_financial_rules SET
         name = $1, 
         match_bonus_rc = $2, match_bonus_rt = $3, match_bonus_voucher = $4,
-        tournament_bonus_rc = $5, tournament_bonus_rt = $6, tournament_bonus_voucher = $7,
-        season_bonus_rc = $8, season_bonus_rt = $9, season_bonus_voucher = $10,
-        walkover_fine_rc = $11, walkover_fine_rt = $12, walkover_fine_voucher = $13,
-        match_extension_fee_rc = $14, match_extension_fee_rt = $15, match_extension_fee_voucher = $16,
+        match_win_bonus_rc = $5, match_win_bonus_rt = $6, match_win_bonus_voucher = $7,
+        match_draw_bonus_rc = $8, match_draw_bonus_rt = $9, match_draw_bonus_voucher = $10,
+        match_loss_bonus_rc = $11, match_loss_bonus_rt = $12, match_loss_bonus_voucher = $13,
+        tournament_bonus_rc = $14, tournament_bonus_rt = $15, tournament_bonus_voucher = $16,
+        season_bonus_rc = $17, season_bonus_rt = $18, season_bonus_voucher = $19,
+        walkover_fine_rc = $20, walkover_fine_rt = $21, walkover_fine_voucher = $22,
+        match_extension_fee_rc = $23, match_extension_fee_rt = $24, match_extension_fee_voucher = $25,
         updated_at = NOW()
-      WHERE id = $17
+      WHERE id = $26
       RETURNING *
     `, [
       rule.name,
       rule.match_bonus_rc || 0, rule.match_bonus_rt || 0, rule.match_bonus_voucher || 0,
+      rule.match_win_bonus_rc || 0, rule.match_win_bonus_rt || 0, rule.match_win_bonus_voucher || 0,
+      rule.match_draw_bonus_rc || 0, rule.match_draw_bonus_rt || 0, rule.match_draw_bonus_voucher || 0,
+      rule.match_loss_bonus_rc || 0, rule.match_loss_bonus_rt || 0, rule.match_loss_bonus_voucher || 0,
       rule.tournament_bonus_rc || 0, rule.tournament_bonus_rt || 0, rule.tournament_bonus_voucher || 0,
       rule.season_bonus_rc || 0, rule.season_bonus_rt || 0, rule.season_bonus_voucher || 0,
       rule.walkover_fine_rc || 0, rule.walkover_fine_rt || 0, rule.walkover_fine_voucher || 0,
@@ -1767,5 +1779,148 @@ export async function fetchTournamentsByType(type: string) {
   } catch (error) {
     console.error("Error fetching tournaments by type:", error);
     return [];
+  }
+}
+
+export async function processTournamentMatchBonuses(tournamentId: number, seasonId: string | number) {
+  try {
+    await pool.query('BEGIN');
+
+    // 1. Get the financial rule template for the tournament
+    const { rows: tourneyRows } = await pool.query(`
+      SELECT t.name as tournament_name, r.* 
+      FROM tournaments t
+      JOIN career_financial_rules r ON t.financial_rule_id = r.id
+      WHERE t.id = $1
+    `, [tournamentId]);
+
+    if (tourneyRows.length === 0) {
+      throw new Error("Tournament not found or has no financial rule template linked.");
+    }
+    const rule = tourneyRows[0];
+    const tournamentName = rule.tournament_name;
+
+    // 2. Fetch all completed/played fixtures for this tournament in the current season
+    const { rows: fixtures } = await pool.query(`
+      SELECT f.id, f.home_club_id, f.away_club_id, f.home_score, f.away_score, f.round_number
+      FROM fixtures f
+      WHERE f.tournament_id = $1 AND f.season_id = $2 
+        AND f.home_score IS NOT NULL AND f.away_score IS NOT NULL
+    `, [tournamentId, seasonId]);
+
+    let processedCount = 0;
+    let rewardSummary: any[] = [];
+
+    // 3. Process each fixture
+    for (const fix of fixtures) {
+      const homeId = fix.home_club_id;
+      const awayId = fix.away_club_id;
+      const homeScore = Number(fix.home_score);
+      const awayScore = Number(fix.away_score);
+      
+      // Determine match outcomes
+      let homeOutcome: 'win' | 'draw' | 'loss' = 'draw';
+      let awayOutcome: 'win' | 'draw' | 'loss' = 'draw';
+
+      if (homeScore > awayScore) {
+        homeOutcome = 'win';
+        awayOutcome = 'loss';
+      } else if (homeScore < awayScore) {
+        homeOutcome = 'loss';
+        awayOutcome = 'win';
+      }
+
+      const teamResults = [
+        { managerId: homeId, outcome: homeOutcome, role: 'home', opponent: awayId },
+        { managerId: awayId, outcome: awayOutcome, role: 'away', opponent: homeId }
+      ];
+
+      for (const res of teamResults) {
+        // Check if already paid
+        const { rows: paidCheck } = await pool.query(`
+          SELECT id FROM match_bonuses_given 
+          WHERE fixture_id = $1 AND manager_id = $2
+        `, [fix.id, res.managerId]);
+
+        if (paidCheck.length > 0) {
+          continue; // Already rewarded, skip
+        }
+
+        // Determine bonus values
+        let rc = 0, rt = 0, voucher = 0;
+        if (res.outcome === 'win') {
+          rc = Number(rule.match_win_bonus_rc) || 0;
+          rt = Number(rule.match_win_bonus_rt) || 0;
+          voucher = Number(rule.match_win_bonus_voucher) || 0;
+        } else if (res.outcome === 'draw') {
+          rc = Number(rule.match_draw_bonus_rc) || 0;
+          rt = Number(rule.match_draw_bonus_rt) || 0;
+          voucher = Number(rule.match_draw_bonus_voucher) || 0;
+        } else if (res.outcome === 'loss') {
+          rc = Number(rule.match_loss_bonus_rc) || 0;
+          rt = Number(rule.match_loss_bonus_rt) || 0;
+          voucher = Number(rule.match_loss_bonus_voucher) || 0;
+        }
+
+        // Apply bonus to wallet
+        await pool.query(`
+          UPDATE manager_wallets 
+          SET r2g_coin_balance = r2g_coin_balance + $1,
+              r2g_token_balance = r2g_token_balance + $2,
+              r2g_voucher_balance = r2g_voucher_balance + $3
+          WHERE manager_id = $4 AND season_id = $5
+        `, [rc, rt, voucher, res.managerId, seasonId]);
+
+        // Update manager season stats (income/profit)
+        await pool.query(`
+          UPDATE manager_seasons
+          SET team_income = team_income + $1,
+              team_profit = team_profit + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [rc, res.managerId, seasonId]);
+
+        // Get opponent club name for log description
+        const { rows: oppClubRows } = await pool.query('SELECT name FROM clubs WHERE id = $1', [res.opponent]);
+        const oppName = oppClubRows.length > 0 ? oppClubRows[0].name : `Club #${res.opponent}`;
+
+        const desc = `Match ${res.outcome} bonus (${tournamentName} Round ${fix.round_number} vs ${oppName})`;
+
+        // Log transaction
+        await logTransaction(res.managerId, seasonId, 'coin', rc, `match_${res.outcome}`, desc);
+        if (rt > 0) {
+          await logTransaction(res.managerId, seasonId, 'token', rt, `match_${res.outcome}`, desc);
+        }
+        if (voucher > 0) {
+          await logTransaction(res.managerId, seasonId, 'voucher', voucher, `match_${res.outcome}`, desc);
+        }
+
+        // Insert log in match_bonuses_given
+        await pool.query(`
+          INSERT INTO match_bonuses_given (fixture_id, manager_id, season_id, reward_type, coins_given, tokens_given, vouchers_given)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [fix.id, res.managerId, seasonId, res.outcome, rc, rt, voucher]);
+
+        processedCount++;
+
+        // Get manager/club name for return
+        const { rows: mgrNameRows } = await pool.query('SELECT name FROM managers WHERE id = $1', [res.managerId]);
+        const mgrName = mgrNameRows.length > 0 ? mgrNameRows[0].name : `Manager #${res.managerId}`;
+        rewardSummary.push({
+          managerName: mgrName,
+          outcome: res.outcome,
+          rc,
+          rt,
+          voucher,
+          fixtureId: fix.id
+        });
+      }
+    }
+
+    await pool.query('COMMIT');
+    return { success: true, processedCount, rewardSummary };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error processing tournament match bonuses:", error);
+    throw error;
   }
 }

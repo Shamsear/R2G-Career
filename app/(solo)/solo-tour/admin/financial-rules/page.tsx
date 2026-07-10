@@ -21,6 +21,9 @@ export default function FinancialRulesManager() {
     id: "",
     name: "",
     match_bonus_rc: 0, match_bonus_rt: 0, match_bonus_voucher: 0,
+    match_win_bonus_rc: 0, match_win_bonus_rt: 0, match_win_bonus_voucher: 0,
+    match_draw_bonus_rc: 0, match_draw_bonus_rt: 0, match_draw_bonus_voucher: 0,
+    match_loss_bonus_rc: 0, match_loss_bonus_rt: 0, match_loss_bonus_voucher: 0,
     tournament_bonus_rc: 0, tournament_bonus_rt: 0, tournament_bonus_voucher: 0,
     season_bonus_rc: 0, season_bonus_rt: 0, season_bonus_voucher: 0,
     walkover_fine_rc: 0, walkover_fine_rt: 0, walkover_fine_voucher: 0,
@@ -49,6 +52,9 @@ export default function FinancialRulesManager() {
     setRuleForm({
       id: "", name: "",
       match_bonus_rc: 0, match_bonus_rt: 0, match_bonus_voucher: 0,
+      match_win_bonus_rc: 0, match_win_bonus_rt: 0, match_win_bonus_voucher: 0,
+      match_draw_bonus_rc: 0, match_draw_bonus_rt: 0, match_draw_bonus_voucher: 0,
+      match_loss_bonus_rc: 0, match_loss_bonus_rt: 0, match_loss_bonus_voucher: 0,
       tournament_bonus_rc: 0, tournament_bonus_rt: 0, tournament_bonus_voucher: 0,
       season_bonus_rc: 0, season_bonus_rt: 0, season_bonus_voucher: 0,
       walkover_fine_rc: 0, walkover_fine_rt: 0, walkover_fine_voucher: 0,
@@ -81,6 +87,9 @@ export default function FinancialRulesManager() {
       id: rule.id.toString(),
       name: rule.name,
       match_bonus_rc: rule.match_bonus_rc, match_bonus_rt: rule.match_bonus_rt, match_bonus_voucher: rule.match_bonus_voucher,
+      match_win_bonus_rc: rule.match_win_bonus_rc || 0, match_win_bonus_rt: rule.match_win_bonus_rt || 0, match_win_bonus_voucher: rule.match_win_bonus_voucher || 0,
+      match_draw_bonus_rc: rule.match_draw_bonus_rc || 0, match_draw_bonus_rt: rule.match_draw_bonus_rt || 0, match_draw_bonus_voucher: rule.match_draw_bonus_voucher || 0,
+      match_loss_bonus_rc: rule.match_loss_bonus_rc || 0, match_loss_bonus_rt: rule.match_loss_bonus_rt || 0, match_loss_bonus_voucher: rule.match_loss_bonus_voucher || 0,
       tournament_bonus_rc: rule.tournament_bonus_rc, tournament_bonus_rt: rule.tournament_bonus_rt, tournament_bonus_voucher: rule.tournament_bonus_voucher,
       season_bonus_rc: rule.season_bonus_rc, season_bonus_rt: rule.season_bonus_rt, season_bonus_voucher: rule.season_bonus_voucher,
       walkover_fine_rc: rule.walkover_fine_rc, walkover_fine_rt: rule.walkover_fine_rt, walkover_fine_voucher: rule.walkover_fine_voucher,
@@ -93,6 +102,9 @@ export default function FinancialRulesManager() {
       id: "", 
       name: `${rule.name} (Copy)`,
       match_bonus_rc: rule.match_bonus_rc, match_bonus_rt: rule.match_bonus_rt, match_bonus_voucher: rule.match_bonus_voucher,
+      match_win_bonus_rc: rule.match_win_bonus_rc || 0, match_win_bonus_rt: rule.match_win_bonus_rt || 0, match_win_bonus_voucher: rule.match_win_bonus_voucher || 0,
+      match_draw_bonus_rc: rule.match_draw_bonus_rc || 0, match_draw_bonus_rt: rule.match_draw_bonus_rt || 0, match_draw_bonus_voucher: rule.match_draw_bonus_voucher || 0,
+      match_loss_bonus_rc: rule.match_loss_bonus_rc || 0, match_loss_bonus_rt: rule.match_loss_bonus_rt || 0, match_loss_bonus_voucher: rule.match_loss_bonus_voucher || 0,
       tournament_bonus_rc: rule.tournament_bonus_rc, tournament_bonus_rt: rule.tournament_bonus_rt, tournament_bonus_voucher: rule.tournament_bonus_voucher,
       season_bonus_rc: rule.season_bonus_rc, season_bonus_rt: rule.season_bonus_rt, season_bonus_voucher: rule.season_bonus_voucher,
       walkover_fine_rc: rule.walkover_fine_rc, walkover_fine_rt: rule.walkover_fine_rt, walkover_fine_voucher: rule.walkover_fine_voucher,
@@ -165,8 +177,16 @@ export default function FinancialRulesManager() {
                       
                       <div className="rule-card-pills">
                         <div className="rule-pill">
-                          <span>Match Bonus:</span>
-                          <span style={{ color: "#fbbf24", fontWeight: 700 }}>{rule.match_bonus_rc} / {rule.match_bonus_rt} / {rule.match_bonus_voucher}</span>
+                          <span>Match Win:</span>
+                          <span style={{ color: "#10b981", fontWeight: 700 }}>{rule.match_win_bonus_rc} / {rule.match_win_bonus_rt} / {rule.match_win_bonus_voucher}</span>
+                        </div>
+                        <div className="rule-pill">
+                          <span>Match Draw:</span>
+                          <span style={{ color: "#fbbf24", fontWeight: 700 }}>{rule.match_draw_bonus_rc} / {rule.match_draw_bonus_rt} / {rule.match_draw_bonus_voucher}</span>
+                        </div>
+                        <div className="rule-pill">
+                          <span>Match Loss:</span>
+                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{rule.match_loss_bonus_rc} / {rule.match_loss_bonus_rt} / {rule.match_loss_bonus_voucher}</span>
                         </div>
                         <div className="rule-pill">
                           <span>Tourney Bonus:</span>
@@ -223,19 +243,55 @@ export default function FinancialRulesManager() {
                   
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     <div className="admin-form-group">
-                      <label style={{ fontSize: "0.75rem", color: "#fff", fontWeight: 700 }}>Match Bonus (RC / RT / Voucher)</label>
+                      <label style={{ fontSize: "0.75rem", color: "#10b981", fontWeight: 700 }}>Match Win Bonus (RC / RT / Voucher)</label>
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.match_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.match_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.match_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", color: "#fbbf24", fontWeight: 700 }}>Match Draw Bonus (RC / RT / Voucher)</label>
+                      <div className="currency-input-container">
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-coins currency-icon rc" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                        </div>
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-star currency-icon rt" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                        </div>
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-ticket currency-icon voucher" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", color: "#ef4444", fontWeight: 700 }}>Match Loss Bonus (RC / RT / Voucher)</label>
+                      <div className="currency-input-container">
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-coins currency-icon rc" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                        </div>
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-star currency-icon rt" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                        </div>
+                        <div className="currency-input-wrapper">
+                          <i className="fa-solid fa-ticket currency-icon voucher" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
