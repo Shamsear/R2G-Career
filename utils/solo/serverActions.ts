@@ -1924,3 +1924,141 @@ export async function processTournamentMatchBonuses(tournamentId: number, season
     throw error;
   }
 }
+
+export async function fetchSeasonsList() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, season_number, is_active
+      FROM seasons
+      ORDER BY season_number DESC
+    `);
+    return rows;
+  } catch (error) {
+    console.error("Error fetching seasons list:", error);
+    throw error;
+  }
+}
+
+export async function createSoloSeason(seasonNumber: number, makeActive: boolean, carryOver: boolean) {
+  try {
+    await pool.query('BEGIN');
+
+    // 1. Check if season already exists
+    const { rows: existing } = await pool.query('SELECT id FROM seasons WHERE season_number = $1', [seasonNumber]);
+    if (existing.length > 0) {
+      throw new Error(`Season ${seasonNumber} already exists.`);
+    }
+
+    // 2. Fetch previously active season (before inserting new one) to carry over from
+    const { rows: activeRows } = await pool.query('SELECT id FROM seasons WHERE is_active = true LIMIT 1');
+    const oldSeasonId = activeRows.length > 0 ? activeRows[0].id : null;
+
+    // 3. Deactivate current active season(s) if we are making this one active
+    if (makeActive) {
+      await pool.query('UPDATE seasons SET is_active = FALSE');
+    }
+
+    // 4. Insert new season
+    const { rows: newSeasonRows } = await pool.query(
+      'INSERT INTO seasons (season_number, is_active) VALUES ($1, $2) RETURNING id, season_number, is_active',
+      [seasonNumber, makeActive]
+    );
+    const newSeason = newSeasonRows[0];
+    const newSeasonId = newSeason.id;
+
+    // 5. Carry over wallets and stats if requested and old season exists
+    if (carryOver && oldSeasonId) {
+      // Carry over wallets
+      await pool.query(`
+        INSERT INTO manager_wallets (manager_id, season_id, current_club_id, r2g_coin_balance, r2g_token_balance, r2g_voucher_balance, overall_rating, star_rating)
+        SELECT manager_id, $1, current_club_id, r2g_coin_balance, r2g_token_balance, r2g_voucher_balance, overall_rating, star_rating
+        FROM manager_wallets
+        WHERE season_id = $2
+      `, [newSeasonId, oldSeasonId]);
+
+      // Initialize manager seasons stats
+      await pool.query(`
+        INSERT INTO manager_seasons (manager_id, season_id, club_id, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, team_income, team_expense, team_profit)
+        SELECT manager_id, $1, club_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        FROM manager_seasons
+        WHERE season_id = $2
+      `, [newSeasonId, oldSeasonId]);
+      
+      // Carry over active player contracts if they exist
+      await pool.query(`
+        INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+        SELECT player_id, $1, current_club_id, signed_value, salary, start_season, expire_season, status
+        FROM player_contracts
+        WHERE season_id = $2 AND status = 'active'
+      `, [newSeasonId, oldSeasonId]);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true, season: newSeason };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error creating solo season:", error);
+    throw error;
+  }
+}
+
+export async function toggleSoloSeasonActive(seasonId: number, makeActive: boolean) {
+  try {
+    await pool.query('BEGIN');
+
+    if (makeActive) {
+      // Deactivate all first
+      await pool.query('UPDATE seasons SET is_active = FALSE');
+      
+      // Make this one active
+      await pool.query('UPDATE seasons SET is_active = TRUE WHERE id = $1', [seasonId]);
+    } else {
+      // Just deactivate this one
+      await pool.query('UPDATE seasons SET is_active = FALSE WHERE id = $1', [seasonId]);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error toggling solo season active status:", error);
+    throw error;
+  }
+}
+
+export async function deleteSoloSeason(seasonId: number) {
+  try {
+    // Check if it's active
+    const { rows: season } = await pool.query('SELECT is_active, season_number FROM seasons WHERE id = $1', [seasonId]);
+    if (season.length === 0) {
+      throw new Error("Season not found.");
+    }
+    if (season[0].is_active) {
+      throw new Error("Cannot delete the currently active season.");
+    }
+
+    // Check check dependencies in tournaments
+    const { rows: tournaments } = await pool.query('SELECT COUNT(*) as count FROM tournaments WHERE season_id = $1', [seasonId]);
+    if (parseInt(tournaments[0].count) > 0) {
+      throw new Error(`Cannot delete Season ${season[0].season_number} because it has associated tournaments.`);
+    }
+
+    await pool.query('BEGIN');
+    
+    // Delete seasonal tables for this season
+    await pool.query('DELETE FROM manager_seasons WHERE season_id = $1', [seasonId]);
+    await pool.query('DELETE FROM manager_wallets WHERE season_id = $1', [seasonId]);
+    await pool.query('DELETE FROM player_contracts WHERE season_id = $1', [seasonId]);
+    await pool.query('DELETE FROM player_seasonal_statuses WHERE season_id = $1', [seasonId]);
+    
+    // Delete the season itself
+    await pool.query('DELETE FROM seasons WHERE id = $1', [seasonId]);
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error deleting solo season:", error);
+    throw error;
+  }
+}

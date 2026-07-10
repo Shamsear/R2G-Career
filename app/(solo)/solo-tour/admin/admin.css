@@ -957,6 +957,7 @@
 .admin-module-card[data-accent="album"]       { --card-accent: #0ea5e9; --card-accent-dim: rgba(14,165,233,.08);  --card-accent-border: rgba(14,165,233,.20); }
 .admin-module-card[data-accent="awards"]      { --card-accent: #eab308; --card-accent-dim: rgba(234,179,8,.08);   --card-accent-border: rgba(234,179,8,.20); }
 .admin-module-card[data-accent="finops"]      { --card-accent: #14b8a6; --card-accent-dim: rgba(20,184,166,.08);  --card-accent-border: rgba(20,184,166,.20); }
+.admin-module-card[data-accent="seasons"]     { --card-accent: #ec4899; --card-accent-dim: rgba(236,72,153,.08);  --card-accent-border: rgba(236,72,153,.20); }
 
 /* ─── Stats Row ──────────────────────────────────────────────────────────────── */
 .admin-stats-row {

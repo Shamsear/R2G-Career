@@ -70,6 +70,13 @@ const ADMIN_MODULES = [
     title: "Financial Operations",
     desc: "Execute salary payouts, apply templates, and run custom adjustments.",
   },
+  {
+    href: "/solo-tour/admin/seasons",
+    icon: "fa-solid fa-calendar-plus",
+    accent: "seasons",
+    title: "Season Management",
+    desc: "Create new seasons, activate/deactivate seasons, and carry over managers/wallets.",
+  },
 ];
 
 export default function AdminDashboard() {
