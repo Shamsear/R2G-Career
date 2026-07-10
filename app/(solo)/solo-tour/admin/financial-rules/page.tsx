@@ -20,14 +20,14 @@ export default function FinancialRulesManager() {
   const [ruleForm, setRuleForm] = useState({
     id: "",
     name: "",
-    match_bonus_rc: 0, match_bonus_rt: 0, match_bonus_voucher: 0,
-    match_win_bonus_rc: 0, match_win_bonus_rt: 0, match_win_bonus_voucher: 0,
-    match_draw_bonus_rc: 0, match_draw_bonus_rt: 0, match_draw_bonus_voucher: 0,
-    match_loss_bonus_rc: 0, match_loss_bonus_rt: 0, match_loss_bonus_voucher: 0,
-    tournament_bonus_rc: 0, tournament_bonus_rt: 0, tournament_bonus_voucher: 0,
-    season_bonus_rc: 0, season_bonus_rt: 0, season_bonus_voucher: 0,
-    walkover_fine_rc: 0, walkover_fine_rt: 0, walkover_fine_voucher: 0,
-    match_extension_fee_rc: 0, match_extension_fee_rt: 0, match_extension_fee_voucher: 0
+    match_bonus_rc: "" as any, match_bonus_rt: "" as any, match_bonus_voucher: "" as any,
+    match_win_bonus_rc: "" as any, match_win_bonus_rt: "" as any, match_win_bonus_voucher: "" as any,
+    match_draw_bonus_rc: "" as any, match_draw_bonus_rt: "" as any, match_draw_bonus_voucher: "" as any,
+    match_loss_bonus_rc: "" as any, match_loss_bonus_rt: "" as any, match_loss_bonus_voucher: "" as any,
+    tournament_bonus_rc: "" as any, tournament_bonus_rt: "" as any, tournament_bonus_voucher: "" as any,
+    season_bonus_rc: "" as any, season_bonus_rt: "" as any, season_bonus_voucher: "" as any,
+    walkover_fine_rc: "" as any, walkover_fine_rt: "" as any, walkover_fine_voucher: "" as any,
+    match_extension_fee_rc: "" as any, match_extension_fee_rt: "" as any, match_extension_fee_voucher: "" as any
   });
 
   const showToast = (msg: string) => {
@@ -51,15 +51,15 @@ export default function FinancialRulesManager() {
   const clearForm = () => {
     setRuleForm({
       id: "", name: "",
-      match_bonus_rc: 0, match_bonus_rt: 0, match_bonus_voucher: 0,
-      match_win_bonus_rc: 0, match_win_bonus_rt: 0, match_win_bonus_voucher: 0,
-      match_draw_bonus_rc: 0, match_draw_bonus_rt: 0, match_draw_bonus_voucher: 0,
-      match_loss_bonus_rc: 0, match_loss_bonus_rt: 0, match_loss_bonus_voucher: 0,
-      tournament_bonus_rc: 0, tournament_bonus_rt: 0, tournament_bonus_voucher: 0,
-      season_bonus_rc: 0, season_bonus_rt: 0, season_bonus_voucher: 0,
-      walkover_fine_rc: 0, walkover_fine_rt: 0, walkover_fine_voucher: 0,
-      match_extension_fee_rc: 0, match_extension_fee_rt: 0, match_extension_fee_voucher: 0
-    });
+      match_bonus_rc: "", match_bonus_rt: "", match_bonus_voucher: "",
+      match_win_bonus_rc: "", match_win_bonus_rt: "", match_win_bonus_voucher: "",
+      match_draw_bonus_rc: "", match_draw_bonus_rt: "", match_draw_bonus_voucher: "",
+      match_loss_bonus_rc: "", match_loss_bonus_rt: "", match_loss_bonus_voucher: "",
+      tournament_bonus_rc: "", tournament_bonus_rt: "", tournament_bonus_voucher: "",
+      season_bonus_rc: "", season_bonus_rt: "", season_bonus_voucher: "",
+      walkover_fine_rc: "", walkover_fine_rt: "", walkover_fine_voucher: "",
+      match_extension_fee_rc: "", match_extension_fee_rt: "", match_extension_fee_voucher: ""
+    } as any);
   };
 
   const handleSaveRule = (e: React.FormEvent) => {
@@ -83,32 +83,34 @@ export default function FinancialRulesManager() {
   };
 
   const handleEditRule = (rule: any) => {
+    const p = (v: any) => v === null ? "" : v;
     setRuleForm({
       id: rule.id.toString(),
       name: rule.name,
-      match_bonus_rc: rule.match_bonus_rc, match_bonus_rt: rule.match_bonus_rt, match_bonus_voucher: rule.match_bonus_voucher,
-      match_win_bonus_rc: rule.match_win_bonus_rc || 0, match_win_bonus_rt: rule.match_win_bonus_rt || 0, match_win_bonus_voucher: rule.match_win_bonus_voucher || 0,
-      match_draw_bonus_rc: rule.match_draw_bonus_rc || 0, match_draw_bonus_rt: rule.match_draw_bonus_rt || 0, match_draw_bonus_voucher: rule.match_draw_bonus_voucher || 0,
-      match_loss_bonus_rc: rule.match_loss_bonus_rc || 0, match_loss_bonus_rt: rule.match_loss_bonus_rt || 0, match_loss_bonus_voucher: rule.match_loss_bonus_voucher || 0,
-      tournament_bonus_rc: rule.tournament_bonus_rc, tournament_bonus_rt: rule.tournament_bonus_rt, tournament_bonus_voucher: rule.tournament_bonus_voucher,
-      season_bonus_rc: rule.season_bonus_rc, season_bonus_rt: rule.season_bonus_rt, season_bonus_voucher: rule.season_bonus_voucher,
-      walkover_fine_rc: rule.walkover_fine_rc, walkover_fine_rt: rule.walkover_fine_rt, walkover_fine_voucher: rule.walkover_fine_voucher,
-      match_extension_fee_rc: rule.match_extension_fee_rc, match_extension_fee_rt: rule.match_extension_fee_rt, match_extension_fee_voucher: rule.match_extension_fee_voucher
+      match_bonus_rc: p(rule.match_bonus_rc), match_bonus_rt: p(rule.match_bonus_rt), match_bonus_voucher: p(rule.match_bonus_voucher),
+      match_win_bonus_rc: p(rule.match_win_bonus_rc), match_win_bonus_rt: p(rule.match_win_bonus_rt), match_win_bonus_voucher: p(rule.match_win_bonus_voucher),
+      match_draw_bonus_rc: p(rule.match_draw_bonus_rc), match_draw_bonus_rt: p(rule.match_draw_bonus_rt), match_draw_bonus_voucher: p(rule.match_draw_bonus_voucher),
+      match_loss_bonus_rc: p(rule.match_loss_bonus_rc), match_loss_bonus_rt: p(rule.match_loss_bonus_rt), match_loss_bonus_voucher: p(rule.match_loss_bonus_voucher),
+      tournament_bonus_rc: p(rule.tournament_bonus_rc), tournament_bonus_rt: p(rule.tournament_bonus_rt), tournament_bonus_voucher: p(rule.tournament_bonus_voucher),
+      season_bonus_rc: p(rule.season_bonus_rc), season_bonus_rt: p(rule.season_bonus_rt), season_bonus_voucher: p(rule.season_bonus_voucher),
+      walkover_fine_rc: p(rule.walkover_fine_rc), walkover_fine_rt: p(rule.walkover_fine_rt), walkover_fine_voucher: p(rule.walkover_fine_voucher),
+      match_extension_fee_rc: p(rule.match_extension_fee_rc), match_extension_fee_rt: p(rule.match_extension_fee_rt), match_extension_fee_voucher: p(rule.match_extension_fee_voucher)
     });
   };
 
   const handleDuplicateRule = (rule: any) => {
+    const p = (v: any) => v === null ? "" : v;
     setRuleForm({
       id: "", 
       name: `${rule.name} (Copy)`,
-      match_bonus_rc: rule.match_bonus_rc, match_bonus_rt: rule.match_bonus_rt, match_bonus_voucher: rule.match_bonus_voucher,
-      match_win_bonus_rc: rule.match_win_bonus_rc || 0, match_win_bonus_rt: rule.match_win_bonus_rt || 0, match_win_bonus_voucher: rule.match_win_bonus_voucher || 0,
-      match_draw_bonus_rc: rule.match_draw_bonus_rc || 0, match_draw_bonus_rt: rule.match_draw_bonus_rt || 0, match_draw_bonus_voucher: rule.match_draw_bonus_voucher || 0,
-      match_loss_bonus_rc: rule.match_loss_bonus_rc || 0, match_loss_bonus_rt: rule.match_loss_bonus_rt || 0, match_loss_bonus_voucher: rule.match_loss_bonus_voucher || 0,
-      tournament_bonus_rc: rule.tournament_bonus_rc, tournament_bonus_rt: rule.tournament_bonus_rt, tournament_bonus_voucher: rule.tournament_bonus_voucher,
-      season_bonus_rc: rule.season_bonus_rc, season_bonus_rt: rule.season_bonus_rt, season_bonus_voucher: rule.season_bonus_voucher,
-      walkover_fine_rc: rule.walkover_fine_rc, walkover_fine_rt: rule.walkover_fine_rt, walkover_fine_voucher: rule.walkover_fine_voucher,
-      match_extension_fee_rc: rule.match_extension_fee_rc, match_extension_fee_rt: rule.match_extension_fee_rt, match_extension_fee_voucher: rule.match_extension_fee_voucher
+      match_bonus_rc: p(rule.match_bonus_rc), match_bonus_rt: p(rule.match_bonus_rt), match_bonus_voucher: p(rule.match_bonus_voucher),
+      match_win_bonus_rc: p(rule.match_win_bonus_rc), match_win_bonus_rt: p(rule.match_win_bonus_rt), match_win_bonus_voucher: p(rule.match_win_bonus_voucher),
+      match_draw_bonus_rc: p(rule.match_draw_bonus_rc), match_draw_bonus_rt: p(rule.match_draw_bonus_rt), match_draw_bonus_voucher: p(rule.match_draw_bonus_voucher),
+      match_loss_bonus_rc: p(rule.match_loss_bonus_rc), match_loss_bonus_rt: p(rule.match_loss_bonus_rt), match_loss_bonus_voucher: p(rule.match_loss_bonus_voucher),
+      tournament_bonus_rc: p(rule.tournament_bonus_rc), tournament_bonus_rt: p(rule.tournament_bonus_rt), tournament_bonus_voucher: p(rule.tournament_bonus_voucher),
+      season_bonus_rc: p(rule.season_bonus_rc), season_bonus_rt: p(rule.season_bonus_rt), season_bonus_voucher: p(rule.season_bonus_voucher),
+      walkover_fine_rc: p(rule.walkover_fine_rc), walkover_fine_rt: p(rule.walkover_fine_rt), walkover_fine_voucher: p(rule.walkover_fine_voucher),
+      match_extension_fee_rc: p(rule.match_extension_fee_rc), match_extension_fee_rt: p(rule.match_extension_fee_rt), match_extension_fee_voucher: p(rule.match_extension_fee_voucher)
     });
     showToast("Template copied! Adjust values and save.");
   };
@@ -178,23 +180,23 @@ export default function FinancialRulesManager() {
                       <div className="rule-card-pills">
                         <div className="rule-pill">
                           <span>Match Win:</span>
-                          <span style={{ color: "#10b981", fontWeight: 700 }}>{rule.match_win_bonus_rc} / {rule.match_win_bonus_rt} / {rule.match_win_bonus_voucher}</span>
+                          <span style={{ color: "#10b981", fontWeight: 700 }}>{(rule.match_win_bonus_rc ?? "-")} / {(rule.match_win_bonus_rt ?? "-")} / {(rule.match_win_bonus_voucher ?? "-")}</span>
                         </div>
                         <div className="rule-pill">
                           <span>Match Draw:</span>
-                          <span style={{ color: "#fbbf24", fontWeight: 700 }}>{rule.match_draw_bonus_rc} / {rule.match_draw_bonus_rt} / {rule.match_draw_bonus_voucher}</span>
+                          <span style={{ color: "#fbbf24", fontWeight: 700 }}>{(rule.match_draw_bonus_rc ?? "-")} / {(rule.match_draw_bonus_rt ?? "-")} / {(rule.match_draw_bonus_voucher ?? "-")}</span>
                         </div>
                         <div className="rule-pill">
                           <span>Match Loss:</span>
-                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{rule.match_loss_bonus_rc} / {rule.match_loss_bonus_rt} / {rule.match_loss_bonus_voucher}</span>
+                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{(rule.match_loss_bonus_rc ?? "-")} / {(rule.match_loss_bonus_rt ?? "-")} / {(rule.match_loss_bonus_voucher ?? "-")}</span>
                         </div>
                         <div className="rule-pill">
                           <span>Tourney Bonus:</span>
-                          <span style={{ color: "#38bdf8", fontWeight: 700 }}>{rule.tournament_bonus_rc} / {rule.tournament_bonus_rt} / {rule.tournament_bonus_voucher}</span>
+                          <span style={{ color: "#38bdf8", fontWeight: 700 }}>{(rule.tournament_bonus_rc ?? "-")} / {(rule.tournament_bonus_rt ?? "-")} / {(rule.tournament_bonus_voucher ?? "-")}</span>
                         </div>
                         <div className="rule-pill">
                           <span>Walkover Fine:</span>
-                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{rule.walkover_fine_rc} / {rule.walkover_fine_rt} / {rule.walkover_fine_voucher}</span>
+                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{(rule.walkover_fine_rc ?? "-")} / {(rule.walkover_fine_rt ?? "-")} / {(rule.walkover_fine_voucher ?? "-")}</span>
                         </div>
                       </div>
 
@@ -247,15 +249,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.match_win_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_win_bonus_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
@@ -265,15 +267,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.match_draw_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_draw_bonus_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
@@ -283,15 +285,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.match_loss_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_loss_bonus_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
@@ -301,33 +303,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="admin-form-group">
-                      <label style={{ fontSize: "0.75rem", color: "#fff", fontWeight: 700 }}>Season Finale Bonus (RC / RT / Voucher)</label>
-                      <div className="currency-input-container">
-                        <div className="currency-input-wrapper">
-                          <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.season_bonus_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, season_bonus_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
-                        </div>
-                        <div className="currency-input-wrapper">
-                          <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.season_bonus_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, season_bonus_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
-                        </div>
-                        <div className="currency-input-wrapper">
-                          <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.season_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, season_bonus_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.tournament_bonus_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, tournament_bonus_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
@@ -344,15 +328,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.walkover_fine_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, walkover_fine_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>
@@ -362,15 +346,15 @@ export default function FinancialRulesManager() {
                       <div className="currency-input-container">
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" />
-                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_rc: parseInt(e.target.value) || 0 }))} placeholder="RC" />
+                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_rc} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_rc: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RC" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" />
-                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_rt: parseInt(e.target.value) || 0 }))} placeholder="RT" />
+                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_rt} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_rt: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="RT" />
                         </div>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" />
-                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_voucher: parseInt(e.target.value) || 0 }))} placeholder="V" />
+                          <input type="number" className="admin-input" value={ruleForm.match_extension_fee_voucher} onChange={(e) => setRuleForm(prev => ({ ...prev, match_extension_fee_voucher: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))} placeholder="V" />
                         </div>
                       </div>
                     </div>

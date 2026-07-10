@@ -6,15 +6,19 @@ import { fetchActiveSeason } from "@/utils/solo/serverActions";
 
 export default function RwsDashboard() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [seasonNum, setSeasonNum] = useState<number>(7);
+  const [rwsYear, setRwsYear] = useState<number | null>(2026);
+  const [soloSeasonNum, setSoloSeasonNum] = useState<number>(9);
+  const [hasRws, setHasRws] = useState<boolean>(true);
 
   useEffect(() => {
     document.title = "R2G World Series - Main Hub";
     async function loadSeason() {
       try {
         const season = await fetchActiveSeason();
-        if (season && season.season_number) {
-          setSeasonNum(season.season_number);
+        if (season) {
+          setHasRws(!!season.has_rws);
+          setSoloSeasonNum(season.season_number);
+          setRwsYear(season.rws_year || null);
         }
       } catch (e) {
         console.error("Failed to load active season:", e);
@@ -32,13 +36,37 @@ export default function RwsDashboard() {
     card.style.setProperty("--mouse-y", `${y}px`);
   };
 
+  if (!hasRws) {
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
+          <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
+            <Link href="/" className="portal-btn btn-secondary back-link-btn">
+              <i className="fas fa-arrow-left" /> Back to Portal
+            </Link>
+          </div>
+          <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "3rem", color: "var(--solo-primary)", marginBottom: "1.5rem" }} />
+            <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>RWS Inactive</h2>
+            <p style={{ color: "var(--text-secondary)" }}>
+              The R2G World Series (RWS) is not scheduled for Solo Tour Season {soloSeasonNum}.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="portal-root-wrapper">
+    <div className="portal-root-wrapper" ref={containerRef}>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container" ref={containerRef}>
+      <div className="portal-container" style={{ maxWidth: "1200px" }}>
         
         {/* Breadcrumb back nav */}
         <div className="portal-breadcrumb">
@@ -51,7 +79,7 @@ export default function RwsDashboard() {
         <div className="rws-page-hero">
           <div className="portal-page-badge">
             <i className="fa-solid fa-crown" />
-            Season {seasonNum}
+            {rwsYear ? `RWS ${rwsYear}` : "RWS Season"}
           </div>
           <h1 className="rws-hero-title">
             R2G WORLD SERIES

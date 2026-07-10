@@ -507,7 +507,7 @@ export async function fetchFixtures(tournamentId?: number) {
 export async function fetchFixtureById(fixtureId: number) {
   try {
     const { rows } = await pool.query(`
-      SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number,
+      SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number, f.match_status, f.match_status_reason,
              t.name as tournament_name,
              hc.name as home_club_name, hc.logo_path as home_club_logo,
              ac.name as away_club_name, ac.logo_path as away_club_logo
@@ -532,6 +532,8 @@ export async function fetchFixtureById(fixtureId: number) {
       homeScore: r.home_score,
       awayScore: r.away_score,
       roundNumber: r.round_number,
+      matchStatus: r.match_status,
+      matchStatusReason: r.match_status_reason,
       matchEvents: typeof r.match_events === 'string' ? JSON.parse(r.match_events) : r.match_events
     };
   } catch (error) {
@@ -576,15 +578,41 @@ export async function fetchTournamentStandings(tournamentId: number) {
 export async function fetchActiveSeason() {
   try {
     const { rows } = await pool.query(`
-      SELECT id, season_number, is_active
-      FROM seasons
+      SELECT id, season_number, is_active, has_rws, rws_year,
+             start_bonus_rc, start_bonus_rt, start_bonus_voucher,
+             finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
+      FROM seasons s
       ORDER BY season_number DESC
       LIMIT 1
     `);
-    return rows.length > 0 ? rows[0] : { id: 6, season_number: 9, is_active: true };
+    return rows.length > 0 ? rows[0] : {
+      id: 6,
+      season_number: 9,
+      is_active: true,
+      has_rws: true,
+      rws_year: 2026,
+      start_bonus_rc: 1500,
+      start_bonus_rt: 50,
+      start_bonus_voucher: 5,
+      finale_bonus_rc: 2000,
+      finale_bonus_rt: 80,
+      finale_bonus_voucher: 10
+    };
   } catch (error) {
     console.error("Error fetching active season:", error);
-    return { id: 6, season_number: 9, is_active: true };
+    return {
+      id: 6,
+      season_number: 9,
+      is_active: true,
+      has_rws: true,
+      rws_season_number: 3,
+      start_bonus_rc: 1500,
+      start_bonus_rt: 50,
+      start_bonus_voucher: 5,
+      finale_bonus_rc: 2000,
+      finale_bonus_rt: 80,
+      finale_bonus_voucher: 10
+    };
   }
 }
 
@@ -700,6 +728,7 @@ export async function fetchFinancialRules() {
 
 export async function createFinancialRule(rule: any) {
   try {
+    const p = (v: any) => (v === "" || v === null || v === undefined) ? null : Number(v);
     const { rows } = await pool.query(`
       INSERT INTO career_financial_rules (
         name, 
@@ -715,14 +744,14 @@ export async function createFinancialRule(rule: any) {
       RETURNING *
     `, [
       rule.name,
-      rule.match_bonus_rc || 0, rule.match_bonus_rt || 0, rule.match_bonus_voucher || 0,
-      rule.match_win_bonus_rc || 0, rule.match_win_bonus_rt || 0, rule.match_win_bonus_voucher || 0,
-      rule.match_draw_bonus_rc || 0, rule.match_draw_bonus_rt || 0, rule.match_draw_bonus_voucher || 0,
-      rule.match_loss_bonus_rc || 0, rule.match_loss_bonus_rt || 0, rule.match_loss_bonus_voucher || 0,
-      rule.tournament_bonus_rc || 0, rule.tournament_bonus_rt || 0, rule.tournament_bonus_voucher || 0,
-      rule.season_bonus_rc || 0, rule.season_bonus_rt || 0, rule.season_bonus_voucher || 0,
-      rule.walkover_fine_rc || 0, rule.walkover_fine_rt || 0, rule.walkover_fine_voucher || 0,
-      rule.match_extension_fee_rc || 0, rule.match_extension_fee_rt || 0, rule.match_extension_fee_voucher || 0
+      p(rule.match_bonus_rc), p(rule.match_bonus_rt), p(rule.match_bonus_voucher),
+      p(rule.match_win_bonus_rc), p(rule.match_win_bonus_rt), p(rule.match_win_bonus_voucher),
+      p(rule.match_draw_bonus_rc), p(rule.match_draw_bonus_rt), p(rule.match_draw_bonus_voucher),
+      p(rule.match_loss_bonus_rc), p(rule.match_loss_bonus_rt), p(rule.match_loss_bonus_voucher),
+      p(rule.tournament_bonus_rc), p(rule.tournament_bonus_rt), p(rule.tournament_bonus_voucher),
+      p(rule.season_bonus_rc), p(rule.season_bonus_rt), p(rule.season_bonus_voucher),
+      p(rule.walkover_fine_rc), p(rule.walkover_fine_rt), p(rule.walkover_fine_voucher),
+      p(rule.match_extension_fee_rc), p(rule.match_extension_fee_rt), p(rule.match_extension_fee_voucher)
     ]);
     return rows[0];
   } catch (e) {
@@ -733,6 +762,7 @@ export async function createFinancialRule(rule: any) {
 
 export async function updateFinancialRule(id: number, rule: any) {
   try {
+    const p = (v: any) => (v === "" || v === null || v === undefined) ? null : Number(v);
     const { rows } = await pool.query(`
       UPDATE career_financial_rules SET
         name = $1, 
@@ -749,14 +779,14 @@ export async function updateFinancialRule(id: number, rule: any) {
       RETURNING *
     `, [
       rule.name,
-      rule.match_bonus_rc || 0, rule.match_bonus_rt || 0, rule.match_bonus_voucher || 0,
-      rule.match_win_bonus_rc || 0, rule.match_win_bonus_rt || 0, rule.match_win_bonus_voucher || 0,
-      rule.match_draw_bonus_rc || 0, rule.match_draw_bonus_rt || 0, rule.match_draw_bonus_voucher || 0,
-      rule.match_loss_bonus_rc || 0, rule.match_loss_bonus_rt || 0, rule.match_loss_bonus_voucher || 0,
-      rule.tournament_bonus_rc || 0, rule.tournament_bonus_rt || 0, rule.tournament_bonus_voucher || 0,
-      rule.season_bonus_rc || 0, rule.season_bonus_rt || 0, rule.season_bonus_voucher || 0,
-      rule.walkover_fine_rc || 0, rule.walkover_fine_rt || 0, rule.walkover_fine_voucher || 0,
-      rule.match_extension_fee_rc || 0, rule.match_extension_fee_rt || 0, rule.match_extension_fee_voucher || 0,
+      p(rule.match_bonus_rc), p(rule.match_bonus_rt), p(rule.match_bonus_voucher),
+      p(rule.match_win_bonus_rc), p(rule.match_win_bonus_rt), p(rule.match_win_bonus_voucher),
+      p(rule.match_draw_bonus_rc), p(rule.match_draw_bonus_rt), p(rule.match_draw_bonus_voucher),
+      p(rule.match_loss_bonus_rc), p(rule.match_loss_bonus_rt), p(rule.match_loss_bonus_voucher),
+      p(rule.tournament_bonus_rc), p(rule.tournament_bonus_rt), p(rule.tournament_bonus_voucher),
+      p(rule.season_bonus_rc), p(rule.season_bonus_rt), p(rule.season_bonus_voucher),
+      p(rule.walkover_fine_rc), p(rule.walkover_fine_rt), p(rule.walkover_fine_voucher),
+      p(rule.match_extension_fee_rc), p(rule.match_extension_fee_rt), p(rule.match_extension_fee_voucher),
       id
     ]);
     return rows[0];
@@ -1050,17 +1080,309 @@ export async function createFixture(data: any) {
   }
 }
 
-export async function updateFixture(id: number, homeScore: number | null, awayScore: number | null) {
+export async function updateFixture(
+  id: number,
+  homeScore: number | null,
+  awayScore: number | null,
+  matchStatus: string = 'played',
+  matchStatusReason: string | null = null
+) {
   try {
-    const { rows } = await pool.query(`
-      UPDATE fixtures 
-      SET home_score = $1, away_score = $2 
-      WHERE id = $3
+    await pool.query('BEGIN');
+
+    // 1. Fetch fixture and tournament details
+    const { rows: fixtureRows } = await pool.query(`
+      SELECT f.id, f.tournament_id, f.season_id, f.home_club_id, f.away_club_id, f.home_score, f.away_score, f.match_status,
+             t.name as tournament_name, t.financial_rule_id
+      FROM fixtures f
+      JOIN tournaments t ON f.tournament_id = t.id
+      WHERE f.id = $1
+    `, [id]);
+
+    if (fixtureRows.length === 0) {
+      throw new Error("Fixture not found");
+    }
+
+    const fixture = fixtureRows[0];
+    const tournamentId = fixture.tournament_id;
+    const seasonId = fixture.season_id;
+    const homeClubId = fixture.home_club_id;
+    const awayClubId = fixture.away_club_id;
+    const tournamentName = fixture.tournament_name;
+
+    // 2. Revert any previous financial transactions recorded in match_bonuses_given for this fixture
+    const { rows: prevPayouts } = await pool.query(`
+      SELECT manager_id, reward_type, coins_given, tokens_given, vouchers_given
+      FROM match_bonuses_given
+      WHERE fixture_id = $1
+    `, [id]);
+
+    for (const payout of prevPayouts) {
+      const pCoins = Number(payout.coins_given) || 0;
+      const pTokens = Number(payout.tokens_given) || 0;
+      const pVouchers = Number(payout.vouchers_given) || 0;
+      const mgrId = payout.manager_id;
+
+      // Revert from manager wallet
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_coin_balance = r2g_coin_balance - $1,
+            r2g_token_balance = r2g_token_balance - $2,
+            r2g_voucher_balance = r2g_voucher_balance - $3
+        WHERE manager_id = $4 AND season_id = $5
+      `, [pCoins, pTokens, pVouchers, mgrId, seasonId]);
+
+      // Revert from manager seasons stats (deduct from income & profit / add back to expenses)
+      if (payout.reward_type === 'walkover_fine') {
+        await pool.query(`
+          UPDATE manager_seasons
+          SET team_expense = team_expense - $1,
+              team_profit = team_profit + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [Math.abs(pCoins), mgrId, seasonId]);
+      } else {
+        await pool.query(`
+          UPDATE manager_seasons
+          SET team_income = team_income - $1,
+              team_profit = team_profit - $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [pCoins, mgrId, seasonId]);
+      }
+
+      // Log revert transaction
+      const revertDesc = `Reversal of ${payout.reward_type} reward for match #${id}`;
+      if (pCoins !== 0) {
+        await logTransaction(mgrId, seasonId, 'coin', -pCoins, 'reversal', revertDesc);
+      }
+      if (pTokens !== 0) {
+        await logTransaction(mgrId, seasonId, 'token', -pTokens, 'reversal', revertDesc);
+      }
+      if (pVouchers !== 0) {
+        await logTransaction(mgrId, seasonId, 'voucher', -pVouchers, 'reversal', revertDesc);
+      }
+    }
+
+    // Delete previous payout records
+    await pool.query(`DELETE FROM match_bonuses_given WHERE fixture_id = $1`, [id]);
+
+    // 3. Update the fixture's score and status in the DB
+    let finalHomeScore = homeScore;
+    let finalAwayScore = awayScore;
+
+    if (matchStatus === 'wo_home') {
+      finalHomeScore = 3;
+      finalAwayScore = 0;
+    } else if (matchStatus === 'wo_away') {
+      finalHomeScore = 0;
+      finalAwayScore = 3;
+    } else if (matchStatus === 'void') {
+      finalHomeScore = null;
+      finalAwayScore = null;
+    }
+
+    const { rows: updatedRows } = await pool.query(`
+      UPDATE fixtures
+      SET home_score = $1, away_score = $2, match_status = $3, match_status_reason = $4
+      WHERE id = $5
       RETURNING *
-    `, [homeScore, awayScore, id]);
-    return rows[0];
+    `, [finalHomeScore, finalAwayScore, matchStatus, matchStatusReason, id]);
+    const updatedFixture = updatedRows[0];
+
+    // 4. Calculate and apply new bonuses/fines if the match is completed
+    const { rows: ruleRows } = await pool.query(`
+      SELECT r.*
+      FROM career_financial_rules r
+      WHERE r.id = $1
+    `, [fixture.financial_rule_id]);
+
+    if (ruleRows.length > 0) {
+      const rule = ruleRows[0];
+      const payoutsToApply: { managerId: number; type: string; rc: number; rt: number; voucher: number; isBonus: boolean; desc: string }[] = [];
+
+      if (matchStatus === 'played') {
+        if (finalHomeScore !== null && finalAwayScore !== null) {
+          let homeOutcome: 'win' | 'draw' | 'loss' = 'draw';
+          let awayOutcome: 'win' | 'draw' | 'loss' = 'draw';
+
+          if (finalHomeScore > finalAwayScore) {
+            homeOutcome = 'win';
+            awayOutcome = 'loss';
+          } else if (finalHomeScore < finalAwayScore) {
+            homeOutcome = 'loss';
+            awayOutcome = 'win';
+          }
+
+          // Fetch win/loss/draw bonuses from template
+          const getBonuses = (outcome: 'win' | 'draw' | 'loss') => {
+            if (outcome === 'win') {
+              return {
+                rc: Number(rule.match_win_bonus_rc) || 0,
+                rt: Number(rule.match_win_bonus_rt) || 0,
+                v: Number(rule.match_win_bonus_voucher) || 0
+              };
+            } else if (outcome === 'draw') {
+              return {
+                rc: Number(rule.match_draw_bonus_rc) || 0,
+                rt: Number(rule.match_draw_bonus_rt) || 0,
+                v: Number(rule.match_draw_bonus_voucher) || 0
+              };
+            } else {
+              return {
+                rc: Number(rule.match_loss_bonus_rc) || 0,
+                rt: Number(rule.match_loss_bonus_rt) || 0,
+                v: Number(rule.match_loss_bonus_voucher) || 0
+              };
+            }
+          };
+
+          const hb = getBonuses(homeOutcome);
+          const ab = getBonuses(awayOutcome);
+
+          payoutsToApply.push({
+            managerId: homeClubId,
+            type: `match_${homeOutcome}`,
+            rc: hb.rc,
+            rt: hb.rt,
+            voucher: hb.v,
+            isBonus: true,
+            desc: `Match ${homeOutcome} bonus (${tournamentName} Round ${updatedFixture.round_number})`
+          });
+
+          payoutsToApply.push({
+            managerId: awayClubId,
+            type: `match_${awayOutcome}`,
+            rc: ab.rc,
+            rt: ab.rt,
+            voucher: ab.v,
+            isBonus: true,
+            desc: `Match ${awayOutcome} bonus (${tournamentName} Round ${updatedFixture.round_number})`
+          });
+        }
+      } else if (matchStatus === 'wo_home') {
+        // Home wins by walkover, Away team absent & fined
+        const hb = {
+          rc: Number(rule.match_win_bonus_rc) || 0,
+          rt: Number(rule.match_win_bonus_rt) || 0,
+          v: Number(rule.match_win_bonus_voucher) || 0
+        };
+        const af = {
+          rc: Number(rule.walkover_fine_rc) || 0,
+          rt: Number(rule.walkover_fine_rt) || 0,
+          v: Number(rule.walkover_fine_voucher) || 0
+        };
+
+        payoutsToApply.push({
+          managerId: homeClubId,
+          type: 'walkover_win',
+          rc: hb.rc,
+          rt: hb.rt,
+          voucher: hb.v,
+          isBonus: true,
+          desc: `Walkover win bonus (${tournamentName} Round ${updatedFixture.round_number})`
+        });
+
+        payoutsToApply.push({
+          managerId: awayClubId,
+          type: 'walkover_fine',
+          rc: af.rc,
+          rt: af.rt,
+          voucher: af.v,
+          isBonus: false,
+          desc: `Walkover fine - Absent (${tournamentName} Round ${updatedFixture.round_number})`
+        });
+      } else if (matchStatus === 'wo_away') {
+        // Away wins by walkover, Home team absent & fined
+        const ab = {
+          rc: Number(rule.match_win_bonus_rc) || 0,
+          rt: Number(rule.match_win_bonus_rt) || 0,
+          v: Number(rule.match_win_bonus_voucher) || 0
+        };
+        const hf = {
+          rc: Number(rule.walkover_fine_rc) || 0,
+          rt: Number(rule.walkover_fine_rt) || 0,
+          v: Number(rule.walkover_fine_voucher) || 0
+        };
+
+        payoutsToApply.push({
+          managerId: homeClubId,
+          type: 'walkover_fine',
+          rc: hf.rc,
+          rt: hf.rt,
+          voucher: hf.v,
+          isBonus: false,
+          desc: `Walkover fine - Absent (${tournamentName} Round ${updatedFixture.round_number})`
+        });
+
+        payoutsToApply.push({
+          managerId: awayClubId,
+          type: 'walkover_win',
+          rc: ab.rc,
+          rt: ab.rt,
+          voucher: ab.v,
+          isBonus: true,
+          desc: `Walkover win bonus (${tournamentName} Round ${updatedFixture.round_number})`
+        });
+      }
+
+      // Execute new payouts
+      for (const p of payoutsToApply) {
+        const factor = p.isBonus ? 1 : -1;
+        const adjustedRc = p.rc * factor;
+        const adjustedRt = p.rt * factor;
+        const adjustedVoucher = p.voucher * factor;
+
+        // Update manager wallet
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_coin_balance = r2g_coin_balance + $1,
+              r2g_token_balance = r2g_token_balance + $2,
+              r2g_voucher_balance = r2g_voucher_balance + $3
+          WHERE manager_id = $4 AND season_id = $5
+        `, [adjustedRc, adjustedRt, adjustedVoucher, p.managerId, seasonId]);
+
+        // Update manager seasons stats (income/profit)
+        if (p.isBonus) {
+          await pool.query(`
+            UPDATE manager_seasons
+            SET team_income = team_income + $1,
+                team_profit = team_profit + $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [p.rc, p.managerId, seasonId]);
+        } else {
+          // Fine is team expense
+          await pool.query(`
+            UPDATE manager_seasons
+            SET team_expense = team_expense + $1,
+                team_profit = team_profit - $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [p.rc, p.managerId, seasonId]);
+        }
+
+        // Log transaction
+        const logType = p.isBonus ? 'coin' : 'coin_expense';
+        if (p.rc > 0) {
+          await logTransaction(p.managerId, seasonId, logType === 'coin' ? 'coin' : 'coin', adjustedRc, p.type, p.desc);
+        }
+        if (p.rt > 0) {
+          await logTransaction(p.managerId, seasonId, logType === 'coin' ? 'token' : 'token', adjustedRt, p.type, p.desc);
+        }
+        if (p.voucher > 0) {
+          await logTransaction(p.managerId, seasonId, logType === 'coin' ? 'voucher' : 'voucher', adjustedVoucher, p.type, p.desc);
+        }
+
+        // Record in match_bonuses_given
+        await pool.query(`
+          INSERT INTO match_bonuses_given (fixture_id, manager_id, season_id, reward_type, coins_given, tokens_given, vouchers_given)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [id, p.managerId, seasonId, p.type, adjustedRc, adjustedRt, adjustedVoucher]);
+      }
+    }
+
+    await pool.query('COMMIT');
+    return updatedFixture;
   } catch (e) {
-    console.error("Error updating fixture:", e);
+    await pool.query('ROLLBACK');
+    console.error("Error updating fixture details & match payouts:", e);
     throw e;
   }
 }
@@ -1380,43 +1702,53 @@ export async function applyTemplateAdjustment(
   try {
     await pool.query('BEGIN');
     
-    const { rows: tourneyRows } = await pool.query(`
-      SELECT t.financial_rule_id, r.*
-      FROM tournaments t
-      JOIN career_financial_rules r ON t.financial_rule_id = r.id
-      WHERE t.id = $1
-    `, [tournamentId]);
-    
-    if (tourneyRows.length === 0) {
-      throw new Error("Tournament has no financial template linked.");
-    }
-    
-    const rule = tourneyRows[0];
     let rc = 0, rt = 0, voucher = 0;
     let isBonus = true;
     
-    if (type === 'match_bonus') {
-      rc = Number(rule.match_bonus_rc) || 0;
-      rt = Number(rule.match_bonus_rt) || 0;
-      voucher = Number(rule.match_bonus_voucher) || 0;
-    } else if (type === 'tournament_bonus') {
-      rc = Number(rule.tournament_bonus_rc) || 0;
-      rt = Number(rule.tournament_bonus_rt) || 0;
-      voucher = Number(rule.tournament_bonus_voucher) || 0;
-    } else if (type === 'season_bonus') {
-      rc = Number(rule.season_bonus_rc) || 0;
-      rt = Number(rule.season_bonus_rt) || 0;
-      voucher = Number(rule.season_bonus_voucher) || 0;
-    } else if (type === 'walkover_fine') {
-      rc = Number(rule.walkover_fine_rc) || 0;
-      rt = Number(rule.walkover_fine_rt) || 0;
-      voucher = Number(rule.walkover_fine_voucher) || 0;
-      isBonus = false;
-    } else if (type === 'match_extension') {
-      rc = Number(rule.match_extension_fee_rc) || 0;
-      rt = Number(rule.match_extension_fee_rt) || 0;
-      voucher = Number(rule.match_extension_fee_voucher) || 0;
-      isBonus = false;
+    if (type === 'season_bonus') {
+      const { rows: seasonRows } = await pool.query(`
+        SELECT finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
+        FROM seasons
+        WHERE id = $1
+      `, [seasonId]);
+      if (seasonRows.length > 0) {
+        rc = Number(seasonRows[0].finale_bonus_rc) || 0;
+        rt = Number(seasonRows[0].finale_bonus_rt) || 0;
+        voucher = Number(seasonRows[0].finale_bonus_voucher) || 0;
+      }
+    } else {
+      const { rows: tourneyRows } = await pool.query(`
+        SELECT t.financial_rule_id, r.*
+        FROM tournaments t
+        JOIN career_financial_rules r ON t.financial_rule_id = r.id
+        WHERE t.id = $1
+      `, [tournamentId]);
+      
+      if (tourneyRows.length === 0) {
+        throw new Error("Tournament has no financial template linked.");
+      }
+      
+      const rule = tourneyRows[0];
+      
+      if (type === 'match_bonus') {
+        rc = Number(rule.match_bonus_rc) || 0;
+        rt = Number(rule.match_bonus_rt) || 0;
+        voucher = Number(rule.match_bonus_voucher) || 0;
+      } else if (type === 'tournament_bonus') {
+        rc = Number(rule.tournament_bonus_rc) || 0;
+        rt = Number(rule.tournament_bonus_rt) || 0;
+        voucher = Number(rule.tournament_bonus_voucher) || 0;
+      } else if (type === 'walkover_fine') {
+        rc = Number(rule.walkover_fine_rc) || 0;
+        rt = Number(rule.walkover_fine_rt) || 0;
+        voucher = Number(rule.walkover_fine_voucher) || 0;
+        isBonus = false;
+      } else if (type === 'match_extension') {
+        rc = Number(rule.match_extension_fee_rc) || 0;
+        rt = Number(rule.match_extension_fee_rt) || 0;
+        voucher = Number(rule.match_extension_fee_voucher) || 0;
+        isBonus = false;
+      }
     }
     
     if (isBonus) {
@@ -1928,8 +2260,10 @@ export async function processTournamentMatchBonuses(tournamentId: number, season
 export async function fetchSeasonsList() {
   try {
     const { rows } = await pool.query(`
-      SELECT id, season_number, is_active
-      FROM seasons
+      SELECT id, season_number, is_active, has_rws, rws_year,
+             start_bonus_rc, start_bonus_rt, start_bonus_voucher,
+             finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
+      FROM seasons s
       ORDER BY season_number DESC
     `);
     return rows;
@@ -1939,7 +2273,19 @@ export async function fetchSeasonsList() {
   }
 }
 
-export async function createSoloSeason(seasonNumber: number, makeActive: boolean, carryOver: boolean) {
+export async function createSoloSeason(
+  seasonNumber: number,
+  makeActive: boolean,
+  carryOver: boolean,
+  hasRws: boolean,
+  rwsYear: number | null,
+  startRc: number,
+  startRt: number,
+  startVoucher: number,
+  finaleRc: number,
+  finaleRt: number,
+  finaleVoucher: number
+) {
   try {
     await pool.query('BEGIN');
 
@@ -1959,10 +2305,14 @@ export async function createSoloSeason(seasonNumber: number, makeActive: boolean
     }
 
     // 4. Insert new season
-    const { rows: newSeasonRows } = await pool.query(
-      'INSERT INTO seasons (season_number, is_active) VALUES ($1, $2) RETURNING id, season_number, is_active',
-      [seasonNumber, makeActive]
-    );
+    const { rows: newSeasonRows } = await pool.query(`
+      INSERT INTO seasons (
+        season_number, is_active, has_rws, rws_year,
+        start_bonus_rc, start_bonus_rt, start_bonus_voucher,
+        finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, season_number, is_active, has_rws, rws_year
+    `, [seasonNumber, makeActive, hasRws, hasRws ? rwsYear : null, startRc, startRt, startVoucher, finaleRc, finaleRt, finaleVoucher]);
     const newSeason = newSeasonRows[0];
     const newSeasonId = newSeason.id;
 
@@ -1998,6 +2348,34 @@ export async function createSoloSeason(seasonNumber: number, makeActive: boolean
   } catch (error: any) {
     await pool.query('ROLLBACK');
     console.error("Error creating solo season:", error);
+    throw error;
+  }
+}
+
+export async function updateSoloSeasonDetails(
+  id: number,
+  seasonNumber: number,
+  hasRws: boolean,
+  rwsYear: number | null,
+  startRc: number,
+  startRt: number,
+  startVoucher: number,
+  finaleRc: number,
+  finaleRt: number,
+  finaleVoucher: number
+) {
+  try {
+    const { rows } = await pool.query(`
+      UPDATE seasons
+      SET season_number = $1, has_rws = $2, rws_year = $3,
+          start_bonus_rc = $4, start_bonus_rt = $5, start_bonus_voucher = $6,
+          finale_bonus_rc = $7, finale_bonus_rt = $8, finale_bonus_voucher = $9
+      WHERE id = $10
+      RETURNING id, season_number, has_rws, rws_year, is_active
+    `, [seasonNumber, hasRws, hasRws ? rwsYear : null, startRc, startRt, startVoucher, finaleRc, finaleRt, finaleVoucher, id]);
+    return rows[0];
+  } catch (error) {
+    console.error("Error updating solo season details:", error);
     throw error;
   }
 }

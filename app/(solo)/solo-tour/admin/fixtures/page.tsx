@@ -65,16 +65,16 @@ export default function FixturesManager() {
     });
   };
 
-  const handleUpdateFixtureScore = (fixtureId: number, home: string, away: string) => {
-    const homeScore = home === "" ? null : parseInt(home);
-    const awayScore = away === "" ? null : parseInt(away);
+  const handleUpdateFixtureScore = (fixtureId: number, home: string | number, away: string | number, status: string = 'played') => {
+    const homeScore = home === "" ? null : parseInt(home.toString());
+    const awayScore = away === "" ? null : parseInt(away.toString());
     startTransition(async () => {
       try {
-        await updateFixture(fixtureId, homeScore, awayScore);
-        showToast("Match score updated!");
+        await updateFixture(fixtureId, homeScore, awayScore, status);
+        showToast("Match status and score updated!");
         loadData();
       } catch {
-        showToast("Error updating score!");
+        showToast("Error updating match!");
       }
     });
   };
@@ -217,7 +217,8 @@ export default function FixturesManager() {
                           <thead>
                             <tr>
                               <th>Matchup (Home vs Away)</th>
-                              <th style={{ width: "220px", textAlign: "center" }}>Enter Result Score</th>
+                              <th style={{ width: "120px", textAlign: "center" }}>Result Score</th>
+                              <th style={{ width: "150px" }}>Match Status</th>
                               <th style={{ textAlign: "right" }}>Actions</th>
                             </tr>
                           </thead>
@@ -231,31 +232,31 @@ export default function FixturesManager() {
                                     <span style={{ fontWeight: 700, color: "#fff" }}>{f.awayClub}</span>
                                   </div>
                                 </td>
+                                <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "1rem", color: "#fff" }}>
+                                  {f.homeScore !== null && f.awayScore !== null ? `${f.homeScore} - ${f.awayScore}` : "-"}
+                                </td>
                                 <td>
-                                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", justifyContent: "center" }}>
-                                    <input
-                                      type="number"
-                                      className="admin-input"
-                                      style={{ width: "55px", padding: "4px", textAlign: "center", fontWeight: "bold" }}
-                                      defaultValue={f.homeScore ?? ""}
-                                      onBlur={(e) => handleUpdateFixtureScore(f.id, e.target.value, f.awayScore ?? "")}
-                                      placeholder="H"
-                                    />
-                                    <span style={{ color: "var(--text-secondary)" }}>-</span>
-                                    <input
-                                      type="number"
-                                      className="admin-input"
-                                      style={{ width: "55px", padding: "4px", textAlign: "center", fontWeight: "bold" }}
-                                      defaultValue={f.awayScore ?? ""}
-                                      onBlur={(e) => handleUpdateFixtureScore(f.id, f.homeScore ?? "", e.target.value)}
-                                      placeholder="A"
-                                    />
-                                  </div>
+                                  <span style={{
+                                    fontSize: "0.7rem",
+                                    padding: "2px 8px",
+                                    borderRadius: "4px",
+                                    background: f.match_status === 'void' ? "rgba(239, 68, 68, 0.15)" : f.match_status?.startsWith('wo') ? "rgba(245, 158, 11, 0.15)" : "rgba(34, 197, 94, 0.15)",
+                                    color: f.match_status === 'void' ? "#ef4444" : f.match_status?.startsWith('wo') ? "#f59e0b" : "#22c55e",
+                                    fontWeight: "bold",
+                                    textTransform: "uppercase"
+                                  }}>
+                                    {f.match_status || "played"}
+                                  </span>
                                 </td>
                                 <td style={{ textAlign: "right" }}>
-                                  <button className="portal-btn btn-danger" style={{ padding: "2px 8px", fontSize: "0.75rem" }} onClick={() => handleDeleteFixture(f.id)}>
-                                    <i className="fa-solid fa-trash" /> Delete
-                                  </button>
+                                  <div style={{ display: "inline-flex", gap: "0.4rem", justifyContent: "flex-end" }}>
+                                    <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "2px 8px", fontSize: "0.75rem" }}>
+                                      <i className="fa-solid fa-scale-balanced" style={{ marginRight: "4px" }} /> Manage
+                                    </Link>
+                                    <button className="portal-btn btn-danger" style={{ padding: "2px 8px", fontSize: "0.75rem" }} onClick={() => handleDeleteFixture(f.id)}>
+                                      <i className="fa-solid fa-trash" /> Delete
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}

@@ -26,7 +26,7 @@ export default function FinancialOperations() {
     matchday: 1,
     targetManagerId: "",
     targetTournamentId: "",
-    adjustmentType: "match_bonus", 
+    adjustmentType: "tournament_bonus", 
     customType: "reg_bonus", 
     customRc: 0,
     customRt: 0,
@@ -225,11 +225,8 @@ export default function FinancialOperations() {
               <div className="admin-form-group">
                 <label>Adjustment Action</label>
                 <select className="admin-select" value={finOp.adjustmentType} onChange={(e) => setFinOp(prev => ({ ...prev, adjustmentType: e.target.value }))}>
-                  <option value="match_bonus">Apply Match Bonus</option>
-                  <option value="tournament_bonus">Apply Tournament Bonus</option>
-                  <option value="season_bonus">Apply Season Bonus</option>
-                  <option value="walkover_fine">Apply Walkover Fine</option>
-                  <option value="match_extension">Apply Match Extension Fee</option>
+                  <option value="tournament_bonus">Apply Tournament Winner Bonus</option>
+                  <option value="season_bonus">Apply Season Finale Bonus</option>
                 </select>
               </div>
             </div>
@@ -256,7 +253,36 @@ export default function FinancialOperations() {
               </div>
               <div className="admin-form-group">
                 <label>Override Transaction Type</label>
-                <select className="admin-select" value={finOp.customType} onChange={(e) => setFinOp(prev => ({ ...prev, customType: e.target.value }))}>
+                <select
+                  className="admin-select"
+                  value={finOp.customType}
+                  onChange={(e) => {
+                    const type = e.target.value;
+                    let rc = finOp.customRc;
+                    let rt = finOp.customRt;
+                    let v = finOp.customVoucher;
+                    let notes = finOp.customNotes;
+                    if (type === "reg_bonus" && activeSeason) {
+                      rc = activeSeason.start_bonus_rc || 0;
+                      rt = activeSeason.start_bonus_rt || 0;
+                      v = activeSeason.start_bonus_voucher || 0;
+                      notes = `Season ${activeSeason.season_number} registration starting bonus`;
+                    } else if (type === "season_reward" && activeSeason) {
+                      rc = activeSeason.finale_bonus_rc || 0;
+                      rt = activeSeason.finale_bonus_rt || 0;
+                      v = activeSeason.finale_bonus_voucher || 0;
+                      notes = `Season ${activeSeason.season_number} finale bonus standing reward`;
+                    }
+                    setFinOp(prev => ({
+                      ...prev,
+                      customType: type,
+                      customRc: rc,
+                      customRt: rt,
+                      customVoucher: v,
+                      customNotes: notes
+                    }));
+                  }}
+                >
                   <option value="reg_bonus">Season Registration Bonus (Credit RC & RT)</option>
                   <option value="season_reward">Season Reward / Standing Payout</option>
                   <option value="ballon_dor_ceremony">Ballon d'Or Ceremony (Tokens RT only)</option>

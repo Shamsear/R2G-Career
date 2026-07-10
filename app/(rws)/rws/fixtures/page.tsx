@@ -72,7 +72,9 @@ const mockRounds: Round[] = [
 ];
 
 export default function RwsFixtures() {
-  const [seasonNum, setSeasonNum] = useState<number>(7);
+  const [rwsYear, setRwsYear] = useState<number | null>(2026);
+  const [soloSeasonNum, setSoloSeasonNum] = useState<number>(9);
+  const [hasRws, setHasRws] = useState<boolean>(true);
   const [rounds, setRounds] = useState<Round[]>([]);
 
   useEffect(() => {
@@ -80,8 +82,10 @@ export default function RwsFixtures() {
     async function loadData() {
       try {
         const season = await fetchActiveSeason();
-        if (season && season.season_number) {
-          setSeasonNum(season.season_number);
+        if (season) {
+          setHasRws(!!season.has_rws);
+          setSoloSeasonNum(season.season_number);
+          setRwsYear(season.rws_year || null);
         }
 
         const tournaments = await fetchTournaments();
@@ -143,6 +147,37 @@ export default function RwsFixtures() {
     loadData();
   }, []);
 
+  if (!hasRws) {
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
+          <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
+            <Link href="/rws" className="portal-btn btn-secondary back-link-btn">
+              <i className="fas fa-arrow-left" /> Back to RWS Hub
+            </Link>
+          </div>
+          <div className="admin-card" style={{ padding: "3rem 2rem", background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(236, 72, 153, 0.2)" }}>
+            <div style={{ fontSize: "4rem", marginBottom: "1.5rem", color: "var(--solo-primary)" }}>
+              <i className="fa-solid fa-trophy" />
+            </div>
+            <h1 className="portal-title" style={{ fontSize: "2rem", marginBottom: "1rem" }}>SERIES FIXTURES</h1>
+            <p className="portal-subtitle" style={{ fontSize: "1.1rem", color: "#94a3b8", lineHeight: "1.6" }}>
+              The Road to Glory World Series (RWS) is not scheduled for Solo Tour Season {soloSeasonNum}.
+            </p>
+            <div style={{ marginTop: "2rem" }}>
+              <Link href="/rws" className="portal-btn btn-primary" style={{ display: "inline-flex", padding: "10px 24px" }}>
+                Return to RWS Hub
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="portal-root-wrapper">
       <div className="portal-bg-grid" />
@@ -168,7 +203,7 @@ export default function RwsFixtures() {
             SERIES FIXTURES
           </h1>
           <p className="rws-hero-sub">
-            Track match schedules, live updates, and official knockout results for the Season {seasonNum} World Series.
+            Track match schedules, live updates, and official knockout results for the {rwsYear ? `RWS ${rwsYear}` : "RWS"} World Series.
           </p>
         </div>
 
