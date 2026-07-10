@@ -13,7 +13,7 @@ const NAV_CARDS = [
     badge: "Guides",
     badgeIcon: "fa-solid fa-book-open",
     title: "TOURNAMENT GUIDE",
-    desc: "Learn the rules, match structures, salary caps, and guidelines for the Solo Tour.",
+    desc: "Learn the rules, match structures, salary caps, and guidelines for the Career Tour.",
     highlights: [
       { icon: "fa-solid fa-circle-info", label: "Official Regulations" },
       { icon: "fa-solid fa-coins", label: "Salary Cap Details" },
@@ -162,7 +162,7 @@ export default function SoloTourDashboard() {
           </div>
           <div className="portal-page-badge animate-entrance" style={{ animationDelay: "140ms" }}>
             <i className="fa-solid fa-bolt" />
-            Solo Tour Mode
+            Career Tour Mode
           </div>
           <h1 className="portal-title animate-entrance" style={{ animationDelay: "200ms" }}>
             ROAD TO GLORY
@@ -289,7 +289,7 @@ export default function SoloTourDashboard() {
         <div className="portal-status-bar">
           <div className="status-item">
             <span className="status-indicator online" />
-            Solo Tour: Active
+            Career Tour: Active
           </div>
           <div className="status-item">Current Season: 7</div>
         </div>

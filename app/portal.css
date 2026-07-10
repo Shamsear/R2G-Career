@@ -241,11 +241,10 @@ body {
 
 .animate-entrance {
   opacity: 0;
-  transform: translateY(28px);
-  transition: none;
+  animation: slideUpFade 0.6s var(--ease-out) both;
 }
 .animate-entrance-active {
-  animation: slideUpFade 0.7s var(--ease-out) forwards;
+  /* Legacy trigger class */
 }
 
 /* Scroll-triggered */

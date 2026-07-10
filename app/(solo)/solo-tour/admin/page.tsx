@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { Suspense, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import "../../../portal.css";
 import "./admin.css";
 import { logoutSoloAdmin } from "@/utils/solo/serverActions";
@@ -79,7 +80,23 @@ const ADMIN_MODULES = [
   },
 ];
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const year = searchParams.get("year");
+  const specialId = searchParams.get("id");
+
+  let backHref = "/solo-tour";
+  let backLabel = "Back to Solo Dashboard";
+
+  if (from === "rws") {
+    backHref = year ? `/rws/${year}` : "/rws";
+    backLabel = year ? `Back to RWS ${year}` : "Back to RWS Hub";
+  } else if (from === "special") {
+    backHref = specialId ? `/special-tour/${specialId}` : "/special-tour";
+    backLabel = "Back to Special Tour";
+  }
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
@@ -96,8 +113,8 @@ export default function AdminDashboard() {
       <div className="portal-container">
         {/* Breadcrumb */}
         <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-          <Link href="/solo-tour" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Solo Dashboard
+          <Link href={backHref} className="portal-btn btn-secondary back-link-btn">
+            <i className="fas fa-arrow-left" /> {backLabel}
           </Link>
           <button 
             onClick={async () => {
@@ -148,5 +165,20 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-container" style={{ textAlign: "center", paddingTop: "5rem", color: "var(--text-secondary)" }}>
+          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "2rem", color: "var(--solo-primary)" }} />
+        </div>
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

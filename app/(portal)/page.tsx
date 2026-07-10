@@ -169,9 +169,9 @@ export default function Home() {
             <div className="portal-card-content">
               <span className="portal-card-badge">
                 <i className="fa-solid fa-bolt" />
-                Solo Mode
+                Career Mode
               </span>
-              <h2>SOLO TOUR</h2>
+              <h2>CAREER TOUR</h2>
               <p>
                 Build your legacy as an individual manager. Scout world-class
                 players, outbid rivals in live auctions, and conquer the league.

@@ -41,7 +41,7 @@ export default function SpecialTourYearSelection() {
           <Link href="/" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Portal
           </Link>
-          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+          <Link href="/solo-tour/admin?from=special" className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
             <i className="fa-solid fa-user-gear" /> Admin Console
           </Link>
         </div>

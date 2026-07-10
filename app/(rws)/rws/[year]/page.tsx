@@ -94,9 +94,12 @@ export default function RwsYearDashboard() {
       <div className="portal-container" style={{ maxWidth: "1200px" }}>
         
         {/* Breadcrumb back nav */}
-        <div className="portal-breadcrumb">
+        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <Link href="/rws" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to RWS Archives
+          </Link>
+          <Link href={`/solo-tour/admin?from=rws&year=${yearStr}`} className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+            <i className="fa-solid fa-user-gear" /> Admin Console
           </Link>
         </div>
 
@@ -211,36 +214,6 @@ export default function RwsYearDashboard() {
             </div>
           </Link>
 
-          {/* Card 4: Admin Panel */}
-          <Link 
-            href="/solo-tour/admin" 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/guide_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-lock-open" />
-                Admin
-              </span>
-              <h2>ADMIN PANEL</h2>
-              <p>
-                Configure RWS settings, nominees, match calendars, result entries, and photo cards.
-              </p>
-              <div className="portal-card-action">
-                Enter Hub <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
 
         </div>
 

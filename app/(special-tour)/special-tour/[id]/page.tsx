@@ -92,9 +92,12 @@ export default function SpecialTourHub() {
       <div className="portal-container" style={{ maxWidth: "1200px" }}>
         
         {/* Breadcrumb back nav */}
-        <div className="portal-breadcrumb">
+        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <Link href="/special-tour" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Special Tours
+          </Link>
+          <Link href={`/solo-tour/admin?from=special&id=${tourneyId}`} className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+            <i className="fa-solid fa-user-gear" /> Admin Console
           </Link>
         </div>
 
