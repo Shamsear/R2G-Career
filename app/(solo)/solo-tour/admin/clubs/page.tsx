@@ -29,9 +29,9 @@ export default function ClubsManager() {
     logoPath: "",
     managerName: "",
     avatarPath: "",
-    coinBalance: 1000,
-    tokenBalance: 200,
-    voucherBalance: 10,
+    coinBalance: 1500,
+    tokenBalance: 100,
+    voucherBalance: 0,
     rating: 80,
     starRating: 3,
     wins: 0, draws: 0, losses: 0, matchesPlayed: 0,
@@ -79,7 +79,7 @@ export default function ClubsManager() {
   const clearForm = () => {
     setClubForm({
       id: "", clubId: "", clubName: "", logoPath: "", managerName: "", avatarPath: "",
-      coinBalance: 1000, tokenBalance: 200, voucherBalance: 10, rating: 80, starRating: 3,
+      coinBalance: 1500, tokenBalance: 100, voucherBalance: 0, rating: 80, starRating: 3,
       wins: 0, draws: 0, losses: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
       isBanned: false
     });

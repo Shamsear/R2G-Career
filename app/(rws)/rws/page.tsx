@@ -1,72 +1,38 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchActiveSeason } from "@/utils/solo/serverActions";
+import { fetchSeasonsList } from "@/utils/solo/serverActions";
+import "./rws.css";
 
-export default function RwsDashboard() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [rwsYear, setRwsYear] = useState<number | null>(2026);
-  const [soloSeasonNum, setSoloSeasonNum] = useState<number>(9);
-  const [hasRws, setHasRws] = useState<boolean>(true);
+export default function RwsYearSelection() {
+  const [seasons, setSeasons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "R2G World Series - Main Hub";
-    async function loadSeason() {
+    document.title = "R2G World Series Archives";
+    async function loadSeasons() {
       try {
-        const season = await fetchActiveSeason();
-        if (season) {
-          setHasRws(!!season.has_rws);
-          setSoloSeasonNum(season.season_number);
-          setRwsYear(season.rws_year || null);
-        }
+        const data = await fetchSeasonsList();
+        // Filter only seasons that host RWS
+        const rwsSeasons = (data || []).filter((s: any) => s.has_rws && s.rws_year);
+        setSeasons(rwsSeasons);
       } catch (e) {
-        console.error("Failed to load active season:", e);
+        console.error("Failed to load seasons:", e);
+      } finally {
+        setLoading(false);
       }
     }
-    loadSeason();
+    loadSeasons();
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    card.style.setProperty("--mouse-x", `${x}px`);
-    card.style.setProperty("--mouse-y", `${y}px`);
-  };
-
-  if (!hasRws) {
-    return (
-      <div className="portal-root-wrapper">
-        <div className="portal-bg-grid" />
-        <div className="portal-glow-orb-1" />
-        <div className="portal-glow-orb-2" />
-        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
-          <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
-            <Link href="/" className="portal-btn btn-secondary back-link-btn">
-              <i className="fas fa-arrow-left" /> Back to Portal
-            </Link>
-          </div>
-          <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "3rem", color: "var(--solo-primary)", marginBottom: "1.5rem" }} />
-            <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>RWS Inactive</h2>
-            <p style={{ color: "var(--text-secondary)" }}>
-              The R2G World Series (RWS) is not scheduled for Solo Tour Season {soloSeasonNum}.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="portal-root-wrapper" ref={containerRef}>
+    <div className="portal-root-wrapper">
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container" style={{ maxWidth: "1200px" }}>
+      <div className="portal-container" style={{ maxWidth: "1000px" }}>
         
         {/* Breadcrumb back nav */}
         <div className="portal-breadcrumb">
@@ -76,148 +42,73 @@ export default function RwsDashboard() {
         </div>
 
         {/* Hero Section */}
-        <div className="rws-page-hero">
+        <div className="rws-page-hero" style={{ textAlign: "center", marginBottom: "3rem" }}>
           <div className="portal-page-badge">
             <i className="fa-solid fa-crown" />
-            {rwsYear ? `RWS ${rwsYear}` : "RWS Season"}
+            RWS Archives
           </div>
-          <h1 className="rws-hero-title">
-            R2G WORLD SERIES
+          <h1 className="rws-hero-title" style={{ fontSize: "2.5rem" }}>
+            R2G WORLD SERIES ARCHIVES
           </h1>
-          <p className="rws-hero-sub">
-            The peak competition of the R2G universe. View selected candidate lists,
-            track upcoming match calendars/results, and browse championship albums.
+          <p className="rws-hero-sub" style={{ margin: "1rem auto 0", maxWidth: "600px" }}>
+            Browse the active world championship hub or explore past R2G tournament records, rosters, schedules, and galleries by year.
           </p>
         </div>
 
-        {/* Sub-modules Grid */}
-        <div className="rws-dashboard-grid">
-          
-          {/* Card 1: Selected Candidates */}
-          <Link 
-            href="/rws/selected-candidates" 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-user-check" />
-                Nominees
-              </span>
-              <h2>SELECTED CANDIDATES</h2>
-              <p>
-                Inspect the elite managers and star players chosen to represent their teams in this season's world finals.
-              </p>
-              <div className="portal-card-action">
-                Inspect Roster <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 2: Fixtures */}
-          <Link 
-            href="/rws/fixtures" 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-calendar-days" />
-                Calendar
-              </span>
-              <h2>SERIES FIXTURES</h2>
-              <p>
-                Track match schedules, kick-off times, knockout brackets, live scores, and final round standings.
-              </p>
-              <div className="portal-card-action">
-                View Schedule <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 3: Album */}
-          <Link 
-            href="/rws/album" 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/album_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-images" />
-                Gallery
-              </span>
-              <h2>TROPHY ALBUM</h2>
-              <p>
-                Browse historical moments, tournament memories, team group photos, and trophy celebrations.
-              </p>
-              <div className="portal-card-action">
-                Open Gallery <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 4: Admin Panel */}
-          <Link 
-            href="/solo-tour/admin" 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/guide_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-lock-open" />
-                Admin
-              </span>
-              <h2>ADMIN PANEL</h2>
-              <p>
-                Configure RWS settings, nominees, match calendars, result entries, and photo cards.
-              </p>
-              <div className="portal-card-action">
-                Enter Hub <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
-        </div>
+        {/* Loading state */}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-secondary)" }}>
+            <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "2.5rem", marginBottom: "1rem", color: "var(--solo-primary)" }} />
+            <p>Loading world series editions...</p>
+          </div>
+        ) : seasons.length === 0 ? (
+          <div className="portal-card" style={{ padding: "3rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <i className="fa-solid fa-folder-closed" style={{ fontSize: "3rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }} />
+            <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>No RWS Editions Scheduled</h2>
+            <p style={{ color: "var(--text-secondary)" }}>
+              No seasons have been configured to host the R2G World Series yet.
+            </p>
+          </div>
+        ) : (
+          /* Folders Grid */
+          <div className="rws-dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
+            {seasons.map((s) => (
+              <Link 
+                key={s.id} 
+                href={`/rws/${s.rws_year}`} 
+                className="portal-card" 
+                style={{ minHeight: "180px", cursor: "pointer" }}
+              >
+                <div className="portal-card-overlay" />
+                <div className="portal-card-content" style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                      <i className="fa-solid fa-folder-open" style={{ fontSize: "2.5rem", color: "var(--solo-primary)" }} />
+                      <span style={{
+                        fontSize: "0.65rem",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        background: s.is_active ? "rgba(34, 197, 94, 0.15)" : "rgba(148, 163, 184, 0.15)",
+                        color: s.is_active ? "#22c55e" : "#94a3b8",
+                        fontWeight: "bold",
+                        textTransform: "uppercase"
+                      }}>
+                        {s.is_active ? "Active" : "Archived"}
+                      </span>
+                    </div>
+                    <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>RWS {s.rws_year}</h2>
+                    <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>
+                      Solo Tour Season {s.season_number}
+                    </p>
+                  </div>
+                  <div className="portal-card-action" style={{ marginTop: "1rem", fontSize: "0.75rem" }}>
+                    Open Hub <i className="fas fa-arrow-right" style={{ marginLeft: "4px" }} />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
 
       </div>
     </div>

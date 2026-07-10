@@ -682,9 +682,11 @@ export async function saveAppearances(clubId: string | number, seasonId: string 
   }
 }
 
-export async function fetchRwsAlbumPhotos() {
+export async function fetchRwsAlbumPhotos(seasonId?: number) {
   try {
-    const { rows } = await pool.query(`SELECT * FROM rws_album ORDER BY id DESC`);
+    const targetSeasonId = seasonId || await fetchActiveSeason().then(s => s?.id);
+    if (!targetSeasonId) return [];
+    const { rows } = await pool.query(`SELECT * FROM rws_album WHERE season_id = $1 ORDER BY id DESC`, [targetSeasonId]);
     return rows;
   } catch (e) {
     console.error("Error fetching album photos:", e);
@@ -692,13 +694,14 @@ export async function fetchRwsAlbumPhotos() {
   }
 }
 
-export async function addRwsAlbumPhoto(title: string, tag: string, imageUrl: string, dateStr: string) {
+export async function addRwsAlbumPhoto(title: string, tag: string, imageUrl: string, dateStr: string, seasonId?: number) {
   try {
+    const targetSeasonId = seasonId || await fetchActiveSeason().then(s => s?.id);
     const { rows } = await pool.query(`
-      INSERT INTO rws_album (title, tag, image_url, date_str)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO rws_album (title, tag, image_url, date_str, season_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [title, tag, imageUrl, dateStr]);
+    `, [title, tag, imageUrl, dateStr, targetSeasonId]);
     return rows[0];
   } catch (e) {
     console.error("Error adding photo:", e);
@@ -2437,6 +2440,23 @@ export async function deleteSoloSeason(seasonId: number) {
   } catch (error: any) {
     await pool.query('ROLLBACK');
     console.error("Error deleting solo season:", error);
+    throw error;
+  }
+}
+
+export async function fetchSeasonByRwsYear(rwsYear: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, season_number, is_active, has_rws, rws_year,
+             start_bonus_rc, start_bonus_rt, start_bonus_voucher,
+             finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
+      FROM seasons
+      WHERE has_rws = true AND rws_year = $1
+      LIMIT 1
+    `, [rwsYear]);
+    return rows[0] || null;
+  } catch (error) {
+    console.error("Error fetching season by RWS year:", error);
     throw error;
   }
 }

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchSelectedCandidates } from "@/utils/solo/serverActions";
+import { useParams } from "next/navigation";
+import { fetchSeasonByRwsYear, fetchSelectedCandidates } from "@/utils/solo/serverActions";
+import "../../rws.css";
 
 interface Candidate {
   id: number;
@@ -17,17 +19,37 @@ interface Candidate {
   stat3: { label: string; value: string };
 }
 
-export default function SelectedCandidates() {
+export default function RwsYearSelectedCandidates() {
+  const params = useParams();
+  const yearStr = params.year as string;
+  const year = parseInt(yearStr, 10);
+
+  const [season, setSeason] = useState<any>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = "RWS - Selected Candidates";
+    document.title = `RWS ${yearStr} - Selected Candidates`;
 
     async function loadCandidates() {
       try {
-        const data = await fetchSelectedCandidates("R2G World Series");
+        if (isNaN(year)) {
+          setError("Invalid RWS Year");
+          setLoading(false);
+          return;
+        }
+
+        const s = await fetchSeasonByRwsYear(year);
+        if (!s) {
+          setError(`No R2G World Series scheduled for year ${yearStr}`);
+          setLoading(false);
+          return;
+        }
+
+        setSeason(s);
+
+        const data = await fetchSelectedCandidates("R2G World Series", s.id);
         if (data && (data as any).error) {
           throw new Error((data as any).error);
         }
@@ -41,7 +63,43 @@ export default function SelectedCandidates() {
     }
 
     loadCandidates();
-  }, []);
+  }, [year, yearStr]);
+
+  if (loading) {
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
+          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "3rem", color: "var(--solo-primary)", marginBottom: "1.5rem" }} />
+          <p style={{ color: "var(--text-secondary)" }}>Loading selected candidates...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !season) {
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
+          <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
+            <Link href={`/rws/${yearStr}`} className="portal-btn btn-secondary back-link-btn">
+              <i className="fas fa-arrow-left" /> Back to RWS Hub
+            </Link>
+          </div>
+          <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "3rem", color: "#ef4444", marginBottom: "1.5rem" }} />
+            <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>Edition Not Found</h2>
+            <p style={{ color: "var(--text-secondary)" }}>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="portal-root-wrapper">
@@ -53,7 +111,7 @@ export default function SelectedCandidates() {
         
         {/* Breadcrumb back nav */}
         <div className="portal-breadcrumb">
-          <Link href="/rws" className="portal-btn btn-secondary back-link-btn">
+          <Link href={`/rws/${yearStr}`} className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to RWS Hub
           </Link>
         </div>
@@ -65,45 +123,15 @@ export default function SelectedCandidates() {
             RWS Roster
           </div>
           <h1 className="rws-hero-title">
-            SELECTED CANDIDATES
+            SELECTED CANDIDATES {yearStr}
           </h1>
           <p className="rws-hero-sub">
-            Meet the nominated and selected club managers participating in the prestigious R2G World Series tournament.
+            Meet the nominated and selected club managers participating in RWS {yearStr} for Solo Tour Season {season.season_number}.
           </p>
         </div>
 
         {/* Candidates Roster Grid */}
-        {loading ? (
-          <div className="candidates-grid">
-            {Array(4)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="candidate-card skeleton" style={{ minHeight: "220px" }}>
-                  <div className="skeleton-header" style={{ display: "flex", gap: "1rem", padding: "1.25rem" }}>
-                    <div className="skeleton-photo" style={{ width: "50px", height: "50px", borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-                    <div className="skeleton-info" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                      <div className="skeleton-name" style={{ height: "16px", background: "rgba(255,255,255,0.05)", width: "60%" }} />
-                      <div className="skeleton-club" style={{ height: "12px", background: "rgba(255,255,255,0.05)", width: "40%" }} />
-                    </div>
-                  </div>
-                  <div className="skeleton-stats" style={{ display: "flex", justifyContent: "space-between", padding: "1.25rem", background: "rgba(255,255,255,0.02)" }}>
-                    <div className="skeleton-stat" style={{ height: "14px", width: "20%", background: "rgba(255,255,255,0.05)" }} />
-                    <div className="skeleton-stat" style={{ height: "14px", width: "20%", background: "rgba(255,255,255,0.05)" }} />
-                    <div className="skeleton-stat" style={{ height: "14px", width: "20%", background: "rgba(255,255,255,0.05)" }} />
-                  </div>
-                </div>
-              ))}
-          </div>
-        ) : error ? (
-          <div className="no-results-message" style={{ borderStyle: "solid", borderColor: "rgba(239, 68, 68, 0.2)" }}>
-            <i className="fa-solid fa-triangle-exclamation" style={{ color: "#ef4444" }} />
-            <h3>Error loading selected candidates</h3>
-            <p>{error}</p>
-            <button className="portal-btn btn-secondary reset-btn" onClick={() => window.location.reload()}>
-              Try Again
-            </button>
-          </div>
-        ) : candidates.length === 0 ? (
+        {candidates.length === 0 ? (
           <div className="no-results-message">
             <i className="fa-solid fa-user-slash" />
             <h3>No candidates selected</h3>
