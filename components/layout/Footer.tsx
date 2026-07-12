@@ -27,16 +27,16 @@ export default function Footer() {
           {/* Brand Section */}
           <div className="lg:col-span-2">
             <div className="flex items-center mb-3 gap-2">
-              <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md bg-white">
+              <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md">
                 <Image
-                  src="/logo.png"
-                  alt="SS League Logo"
+                  src="/assets/images/logo11.webp"
+                  alt="Road To Glory Logo"
                   width={32}
                   height={32}
-                  className="object-contain p-0.5"
+                  className="object-contain"
                 />
               </div>
-              <span className="text-lg font-bold gradient-text">SS League</span>
+              <span className="text-lg font-bold gradient-text">Road To Glory</span>
             </div>
             <p className="text-gray-600 text-xs leading-relaxed mb-4 max-w-md">
               Build your dream team through strategic bidding and competitive auctions.

@@ -66,13 +66,13 @@ export default function Navbar() {
       <div className="container mx-auto px-6 flex justify-between items-center" style={{ height: '64px' }}>
         {/* Logo */}
         <Link href={getDashboardUrl()} className="flex items-center group gap-3">
-          <div className="relative w-10 h-10 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 shadow-md group-hover:shadow-lg bg-white">
+          <div className="relative w-10 h-10 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 shadow-md group-hover:shadow-lg">
             <Image
-              src="/logo.png"
-              alt="SS League Logo"
+              src="/assets/images/logo11.webp"
+              alt="Road To Glory Logo"
               width={40}
               height={40}
-              className="object-contain p-0.5"
+              className="object-contain"
               priority
             />
             <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

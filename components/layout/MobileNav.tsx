@@ -89,13 +89,13 @@ export default function MobileNav() {
           {/* LEFT: Logo */}
           <div className="flex items-center gap-2 flex-shrink-0 z-10">
             <Link href={getDashboardUrl()} className="flex items-center gap-2" onClick={() => toggleMenu(false)}>
-              <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-white transition-transform hover:scale-110 shadow-md">
+              <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center transition-transform hover:scale-110 shadow-md">
                 <Image
-                  src="/logo.png"
-                  alt="SS League Logo"
+                  src="/assets/images/logo11.webp"
+                  alt="Road To Glory Logo"
                   width={40}
                   height={40}
-                  className="object-contain p-0.5"
+                  className="object-contain"
                   priority
                 />
               </div>
