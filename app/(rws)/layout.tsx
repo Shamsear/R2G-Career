@@ -10,6 +10,11 @@ import RwsFooter from "@/components/rws/RwsFooter";
 export const metadata: Metadata = {
   title: "Road To Glory - World Series",
   description: "R2G World Series Dashboard",
+  icons: {
+    icon: '/assets/images/logo11.webp',
+    apple: '/assets/images/logo11.webp',
+    shortcut: '/assets/images/logo11.webp',
+  },
 };
 
 export default function RwsLayout({

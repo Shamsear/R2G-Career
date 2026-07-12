@@ -24,28 +24,29 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
-  title: "SS League - Football Auction Platform",
+  title: "Road To Glory - Football Auction Platform",
   description: "Experience the thrill of building your dream football team through strategic bidding and competitive auctions",
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: '/assets/images/logo11.webp',
+    apple: '/assets/images/logo11.webp',
+    shortcut: '/assets/images/logo11.webp',
   },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'SS League',
+    title: 'Road To Glory',
   },
   openGraph: {
-    title: "SS League - Football Auction Platform",
+    title: "Road To Glory - Football Auction Platform",
     description: "Experience the thrill of building your dream football team through strategic bidding and competitive auctions",
-    images: ['/logo.png'],
+    images: ['/assets/images/logo11.webp'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: "SS League - Football Auction Platform",
+    title: "Road To Glory - Football Auction Platform",
     description: "Experience the thrill of building your dream football team through strategic bidding and competitive auctions",
-    images: ['/logo.png'],
+    images: ['/assets/images/logo11.webp'],
   },
 };
 

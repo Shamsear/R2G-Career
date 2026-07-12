@@ -9,6 +9,11 @@ import SoloFooter from "@/components/solo/SoloFooter";
 export const metadata: Metadata = {
   title: "Road To Glory - Solo Tour",
   description: "Solo Tour Dashboard",
+  icons: {
+    icon: '/assets/images/logo11.webp',
+    apple: '/assets/images/logo11.webp',
+    shortcut: '/assets/images/logo11.webp',
+  },
 };
 
 export default function SoloLayout({

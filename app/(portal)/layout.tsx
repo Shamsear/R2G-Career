@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description:
     "Build your legacy in the ultimate virtual football manager experience. Scout real players, outbid rivals in live auctions, and lead your squad to glory across competitive leagues.",
   keywords: ["football", "manager", "fantasy", "auction", "league", "tournament"],
+  icons: {
+    icon: '/assets/images/logo11.webp',
+    apple: '/assets/images/logo11.webp',
+    shortcut: '/assets/images/logo11.webp',
+  },
 };
 
 export const viewport: Viewport = {

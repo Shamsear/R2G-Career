@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchTournamentById, fetchSelectedCandidates } from "@/utils/solo/serverActions";
-import "../../../../(rws)/rws.css";
+import "../../../../(rws)/rws/rws.css";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 interface Candidate {
