@@ -179,96 +179,22 @@ export default function RwsYearSelectedCandidates() {
             <p style={{ fontSize: "0.82rem", margin: 0 }}>There are no participating teams configured for the R2G World Series yet.</p>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem", animation: "rwsFadeUp 0.5s ease-out both" }}>
+          <div className="rws-teams-grid">
             {candidates.map((candidate) => {
               const teamLogo = (!candidate.useExistingClub && candidate.customLogoPath) 
                 ? candidate.customLogoPath 
                 : (candidate.logoPath || "/assets/images/default-club-logo.png");
               return (
-                <div key={candidate.id} className="candidate-card" style={{
-                  background: "rgba(255, 255, 255, 0.02)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255, 255, 255, 0.06)",
-                  borderRadius: "18px",
-                  padding: "1.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  textAlign: "center",
-                  transition: "all 0.25s ease",
-                  position: "relative"
-                }} onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(168,85,247,0.25)"; e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.3)"; e.currentTarget.style.transform = "translateY(-4px)"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
-                  
-                  {/* Status Badge & Rating Header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "1rem" }}>
-                    <span style={{ fontSize: "0.62rem", fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.1)", color: "#c084fc" }}>
-                      {candidate.status}
-                    </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: 700, color: "#fbbf24", background: "rgba(251, 191, 36, 0.1)", padding: "2px 8px", borderRadius: "4px" }}>
-                      OVR {candidate.rating}
-                    </span>
-                  </div>
-
-                  {/* Prominent Team Logo */}
-                  <div style={{
-                    width: "90px",
-                    height: "90px",
-                    borderRadius: "20px",
-                    background: "rgba(255, 255, 255, 0.03)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: "1rem",
-                    overflow: "hidden",
-                    padding: "0.5rem",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.2)"
-                  }}>
+                <div key={candidate.id} className="rws-team-card">
+                  <div className="rws-team-logo-wrap">
                     <img 
                       src={teamLogo} 
-                      alt="" 
-                      style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                      onError={(e) => {
-                        e.currentTarget.src = "/assets/images/default-club-logo.png";
-                      }}
+                      alt={candidate.club}
+                      onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }}
                     />
                   </div>
-
-                  {/* Custom Name */}
-                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", fontWeight: 700, color: "#fff", margin: "0 0 0.25rem" }}>
-                    {candidate.club}
-                  </h3>
-
-                  {/* Manager Name */}
-                  <div style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)", marginBottom: "1.25rem", fontWeight: 500 }}>
-                    Manager: {candidate.name}
-                  </div>
-
-                  {/* Stats Grid */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "0.5rem",
-                    width: "100%",
-                    background: "rgba(0,0,0,0.15)",
-                    borderRadius: "12px",
-                    padding: "0.75rem",
-                    border: "1px solid rgba(255,255,255,0.02)"
-                  }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", fontWeight: 700, color: "#fff" }}>{candidate.stat1.value}</span>
-                      <span style={{ fontSize: "0.6rem", color: "rgba(255, 255, 255, 0.35)", textTransform: "uppercase", marginTop: "1px" }}>{candidate.stat1.label}</span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", borderLeft: "1px solid rgba(255, 255, 255, 0.05)", borderRight: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", fontWeight: 700, color: "#fff" }}>{candidate.stat2.value}</span>
-                      <span style={{ fontSize: "0.6rem", color: "rgba(255, 255, 255, 0.35)", textTransform: "uppercase", marginTop: "1px" }}>{candidate.stat2.label}</span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", fontWeight: 700, color: "#fff" }}>{candidate.stat3.value}</span>
-                      <span style={{ fontSize: "0.6rem", color: "rgba(255, 255, 255, 0.35)", textTransform: "uppercase", marginTop: "1px" }}>{candidate.stat3.label}</span>
-                    </div>
-                  </div>
-
+                  <h3 className="rws-team-name">{candidate.club}</h3>
+                  <div className="rws-team-manager">Manager: {candidate.name}</div>
                 </div>
               );
             })}
