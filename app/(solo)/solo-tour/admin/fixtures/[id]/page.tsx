@@ -81,14 +81,17 @@ export default function AdminFixtureDetail() {
     // Validate inputs
     let finalHome: number | null = null;
     let finalAway: number | null = null;
+    let finalStatus = matchStatus;
 
-    if (matchStatus === "played") {
-      if (homeScore === "" || awayScore === "") {
+    if (matchStatus === "played" || matchStatus === "scheduled") {
+      if (homeScore !== "" && awayScore !== "") {
+        finalHome = parseInt(homeScore);
+        finalAway = parseInt(awayScore);
+        finalStatus = "played"; // Automatically switch to played when scores are provided!
+      } else if (matchStatus === "played") {
         showToast("⚠️ Score digits are required for played matches!");
         return;
       }
-      finalHome = parseInt(homeScore);
-      finalAway = parseInt(awayScore);
     }
 
     startTransition(async () => {
@@ -97,7 +100,7 @@ export default function AdminFixtureDetail() {
           fixtureId,
           finalHome,
           finalAway,
-          matchStatus,
+          finalStatus,
           notes === "" ? null : notes
         );
         showToast("✅ Match results and payouts saved successfully!");
@@ -195,9 +198,17 @@ export default function AdminFixtureDetail() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", flexWrap: "wrap", gap: "1.5rem" }}>
             {/* Home Club */}
             <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
-              <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
-                {fixture.homeClub.substring(0, 2).toUpperCase()}
-              </div>
+              {fixture.homeLogo ? (
+                <img 
+                  src={fixture.homeLogo} 
+                  alt={fixture.homeClub} 
+                  style={{ width: "64px", height: "64px", objectFit: "contain" }} 
+                />
+              ) : (
+                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
+                  {fixture.homeClub.substring(0, 2).toUpperCase()}
+                </div>
+              )}
               <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>{fixture.homeClub}</h2>
               <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>HOME</span>
             </div>
@@ -229,9 +240,17 @@ export default function AdminFixtureDetail() {
 
             {/* Away Club */}
             <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
-              <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
-                {fixture.awayClub.substring(0, 2).toUpperCase()}
-              </div>
+              {fixture.awayLogo ? (
+                <img 
+                  src={fixture.awayLogo} 
+                  alt={fixture.awayClub} 
+                  style={{ width: "64px", height: "64px", objectFit: "contain" }} 
+                />
+              ) : (
+                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
+                  {fixture.awayClub.substring(0, 2).toUpperCase()}
+                </div>
+              )}
               <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>{fixture.awayClub}</h2>
               <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>AWAY</span>
             </div>
@@ -249,6 +268,7 @@ export default function AdminFixtureDetail() {
                   value={matchStatus} 
                   onChange={(e) => setMatchStatus(e.target.value)}
                 >
+                  <option value="scheduled">Scheduled / Unplayed</option>
                   <option value="played">Played (Scores)</option>
                   <option value="wo_home">Walkover (Home Win: 3 - 0)</option>
                   <option value="wo_away">Walkover (Away Win: 0 - 3)</option>
@@ -256,7 +276,7 @@ export default function AdminFixtureDetail() {
                 </select>
               </div>
 
-              {matchStatus === "played" ? (
+              {(matchStatus === "played" || matchStatus === "scheduled") ? (
                 <div className="admin-form-group">
                   <label>Enter Score (Home - Away)</label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -268,7 +288,7 @@ export default function AdminFixtureDetail() {
                       placeholder="Home"
                       min="0"
                       onChange={(e) => setHomeScore(e.target.value)}
-                      required
+                      required={matchStatus === "played"}
                     />
                     <span style={{ color: "#fff", fontWeight: "bold" }}>-</span>
                     <input
@@ -279,7 +299,7 @@ export default function AdminFixtureDetail() {
                       placeholder="Away"
                       min="0"
                       onChange={(e) => setAwayScore(e.target.value)}
-                      required
+                      required={matchStatus === "played"}
                     />
                   </div>
                 </div>

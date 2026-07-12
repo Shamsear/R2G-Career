@@ -5,6 +5,25 @@ import Link from "next/link";
 import { fetchSeasonsList } from "@/utils/solo/serverActions";
 import "./rws.css";
 
+function RwsLoadingState({ text }: { text: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 2rem", width: "100%", animation: "rwsFadeUp 0.5s ease-out both" }}>
+      <div style={{ position: "relative", width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem" }}>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#a855f7", borderRightColor: "#c084fc", animation: "rwsSpin 1s linear infinite" }} />
+        <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "rgba(168, 85, 247, 0.08)", border: "1px solid rgba(168, 85, 247, 0.2)", display: "flex", alignItems: "center", justifyContent: "center", animation: "rwsPulse 1.2s infinite alternate" }}>
+          <i className="fa-solid fa-trophy" style={{ color: "#c084fc", fontSize: "1rem" }} />
+        </div>
+      </div>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: "0.75rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.4)", letterSpacing: "2px", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+        {text}
+      </div>
+      <div style={{ width: "100px", height: "2px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "10px", overflow: "hidden", position: "relative" }}>
+        <div style={{ position: "absolute", height: "100%", width: "60%", background: "linear-gradient(90deg, #a855f7, #c084fc)", borderRadius: "10px", animation: "rwsLoadingBar 1.6s ease-in-out infinite" }} />
+      </div>
+    </div>
+  );
+}
+
 export default function RwsYearSelection() {
   const [seasons, setSeasons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,10 +76,7 @@ export default function RwsYearSelection() {
 
         {/* Loading state */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-secondary)" }}>
-            <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "2.5rem", marginBottom: "1rem", color: "var(--solo-primary)" }} />
-            <p>Loading world series editions...</p>
-          </div>
+          <RwsLoadingState text="Loading world series editions" />
         ) : seasons.length === 0 ? (
           <div className="portal-card" style={{ padding: "3rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
             <i className="fa-solid fa-folder-closed" style={{ fontSize: "3rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }} />

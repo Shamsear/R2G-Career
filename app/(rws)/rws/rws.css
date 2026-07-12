@@ -16,6 +16,22 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes rwsSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes rwsLoadingBar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes rwsPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.05); opacity: 1; }
+}
+
 .rws-page-hero {
   width: 100%;
   display: flex;

@@ -11,6 +11,7 @@ import {
   saveAppearances,
   fetchActiveSeason
 } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 interface Club {
   id: string;
@@ -241,12 +242,7 @@ export default function AppearancesLedgerPage() {
     return (
       <div className="portal-root-wrapper">
         <div className="portal-bg-grid" />
-        <div className="portal-container" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-          <div className="portal-glass-card" style={{ padding: "3rem", textAlign: "center" }}>
-            <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "2.5rem", color: "#3b82f6", marginBottom: "1rem" }} />
-            <h3>Loading Ledger System...</h3>
-          </div>
-        </div>
+        <RwsFullPageLoading text="Loading Ledger System" />
       </div>
     );
   }

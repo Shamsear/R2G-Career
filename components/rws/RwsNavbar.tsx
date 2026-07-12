@@ -11,11 +11,18 @@ export default function RwsNavbar() {
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
-  const navLinks = [
+  const segments = pathname.split("/");
+  const yearSegment = segments[2];
+  const hasYear = yearSegment && /^\d+$/.test(yearSegment);
+  const year = hasYear ? yearSegment : "";
+
+  const navLinks = hasYear ? [
+    { href: `/rws/${year}`, label: "01//DASHBOARD" },
+    { href: `/rws/${year}/selected-candidates`, label: "02//CANDIDATES" },
+    { href: `/rws/${year}/tournament`, label: "03//TOURNAMENT" },
+    { href: `/rws/${year}/album`, label: "04//ALBUM" },
+  ] : [
     { href: "/rws", label: "01//DASHBOARD" },
-    { href: "/rws/selected-candidates", label: "02//CANDIDATES" },
-    { href: "/rws/fixtures", label: "03//FIXTURES" },
-    { href: "/rws/album", label: "04//ALBUM" },
   ];
 
   return (
@@ -38,7 +45,9 @@ export default function RwsNavbar() {
           {/* Desktop Navigation Links */}
           <nav className="tech-nav">
             {navLinks.map((link) => {
-              const isActive = link.href === "/rws" ? pathname === "/rws" : pathname.startsWith(link.href);
+              const isActive = link.href === `/rws/${year}` || link.href === "/rws"
+                ? pathname === link.href
+                : pathname.startsWith(link.href);
               return (
                 <Link 
                   key={link.href} 
@@ -85,7 +94,9 @@ export default function RwsNavbar() {
 
         <div className="tech-mobile-links">
           {navLinks.map((link) => {
-            const isActive = link.href === "/rws" ? pathname === "/rws" : pathname.startsWith(link.href);
+            const isActive = link.href === `/rws/${year}` || link.href === "/rws"
+              ? pathname === link.href
+              : pathname.startsWith(link.href);
             return (
               <Link 
                 key={link.href} 

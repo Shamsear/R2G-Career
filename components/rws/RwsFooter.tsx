@@ -6,11 +6,18 @@ import { usePathname } from "next/navigation";
 export default function RwsFooter() {
   const pathname = usePathname();
 
-  const navLinks = [
+  const segments = pathname.split("/");
+  const yearSegment = segments[2];
+  const hasYear = yearSegment && /^\d+$/.test(yearSegment);
+  const year = hasYear ? yearSegment : "";
+
+  const navLinks = hasYear ? [
+    { href: `/rws/${year}`, label: "DASHBOARD" },
+    { href: `/rws/${year}/selected-candidates`, label: "CANDIDATES" },
+    { href: `/rws/${year}/tournament`, label: "TOURNAMENT" },
+    { href: `/rws/${year}/album`, label: "ALBUM" },
+  ] : [
     { href: "/rws", label: "DASHBOARD" },
-    { href: "/rws/selected-candidates", label: "CANDIDATES" },
-    { href: "/rws/fixtures", label: "FIXTURES" },
-    { href: "/rws/album", label: "ALBUM" },
   ];
 
   return (
@@ -26,7 +33,9 @@ export default function RwsFooter() {
         {/* Technical navigation links */}
         <div className="tech-footer-links">
           {navLinks.map((link, idx) => {
-            const isActive = link.href === "/rws" ? pathname === "/rws" : pathname.startsWith(link.href);
+            const isActive = link.href === `/rws/${year}` || link.href === "/rws"
+              ? pathname === link.href
+              : pathname.startsWith(link.href);
             return (
               <span key={link.href}>
                 {idx > 0 && <span className="tech-divider">//</span>}

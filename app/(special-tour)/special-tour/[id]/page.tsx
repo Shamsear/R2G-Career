@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchTournamentById } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 export default function SpecialTourHub() {
   const params = useParams();
@@ -23,13 +24,13 @@ export default function SpecialTourHub() {
         }
         const data = await fetchTournamentById(tourneyId);
         if (!data) {
-          setError("Tournament details could not be found.");
+          setError(`No Special Tournament details for ID ${tourneyId}`);
           return;
         }
         setTournament(data);
         document.title = `${data.name} Hub | R2G`;
-      } catch (e) {
-        console.error("Failed to load tournament:", e);
+      } catch (e: any) {
+        console.error("Failed to load special tournament:", e);
         setError("Error loading tournament details.");
       } finally {
         setLoading(false);
@@ -53,10 +54,7 @@ export default function SpecialTourHub() {
         <div className="portal-bg-grid" />
         <div className="portal-glow-orb-1" />
         <div className="portal-glow-orb-2" />
-        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
-          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "3rem", color: "var(--solo-primary)", marginBottom: "1.5rem" }} />
-          <p style={{ color: "var(--text-secondary)" }}>Loading tournament hub...</p>
-        </div>
+        <RwsFullPageLoading text="Loading tournament hub" />
       </div>
     );
   }
@@ -168,6 +166,33 @@ export default function SpecialTourHub() {
               </p>
               <div className="portal-card-action">
                 View Fixtures <i className="fas fa-arrow-right" />
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 3: Nominees */}
+          <Link 
+            href={`/special-tour/${tourneyId}/nominees`} 
+            className="portal-card"
+            onMouseMove={handleMouseMove}
+            style={{ minHeight: "220px" }}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.png')" }}
+            />
+            <div className="portal-card-overlay" />
+            <div className="portal-card-content">
+              <span className="portal-card-badge">
+                <i className="fa-solid fa-user-check" />
+                Nominees
+              </span>
+              <h2>PARTICIPATING TEAMS</h2>
+              <p>
+                View all confirmed participants, representative managers, custom team logos, and manager statistics.
+              </p>
+              <div className="portal-card-action">
+                View Confirmed Teams <i className="fas fa-arrow-right" />
               </div>
             </div>
           </Link>

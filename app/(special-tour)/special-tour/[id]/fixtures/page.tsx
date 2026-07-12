@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchTournamentById, fetchFixtures } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 export default function SpecialTourFixtures() {
   const params = useParams();
@@ -24,16 +25,15 @@ export default function SpecialTourFixtures() {
 
         const t = await fetchTournamentById(tourneyId);
         if (!t) {
-          setError("Tournament details could not be found.");
+          setError(`No Special Tournament details for ID ${tourneyId}`);
           return;
         }
         setTournament(t);
 
-        const data = await fetchFixtures(tourneyId);
-        setFixtures(data || []);
-      } catch (e) {
-        console.error("Error loading fixtures:", e);
-        setError("Error loading fixtures details.");
+        const f = await fetchFixtures(tourneyId);
+        setFixtures(f || []);
+      } catch (err) {
+        console.error("Error loading fixtures data:", err);
       } finally {
         setLoading(false);
       }
@@ -57,10 +57,7 @@ export default function SpecialTourFixtures() {
         <div className="portal-bg-grid" />
         <div className="portal-glow-orb-1" />
         <div className="portal-glow-orb-2" />
-        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
-          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "3rem", color: "var(--solo-primary)", marginBottom: "1.5rem" }} />
-          <p style={{ color: "var(--text-secondary)" }}>Loading tournament fixtures...</p>
-        </div>
+        <RwsFullPageLoading text="Loading tournament fixtures" />
       </div>
     );
   }

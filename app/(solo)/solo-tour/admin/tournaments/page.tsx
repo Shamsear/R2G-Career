@@ -29,7 +29,11 @@ export default function TournamentsManager() {
     name: "",
     formatType: "League",
     financialRuleId: "",
-    tournamentType: "solo"
+    tournamentType: "solo",
+    numGroups: "",
+    teamsPerGroup: "",
+    qualifiedPerGroup: "",
+    numTeams: ""
   });
 
   const [newTypeName, setNewTypeName] = useState("");
@@ -67,7 +71,11 @@ export default function TournamentsManager() {
       name: "",
       formatType: "League",
       financialRuleId: "",
-      tournamentType: "solo"
+      tournamentType: "solo",
+      numGroups: "",
+      teamsPerGroup: "",
+      qualifiedPerGroup: "",
+      numTeams: ""
     });
   };
 
@@ -77,7 +85,11 @@ export default function TournamentsManager() {
       name: t.name,
       formatType: t.format_type,
       financialRuleId: t.financial_rule_id ? t.financial_rule_id.toString() : "",
-      tournamentType: t.tournament_type || "solo"
+      tournamentType: t.tournament_type || "solo",
+      numGroups: t.num_groups !== null ? t.num_groups.toString() : "",
+      teamsPerGroup: t.teams_per_group !== null ? t.teams_per_group.toString() : "",
+      qualifiedPerGroup: t.qualified_per_group !== null ? t.qualified_per_group.toString() : "",
+      numTeams: t.num_teams !== null ? t.num_teams.toString() : ""
     });
   };
 
@@ -87,13 +99,28 @@ export default function TournamentsManager() {
     startTransition(async () => {
       try {
         const ruleId = tourneyForm.financialRuleId ? parseInt(tourneyForm.financialRuleId) : null;
+        const groups = tourneyForm.numGroups ? parseInt(tourneyForm.numGroups) : null;
+        const totalTeams = tourneyForm.numTeams ? parseInt(tourneyForm.numTeams) : null;
+        
+        // Auto-calculate teams per group if total teams and groups are defined
+        let teams = null;
+        if (totalTeams && groups && groups > 0) {
+          teams = Math.floor(totalTeams / groups);
+        }
+
+        const qualified = tourneyForm.qualifiedPerGroup ? parseInt(tourneyForm.qualifiedPerGroup) : null;
+
         if (tourneyForm.id) {
           await updateTournamentDetails(
             parseInt(tourneyForm.id),
             tourneyForm.name,
             tourneyForm.formatType,
             ruleId,
-            tourneyForm.tournamentType
+            tourneyForm.tournamentType,
+            groups,
+            teams,
+            qualified,
+            totalTeams
           );
           showToast("Tournament updated!");
         } else {
@@ -102,7 +129,11 @@ export default function TournamentsManager() {
             tourneyForm.formatType,
             activeSeason?.id || 6,
             ruleId,
-            tourneyForm.tournamentType
+            tourneyForm.tournamentType,
+            groups,
+            teams,
+            qualified,
+            totalTeams
           );
           showToast("Tournament created!");
         }
@@ -360,9 +391,64 @@ export default function TournamentsManager() {
                     <select className="admin-select" value={tourneyForm.formatType} onChange={(e) => setTourneyForm(prev => ({ ...prev, formatType: e.target.value }))}>
                       <option value="League">League Format</option>
                       <option value="Knockout">Knockout Format</option>
-                      <option value="GSL Group">GSL Group Format</option>
+                      <option value="Group + Knockout">Group + Knockout Format</option>
+                      <option value="League + Knockout">League + Knockout Format</option>
                     </select>
                   </div>
+
+                  {(tourneyForm.formatType === "Group + Knockout" || tourneyForm.formatType === "League + Knockout") && (() => {
+                    const computedTeamsPerGroup = tourneyForm.numTeams && tourneyForm.numGroups 
+                      ? Math.floor(parseInt(tourneyForm.numTeams) / parseInt(tourneyForm.numGroups)) 
+                      : 0;
+                    return (
+                      <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.8rem", marginBottom: "1rem" }}>
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label>Total Teams</label>
+                          <input 
+                            type="number" 
+                            className="admin-input" 
+                            min={2} 
+                            value={tourneyForm.numTeams} 
+                            onChange={(e) => setTourneyForm(prev => ({ ...prev, numTeams: e.target.value }))} 
+                            placeholder="e.g. 16" 
+                            required
+                          />
+                        </div>
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label>No. of Groups</label>
+                          <input 
+                            type="number" 
+                            className="admin-input" 
+                            min={1} 
+                            value={tourneyForm.numGroups} 
+                            onChange={(e) => setTourneyForm(prev => ({ ...prev, numGroups: e.target.value }))} 
+                            placeholder="e.g. 4" 
+                            required
+                          />
+                        </div>
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label>Teams / Group</label>
+                          <div style={{ padding: "6px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fbbf24", fontWeight: 700, fontSize: "0.85rem", height: "34px", display: "flex", alignItems: "center" }}>
+                            {computedTeamsPerGroup || "—"}
+                          </div>
+                        </div>
+                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                          <label>Qualifying Teams / Gp</label>
+                          <select 
+                            className="admin-select" 
+                            value={tourneyForm.qualifiedPerGroup} 
+                            onChange={(e) => setTourneyForm(prev => ({ ...prev, qualifiedPerGroup: e.target.value }))}
+                            required
+                          >
+                            <option value="">-- Choose --</option>
+                            {Array.from({ length: computedTeamsPerGroup }, (_, i) => i + 1).map(num => (
+                              <option key={num} value={num}>{num}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
                     <label>Tournament Type</label>

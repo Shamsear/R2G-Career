@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -9,7 +9,8 @@ import {
   fetchRegisteredClubs,
   nominateRwsCandidate,
   removeRwsCandidate,
-  fetchSelectedCandidates
+  fetchSelectedCandidates,
+  fetchActiveSeason
 } from "@/utils/solo/serverActions";
 
 export default function RwsNomineesManager() {
@@ -17,6 +18,23 @@ export default function RwsNomineesManager() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const [nomineeForm, setNomineeForm] = useState({
     clubId: "",
@@ -25,6 +43,8 @@ export default function RwsNomineesManager() {
     customTeamName: "",
     customLogoPath: ""
   });
+
+  const [activeSeason, setActiveSeason] = useState<any>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -35,7 +55,14 @@ export default function RwsNomineesManager() {
     try {
       const clubsData = await fetchRegisteredClubs();
       setClubs(clubsData || []);
-      const candData = await fetchSelectedCandidates("R2G World Series");
+
+      const activeS = await fetchActiveSeason();
+      setActiveSeason(activeS);
+
+      const rwsYearVal = activeS?.rws_year || 2026;
+      const tourName = `RWS ${rwsYearVal}`;
+
+      const candData = await fetchSelectedCandidates(tourName);
       setCandidates(candData || []);
     } catch {
       showToast("Error loading nomination details!");
@@ -70,9 +97,12 @@ export default function RwsNomineesManager() {
   const handleSaveNominee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomineeForm.clubId) return showToast("Select a club!");
+    const rwsYearVal = activeSeason?.rws_year || 2026;
+    const tourName = `RWS ${rwsYearVal}`;
     startTransition(async () => {
       try {
         await nominateRwsCandidate(
+          tourName,
           parseInt(nomineeForm.clubId), 
           nomineeForm.status,
           nomineeForm.useExistingClub ? null : nomineeForm.customTeamName,
@@ -90,9 +120,11 @@ export default function RwsNomineesManager() {
 
   const handleRemoveNomination = (clubId: number) => {
     if (!confirm("Are you sure you want to remove this club's nomination?")) return;
+    const rwsYearVal = activeSeason?.rws_year || 2026;
+    const tourName = `RWS ${rwsYearVal}`;
     startTransition(async () => {
       try {
-        await removeRwsCandidate(clubId);
+        await removeRwsCandidate(tourName, clubId);
         showToast("Nomination removed!");
         loadData();
       } catch {
@@ -166,7 +198,7 @@ export default function RwsNomineesManager() {
         </div>
 
         {/* Nomination Form Card */}
-        <div className="admin-card">
+        <div className="admin-card" style={{ overflow: "visible", zIndex: dropdownOpen ? 10 : 1 }}>
           <h2 className="admin-card-title">
             <i className="fa-solid fa-user-plus" />
             Nominate Candidate
@@ -178,12 +210,121 @@ export default function RwsNomineesManager() {
               <div className="admin-form-grid">
                 <div className="admin-form-group">
                   <label>Nominate Club</label>
-                  <select className="admin-select" value={nomineeForm.clubId} onChange={(e) => handleClubChange(e.target.value)}>
-                    <option value="">-- Select Club --</option>
-                    {clubs.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const filteredClubs = clubs.filter(c => 
+                      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                      c.manager.toLowerCase().includes(searchQuery.toLowerCase())
+                    );
+                    const selectedClubObj = clubs.find(c => c.id.toString() === nomineeForm.clubId);
+
+                    return (
+                      <div ref={dropdownRef} style={{ position: "relative" }}>
+                        <button 
+                          type="button"
+                          className="admin-select"
+                          style={{ 
+                            fontSize: "0.8rem", 
+                            padding: "6px 10px", 
+                            width: "100%", 
+                            display: "flex", 
+                            justifyContent: "space-between", 
+                            alignItems: "center",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            background: "rgba(0,0,0,0.2)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "6px",
+                            color: "#fff",
+                            height: "34px"
+                          }}
+                          onClick={() => setDropdownOpen(!dropdownOpen)}
+                        >
+                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {selectedClubObj ? `${selectedClubObj.name} (${selectedClubObj.manager})` : "-- Select Club --"}
+                          </span>
+                          <i className={`fa-solid fa-chevron-${dropdownOpen ? 'up' : 'down'}`} style={{ opacity: 0.5, fontSize: "0.75rem", marginLeft: "8px" }} />
+                        </button>
+
+                        {dropdownOpen && (
+                          <div style={{ 
+                            position: "absolute", 
+                            top: "40px", 
+                            left: 0, 
+                            right: 0, 
+                            background: "#242427", 
+                            border: "1px solid rgba(255,255,255,0.25)", 
+                            borderRadius: "8px", 
+                            zIndex: 9999, 
+                            padding: "6px",
+                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.7)", 
+                            minWidth: "220px"
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", padding: "4px 8px", marginBottom: "6px" }}>
+                              <i className="fa-solid fa-magnifying-glass" style={{ opacity: 0.4, fontSize: "0.75rem", marginRight: "6px" }} />
+                              <input 
+                                type="text"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ 
+                                  background: "none", 
+                                  border: "none", 
+                                  outline: "none", 
+                                  color: "#fff", 
+                                  fontSize: "0.75rem", 
+                                  width: "100%", 
+                                  padding: 0
+                                }}
+                                autoFocus
+                              />
+                              {searchQuery && (
+                                <button type="button" onClick={() => setSearchQuery("")} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: "0.75rem" }}>
+                                  <i className="fa-solid fa-xmark" />
+                                </button>
+                              )}
+                            </div>
+
+                            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px", maxHeight: "180px" }}>
+                              {filteredClubs.length === 0 ? (
+                                <div style={{ padding: "8px", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>No results found</div>
+                              ) : (
+                                filteredClubs.map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      handleClubChange(c.id.toString());
+                                      setDropdownOpen(false);
+                                      setSearchQuery("");
+                                    }}
+                                    style={{ 
+                                      textAlign: "left", 
+                                      width: "100%", 
+                                      background: "none", 
+                                      border: "none", 
+                                      borderRadius: "4px", 
+                                      padding: "6px 8px", 
+                                      color: "#fff", 
+                                      fontSize: "0.75rem", 
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center"
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                  >
+                                    <span>{c.name}</span>
+                                    <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>{c.manager}</span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="admin-form-group">
                   <label>Selection Status</label>

@@ -1,27 +1,22 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
 import {
   fetchTournaments,
-  fetchFixtures,
-  autoGenerateFixtures,
-  updateFixture,
-  deleteFixture
+  fetchFixtures
 } from "@/utils/solo/serverActions";
 
 export default function FixturesManager() {
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
-  const [legs, setLegs] = useState<string>("1");
   const [activeRound, setActiveRound] = useState<number>(1);
   
   const [toast, setToast] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -48,49 +43,6 @@ export default function FixturesManager() {
   useEffect(() => {
     loadData();
   }, [selectedTournamentId]);
-
-  const handleGenerate = () => {
-    if (!selectedTournamentId) return showToast("Select a tournament first!");
-    startTransition(async () => {
-      try {
-        const res = await autoGenerateFixtures(parseInt(selectedTournamentId), legs);
-        if (res.success) {
-          showToast(`Successfully generated ${res.count} fixtures in rounds!`);
-          setActiveRound(1);
-          loadData();
-        }
-      } catch (e: any) {
-        showToast(e.message || "Error generating fixtures!");
-      }
-    });
-  };
-
-  const handleUpdateFixtureScore = (fixtureId: number, home: string | number, away: string | number, status: string = 'played') => {
-    const homeScore = home === "" ? null : parseInt(home.toString());
-    const awayScore = away === "" ? null : parseInt(away.toString());
-    startTransition(async () => {
-      try {
-        await updateFixture(fixtureId, homeScore, awayScore, status);
-        showToast("Match status and score updated!");
-        loadData();
-      } catch {
-        showToast("Error updating match!");
-      }
-    });
-  };
-
-  const handleDeleteFixture = (id: number) => {
-    if (!confirm("Delete this fixture?")) return;
-    startTransition(async () => {
-      try {
-        await deleteFixture(id);
-        showToast("Fixture deleted!");
-        loadData();
-      } catch {
-        showToast("Error deleting fixture!");
-      }
-    });
-  };
 
   // Find unique rounds available in current fixtures list
   const rounds = Array.from(new Set(fixtures.map(f => f.roundNumber || 1))).sort((a, b) => a - b);
@@ -119,20 +71,20 @@ export default function FixturesManager() {
 
         {/* Header */}
         <div className="portal-header">
-          <div className="portal-page-badge"><i className="fa-solid fa-calendar-days" /> Fixtures Cockpit</div>
-          <h1 className="portal-title">FIXTURES GENERATOR & RESULTS</h1>
-          <p className="portal-subtitle">Auto-generate schedules in rounds for any tournament, and enter match scores.</p>
+          <div className="portal-page-badge"><i className="fa-solid fa-calendar-days" /> Results Manager</div>
+          <h1 className="portal-title">FIXTURES & SCORES</h1>
+          <p className="portal-subtitle">Select a tournament to view matches, filter by rounds, and enter match results.</p>
         </div>
 
         {/* Side-by-Side 2-column layout */}
         <div className="financial-layout">
           
-          {/* Left Column: Select tournament and parameters */}
+          {/* Left Column: Select tournament and rounds */}
           <div className="financial-sidebar">
             <div className="admin-card" style={{ marginTop: 0 }}>
               <h3 className="sub-card-title"><i className="fa-solid fa-sitemap" /> Select Tournament</h3>
               
-              <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+              <div className="admin-form-group" style={{ marginBottom: 0 }}>
                 <label>Tournament Stage</label>
                 <select 
                   className="admin-select" 
@@ -148,50 +100,49 @@ export default function FixturesManager() {
                   ))}
                 </select>
               </div>
-
-              {selectedTourneyObj && (
-                <>
-                  <div className="admin-form-group" style={{ marginBottom: "1.25rem" }}>
-                    <label>Leg Options</label>
-                    <select className="admin-select" value={legs} onChange={(e) => setLegs(e.target.value)}>
-                      <option value="1">One-Legged Matchups</option>
-                      <option value="2">Two-Legged Matchups (Home & Away)</option>
-                    </select>
-                  </div>
-                  
-                  <button 
-                    className="portal-btn btn-primary" 
-                    style={{ width: "100%", justifyContent: "center" }}
-                    onClick={handleGenerate}
-                    disabled={isPending}
-                  >
-                    <i className="fa-solid fa-wand-magic-sparkles" /> Auto-Generate Schedule
-                  </button>
-                </>
-              )}
             </div>
 
-            {/* List of generated rounds */}
+            {/* List of rounds */}
             {rounds.length > 0 && (
               <div className="admin-card" style={{ marginTop: 0 }}>
-                <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Tournament Rounds</h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                  {rounds.map(r => (
-                    <button
-                      key={r}
-                      className={`portal-btn ${activeRound === r ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: "4px 10px", fontSize: "0.8rem", minWidth: "40px" }}
-                      onClick={() => setActiveRound(r)}
-                    >
-                      Round {r}
-                    </button>
-                  ))}
+                <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Filter by Round</h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", background: "rgba(0,0,0,0.2)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", minWidth: "40px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0 }}
+                    onClick={() => setActiveRound(prev => Math.max(1, prev - 1))}
+                    disabled={activeRound <= 1}
+                  >
+                    <i className="fa-solid fa-chevron-left" />
+                  </button>
+
+                  <select
+                    className="admin-select"
+                    style={{ flex: 1, textAlign: "center", fontSize: "0.9rem", padding: "6px 10px", margin: 0, fontWeight: "bold", color: "#fbbf24", cursor: "pointer" }}
+                    value={activeRound}
+                    onChange={(e) => setActiveRound(parseInt(e.target.value))}
+                  >
+                    {rounds.map(r => (
+                      <option key={r} value={r}>Round {r}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", minWidth: "40px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0 }}
+                    onClick={() => setActiveRound(prev => Math.min(rounds[rounds.length - 1], prev + 1))}
+                    disabled={activeRound >= rounds[rounds.length - 1]}
+                  >
+                    <i className="fa-solid fa-chevron-right" />
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Right Column: Fixtures list grouped in rounds */}
+          {/* Right Column: Fixtures list */}
           <div className="financial-main">
             <div className="admin-card" style={{ marginTop: 0 }}>
               {selectedTournamentId ? (
@@ -204,12 +155,12 @@ export default function FixturesManager() {
                   {fixtures.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
                       <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block" }} />
-                      No matches scheduled. Click <strong>"Auto-Generate Schedule"</strong> on the left to set up pairings!
+                      No matches scheduled for this tournament yet.
                     </div>
                   ) : (
                     <>
                       <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                        Displaying {roundFixtures.length} matches scheduled for Round {activeRound}. Edit score and click outside the box to save.
+                        Displaying {roundFixtures.length} matches in Round {activeRound}. Click "Enter Result" next to a match to input scores and update status.
                       </p>
                       
                       <div className="table-responsive" style={{ marginTop: 0 }}>
@@ -227,6 +178,19 @@ export default function FixturesManager() {
                               <tr key={f.id}>
                                 <td>
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    {f.groupName && (
+                                      <span style={{ 
+                                        fontSize: "0.7rem", 
+                                        padding: "2px 6px", 
+                                        borderRadius: "4px", 
+                                        background: "rgba(251, 191, 36, 0.15)", 
+                                        color: "#fbbf24", 
+                                        fontWeight: "bold",
+                                        marginRight: "6px"
+                                      }}>
+                                        Group {f.groupName}
+                                      </span>
+                                    )}
                                     <span style={{ fontWeight: 700, color: "#fff" }}>{f.homeClub}</span>
                                     <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>vs</span>
                                     <span style={{ fontWeight: 700, color: "#fff" }}>{f.awayClub}</span>
@@ -240,23 +204,18 @@ export default function FixturesManager() {
                                     fontSize: "0.7rem",
                                     padding: "2px 8px",
                                     borderRadius: "4px",
-                                    background: f.match_status === 'void' ? "rgba(239, 68, 68, 0.15)" : f.match_status?.startsWith('wo') ? "rgba(245, 158, 11, 0.15)" : "rgba(34, 197, 94, 0.15)",
-                                    color: f.match_status === 'void' ? "#ef4444" : f.match_status?.startsWith('wo') ? "#f59e0b" : "#22c55e",
+                                    background: f.match_status === 'void' ? "rgba(239, 68, 68, 0.15)" : f.match_status?.startsWith('wo') ? "rgba(245, 158, 11, 0.15)" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "rgba(34, 197, 94, 0.15)" : "rgba(255, 255, 255, 0.08)",
+                                    color: f.match_status === 'void' ? "#ef4444" : f.match_status?.startsWith('wo') ? "#f59e0b" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "#22c55e" : "var(--text-secondary)",
                                     fontWeight: "bold",
                                     textTransform: "uppercase"
                                   }}>
-                                    {f.match_status || "played"}
+                                    {f.match_status || (f.homeScore !== null && f.awayScore !== null ? "played" : "scheduled")}
                                   </span>
                                 </td>
                                 <td style={{ textAlign: "right" }}>
-                                  <div style={{ display: "inline-flex", gap: "0.4rem", justifyContent: "flex-end" }}>
-                                    <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "2px 8px", fontSize: "0.75rem" }}>
-                                      <i className="fa-solid fa-scale-balanced" style={{ marginRight: "4px" }} /> Manage
-                                    </Link>
-                                    <button className="portal-btn btn-danger" style={{ padding: "2px 8px", fontSize: "0.75rem" }} onClick={() => handleDeleteFixture(f.id)}>
-                                      <i className="fa-solid fa-trash" /> Delete
-                                    </button>
-                                  </div>
+                                  <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    <i className="fa-solid fa-pen-to-square" /> Enter Result
+                                  </Link>
                                 </td>
                               </tr>
                             ))}
@@ -269,7 +228,7 @@ export default function FixturesManager() {
               ) : (
                 <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-secondary)" }}>
                   <i className="fa-solid fa-hand-pointer" style={{ fontSize: "2.5rem", marginBottom: "1rem", display: "block" }} />
-                  Please select a tournament stage from the sidebar to manage rounds and results.
+                  Please select a tournament stage from the sidebar to view matches and enter results.
                 </div>
               )}
             </div>
