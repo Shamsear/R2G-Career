@@ -105,6 +105,32 @@ export default function ClubsManager() {
     });
   };
 
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'avatar') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingField(field);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `${field}-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: field === 'logo' ? '/solo/club-logos' : '/solo/manager-avatars'
+      });
+      setClubForm(prev => ({
+        ...prev,
+        [field === 'logo' ? 'logoPath' : 'avatarPath']: res.url
+      }));
+      showToast(`${field === 'logo' ? 'Logo' : 'Avatar'} uploaded successfully to ImageKit!`);
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Upload failed");
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
   const handleEditManager = (m: any) => {
     setClubForm({
       id: m.id.toString(),
@@ -424,10 +450,32 @@ export default function ClubsManager() {
                     <div className="admin-form-group">
                       <label>Club Logo Path</label>
                       <input type="text" className="admin-input" value={clubForm.logoPath} onChange={(e) => setClubForm(prev => ({ ...prev, logoPath: e.target.value }))} placeholder="/assets/images/clubs/logo.png" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        id="club-logo-file-upload"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleFileUpload(e, 'logo')}
+                        disabled={uploadingField !== null}
+                      />
+                      <label htmlFor="club-logo-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingField !== null ? "none" : "auto" }}>
+                        {uploadingField === 'logo' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Logo</>}
+                      </label>
                     </div>
                     <div className="admin-form-group">
                       <label>Manager Avatar Path</label>
                       <input type="text" className="admin-input" value={clubForm.avatarPath} onChange={(e) => setClubForm(prev => ({ ...prev, avatarPath: e.target.value }))} placeholder="/assets/images/managers/avatar.png" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        id="mgr-avatar-file-upload"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleFileUpload(e, 'avatar')}
+                        disabled={uploadingField !== null}
+                      />
+                      <label htmlFor="mgr-avatar-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingField !== null ? "none" : "auto" }}>
+                        {uploadingField === 'avatar' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Avatar</>}
+                      </label>
                     </div>
                   </div>
                 </div>

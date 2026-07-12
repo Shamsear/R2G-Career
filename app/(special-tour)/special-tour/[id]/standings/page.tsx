@@ -148,7 +148,7 @@ export default function SpecialTourStandings() {
                               backgroundSize: "contain", 
                               backgroundPosition: "center", 
                               backgroundRepeat: "no-repeat", 
-                              backgroundImage: `url('/assets/images/club-logos/${encodeURIComponent(row.club_name.replace(/\s+/g, '-'))}.webp'), url('/assets/images/default-club-logo.png')` 
+                              backgroundImage: `url('${row.club_logo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
                             }}
                           />
                           {row.club_name}

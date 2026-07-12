@@ -408,7 +408,7 @@ export async function fetchSelectedCandidates(tournamentName: string) {
             SELECT DISTINCT ON (c.id)
                 c.id, c.name as club_name, c.logo_path,
                 m.name as manager_name, m.avatar_path,
-                tt.selection_status,
+                tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
                 ms.wins, ms.losses, ms.matches_played, ms.competitions
             FROM tournament_teams tt
@@ -431,10 +431,17 @@ export async function fetchSelectedCandidates(tournamentName: string) {
 
             const winRate = row.matches_played > 0 ? Math.round((row.wins / row.matches_played) * 100) : 0;
 
+            const displayName = (!row.use_existing_club && row.custom_team_name) 
+              ? row.custom_team_name 
+              : row.club_name;
+
             return {
                 id: row.id,
                 name: row.manager_name || 'Unknown',
-                club: row.club_name,
+                club: displayName,
+                customTeamName: row.custom_team_name,
+                useExistingClub: row.use_existing_club,
+                customLogoPath: row.custom_logo_path,
                 role: 'Tactical Manager',
                 status: row.selection_status,
                 rating: row.overall_rating || 85,
@@ -471,11 +478,15 @@ export async function fetchFixtures(tournamentId?: number) {
       SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number,
              t.name as tournament_name,
              hc.name as home_club_name, hc.logo_path as home_club_logo,
-             ac.name as away_club_name, ac.logo_path as away_club_logo
+             tth.custom_team_name as home_custom_name, tth.use_existing_club as home_use_existing,
+             ac.name as away_club_name, ac.logo_path as away_club_logo,
+             tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
       JOIN clubs hc ON f.home_club_id = hc.id
       JOIN clubs ac ON f.away_club_id = ac.id
+      LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
+      LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
     `;
     const params = [];
     if (tournamentId !== undefined) {
@@ -485,19 +496,23 @@ export async function fetchFixtures(tournamentId?: number) {
     query += ` ORDER BY f.id ASC`;
 
     const { rows } = await pool.query(query, params);
-    return rows.map(r => ({
-      id: r.id,
-      tournamentId: r.tournament_id,
-      tournamentName: r.tournament_name,
-      homeClub: r.home_club_name,
-      homeLogo: r.home_club_logo,
-      awayClub: r.away_club_name,
-      awayLogo: r.away_club_logo,
-      homeScore: r.home_score,
-      awayScore: r.away_score,
-      roundNumber: r.round_number,
-      matchEvents: typeof r.match_events === 'string' ? JSON.parse(r.match_events) : r.match_events
-    }));
+    return rows.map(r => {
+      const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : r.home_club_name;
+      const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : r.away_club_name;
+      return {
+        id: r.id,
+        tournamentId: r.tournament_id,
+        tournamentName: r.tournament_name,
+        homeClub: homeName,
+        homeLogo: r.home_club_logo,
+        awayClub: awayName,
+        awayLogo: r.away_club_logo,
+        homeScore: r.home_score,
+        awayScore: r.away_score,
+        roundNumber: r.round_number,
+        matchEvents: typeof r.match_events === 'string' ? JSON.parse(r.match_events) : r.match_events
+      };
+    });
   } catch (error) {
     console.error("Error fetching fixtures:", error);
     return [];
@@ -562,13 +577,19 @@ export async function fetchTournamentStandings(tournamentId: number) {
   try {
     const { rows } = await pool.query(`
       SELECT ts.club_id, ts.matches_played, ts.points, ts.goals_scored, ts.goals_against, ts.goal_difference,
-             c.name as club_name, c.logo_path as club_logo
+             c.name as club_name, c.logo_path as club_logo,
+             tt.custom_team_name, tt.use_existing_club
       FROM tournament_standings ts
       JOIN clubs c ON ts.club_id = c.id
+      JOIN tournaments t ON ts.tournament_id = t.id
+      LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
       ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_scored DESC
     `, [tournamentId]);
-    return rows;
+    return rows.map((r: any) => ({
+      ...r,
+      club_name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : r.club_name
+    }));
   } catch (error) {
     console.error("Error fetching tournament standings:", error);
     return [];
@@ -1470,19 +1491,25 @@ export async function deletePlayerContract(id: number) {
   }
 }
 
-export async function nominateRwsCandidate(clubId: number, status: string) {
+export async function nominateRwsCandidate(
+  clubId: number,
+  status: string,
+  customTeamName: string | null = null,
+  useExistingClub: boolean = true,
+  customLogoPath: string | null = null
+) {
   try {
     const { rowCount } = await pool.query(`
       UPDATE tournament_teams 
-      SET selection_status = $1 
-      WHERE tournament_name = 'R2G World Series' AND club_id = $2
-    `, [status, clubId]);
+      SET selection_status = $1, custom_team_name = $2, use_existing_club = $3, custom_logo_path = $4
+      WHERE tournament_name = 'R2G World Series' AND club_id = $5
+    `, [status, customTeamName, useExistingClub, customLogoPath, clubId]);
     
     if (rowCount === 0) {
       await pool.query(`
-        INSERT INTO tournament_teams (tournament_name, club_id, selection_status)
-        VALUES ('R2G World Series', $1, $2)
-      `, [clubId, status]);
+        INSERT INTO tournament_teams (tournament_name, club_id, selection_status, custom_team_name, use_existing_club, custom_logo_path)
+        VALUES ('R2G World Series', $1, $2, $3, $4, $5)
+      `, [clubId, status, customTeamName, useExistingClub, customLogoPath]);
     }
     return { success: true };
   } catch (e) {
@@ -1976,20 +2003,35 @@ export async function autoGenerateFixtures(tournamentId: number, legs: string) {
 export async function fetchTournamentClubs(tournamentId: number) {
   try {
     const { rows } = await pool.query(`
-      SELECT ts.club_id, c.name, c.logo_path
+      SELECT ts.club_id, c.name, c.logo_path,
+             tt.custom_team_name, tt.use_existing_club
       FROM tournament_standings ts
       JOIN clubs c ON ts.club_id = c.id
+      JOIN tournaments t ON ts.tournament_id = t.id
+      LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
       ORDER BY c.name ASC
     `, [tournamentId]);
-    return rows;
+    return rows.map((r: any) => ({
+      club_id: r.club_id,
+      name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : r.name,
+      logo_path: r.logo_path,
+      custom_team_name: r.custom_team_name,
+      use_existing_club: r.use_existing_club ?? true,
+      original_name: r.name
+    }));
   } catch (e) {
     console.error("Error fetching tournament clubs:", e);
     throw e;
   }
 }
 
-export async function addClubToTournament(tournamentId: number, clubId: number) {
+export async function addClubToTournament(
+  tournamentId: number, 
+  clubId: number,
+  customTeamName: string | null = null,
+  useExistingClub: boolean = true
+) {
   try {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
@@ -2000,12 +2042,30 @@ export async function addClubToTournament(tournamentId: number, clubId: number) 
       WHERE tournament_id = $1 AND club_id = $2
     `, [tournamentId, clubId]);
     
-    if (exists.length > 0) return { success: true };
-    
-    await pool.query(`
-      INSERT INTO tournament_standings (tournament_id, season_id, club_id, matches_played, points, goals_scored, goals_against, goal_difference)
-      VALUES ($1, $2, $3, 0, 0, 0, 0, 0)
-    `, [tournamentId, seasonId, clubId]);
+    if (exists.length === 0) {
+      await pool.query(`
+        INSERT INTO tournament_standings (tournament_id, season_id, club_id, matches_played, points, goals_scored, goals_against, goal_difference)
+        VALUES ($1, $2, $3, 0, 0, 0, 0, 0)
+      `, [tournamentId, seasonId, clubId]);
+    }
+
+    // Update or insert tournament_teams
+    const { rows: tourney } = await pool.query(`SELECT name FROM tournaments WHERE id = $1`, [tournamentId]);
+    if (tourney.length > 0) {
+      const tourneyName = tourney[0].name;
+      const { rowCount } = await pool.query(`
+        UPDATE tournament_teams 
+        SET custom_team_name = $1, use_existing_club = $2
+        WHERE tournament_name = $3 AND club_id = $4
+      `, [customTeamName, useExistingClub, tourneyName, clubId]);
+
+      if (rowCount === 0) {
+        await pool.query(`
+          INSERT INTO tournament_teams (tournament_name, club_id, selection_status, custom_team_name, use_existing_club)
+          VALUES ($1, $2, 'selected', $3, $4)
+        `, [tourneyName, clubId, customTeamName, useExistingClub]);
+      }
+    }
     
     return { success: true };
   } catch (e) {
@@ -2016,10 +2076,20 @@ export async function addClubToTournament(tournamentId: number, clubId: number) 
 
 export async function removeClubFromTournament(tournamentId: number, clubId: number) {
   try {
+    const { rows: tourney } = await pool.query(`SELECT name FROM tournaments WHERE id = $1`, [tournamentId]);
+
     await pool.query(`
       DELETE FROM tournament_standings 
       WHERE tournament_id = $1 AND club_id = $2
     `, [tournamentId, clubId]);
+
+    if (tourney.length > 0) {
+      await pool.query(`
+        DELETE FROM tournament_teams
+        WHERE tournament_name = $1 AND club_id = $2
+      `, [tourney[0].name, clubId]);
+    }
+
     return { success: true };
   } catch (e) {
     console.error("Error removing club from tournament:", e);

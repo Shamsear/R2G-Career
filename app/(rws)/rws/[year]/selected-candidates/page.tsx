@@ -14,6 +14,7 @@ interface Candidate {
   status: string;
   rating: number;
   avatar: string;
+  customLogoPath?: string | null;
   stat1: { label: string; value: string };
   stat2: { label: string; value: string };
   stat3: { label: string; value: string };
@@ -176,8 +177,20 @@ export default function RwsYearSelectedCandidates() {
                     </div>
                   </div>
 
-                  <div className="candidate-footer">
-                    <span className="candidate-club">{candidate.club}</span>
+                  <div className="candidate-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <div 
+                        style={{ 
+                          width: "18px", 
+                          height: "18px", 
+                          backgroundSize: "contain", 
+                          backgroundPosition: "center", 
+                          backgroundRepeat: "no-repeat", 
+                          backgroundImage: `url('${candidate.customLogoPath || `/assets/images/club-logos/${encodeURIComponent(candidate.club.replace(/\s+/g, '-'))}.webp`}'), url('/assets/images/default-club-logo.png')`
+                        }}
+                      />
+                      <span className="candidate-club">{candidate.club}</span>
+                    </div>
                     <span className="candidate-rating">OVR {candidate.rating}</span>
                   </div>
                 </div>

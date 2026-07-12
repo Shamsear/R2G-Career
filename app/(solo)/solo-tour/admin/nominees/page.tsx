@@ -20,7 +20,10 @@ export default function RwsNomineesManager() {
 
   const [nomineeForm, setNomineeForm] = useState({
     clubId: "",
-    status: "nominee"
+    status: "nominee",
+    useExistingClub: true,
+    customTeamName: "",
+    customLogoPath: ""
   });
 
   const showToast = (msg: string) => {
@@ -43,14 +46,41 @@ export default function RwsNomineesManager() {
     loadData();
   }, []);
 
+  const handleClubChange = (clubIdVal: string) => {
+    const existing = candidates.find(c => c.id === parseInt(clubIdVal));
+    if (existing) {
+      setNomineeForm({
+        clubId: clubIdVal,
+        status: existing.status,
+        useExistingClub: existing.useExistingClub ?? true,
+        customTeamName: existing.customTeamName || "",
+        customLogoPath: existing.customLogoPath || ""
+      });
+    } else {
+      setNomineeForm({
+        clubId: clubIdVal,
+        status: "nominee",
+        useExistingClub: true,
+        customTeamName: "",
+        customLogoPath: ""
+      });
+    }
+  };
+
   const handleSaveNominee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomineeForm.clubId) return showToast("Select a club!");
     startTransition(async () => {
       try {
-        await nominateRwsCandidate(parseInt(nomineeForm.clubId), nomineeForm.status);
+        await nominateRwsCandidate(
+          parseInt(nomineeForm.clubId), 
+          nomineeForm.status,
+          nomineeForm.useExistingClub ? null : nomineeForm.customTeamName,
+          nomineeForm.useExistingClub,
+          nomineeForm.useExistingClub ? null : nomineeForm.customLogoPath
+        );
         showToast("Nomination status updated!");
-        setNomineeForm({ clubId: "", status: "nominee" });
+        setNomineeForm({ clubId: "", status: "nominee", useExistingClub: true, customTeamName: "", customLogoPath: "" });
         loadData();
       } catch {
         showToast("Error nominating club!");
@@ -69,6 +99,29 @@ export default function RwsNomineesManager() {
         showToast("Error removing nominee!");
       }
     });
+  };
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `rws-logo-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: "/rws/custom-logos"
+      });
+      setNomineeForm(prev => ({ ...prev, customLogoPath: res.url }));
+      showToast("Logo uploaded successfully to ImageKit!");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to upload logo to ImageKit.");
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   return (
@@ -125,7 +178,7 @@ export default function RwsNomineesManager() {
               <div className="admin-form-grid">
                 <div className="admin-form-group">
                   <label>Nominate Club</label>
-                  <select className="admin-select" value={nomineeForm.clubId} onChange={(e) => setNomineeForm(prev => ({ ...prev, clubId: e.target.value }))}>
+                  <select className="admin-select" value={nomineeForm.clubId} onChange={(e) => handleClubChange(e.target.value)}>
                     <option value="">-- Select Club --</option>
                     {clubs.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -139,6 +192,51 @@ export default function RwsNomineesManager() {
                     <option value="confirmed">Confirmed (Selected)</option>
                   </select>
                 </div>
+                <div className="admin-form-group" style={{ gridColumn: "span 2", marginTop: "0.5rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "#fff" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={!nomineeForm.useExistingClub} 
+                      onChange={(e) => setNomineeForm(prev => ({ ...prev, useExistingClub: !e.target.checked }))} 
+                    />
+                    <span>Use custom nation or club (e.g. Brazil, Real Madrid) for this RWS edition</span>
+                  </label>
+                </div>
+                {!nomineeForm.useExistingClub && (
+                  <>
+                    <div className="admin-form-group">
+                      <label>Custom Representing Nation/Club Name</label>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        placeholder="e.g. Brazil, Germany, etc." 
+                        value={nomineeForm.customTeamName} 
+                        onChange={(e) => setNomineeForm(prev => ({ ...prev, customTeamName: e.target.value }))} 
+                      />
+                    </div>
+                    <div className="admin-form-group">
+                      <label>Custom Logo / Flag URL</label>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        placeholder="e.g. /assets/images/club-logos/brazil.webp" 
+                        value={nomineeForm.customLogoPath} 
+                        onChange={(e) => setNomineeForm(prev => ({ ...prev, customLogoPath: e.target.value }))} 
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        id="nominee-logo-file"
+                        style={{ display: "none" }}
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                      />
+                      <label htmlFor="nominee-logo-file" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingLogo ? "none" : "auto" }}>
+                        {uploadingLogo ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Logo</>}
+                      </label>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -177,7 +275,9 @@ export default function RwsNomineesManager() {
                     <tr key={cand.id}>
                       <td>
                         <strong>{cand.name}</strong>
-                        <span style={{ color: "var(--text-secondary)", marginLeft: "0.5rem", fontSize: "0.8rem" }}>({cand.club})</span>
+                        <span style={{ color: "var(--text-secondary)", marginLeft: "0.5rem", fontSize: "0.8rem" }}>
+                          ({cand.club} {!cand.useExistingClub && cand.customTeamName ? `as ${cand.customTeamName}` : ''})
+                        </span>
                       </td>
                       <td>
                         {cand.status === "confirmed" ? (

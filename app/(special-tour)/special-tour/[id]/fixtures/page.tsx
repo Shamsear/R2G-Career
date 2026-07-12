@@ -146,7 +146,17 @@ export default function SpecialTourFixtures() {
                           border: "1px solid rgba(255,255,255,0.03)"
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
+                          <div 
+                            style={{ 
+                              width: "20px", 
+                              height: "20px", 
+                              backgroundSize: "contain", 
+                              backgroundPosition: "center", 
+                              backgroundRepeat: "no-repeat", 
+                              backgroundImage: `url('${match.homeLogo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
+                            }}
+                          />
                           <span style={{ fontWeight: 600, color: "#fff" }}>{match.homeClub}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", justifyContent: "center", minWidth: "120px" }}>
@@ -160,8 +170,18 @@ export default function SpecialTourFixtures() {
                             </span>
                           )}
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, justifyContent: "flex-end" }}>
                           <span style={{ fontWeight: 600, color: "#fff" }}>{match.awayClub}</span>
+                          <div 
+                            style={{ 
+                              width: "20px", 
+                              height: "20px", 
+                              backgroundSize: "contain", 
+                              backgroundPosition: "center", 
+                              backgroundRepeat: "no-repeat", 
+                              backgroundImage: `url('${match.awayLogo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
+                            }}
+                          />
                         </div>
                       </div>
                     );

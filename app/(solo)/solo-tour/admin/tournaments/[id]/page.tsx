@@ -33,6 +33,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   // Participating clubs
   const [tournamentClubs, setTournamentClubs] = useState<any[]>([]);
   const [selectedClubToAdd, setSelectedClubToAdd] = useState("");
+  const [useExistingClubToAdd, setUseExistingClubToAdd] = useState(true);
+  const [customTeamNameToAdd, setCustomTeamNameToAdd] = useState("");
+  const [customLogoPathToAdd, setCustomLogoPathToAdd] = useState("");
   const [generateLegs, setGenerateLegs] = useState("single");
 
   const [toast, setToast] = useState<string | null>(null);
@@ -172,14 +175,46 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     if (!selectedClubToAdd) return showToast("Select a team to add!");
     startTransition(async () => {
       try {
-        await addClubToTournament(tournamentId, parseInt(selectedClubToAdd));
+        await addClubToTournament(
+          tournamentId, 
+          parseInt(selectedClubToAdd),
+          useExistingClubToAdd ? null : customTeamNameToAdd,
+          useExistingClubToAdd,
+          useExistingClubToAdd ? null : customLogoPathToAdd
+        );
         showToast("Team added to tournament!");
         setSelectedClubToAdd("");
+        setCustomTeamNameToAdd("");
+        setCustomLogoPathToAdd("");
+        setUseExistingClubToAdd(true);
         loadData();
       } catch {
         showToast("Error adding team!");
       }
     });
+  };
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `tour-logo-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: "/tournaments/custom-logos"
+      });
+      setCustomLogoPathToAdd(res.url);
+      showToast("Logo uploaded successfully to ImageKit!");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to upload logo to ImageKit.");
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleRemoveClub = (clubId: number) => {
@@ -355,7 +390,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         {tc.logo_path && (
                           <img src={tc.logo_path} alt={tc.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
                         )}
-                        <strong style={{ color: "#fff" }}>{tc.name}</strong>
+                        <strong style={{ color: "#fff" }}>
+                          {tc.name} {!tc.use_existing_club && `(${tc.original_name})`}
+                        </strong>
                       </span>
                       <button
                         type="button"
@@ -370,24 +407,68 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </div>
               )}
 
-              <form onSubmit={handleAddClub} style={{ display: "flex", gap: "0.4rem" }}>
-                <select 
-                  className="admin-select" 
-                  style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }}
-                  value={selectedClubToAdd}
-                  onChange={(e) => setSelectedClubToAdd(e.target.value)}
-                >
-                  <option value="">-- Add Team --</option>
-                  {clubs
-                    .filter(c => !tournamentClubs.some(tc => tc.club_id === c.id))
-                    .map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))
-                  }
-                </select>
-                <button type="submit" className="portal-btn btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto" }} disabled={isPending}>
-                  Add
-                </button>
+              <form onSubmit={handleAddClub} style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  <select 
+                    className="admin-select" 
+                    style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }}
+                    value={selectedClubToAdd}
+                    onChange={(e) => setSelectedClubToAdd(e.target.value)}
+                  >
+                    <option value="">-- Add Team --</option>
+                    {clubs
+                      .filter(c => !tournamentClubs.some(tc => tc.club_id === c.id))
+                      .map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))
+                    }
+                  </select>
+                  <button type="submit" className="portal-btn btn-primary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto" }} disabled={isPending}>
+                    Add
+                  </button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                  <input 
+                    type="checkbox" 
+                    id="useCustomTeam" 
+                    checked={!useExistingClubToAdd} 
+                    onChange={(e) => setUseExistingClubToAdd(!e.target.checked)} 
+                  />
+                  <label htmlFor="useCustomTeam" style={{ cursor: "pointer", color: "#fff" }}>Use custom nation or club name</label>
+                </div>
+                {!useExistingClubToAdd && (
+                  <>
+                    <input 
+                      type="text" 
+                      className="admin-input" 
+                      style={{ fontSize: "0.8rem", padding: "6px 10px", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff" }} 
+                      placeholder="Custom Name (e.g. Brazil)" 
+                      value={customTeamNameToAdd}
+                      onChange={(e) => setCustomTeamNameToAdd(e.target.value)}
+                    />
+                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        style={{ fontSize: "0.8rem", padding: "6px 10px", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", flex: 1 }} 
+                        placeholder="Logo URL (e.g. /assets/...)" 
+                        value={customLogoPathToAdd}
+                        onChange={(e) => setCustomLogoPathToAdd(e.target.value)}
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        id="tour-logo-file"
+                        style={{ display: "none" }}
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                      />
+                      <label htmlFor="tour-logo-file" className="portal-btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", pointerEvents: uploadingLogo ? "none" : "auto" }}>
+                        {uploadingLogo ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-cloud-arrow-up" />}
+                      </label>
+                    </div>
+                  </>
+                )}
               </form>
             </div>
 

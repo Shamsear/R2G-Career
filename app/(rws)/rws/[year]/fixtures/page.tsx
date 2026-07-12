@@ -121,9 +121,9 @@ export default function RwsYearFixtures() {
               groupedMap[rNum].push({
                 id: f.id,
                 homeTeam: f.homeClub,
-                homeLogo: (f.homeLogo || f.homeClub.slice(0, 2)).toUpperCase(),
+                homeLogo: f.homeLogo,
                 awayTeam: f.awayClub,
-                awayLogo: (f.awayLogo || f.awayClub.slice(0, 2)).toUpperCase(),
+                awayLogo: f.awayLogo,
                 homeScore: f.homeScore ?? undefined,
                 awayScore: f.awayScore ?? undefined,
                 time: "20:00 UTC",
@@ -247,7 +247,13 @@ export default function RwsYearFixtures() {
 
                   <div className="fixture-matchup">
                     <div className="fixture-team home">
-                      <div className="team-logo">{match.homeLogo}</div>
+                      <div className="team-logo">
+                        {(match.homeLogo && (match.homeLogo.startsWith('/') || match.homeLogo.startsWith('http'))) ? (
+                          <img src={match.homeLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%" }} />
+                        ) : (
+                          (match.homeLogo || match.homeTeam.slice(0, 2)).toUpperCase()
+                        )}
+                      </div>
                       <span className="team-name">{match.homeTeam}</span>
                     </div>
 
@@ -264,7 +270,13 @@ export default function RwsYearFixtures() {
                     </div>
 
                     <div className="fixture-team">
-                      <div className="team-logo">{match.awayLogo}</div>
+                      <div className="team-logo">
+                        {(match.awayLogo && (match.awayLogo.startsWith('/') || match.awayLogo.startsWith('http'))) ? (
+                          <img src={match.awayLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%" }} />
+                        ) : (
+                          (match.awayLogo || match.awayTeam.slice(0, 2)).toUpperCase()
+                        )}
+                      </div>
                       <span className="team-name">{match.awayTeam}</span>
                     </div>
                   </div>
