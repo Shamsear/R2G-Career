@@ -12,7 +12,11 @@ import {
   deductMatchdayPlayerSalaries,
   applyTemplateAdjustment,
   applyCustomAdjustment,
-  processTournamentMatchBonuses
+  processTournamentMatchBonuses,
+  fetchTournamentPositionRewardsPreview,
+  disburseTournamentPositionRewards,
+  fetchSeasonFinaleRewardsPreview,
+  disburseSeasonFinaleRewards
 } from "@/utils/solo/serverActions";
 
 export default function FinancialOperations() {
@@ -34,6 +38,14 @@ export default function FinancialOperations() {
     customNotes: ""
   });
 
+  // Bulk Standings Payouts states
+  const [selectedDisburseTourneyId, setSelectedDisburseTourneyId] = useState<string>("");
+  const [tourneyPreviewList, setTourneyPreviewList] = useState<any[]>([]);
+
+  // Bulk Season Finale states
+  const [selectedSeasonTourneyId, setSelectedSeasonTourneyId] = useState<string>("");
+  const [seasonPreviewList, setSeasonPreviewList] = useState<any[]>([]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -49,6 +61,10 @@ export default function FinancialOperations() {
       ]);
       setClubs(clubsData || []);
       setTournaments(tourneys || []);
+      if (season) {
+        const res = await fetchSeasonFinaleRewardsPreview(season.id);
+        setSeasonPreviewList(res || []);
+      }
     } catch {
       showToast("Error loading financial settings!");
     }
@@ -128,6 +144,57 @@ export default function FinancialOperations() {
         loadData();
       } catch {
         showToast("Error applying custom adjustment!");
+      }
+    });
+  };
+
+  const loadTourneyPreview = async (tourneyId: string) => {
+    if (!tourneyId) {
+      setTourneyPreviewList([]);
+      return;
+    }
+    try {
+      const res = await fetchTournamentPositionRewardsPreview(parseInt(tourneyId), activeSeason?.id || 6);
+      setTourneyPreviewList(res || []);
+    } catch {
+      showToast("Error loading tournament rewards preview!");
+    }
+  };
+
+  const loadSeasonPreview = async (tourneyIdStr?: string) => {
+    try {
+      const tourneyId = tourneyIdStr ? parseInt(tourneyIdStr) : undefined;
+      const res = await fetchSeasonFinaleRewardsPreview(activeSeason?.id || 6, tourneyId);
+      setSeasonPreviewList(res || []);
+    } catch {
+      showToast("Error loading season finale rewards preview!");
+    }
+  };
+
+  const handleDisburseTourneyRewards = () => {
+    if (!selectedDisburseTourneyId) return showToast("Select Tournament!");
+    startTransition(async () => {
+      try {
+        const res = await disburseTournamentPositionRewards(parseInt(selectedDisburseTourneyId), activeSeason?.id || 6);
+        showToast(`✅ Disbursed standing rewards to ${res.disbursedCount} clubs!`);
+        loadTourneyPreview(selectedDisburseTourneyId);
+      } catch (err: any) {
+        showToast("❌ Error disbursing rewards: " + err.message);
+      }
+    });
+  };
+
+  const handleDisburseSeasonRewards = () => {
+    startTransition(async () => {
+      try {
+        const res = await disburseSeasonFinaleRewards(
+          activeSeason?.id || 6,
+          selectedSeasonTourneyId ? parseInt(selectedSeasonTourneyId) : undefined
+        );
+        showToast(`✅ Disbursed season finale standing rewards to ${res.disbursedCount} clubs!`);
+        loadSeasonPreview(selectedSeasonTourneyId);
+      } catch (err: any) {
+        showToast("❌ Error disbursing season rewards: " + err.message);
       }
     });
   };
@@ -233,6 +300,165 @@ export default function FinancialOperations() {
             <button className="portal-btn btn-primary" onClick={handleApplyTemplateAdj} disabled={isPending}>
               Apply Template Adjustment
             </button>
+          </div>
+
+          {/* Section 2.2: Bulk Tournament Standings Position Payouts */}
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "1.5rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}>
+              <i className="fa-solid fa-ranking-star" style={{ color: "#eab308" }} /> Bulk Tournament Standings Position Payouts
+            </h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              Fetch final standings for a completed tournament, preview reward distributions mapped to the financial template, and disburse coins/tokens to managers in bulk.
+            </p>
+            
+            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
+              <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
+                <label>Select Tournament</label>
+                <select
+                  className="admin-select"
+                  value={selectedDisburseTourneyId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedDisburseTourneyId(id);
+                    loadTourneyPreview(id);
+                  }}
+                >
+                  <option value="">-- Select Tournament --</option>
+                  {tournaments.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="portal-btn btn-primary"
+                onClick={handleDisburseTourneyRewards}
+                disabled={isPending || !selectedDisburseTourneyId || tourneyPreviewList.length === 0}
+              >
+                Disburse Standings Payouts
+              </button>
+            </div>
+
+            {selectedDisburseTourneyId && tourneyPreviewList.length > 0 && (
+              <div style={{ overflowX: "auto", background: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", padding: "10px", marginTop: "1rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
+                      <th style={{ padding: "8px" }}>Rank</th>
+                      <th style={{ padding: "8px" }}>Club</th>
+                      <th style={{ padding: "8px" }}>Manager</th>
+                      <th style={{ padding: "8px" }}>Coins (RC)</th>
+                      <th style={{ padding: "8px" }}>Tokens (RT)</th>
+                      <th style={{ padding: "8px" }}>Voucher</th>
+                      <th style={{ padding: "8px" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tourneyPreviewList.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "8px", fontWeight: "bold", color: p.rank === 1 ? "#eab308" : p.rank === 2 ? "#94a3b8" : p.rank === 3 ? "#b45309" : "#fff" }}>
+                          #{p.rank}
+                        </td>
+                        <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                          {p.club_logo && <img src={p.club_logo} style={{ width: "20px", height: "20px", objectFit: "contain" }} alt="" />}
+                          <span>{p.club_name}</span>
+                        </td>
+                        <td style={{ padding: "8px", color: "var(--text-secondary)" }}>{p.manager}</td>
+                        <td style={{ padding: "8px", color: "#eab308" }}>+{p.rc}</td>
+                        <td style={{ padding: "8px", color: "#38bdf8" }}>+{p.rt}</td>
+                        <td style={{ padding: "8px", color: "#a855f7" }}>+{p.voucher}</td>
+                        <td style={{ padding: "8px" }}>
+                          {p.disbursed ? (
+                            <span style={{ color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem" }}><i className="fa-solid fa-check-double" /> Disbursed</span>
+                          ) : (
+                            <span style={{ color: "#ef4444", background: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem" }}><i className="fa-solid fa-clock" /> Pending</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2.5: Bulk Season Finale Standing Payouts */}
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "1.5rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}>
+              <i className="fa-solid fa-trophy" style={{ color: "#a855f7" }} /> Bulk Season Finale standing Rewards
+            </h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              Fetch the standings of the primary division tournament to calculate the final season champion payouts (combines season finale awards plus template season winner bonuses) in bulk.
+            </p>
+            
+            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
+              <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
+                <label>Division Standings Source Tournament</label>
+                <select
+                  className="admin-select"
+                  value={selectedSeasonTourneyId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedSeasonTourneyId(id);
+                    loadSeasonPreview(id);
+                  }}
+                >
+                  <option value="">-- Auto Detect (Division Tier 1) --</option>
+                  {tournaments.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="portal-btn btn-primary"
+                onClick={handleDisburseSeasonRewards}
+                disabled={isPending || seasonPreviewList.length === 0}
+                style={{ background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)" }}
+              >
+                Disburse Season Finale Rewards
+              </button>
+            </div>
+
+            {seasonPreviewList.length > 0 && (
+              <div style={{ overflowX: "auto", background: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", padding: "10px", marginTop: "1rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
+                      <th style={{ padding: "8px" }}>Rank</th>
+                      <th style={{ padding: "8px" }}>Club</th>
+                      <th style={{ padding: "8px" }}>Manager</th>
+                      <th style={{ padding: "8px" }}>Coins (RC)</th>
+                      <th style={{ padding: "8px" }}>Tokens (RT)</th>
+                      <th style={{ padding: "8px" }}>Voucher</th>
+                      <th style={{ padding: "8px" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seasonPreviewList.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "8px", fontWeight: "bold", color: p.rank === 1 ? "#eab308" : p.rank === 2 ? "#94a3b8" : p.rank === 3 ? "#b45309" : "#fff" }}>
+                          #{p.rank}
+                        </td>
+                        <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                          {p.club_logo && <img src={p.club_logo} style={{ width: "20px", height: "20px", objectFit: "contain" }} alt="" />}
+                          <span>{p.club_name}</span>
+                        </td>
+                        <td style={{ padding: "8px", color: "var(--text-secondary)" }}>{p.manager}</td>
+                        <td style={{ padding: "8px", color: "#eab308" }}>+{p.rc}</td>
+                        <td style={{ padding: "8px", color: "#38bdf8" }}>+{p.rt}</td>
+                        <td style={{ padding: "8px", color: "#a855f7" }}>+{p.voucher}</td>
+                        <td style={{ padding: "8px" }}>
+                          {p.disbursed ? (
+                            <span style={{ color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem" }}><i className="fa-solid fa-check-double" /> Disbursed</span>
+                          ) : (
+                            <span style={{ color: "#ef4444", background: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem" }}><i className="fa-solid fa-clock" /> Pending</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Section 3: Custom Financial Override Form */}

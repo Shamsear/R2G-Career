@@ -11,6 +11,7 @@ interface Fixture {
   id: number;
   tournamentId: number;
   tournamentName: string;
+  tournamentType: string;
   homeClub: string;
   homeLogo: string;
   awayClub: string;
@@ -83,13 +84,15 @@ export default function AdminFixtureDetail() {
     let finalAway: number | null = null;
     let finalStatus = matchStatus;
 
-    if (matchStatus === "played" || matchStatus === "scheduled") {
+    if (matchStatus === "played" || matchStatus === "extended_full" || matchStatus === "extended_half" || matchStatus === "scheduled") {
       if (homeScore !== "" && awayScore !== "") {
         finalHome = parseInt(homeScore);
         finalAway = parseInt(awayScore);
-        finalStatus = "played"; // Automatically switch to played when scores are provided!
-      } else if (matchStatus === "played") {
-        showToast("⚠️ Score digits are required for played matches!");
+        if (matchStatus === "scheduled") {
+          finalStatus = "played"; // Automatically switch to played when scores are provided!
+        }
+      } else if (matchStatus === "played" || matchStatus === "extended_full" || matchStatus === "extended_half") {
+        showToast("⚠️ Score digits are required for played/extended matches!");
         return;
       }
     }
@@ -103,7 +106,11 @@ export default function AdminFixtureDetail() {
           finalStatus,
           notes === "" ? null : notes
         );
-        showToast("✅ Match results and payouts saved successfully!");
+        showToast(
+          fixture.tournamentType === 'rws' || fixture.tournamentType === 'special'
+            ? "✅ Match result saved! Standings updated."
+            : "✅ Match results and payouts saved successfully!"
+        );
         
         // Refresh local state by refetching
         const refreshed = await fetchFixtureById(fixtureId);
@@ -189,7 +196,9 @@ export default function AdminFixtureDetail() {
           </div>
           <h1 className="portal-title">MANAGE MATCH RESULT</h1>
           <p className="portal-subtitle">
-            Submit match scores or declare walkovers. Win/loss/draw bonuses and walkover fines are computed and paid out instantly.
+            {fixture.tournamentType === 'rws' || fixture.tournamentType === 'special'
+              ? "Submit match scores or declare walkovers. Standings and stats will update automatically — no financial payouts apply for this tournament."
+              : "Submit match scores or declare walkovers. Win/loss/draw bonuses and walkover fines are computed and paid out instantly."}
           </p>
         </div>
 
@@ -270,13 +279,15 @@ export default function AdminFixtureDetail() {
                 >
                   <option value="scheduled">Scheduled / Unplayed</option>
                   <option value="played">Played (Scores)</option>
+                  <option value="extended_full">Full Match Extension (Scores + Fee)</option>
+                  <option value="extended_half">Half Match Extension (Scores + Half Fee)</option>
                   <option value="wo_home">Walkover (Home Win: 3 - 0)</option>
                   <option value="wo_away">Walkover (Away Win: 0 - 3)</option>
                   <option value="void">Void / Nulled</option>
                 </select>
               </div>
 
-              {(matchStatus === "played" || matchStatus === "scheduled") ? (
+              {(matchStatus === "played" || matchStatus === "extended_full" || matchStatus === "extended_half" || matchStatus === "scheduled") ? (
                 <div className="admin-form-group">
                   <label>Enter Score (Home - Away)</label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -288,7 +299,7 @@ export default function AdminFixtureDetail() {
                       placeholder="Home"
                       min="0"
                       onChange={(e) => setHomeScore(e.target.value)}
-                      required={matchStatus === "played"}
+                      required={matchStatus === "played" || matchStatus === "extended_full" || matchStatus === "extended_half"}
                     />
                     <span style={{ color: "#fff", fontWeight: "bold" }}>-</span>
                     <input
@@ -299,7 +310,7 @@ export default function AdminFixtureDetail() {
                       placeholder="Away"
                       min="0"
                       onChange={(e) => setAwayScore(e.target.value)}
-                      required={matchStatus === "played"}
+                      required={matchStatus === "played" || matchStatus === "extended_full" || matchStatus === "extended_half"}
                     />
                   </div>
                 </div>

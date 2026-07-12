@@ -78,6 +78,20 @@ const ADMIN_MODULES = [
     title: "Season Management",
     desc: "Create new seasons, activate/deactivate seasons, and carry over managers/wallets.",
   },
+  {
+    href: "/solo-tour/admin/divisions",
+    icon: "fa-solid fa-layer-group",
+    accent: "tournaments",
+    title: "Divisions & Relegations",
+    desc: "Configure division tiers, promote/relegate teams, and review transition setups between seasons.",
+  },
+  {
+    href: "/solo-tour/admin/rule-violations",
+    icon: "fa-solid fa-gavel",
+    accent: "nominees",
+    title: "Rule Violations",
+    desc: "Record rule violations for specific matches, apply fines, and view discipline ledger.",
+  },
 ];
 
 function AdminDashboardContent() {

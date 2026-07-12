@@ -33,7 +33,10 @@ export default function TournamentsManager() {
     numGroups: "",
     teamsPerGroup: "",
     qualifiedPerGroup: "",
-    numTeams: ""
+    numTeams: "",
+    divisionTier: "",
+    promotionCount: "",
+    relegationCount: ""
   });
 
   const [newTypeName, setNewTypeName] = useState("");
@@ -75,7 +78,10 @@ export default function TournamentsManager() {
       numGroups: "",
       teamsPerGroup: "",
       qualifiedPerGroup: "",
-      numTeams: ""
+      numTeams: "",
+      divisionTier: "",
+      promotionCount: "",
+      relegationCount: ""
     });
   };
 
@@ -89,7 +95,10 @@ export default function TournamentsManager() {
       numGroups: t.num_groups !== null ? t.num_groups.toString() : "",
       teamsPerGroup: t.teams_per_group !== null ? t.teams_per_group.toString() : "",
       qualifiedPerGroup: t.qualified_per_group !== null ? t.qualified_per_group.toString() : "",
-      numTeams: t.num_teams !== null ? t.num_teams.toString() : ""
+      numTeams: t.num_teams !== null ? t.num_teams.toString() : "",
+      divisionTier: t.division_tier !== null && t.division_tier !== undefined ? t.division_tier.toString() : "",
+      promotionCount: t.promotion_count !== null && t.promotion_count !== undefined ? t.promotion_count.toString() : "",
+      relegationCount: t.relegation_count !== null && t.relegation_count !== undefined ? t.relegation_count.toString() : ""
     });
   };
 
@@ -98,9 +107,14 @@ export default function TournamentsManager() {
     if (!tourneyForm.name) return showToast("Tournament name required!");
     startTransition(async () => {
       try {
-        const ruleId = tourneyForm.financialRuleId ? parseInt(tourneyForm.financialRuleId) : null;
+        // Force no financial rule for RWS and Special Tour
+        const isNoFinancialType = tourneyForm.tournamentType === 'rws' || tourneyForm.tournamentType === 'special';
+        const ruleId = (!isNoFinancialType && tourneyForm.financialRuleId) ? parseInt(tourneyForm.financialRuleId) : null;
         const groups = tourneyForm.numGroups ? parseInt(tourneyForm.numGroups) : null;
         const totalTeams = tourneyForm.numTeams ? parseInt(tourneyForm.numTeams) : null;
+        const divTier = tourneyForm.divisionTier ? parseInt(tourneyForm.divisionTier) : null;
+        const promo = tourneyForm.promotionCount ? parseInt(tourneyForm.promotionCount) : 0;
+        const releg = tourneyForm.relegationCount ? parseInt(tourneyForm.relegationCount) : 0;
         
         // Auto-calculate teams per group if total teams and groups are defined
         let teams = null;
@@ -120,7 +134,10 @@ export default function TournamentsManager() {
             groups,
             teams,
             qualified,
-            totalTeams
+            totalTeams,
+            divTier,
+            promo,
+            releg
           );
           showToast("Tournament updated!");
         } else {
@@ -133,7 +150,10 @@ export default function TournamentsManager() {
             groups,
             teams,
             qualified,
-            totalTeams
+            totalTeams,
+            divTier,
+            promo,
+            releg
           );
           showToast("Tournament created!");
         }
@@ -280,10 +300,12 @@ export default function TournamentsManager() {
                           <span>Type:</span>
                           <span style={{ fontWeight: 600, color: "#38bdf8" }}>{typeObj.display_name}</span>
                         </div>
+                        {!(t.tournament_type === 'rws' || t.tournament_type === 'special') && (
                         <div className="rule-pill">
                           <span>Rules Template:</span>
                           <span style={{ fontWeight: 600, color: rule ? "#10b981" : "var(--text-secondary)" }}>{rule ? rule.name : "None"}</span>
                         </div>
+                        )}
                       </div>
 
                       <div className="club-card-footer" onClick={(e) => e.stopPropagation()}>
@@ -459,14 +481,63 @@ export default function TournamentsManager() {
                     </select>
                   </div>
 
-                  <div className="admin-form-group">
+                   <div className="admin-form-group">
                     <label>Linked Financial Template</label>
+                    {(tourneyForm.tournamentType === 'rws' || tourneyForm.tournamentType === 'special') ? (
+                      <div style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        <i className="fa-solid fa-ban" style={{ marginRight: '0.4rem', color: '#ef4444' }} />
+                        Not applicable — RWS &amp; Special Tour have no financial rewards
+                      </div>
+                    ) : (
                     <select className="admin-select" value={tourneyForm.financialRuleId} onChange={(e) => setTourneyForm(prev => ({ ...prev, financialRuleId: e.target.value }))}>
                       <option value="">-- Select Rule Template --</option>
                       {financialRules.map(rule => (
                         <option key={rule.id} value={rule.id}>{rule.name}</option>
                       ))}
                     </select>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1.25rem", marginTop: "1rem" }}>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "0.75rem" }}>
+                      <i className="fa-solid fa-layer-group" style={{ color: "#38bdf8" }} />
+                      <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "#fff" }}>Division Transition Settings (Optional)</span>
+                    </div>
+                    <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.8rem" }}>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label>Division Tier</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          min={1}
+                          value={tourneyForm.divisionTier}
+                          onChange={(e) => setTourneyForm(prev => ({ ...prev, divisionTier: e.target.value }))}
+                          placeholder="e.g. 1, 2"
+                        />
+                      </div>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label>Promotion Count</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          min={0}
+                          value={tourneyForm.promotionCount}
+                          onChange={(e) => setTourneyForm(prev => ({ ...prev, promotionCount: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label>Relegation Count</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          min={0}
+                          value={tourneyForm.relegationCount}
+                          onChange={(e) => setTourneyForm(prev => ({ ...prev, relegationCount: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -489,6 +560,7 @@ export default function TournamentsManager() {
                         {tournamentTypes.find(t => t.name === tourneyForm.tournamentType)?.display_name || tourneyForm.tournamentType}
                       </span>
                     </div>
+                    {!(tourneyForm.tournamentType === 'rws' || tourneyForm.tournamentType === 'special') && (
                     <div className="rule-pill">
                       <span>Financial Template:</span>
                       <span style={{ fontWeight: 600, color: tourneyForm.financialRuleId ? "#10b981" : "var(--text-secondary)" }}>
@@ -497,6 +569,7 @@ export default function TournamentsManager() {
                           : "None"}
                       </span>
                     </div>
+                    )}
                     <div className="rule-pill">
                       <span>Season:</span>
                       <span style={{ fontWeight: 600, color: "#eab308" }}>

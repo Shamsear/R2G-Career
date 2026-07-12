@@ -50,11 +50,17 @@ async function distributeMatchRewards(params: {
 
   // Get tournament rewards configuration
   const [tournament] = await sql`
-    SELECT rewards
+    SELECT rewards, tournament_type
     FROM tournaments
     WHERE id = ${tournament_id}
     LIMIT 1
   `;
+
+  // Skip rewards entirely for RWS and Special Tour tournaments
+  if (tournament?.tournament_type === 'rws' || tournament?.tournament_type === 'special') {
+    console.log(`ℹ️ Skipping match rewards for ${tournament.tournament_type} tournament ${tournament_id}`);
+    return;
+  }
 
   if (!tournament || !tournament.rewards || !tournament.rewards.match_results) {
     console.log(`No match rewards configured for tournament ${tournament_id}`);

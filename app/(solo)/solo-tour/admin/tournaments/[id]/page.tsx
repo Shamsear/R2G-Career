@@ -88,6 +88,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [editTeamsPerGroup, setEditTeamsPerGroup] = useState("");
   const [editQualifiedPerGroup, setEditQualifiedPerGroup] = useState("");
   const [editNumTeams, setEditNumTeams] = useState("");
+  const [editDivisionTier, setEditDivisionTier] = useState("");
+  const [editPromotionCount, setEditPromotionCount] = useState("");
+  const [editRelegationCount, setEditRelegationCount] = useState("");
 
   // Dynamically compute stats from match events
   const stats = useMemo(() => {
@@ -255,6 +258,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         setEditTeamsPerGroup(tourney.teams_per_group !== null ? tourney.teams_per_group.toString() : "");
         setEditQualifiedPerGroup(tourney.qualified_per_group !== null ? tourney.qualified_per_group.toString() : "");
         setEditNumTeams(tourney.num_teams !== null ? tourney.num_teams.toString() : "");
+        setEditDivisionTier(tourney.division_tier !== null && tourney.division_tier !== undefined ? tourney.division_tier.toString() : "");
+        setEditPromotionCount(tourney.promotion_count !== null && tourney.promotion_count !== undefined ? tourney.promotion_count.toString() : "");
+        setEditRelegationCount(tourney.relegation_count !== null && tourney.relegation_count !== undefined ? tourney.relegation_count.toString() : "");
       }
     } catch {
       showToast("Error loading tournament details!");
@@ -270,9 +276,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     if (!editName) return showToast("Tournament name required!");
     startTransition(async () => {
       try {
-        const ruleId = editFinancialRuleId ? parseInt(editFinancialRuleId) : null;
+        // Force no financial rule for RWS and Special Tour
+        const isNoFinancialType = editTournamentType === 'rws' || editTournamentType === 'special';
+        const ruleId = (!isNoFinancialType && editFinancialRuleId) ? parseInt(editFinancialRuleId) : null;
         const groups = editNumGroups ? parseInt(editNumGroups) : null;
         const totalTeams = editNumTeams ? parseInt(editNumTeams) : null;
+        const divTier = editDivisionTier ? parseInt(editDivisionTier) : null;
+        const promo = editPromotionCount ? parseInt(editPromotionCount) : 0;
+        const releg = editRelegationCount ? parseInt(editRelegationCount) : 0;
 
         // Auto-calculate teams per group if total teams and groups are defined
         let teams = null;
@@ -291,7 +302,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           groups,
           teams,
           qualified,
-          totalTeams
+          totalTeams,
+          divTier,
+          promo,
+          releg
         );
         showToast("Tournament details updated!");
         setIsEditing(false);
@@ -824,6 +838,12 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                   <div className="admin-form-group" style={{ marginBottom: 0 }}>
                     <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Financial Template</label>
+                    {(editTournamentType === 'rws' || editTournamentType === 'special') ? (
+                      <div style={{ padding: '0.4rem 0.75rem', borderRadius: '0.5rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                        <i className="fa-solid fa-ban" style={{ marginRight: '0.4rem', color: '#ef4444' }} />
+                        Not applicable for RWS &amp; Special Tour
+                      </div>
+                    ) : (
                     <select 
                       className="admin-select" 
                       style={{ fontSize: "0.85rem", padding: "6px 10px" }}
@@ -835,8 +855,55 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
+                    )}
                   </div>
-                  <button type="submit" className="portal-btn btn-primary" style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: "0.8rem", marginTop: "0.25rem" }} disabled={isPending}>
+
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "1rem", marginTop: "0.5rem" }}>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "0.5rem" }}>
+                      <i className="fa-solid fa-layer-group" style={{ color: "#38bdf8", fontSize: "0.8rem" }} />
+                      <span style={{ fontWeight: 600, fontSize: "0.75rem", color: "#fff" }}>Division Transition Settings</span>
+                    </div>
+                    <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: "0.7rem" }}>Division Tier</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          style={{ fontSize: "0.8rem", padding: "6px" }}
+                          min={1}
+                          value={editDivisionTier}
+                          onChange={(e) => setEditDivisionTier(e.target.value)}
+                          placeholder="None"
+                        />
+                      </div>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: "0.7rem" }}>Promote</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          style={{ fontSize: "0.8rem", padding: "6px" }}
+                          min={0}
+                          value={editPromotionCount}
+                          onChange={(e) => setEditPromotionCount(e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: "0.7rem" }}>Relegate</label>
+                        <input
+                          type="number"
+                          className="admin-input"
+                          style={{ fontSize: "0.8rem", padding: "6px" }}
+                          min={0}
+                          value={editRelegationCount}
+                          onChange={(e) => setEditRelegationCount(e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="portal-btn btn-primary" style={{ width: "100%", justifyContent: "center", padding: "6px", fontSize: "0.8rem", marginTop: "0.75rem" }} disabled={isPending}>
                     Save Changes
                   </button>
                 </form>
@@ -854,11 +921,22 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   )}
                   <div>Type: <strong style={{ color: "#38bdf8" }}>{tournamentTypes.find(tp => tp.name === tournament.tournament_type)?.display_name || tournament.tournament_type || "solo"}</strong></div>
                   <div>Season: <strong style={{ color: "#fff" }}>Season {tournament.season_number}</strong></div>
+                  
+                  {tournament.division_tier && (
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.6rem", marginTop: "0.2rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                      <div>Division Tier: <strong style={{ color: "#10b981" }}>{tournament.division_tier}</strong></div>
+                      <div style={{ display: "flex", gap: "12px" }}>
+                        <span>Promote Count: <strong style={{ color: "#fff" }}>{tournament.promotion_count}</strong></span>
+                        <span>Relegate Count: <strong style={{ color: "#fff" }}>{tournament.relegation_count}</strong></span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Financial Rules Card */}
+            {/* Financial Rules Card — hidden for RWS and Special Tour */}
+            {!(tournament.tournament_type === 'rws' || tournament.tournament_type === 'special') && (
             <div className="admin-card" style={{ marginTop: 0 }}>
               <h3 className="sub-card-title">
                 <i className="fa-solid fa-scale-balanced" /> Linked Rules Template
@@ -893,6 +971,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 
