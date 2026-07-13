@@ -1,1 +1,44 @@
-﻿/* Style reset */
+/* =============================================================================
+   Global Reset & Custom Scrollbar
+   Theme: Road To Glory — Rose/Pink Brand on Premium Dark
+   ============================================================================= */
+
+/* ─── Webkit Scrollbar (Chrome, Safari, Edge, Opera) ──────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.18);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.25s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 94, 0.40);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: rgba(244, 63, 94, 0.55);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ─── Firefox ─────────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 63, 94, 0.18) transparent;
+}

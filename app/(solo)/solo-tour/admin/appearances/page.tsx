@@ -1,16 +1,18 @@
+
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
-import "./appearances.css";
+import "../../career-mode/appearances/appearances.css";
 import { 
   fetchRegisteredClubs, 
   fetchClubPlayers, 
   fetchAppearances, 
+  saveAppearances,
   fetchActiveSeason,
-  checkIsSoloAdmin,
-  fetchCompletedMatchdays,
+  revertAppearancesAndSalaries,
+  fetchSeasonMatchdays,
   fetchClubTournamentsForSeason,
   fetchCompletedFixturesForClub
 } from "@/utils/solo/serverActions";
@@ -51,20 +53,12 @@ interface CompletedFixture {
   awayScore: number;
 }
 
-export default function AppearancesLedgerPage() {
+export default function AppearancesManagerPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [appearances, setAppearances] = useState<Record<string, number[]>>({});
   const [season, setSeason] = useState<{ id: any; season_number: number }>({ id: 6, season_number: 9 });
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // loading state
-  const [loading, setLoading] = useState(true);
-  const [loadingPlayers, setLoadingPlayers] = useState(false);
-
-  // List of Completed Matchdays for selected club
-  const [matchdays, setMatchdays] = useState<number[]>([]);
 
   // Filter state
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -72,25 +66,41 @@ export default function AppearancesLedgerPage() {
   const [filterTournament, setFilterTournament] = useState<string>("all");
   const [filterMatch, setFilterMatch] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [activeMatchday, setActiveMatchday] = useState<number>(1);
+  const [editSelections, setEditSelections] = useState<string[]>([]);
+  const [isSaving, startSaving] = useTransition();
+
+  // loading state
+  const [loading, setLoading] = useState(true);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // List of Matchdays dynamic based on season fixtures
+  const [matchdays, setMatchdays] = useState<number[]>([]);
 
   // Fetch initial data (clubs and active season)
   useEffect(() => {
-    document.title = "Appearances Ledger - Career Mode";
+    document.title = "Appearances Manager - Admin Hub";
     async function loadInitialData() {
       try {
-        const [activeSeasonData, clubsData, adminCheck] = await Promise.all([
+        const [activeSeasonData, clubsData] = await Promise.all([
           fetchActiveSeason(),
-          fetchRegisteredClubs(),
-          checkIsSoloAdmin()
+          fetchRegisteredClubs()
         ]);
-        
-        setIsAdmin(adminCheck || false);
         
         if (activeSeasonData) {
           setSeason({
             id: activeSeasonData.id,
             season_number: activeSeasonData.season_number
           });
+          const mds = await fetchSeasonMatchdays(activeSeasonData.id);
+          setMatchdays(mds);
+          if (mds.length > 0) {
+            setActiveMatchday(mds[0]);
+          }
         }
         
         if (clubsData && clubsData.length > 0) {
@@ -112,23 +122,21 @@ export default function AppearancesLedgerPage() {
     
     async function loadClubData() {
       setLoadingPlayers(true);
+      setIsEditing(false); // cancel edit when changing clubs
       try {
-        const [playersData, appearancesData, completedMds, tournamentsData, fixturesData] = await Promise.all([
+        const [playersData, appearancesData, tournamentsData, fixturesData] = await Promise.all([
           fetchClubPlayers(selectedClubId),
           fetchAppearances(selectedClubId, season.id),
-          fetchCompletedMatchdays(selectedClubId, season.id),
           fetchClubTournamentsForSeason(selectedClubId, season.id),
           fetchCompletedFixturesForClub(selectedClubId, season.id)
         ]);
 
         setPlayers(playersData);
-        setMatchdays(completedMds);
         setTournaments(tournamentsData);
         setCompletedFixtures(fixturesData);
         setFilterTournament("all");
         setFilterMatch("all");
         setSearchQuery("");
-        
         // Group appearances by player_id
         const appearanceMap: Record<string, number[]> = {};
         playersData.forEach((p: Player) => {
@@ -157,6 +165,114 @@ export default function AppearancesLedgerPage() {
     }
     loadClubData();
   }, [selectedClubId, season.id]);
+
+  // Handle entering edit mode
+  const enterEditMode = () => {
+    const selected: string[] = [];
+    Object.entries(appearances).forEach(([pid, mds]) => {
+      if (mds.includes(activeMatchday)) {
+        selected.push(pid);
+      }
+    });
+    setEditSelections(selected);
+    setIsEditing(true);
+  };
+
+  // Handle matchday change during edit mode
+  const handleMatchdayChange = (md: number) => {
+    setActiveMatchday(md);
+    const selected: string[] = [];
+    Object.entries(appearances).forEach(([pid, mds]) => {
+      if (mds.includes(md)) {
+        selected.push(pid);
+      }
+    });
+    setEditSelections(selected);
+
+    // Reset match filter if it doesn't match the new matchday
+    setFilterMatch((prev) => {
+      if (prev === "all") return prev;
+      const fixture = completedFixtures.find(f => f.id === prev);
+      if (fixture && fixture.roundNumber !== md) {
+        return "all";
+      }
+      return prev;
+    });
+  };
+
+  // Toggle player selection for the active matchday
+  const togglePlayerSelection = (playerId: string) => {
+    setEditSelections((prev) =>
+      prev.includes(playerId)
+        ? prev.filter((id) => id !== playerId)
+        : [...prev, playerId]
+    );
+  };
+
+  // Save selected appearances to database (auto-processes financial salaries)
+  const handleSave = () => {
+    startSaving(async () => {
+      try {
+        await saveAppearances(selectedClubId, season.id, activeMatchday, editSelections);
+        
+        // Update local state directly
+        setAppearances((prev) => {
+          const next = { ...prev };
+          Object.keys(next).forEach((pid) => {
+            next[pid] = next[pid].filter((m) => m !== activeMatchday);
+            if (editSelections.includes(pid)) {
+              next[pid].push(activeMatchday);
+            }
+          });
+          return next;
+        });
+
+        setIsEditing(false);
+        showToast(`Saved appearances and updated salaries for Matchday ${activeMatchday}!`);
+      } catch (err) {
+        console.error(err);
+        showToast("Error saving appearances.");
+      }
+    });
+  };
+
+  // Revert/reset appearances for the active matchday
+  const handleRevert = () => {
+    if (!window.confirm(`Are you sure you want to revert Matchday ${activeMatchday} appearances? This will clear all selected players and refund their appearance salaries for this team.`)) {
+      return;
+    }
+    
+    startSaving(async () => {
+      try {
+        await revertAppearancesAndSalaries(selectedClubId, season.id, activeMatchday);
+        
+        // Update local state directly by clearing activeMatchday from all players
+        setAppearances((prev) => {
+          const next = { ...prev };
+          Object.keys(next).forEach((pid) => {
+            next[pid] = next[pid].filter((m) => m !== activeMatchday);
+          });
+          return next;
+        });
+        
+        setIsEditing(false);
+        showToast(`Reverted Matchday ${activeMatchday} appearances and refunded salaries!`);
+      } catch (err) {
+        console.error(err);
+        showToast("Error reverting matchday appearances.");
+      }
+    });
+  };
+
+  // Check if any player has an appearance recorded for the active matchday
+  const matchdayHasAppearances = useMemo(() => {
+    return Object.values(appearances).some((mds) => mds.includes(activeMatchday));
+  }, [appearances, activeMatchday]);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
   const activeClub = useMemo(() => {
     return clubs.find(c => c.id === selectedClubId);
@@ -218,7 +334,7 @@ export default function AppearancesLedgerPage() {
     return fixtures;
   }, [completedFixtures, filterTournament]);
 
-  // Filter players by search query + tournament/match appearance
+  // Filter players by search query
   const filteredPlayers = useMemo(() => {
     let result = players;
 
@@ -231,20 +347,8 @@ export default function AppearancesLedgerPage() {
       );
     }
 
-    // If a specific match is selected, only show players who appeared in that match's round
-    if (filterMatch !== "all") {
-      const fixture = completedFixtures.find(f => f.id === filterMatch);
-      if (fixture) {
-        const md = fixture.roundNumber;
-        result = result.filter(p => {
-          const pApps = appearances[p.id] || [];
-          return pApps.includes(md);
-        });
-      }
-    }
-
     return result;
-  }, [players, searchQuery, filterMatch, completedFixtures, appearances]);
+  }, [players, searchQuery]);
 
   const hasActiveFilters = searchQuery.trim() !== "" || filterTournament !== "all" || filterMatch !== "all";
 
@@ -254,11 +358,21 @@ export default function AppearancesLedgerPage() {
     setFilterMatch("all");
   };
 
+  // Synchronize activeMatchday with selected filterMatch
+  useEffect(() => {
+    if (filterMatch !== "all") {
+      const fixture = completedFixtures.find(f => f.id === filterMatch);
+      if (fixture) {
+        handleMatchdayChange(fixture.roundNumber);
+      }
+    }
+  }, [filterMatch, completedFixtures]);
+
   if (loading) {
     return (
       <div className="portal-root-wrapper">
         <div className="portal-bg-grid" />
-        <RwsFullPageLoading text="Loading Ledger System" />
+        <RwsFullPageLoading text="Loading Ledger Manager" />
       </div>
     );
   }
@@ -272,20 +386,20 @@ export default function AppearancesLedgerPage() {
       <div className="portal-container">
         {/* Breadcrumb */}
         <div className="portal-breadcrumb">
-          <Link href="/solo-tour/career-mode" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Career Hub
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
+            <i className="fas fa-arrow-left" /> Back to Admin Hub
           </Link>
         </div>
 
         {/* Header */}
         <div className="portal-header">
           <div className="portal-page-badge">
-            <i className="fa-solid fa-shirt" />
-            Squad Appearances
+            <i className="fa-solid fa-user-gear" />
+            Admin Operations
           </div>
-          <h1 className="portal-title">APPEARANCES LEDGER</h1>
+          <h1 className="portal-title">APPEARANCES MANAGER</h1>
           <p className="portal-subtitle">
-            Monitor match-by-match squad usages, matches played, and verify player contribution records for Season {season.season_number}.
+            Log matchday squad participation. Saving selections will automatically compute and deduct or refund player appearance salaries for Season {season.season_number}.
           </p>
         </div>
 
@@ -356,19 +470,95 @@ export default function AppearancesLedgerPage() {
                 </div>
               </div>
 
-              {/* Admin Editor Control Section (Shortcut link for admin user) */}
-              {isAdmin && (
-                <div className="admin-actions-bar" style={{ borderStyle: "solid", borderColor: "rgba(59, 130, 246, 0.3)", background: "rgba(59, 130, 246, 0.05)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: "1rem" }}>
-                    <span style={{ fontSize: "0.85rem", color: "#cbd5e1" }}>
-                      🔑 <strong>Admin Mode:</strong> You are logged in as administrator. You can edit and revert appearances on the manager page.
-                    </span>
-                    <Link href="/solo-tour/admin/appearances" className="portal-btn btn-primary" style={{ padding: "6px 16px", fontSize: "0.85rem" }}>
-                      <i className="fa-solid fa-user-gear" /> Go to Appearances Manager
-                    </Link>
-                  </div>
+              {/* Admin Editor Control Section */}
+              <div className="admin-actions-bar">
+                <div className="matchday-picker">
+                  <i className="fa-solid fa-user-gear" style={{ color: "#3b82f6", marginRight: "0.25rem" }} />
+                  <span style={{ fontWeight: 700 }}>Admin controls:</span>
+                  <select
+                    className="matchday-select-input"
+                    value={activeMatchday}
+                    onChange={(e) => handleMatchdayChange(parseInt(e.target.value, 10))}
+                    disabled={isSaving || matchdays.length === 0}
+                  >
+                    {matchdays.length === 0 ? (
+                      <option value="">No Matchdays</option>
+                    ) : (
+                      matchdays.map((md) => (
+                        <option key={md} value={md}>Matchday {md}</option>
+                      ))
+                    )}
+                  </select>
                 </div>
-              )}
+
+                {!isEditing ? (
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button 
+                      onClick={enterEditMode} 
+                      className="portal-btn btn-primary"
+                      disabled={loadingPlayers || matchdays.length === 0}
+                    >
+                      <i className="fa-solid fa-pen-to-square" /> Edit Matchday {activeMatchday} Players
+                    </button>
+                    {matchdayHasAppearances && matchdays.length > 0 && (
+                      <button 
+                        onClick={handleRevert} 
+                        className="portal-btn btn-danger"
+                        disabled={loadingPlayers || isSaving}
+                        style={{ background: "#ef4444", borderColor: "#dc2626" }}
+                      >
+                        <i className="fa-solid fa-arrow-rotate-left" /> Revert Matchday {activeMatchday}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <button 
+                      onClick={() => {
+                        const allFilteredIds = filteredPlayers.map(p => p.id);
+                        setEditSelections(prev => {
+                          const nonFiltered = prev.filter(id => !players.find(p => p.id === id) || !filteredPlayers.find(fp => fp.id === id));
+                          return [...nonFiltered, ...allFilteredIds];
+                        });
+                      }}
+                      className="portal-btn btn-secondary"
+                      style={{ borderColor: "rgba(59, 130, 246, 0.4)", color: "#3b82f6" }}
+                      disabled={isSaving}
+                    >
+                      <i className="fa-solid fa-square-check" /> Select All Filtered
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const filteredIds = filteredPlayers.map(p => p.id);
+                        setEditSelections(prev => prev.filter(id => !filteredIds.includes(id)));
+                      }}
+                      className="portal-btn btn-secondary"
+                      disabled={isSaving}
+                    >
+                      <i className="fa-solid fa-square" /> Clear Filtered
+                    </button>
+                    <button 
+                      onClick={handleSave} 
+                      className="portal-btn btn-success" 
+                      disabled={isSaving}
+                      style={{ background: "#10b981", borderColor: "#059669" }}
+                    >
+                      {isSaving ? (
+                        <><i className="fa-solid fa-spinner fa-spin" /> Saving...</>
+                      ) : (
+                        <><i className="fa-solid fa-check" /> Save Selections</>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setIsEditing(false)} 
+                      className="portal-btn btn-secondary"
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Filter Toolbar */}
               <div className="filter-toolbar">
@@ -391,6 +581,7 @@ export default function AppearancesLedgerPage() {
                     className="filter-select"
                     value={filterTournament}
                     onChange={(e) => { setFilterTournament(e.target.value); setFilterMatch("all"); }}
+                    disabled={isEditing}
                   >
                     <option value="all">All Tournaments</option>
                     {tournaments.map(t => (
@@ -405,6 +596,7 @@ export default function AppearancesLedgerPage() {
                     className="filter-select"
                     value={filterMatch}
                     onChange={(e) => setFilterMatch(e.target.value)}
+                    disabled={isEditing}
                   >
                     <option value="all">All Matches</option>
                     {availableMatches.map(f => {
@@ -416,7 +608,7 @@ export default function AppearancesLedgerPage() {
                 </div>
 
                 {hasActiveFilters && (
-                  <button className="filter-clear-btn" onClick={clearFilters}>
+                  <button className="filter-clear-btn" onClick={clearFilters} disabled={isEditing}>
                     <i className="fa-solid fa-xmark" /> Clear
                   </button>
                 )}
@@ -441,9 +633,9 @@ export default function AppearancesLedgerPage() {
                   </div>
                 ) : matchdays.length === 0 ? (
                   <div style={{ padding: "4rem", textAlign: "center" }}>
-                    <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "2.5rem", color: "#4b5563", marginBottom: "1rem" }} />
-                    <h4 style={{ marginBottom: "0.5rem" }}>No completed matches</h4>
-                    <p style={{ color: "#9ca3af", maxWidth: "450px", margin: "0 auto" }}>No completed matches exist for {activeClub.name} in this season yet. Player appearances will be visible once matches are played and scores are recorded.</p>
+                    <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "2.5rem", color: "#ef4444", marginBottom: "1rem" }} />
+                    <h4 style={{ marginBottom: "0.5rem" }}>No Matchdays Found</h4>
+                    <p style={{ color: "#9ca3af", maxWidth: "450px", margin: "0 auto" }}>No matchdays or fixtures have been generated for the active season yet. Generate fixtures first to enable appearances management.</p>
                   </div>
                 ) : (
                   <>
@@ -454,7 +646,13 @@ export default function AppearancesLedgerPage() {
                           <th>Player</th>
                           {filteredMatchdays.map((md) => (
                             <th key={md} style={{ textAlign: "center", width: "7%" }}>
-                              {`M${md}`}
+                              {activeMatchday === md && isEditing ? (
+                                <span style={{ color: "#3b82f6", borderBottom: "2px solid #3b82f6", paddingBottom: "0.25rem" }}>
+                                  M{md} *
+                                </span>
+                              ) : (
+                                `M${md}`
+                              )}
                             </th>
                           ))}
                           <th style={{ textAlign: "center", width: "10%" }}>Total Played</th>
@@ -505,14 +703,41 @@ export default function AppearancesLedgerPage() {
                                 const played = playerApps.includes(md);
                                 
                                 return (
-                                  <td key={md} style={{ verticalAlign: "middle" }}>
-                                    <div className="md-cell-active">
-                                      {played ? (
-                                        <div className="md-indicator-pill">✓</div>
-                                      ) : (
-                                        <span className="md-indicator-none">-</span>
-                                      )}
-                                    </div>
+                                  <td 
+                                    key={md} 
+                                    style={{ 
+                                      verticalAlign: "middle", 
+                                      cursor: isEditing && activeMatchday === md ? "pointer" : "default" 
+                                    }}
+                                    onClick={(e) => {
+                                      if (isEditing && activeMatchday === md) {
+                                        if (!(e.target as HTMLElement).closest('.custom-checkbox-container')) {
+                                          togglePlayerSelection(player.id);
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    {isEditing && activeMatchday === md ? (
+                                      <div className="editor-checkbox-cell">
+                                        <label className="custom-checkbox-container">
+                                          <input
+                                            type="checkbox"
+                                            checked={editSelections.includes(player.id)}
+                                            onChange={() => togglePlayerSelection(player.id)}
+                                            disabled={isSaving}
+                                          />
+                                          <span className="custom-checkbox-checkmark"></span>
+                                        </label>
+                                      </div>
+                                    ) : (
+                                      <div className="md-cell-active">
+                                        {played ? (
+                                          <div className="md-indicator-pill">✓</div>
+                                        ) : (
+                                          <span className="md-indicator-none">-</span>
+                                        )}
+                                      </div>
+                                    )}
                                   </td>
                                 );
                               })}
@@ -537,9 +762,31 @@ export default function AppearancesLedgerPage() {
                           : playerApps.length;
 
                         return (
-                          <div key={player.id} className="appearance-player-card">
+                          <div 
+                            key={player.id} 
+                            className="appearance-player-card"
+                            style={{ cursor: isEditing ? "pointer" : "default" }}
+                            onClick={(e) => {
+                              if (isEditing) {
+                                if (!(e.target as HTMLElement).closest('.custom-checkbox-container')) {
+                                  togglePlayerSelection(player.id);
+                                }
+                              }
+                            }}
+                          >
                             <div className="card-player-header">
                               <div className="card-player-left">
+                                {isEditing && (
+                                  <label className="custom-checkbox-container" style={{ flexShrink: 0, marginRight: "0.25rem" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={editSelections.includes(player.id)}
+                                      onChange={() => togglePlayerSelection(player.id)}
+                                      disabled={isSaving}
+                                    />
+                                    <span className="custom-checkbox-checkmark"></span>
+                                  </label>
+                                )}
                                 <img
                                   src={player.imagePath}
                                   alt={player.name}
@@ -575,9 +822,14 @@ export default function AppearancesLedgerPage() {
                             <div className="card-matchday-strip">
                               {filteredMatchdays.map((md) => {
                                 const played = playerApps.includes(md);
+                                const isActiveEditing = isEditing && activeMatchday === md;
                                 return (
-                                  <div key={md} className={`card-md-chip ${played ? "played" : "missed"}`}>
-                                    {played ? `M${md} ✓` : `M${md}`}
+                                  <div
+                                    key={md}
+                                    className={`card-md-chip ${played ? "played" : "missed"} ${isActiveEditing ? "editing" : ""}`}
+                                    style={isActiveEditing ? { borderColor: "#3b82f6", color: "#3b82f6" } : undefined}
+                                  >
+                                    {isActiveEditing ? `M${md} ✎` : played ? `M${md} ✓` : `M${md}`}
                                   </div>
                                 );
                               })}
@@ -596,15 +848,24 @@ export default function AppearancesLedgerPage() {
           <div className="glass-panel" style={{ marginTop: "1rem" }}>
             <h3 className="section-heading" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <i className="fa-solid fa-circle-info" style={{ color: "#3b82f6" }} /> 
-              Ledger Usage Instructions
+              Manager Ledger Guidelines
             </h3>
             <p className="section-text" style={{ fontSize: "0.85rem", color: "#9ca3af", lineHeight: "1.6" }}>
-              1. <strong>Select a club</strong> from the selector ribbon to load its players and appearances.<br />
-              2. Review team-wise squad contribution per completed matchday. Cells displaying <strong>✓</strong> indicate the player participated in that matchday.<br />
-              3. This is a public read-only viewer. Administrators can use the link above or navigate to the admin hub to manage the roster lineups.
+              1. Select a club from the top selector ribbon to load its ledger.<br />
+              2. Change the <strong>Matchday</strong> dropdown to select the target fixture.<br />
+              3. Click <strong>Edit Matchday Players</strong>, check the players who participated, and click <strong>Save Selections</strong> to deduct their salaries.<br />
+              4. Click <strong>Revert Matchday</strong> to completely clear appearances for that fixture and refund all associated salaries.
             </p>
           </div>
         </div>
+
+        {/* Toast Notification */}
+        {toastMsg && (
+          <div className="alert-toast">
+            <i className="fa-solid fa-circle-check" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
       </div>
     </div>
   );

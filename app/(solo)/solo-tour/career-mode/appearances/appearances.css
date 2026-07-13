@@ -124,7 +124,128 @@
   color: #ffffff;
 }
 
-/* Appearances Table */
+/* ─── Filter Toolbar ──────────────────────────────────────────────────────── */
+.filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.filter-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.filter-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.filter-search-input {
+  width: 100%;
+  padding: 0.55rem 0.85rem 0.55rem 2.25rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.7);
+  color: #f3f4f6;
+  font-size: 0.85rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-search-input::placeholder {
+  color: #6b7280;
+}
+
+.filter-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.filter-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.filter-select-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.filter-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.7);
+  color: #f3f4f6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  max-width: 200px;
+}
+
+.filter-select:focus {
+  border-color: #3b82f6;
+}
+
+.filter-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.filter-clear-btn:hover {
+  color: #f3f4f6;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.filter-result-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─── Appearances Table (Desktop) ─────────────────────────────────────────── */
 .table-panel {
   overflow-x: auto;
   border-radius: 1.25rem;
@@ -221,6 +342,122 @@
   text-align: center;
 }
 
+/* ─── Mobile Card Layout ──────────────────────────────────────────────────── */
+.appearances-card-list {
+  display: none; /* Hidden on desktop, visible on mobile */
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.appearance-player-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  transition: border-color 0.25s ease;
+}
+
+.appearance-player-card:hover {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.card-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-player-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.card-player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.card-player-meta {
+  min-width: 0;
+}
+
+.card-player-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #f3f4f6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.card-player-pos {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-weight: 700;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+.card-total-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.card-matchday-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.card-md-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 28px;
+  border-radius: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: transform 0.15s ease;
+}
+
+.card-md-chip.played {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.card-md-chip.missed {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.18);
+}
+
 /* Admin panel editing */
 .admin-actions-bar {
   display: flex;
@@ -261,11 +498,81 @@
   justify-content: center;
 }
 
-.editor-custom-checkbox {
-  width: 20px;
-  height: 20px;
+/* Custom Checkbox UI/UX styling */
+.custom-checkbox-container {
+  display: inline-block;
+  position: relative;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
-  accent-color: #3b82f6;
+  user-select: none;
+}
+
+/* Hide native checkbox */
+.custom-checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+/* Custom checkmark design */
+.custom-checkbox-checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 22px;
+  width: 22px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* On hover, add a subtle border highlight */
+.custom-checkbox-container:hover input ~ .custom-checkbox-checkmark {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Checked state: blue gradient background with slight glow */
+.custom-checkbox-container input:checked ~ .custom-checkbox-checkmark {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Disabled state */
+.custom-checkbox-container input:disabled ~ .custom-checkbox-checkmark {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom checkmark indicator */
+.custom-checkbox-checkmark:after {
+  content: "";
+  display: none;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -2px);
+}
+
+/* Show the checkmark when checked */
+.custom-checkbox-container input:checked ~ .custom-checkbox-checkmark:after {
+  display: block;
+}
+
+/* Keyboard navigation focus indicator */
+.custom-checkbox-container input:focus-visible ~ .custom-checkbox-checkmark {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-color: #3b82f6;
 }
 
 .alert-toast {
@@ -288,4 +595,102 @@
 @keyframes slideUp {
   from { transform: translateY(50px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ─── Responsive — Mobile Breakpoint ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Hide the full table on mobile */
+  .appearances-table {
+    display: none;
+  }
+
+  /* Show the card list on mobile */
+  .appearances-card-list {
+    display: flex;
+  }
+
+  /* Stat cards: 2-column grid */
+  .stats-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat-item-card {
+    padding: 0.85rem;
+    gap: 0.65rem;
+  }
+
+  .stat-icon-wrapper {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .stat-val {
+    font-size: 1.15rem;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+  }
+
+  /* Admin actions bar stack */
+  .admin-actions-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .matchday-picker {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .alert-toast {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+    font-size: 0.85rem;
+    padding: 0.85rem 1rem;
+  }
+
+  /* Filter toolbar mobile */
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.85rem;
+  }
+
+  .filter-search-wrapper {
+    max-width: 100%;
+  }
+
+  .filter-divider {
+    display: none;
+  }
+
+  .filter-select-group {
+    width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+    max-width: 100%;
+  }
+
+  .filter-result-count {
+    margin-left: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-player-name {
+    max-width: 140px;
+  }
 }

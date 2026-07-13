@@ -133,22 +133,6 @@ const NAV_CARDS = [
     target: "_self",
     delay: 320,
   },
-  {
-    href: "/solo-tour/admin",
-    bgImg: "/assets/images/portal/guide_bg.png",
-    badge: "Admin",
-    badgeIcon: "fa-solid fa-lock-open",
-    title: "ADMIN OPERATIONS",
-    desc: "Configure financial rules, manage clubs, link tournaments, enter fixtures, issue player awards, and execute payouts.",
-    highlights: [
-      { icon: "fa-solid fa-lock-open", label: "Unified Operations" },
-      { icon: "fa-solid fa-wallet", label: "Financial Controls" },
-      { icon: "fa-solid fa-award", label: "Awards & Penalties" },
-    ],
-    action: "Enter Hub",
-    target: "_self",
-    delay: 360,
-  },
 ];
 
 export default function CareerMode() {
@@ -176,9 +160,12 @@ export default function CareerMode() {
 
       <div className="portal-container">
         {/* Breadcrumb */}
-        <div className="portal-breadcrumb animate-entrance" style={{ animationDelay: "0ms" }}>
+        <div className="portal-breadcrumb animate-entrance" style={{ animationDelay: "0ms", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <Link href="/solo-tour" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Dashboard
+          </Link>
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+            <i className="fa-solid fa-user-gear" /> Admin Console
           </Link>
         </div>
 

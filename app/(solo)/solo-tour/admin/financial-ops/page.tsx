@@ -223,21 +223,25 @@ export default function FinancialOperations() {
         <div className="admin-card">
           {/* Section 1: Matchday Player appearance salary pay cuts */}
           <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "1.5rem", marginBottom: "1.5rem" }}>
-            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}><i className="fa-solid fa-user-minus" /> Matchday Player Appearance Salary Payments</h3>
-            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Deduct active player contract salaries for the selected matchday based on recorded appearances in the ledger.
-            </p>
+            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "#fff" }}><i className="fa-solid fa-circle-info" style={{ color: "#3b82f6" }} /> Matchday Player Appearance Salary Payments</h3>
+            <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px dashed rgba(59, 130, 246, 0.3)", borderRadius: "0.75rem", padding: "1rem", marginBottom: "1rem" }}>
+              <p style={{ fontSize: "0.85rem", color: "#9ca3af", lineHeight: "1.5", margin: 0 }}>
+                💡 <strong>Notice:</strong> Salary deductions are now fully automated! When you edit and save appearances on the 
+                {" "}<Link href="/solo-tour/career-mode/appearances" style={{ color: "#3b82f6", textDecoration: "underline", fontWeight: 700 }}>Appearances Ledger</Link> page, the corresponding player appearance salaries are automatically computed and deducted or refunded in a single transaction. 
+                Manual matchday processing from this panel is deprecated.
+              </p>
+            </div>
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
-              <div className="admin-form-group" style={{ width: "200px" }}>
+              <div className="admin-form-group" style={{ width: "200px", opacity: 0.5 }}>
                 <label>Select Matchday</label>
-                <select className="admin-select" value={finOp.matchday} onChange={(e) => setFinOp(prev => ({ ...prev, matchday: parseInt(e.target.value) || 1 }))}>
+                <select className="admin-select" value={finOp.matchday} disabled onChange={(e) => setFinOp(prev => ({ ...prev, matchday: parseInt(e.target.value) || 1 }))}>
                   {Array.from({ length: 10 }, (_, i) => i + 1).map(md => (
                     <option key={md} value={md}>Matchday {md}</option>
                   ))}
                 </select>
               </div>
-              <button className="portal-btn btn-primary" onClick={handleProcessSalaries} disabled={isPending}>
-                Deduct Matchday {finOp.matchday} Salaries
+              <button className="portal-btn btn-secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>
+                <i className="fa-solid fa-lock" /> Deduct Matchday {finOp.matchday} Salaries (Automated)
               </button>
             </div>
           </div>

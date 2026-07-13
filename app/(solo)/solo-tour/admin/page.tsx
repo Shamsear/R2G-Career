@@ -44,6 +44,20 @@ const ADMIN_MODULES = [
     desc: "Manage rosters, toggle suspensions with fines, and sign player contracts.",
   },
   {
+    href: "/solo-tour/admin/auction",
+    icon: "fa-solid fa-gavel",
+    accent: "nominees",
+    title: "Player Auctions",
+    desc: "Auction off free agents at start & mid-season, auto-calculate salary and deduct wallet balances.",
+  },
+  {
+    href: "/solo-tour/admin/transfers",
+    icon: "fa-solid fa-arrow-right-arrow-left",
+    accent: "financial",
+    title: "Transfer Window",
+    desc: "Execute player buys, sales, and swaps between squads with automatic balance updates.",
+  },
+  {
     href: "/solo-tour/admin/nominees",
     icon: "fa-solid fa-user-check",
     accent: "nominees",
@@ -91,6 +105,13 @@ const ADMIN_MODULES = [
     accent: "nominees",
     title: "Rule Violations",
     desc: "Record rule violations for specific matches, apply fines, and view discipline ledger.",
+  },
+  {
+    href: "/solo-tour/admin/appearances",
+    icon: "fa-solid fa-shirt",
+    accent: "players",
+    title: "Appearances Ledger",
+    desc: "Log matchday squad appearances, check matches played, and process/revert salary changes.",
   },
 ];
 
