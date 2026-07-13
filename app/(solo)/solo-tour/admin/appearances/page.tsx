@@ -264,6 +264,108 @@ export default function AppearancesManagerPage() {
     });
   };
 
+  // Export player appearances list to a CSV template
+  const exportToCSV = () => {
+    const headers = ["Player Name", "Present (1 or blank)"];
+    const rows = players.map(p => {
+      const isPresent = editSelections.includes(p.id) ? "1" : "";
+      return [p.name, isPresent];
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const teamCleanName = activeClub ? activeClub.name.replace(/\s+/g, "_") : "Team";
+    link.setAttribute("download", `${teamCleanName}_Matchday_${activeMatchday}_Template.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("CSV template exported successfully!");
+  };
+
+  // Import player appearances list from a modified CSV file
+  const importFromCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) return;
+
+        const lines = text.split(/\r?\n/);
+        if (lines.length < 2) return;
+
+        const newSelections: string[] = [];
+        const playerMap = new Map<string, Player>();
+        players.forEach(p => {
+          playerMap.set(p.name.trim().toLowerCase(), p);
+        });
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          // Split line values supporting double quotes
+          let parts: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let charIndex = 0; charIndex < line.length; charIndex++) {
+            const char = line[charIndex];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              parts.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          parts.push(current.trim());
+
+          if (parts.length < 2) continue;
+
+          const name = parts[0].replace(/^"|"$/g, '').trim().toLowerCase();
+          const presentVal = parts[1].replace(/^"|"$/g, '').trim();
+
+          const matchedPlayer = playerMap.get(name);
+          if (matchedPlayer && presentVal === "1") {
+            newSelections.push(matchedPlayer.id);
+          }
+        }
+
+        setEditSelections(newSelections);
+        showToast(`Successfully imported selections! Matched and checked ${newSelections.length} players.`);
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to parse CSV file. Ensure it is a valid format.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  // Clone appearances from a previous matchday for active squad members
+  const cloneLineup = (fromMatchday: number) => {
+    const clonedIds: string[] = [];
+    Object.entries(appearances).forEach(([pid, mds]) => {
+      if (mds.includes(fromMatchday)) {
+        if (players.some(p => p.id === pid)) {
+          clonedIds.push(pid);
+        }
+      }
+    });
+    setEditSelections(clonedIds);
+    showToast(`Cloned lineup from Matchday ${fromMatchday}! ${clonedIds.length} players checked.`);
+  };
+
   // Check if any player has an appearance recorded for the active matchday
   const matchdayHasAppearances = useMemo(() => {
     return Object.values(appearances).some((mds) => mds.includes(activeMatchday));
@@ -512,50 +614,106 @@ export default function AppearancesManagerPage() {
                     )}
                   </div>
                 ) : (
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                    <button 
-                      onClick={() => {
-                        const allFilteredIds = filteredPlayers.map(p => p.id);
-                        setEditSelections(prev => {
-                          const nonFiltered = prev.filter(id => !players.find(p => p.id === id) || !filteredPlayers.find(fp => fp.id === id));
-                          return [...nonFiltered, ...allFilteredIds];
-                        });
-                      }}
-                      className="portal-btn btn-secondary"
-                      style={{ borderColor: "rgba(59, 130, 246, 0.4)", color: "#3b82f6" }}
-                      disabled={isSaving}
-                    >
-                      <i className="fa-solid fa-square-check" /> Select All Filtered
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const filteredIds = filteredPlayers.map(p => p.id);
-                        setEditSelections(prev => prev.filter(id => !filteredIds.includes(id)));
-                      }}
-                      className="portal-btn btn-secondary"
-                      disabled={isSaving}
-                    >
-                      <i className="fa-solid fa-square" /> Clear Filtered
-                    </button>
-                    <button 
-                      onClick={handleSave} 
-                      className="portal-btn btn-success" 
-                      disabled={isSaving}
-                      style={{ background: "#10b981", borderColor: "#059669" }}
-                    >
-                      {isSaving ? (
-                        <><i className="fa-solid fa-spinner fa-spin" /> Saving...</>
-                      ) : (
-                        <><i className="fa-solid fa-check" /> Save Selections</>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => setIsEditing(false)} 
-                      className="portal-btn btn-secondary"
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
+                    {/* Primary actions */}
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button 
+                        onClick={handleSave} 
+                        className="portal-btn btn-success" 
+                        disabled={isSaving}
+                        style={{ background: "#10b981", borderColor: "#059669" }}
+                      >
+                        {isSaving ? (
+                          <><i className="fa-solid fa-spinner fa-spin" /> Saving...</>
+                        ) : (
+                          <><i className="fa-solid fa-check" /> Save Selections</>
+                        )}
+                      </button>
+                      <button 
+                        onClick={() => setIsEditing(false)} 
+                        className="portal-btn btn-secondary"
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                    {/* Secondary helper utilities */}
+                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "1rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+                      <button 
+                        onClick={() => {
+                          const allFilteredIds = filteredPlayers.map(p => p.id);
+                          setEditSelections(prev => {
+                            const nonFiltered = prev.filter(id => !players.find(p => p.id === id) || !filteredPlayers.find(fp => fp.id === id));
+                            return [...nonFiltered, ...allFilteredIds];
+                          });
+                        }}
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#3b82f6" }}
+                        disabled={isSaving}
+                      >
+                        <i className="fa-solid fa-square-check" /> Select All Filtered
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const filteredIds = filteredPlayers.map(p => p.id);
+                          setEditSelections(prev => prev.filter(id => !filteredIds.includes(id)));
+                        }}
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                        disabled={isSaving}
+                      >
+                        <i className="fa-solid fa-square" /> Clear Filtered
+                      </button>
+
+                      <div style={{ width: "1px", height: "20px", background: "rgba(255, 255, 255, 0.12)" }} />
+
+                      {/* Excel/CSV Tool */}
+                      <button
+                        onClick={exportToCSV}
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }}
+                        disabled={isSaving}
+                      >
+                        <i className="fa-solid fa-file-export" /> Export CSV Template
+                      </button>
+
+                      <label 
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                      >
+                        <i className="fa-solid fa-file-import" /> Import CSV
+                        <input
+                          type="file"
+                          accept=".csv"
+                          onChange={importFromCSV}
+                          style={{ display: "none" }}
+                          disabled={isSaving}
+                        />
+                      </label>
+
+                      <div style={{ width: "1px", height: "20px", background: "rgba(255, 255, 255, 0.12)" }} />
+
+                      {/* Lineup Cloner */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <span style={{ fontSize: "0.75rem", color: "#9ca3af", fontWeight: 700, letterSpacing: "0.5px" }}>CLONE FROM:</span>
+                        <select
+                          className="matchday-select-input"
+                          style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                          onChange={(e) => {
+                            const cloneFromMd = parseInt(e.target.value, 10);
+                            if (cloneFromMd) cloneLineup(cloneFromMd);
+                            e.target.value = ""; // reset selection
+                          }}
+                          disabled={isSaving}
+                        >
+                          <option value="">Choose round...</option>
+                          {matchdays.filter(md => md !== activeMatchday).map(md => (
+                            <option key={md} value={md}>Matchday {md}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
