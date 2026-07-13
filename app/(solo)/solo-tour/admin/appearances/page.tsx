@@ -572,147 +572,170 @@ export default function AppearancesManagerPage() {
                 </div>
               </div>
 
-              {/* Admin Editor Control Section */}
-              <div className="admin-actions-bar">
-                <div className="matchday-picker">
-                  <i className="fa-solid fa-user-gear" style={{ color: "#3b82f6", marginRight: "0.25rem" }} />
-                  <span style={{ fontWeight: 700 }}>Admin controls:</span>
-                  <select
-                    className="matchday-select-input"
-                    value={activeMatchday}
-                    onChange={(e) => handleMatchdayChange(parseInt(e.target.value, 10))}
-                    disabled={isSaving || matchdays.length === 0}
-                  >
-                    {matchdays.length === 0 ? (
-                      <option value="">No Matchdays</option>
-                    ) : (
-                      matchdays.map((md) => (
-                        <option key={md} value={md}>Matchday {md}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                {!isEditing ? (
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button 
-                      onClick={enterEditMode} 
-                      className="portal-btn btn-primary"
-                      disabled={loadingPlayers || matchdays.length === 0}
-                    >
-                      <i className="fa-solid fa-pen-to-square" /> Edit Matchday {activeMatchday} Players
-                    </button>
-                    {matchdayHasAppearances && matchdays.length > 0 && (
-                      <button 
-                        onClick={handleRevert} 
-                        className="portal-btn btn-danger"
-                        disabled={loadingPlayers || isSaving}
-                        style={{ background: "#ef4444", borderColor: "#dc2626" }}
-                      >
-                        <i className="fa-solid fa-arrow-rotate-left" /> Revert Matchday {activeMatchday}
-                      </button>
-                    )}
+              {/* Structured Admin Operations Panel */}
+              <div className="glass-panel" style={{ borderLeft: "4px solid #3b82f6", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem", marginTop: "1rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", width: "40px", height: "40px", borderRadius: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem" }}>
+                      <i className="fa-solid fa-user-gear" />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#fff" }}>
+                        {isEditing ? `EDITING MATCHDAY ${activeMatchday} ROSTER` : `MATCHDAY ROSTER MANAGER`}
+                      </h3>
+                      <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "#9ca3af" }}>
+                        {isEditing ? "Configure squad appearances for the selected round below." : "Select a matchday to edit or revert lineups."}
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
-                    {/* Primary actions */}
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <button 
-                        onClick={handleSave} 
-                        className="portal-btn btn-success" 
-                        disabled={isSaving}
-                        style={{ background: "#10b981", borderColor: "#059669" }}
+
+                  {/* Primary actions row */}
+                  <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <div className="matchday-picker">
+                      <select
+                        className="matchday-select-input"
+                        value={activeMatchday}
+                        onChange={(e) => handleMatchdayChange(parseInt(e.target.value, 10))}
+                        disabled={isSaving || isEditing || matchdays.length === 0}
+                        style={{ height: "40px", background: "rgba(15, 23, 42, 0.8)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "0.5rem", color: "#fff", padding: "0 1rem", fontWeight: 700, cursor: "pointer" }}
                       >
-                        {isSaving ? (
-                          <><i className="fa-solid fa-spinner fa-spin" /> Saving...</>
+                        {matchdays.length === 0 ? (
+                          <option value="">No Matchdays</option>
                         ) : (
-                          <><i className="fa-solid fa-check" /> Save Selections</>
+                          matchdays.map((md) => (
+                            <option key={md} value={md}>Matchday {md}</option>
+                          ))
                         )}
-                      </button>
-                      <button 
-                        onClick={() => setIsEditing(false)} 
-                        className="portal-btn btn-secondary"
-                        disabled={isSaving}
-                      >
-                        Cancel
-                      </button>
+                      </select>
                     </div>
 
-                    {/* Secondary helper utilities */}
-                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "1rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-                      <button 
-                        onClick={() => {
-                          const allFilteredIds = filteredPlayers.map(p => p.id);
-                          setEditSelections(prev => {
-                            const nonFiltered = prev.filter(id => !players.find(p => p.id === id) || !filteredPlayers.find(fp => fp.id === id));
-                            return [...nonFiltered, ...allFilteredIds];
-                          });
-                        }}
-                        className="portal-btn btn-secondary"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#3b82f6" }}
-                        disabled={isSaving}
-                      >
-                        <i className="fa-solid fa-square-check" /> Select All Filtered
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const filteredIds = filteredPlayers.map(p => p.id);
-                          setEditSelections(prev => prev.filter(id => !filteredIds.includes(id)));
-                        }}
-                        className="portal-btn btn-secondary"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                        disabled={isSaving}
-                      >
-                        <i className="fa-solid fa-square" /> Clear Filtered
-                      </button>
-
-                      <div style={{ width: "1px", height: "20px", background: "rgba(255, 255, 255, 0.12)" }} />
-
-                      {/* Excel/CSV Tool */}
-                      <button
-                        onClick={exportToCSV}
-                        className="portal-btn btn-secondary"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }}
-                        disabled={isSaving}
-                      >
-                        <i className="fa-solid fa-file-export" /> Export CSV Template
-                      </button>
-
-                      <label 
-                        className="portal-btn btn-secondary"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                      >
-                        <i className="fa-solid fa-file-import" /> Import CSV
-                        <input
-                          type="file"
-                          accept=".csv"
-                          onChange={importFromCSV}
-                          style={{ display: "none" }}
-                          disabled={isSaving}
-                        />
-                      </label>
-
-                      <div style={{ width: "1px", height: "20px", background: "rgba(255, 255, 255, 0.12)" }} />
-
-                      {/* Lineup Cloner */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <span style={{ fontSize: "0.75rem", color: "#9ca3af", fontWeight: 700, letterSpacing: "0.5px" }}>CLONE FROM:</span>
-                        <select
-                          className="matchday-select-input"
-                          style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                          onChange={(e) => {
-                            const cloneFromMd = parseInt(e.target.value, 10);
-                            if (cloneFromMd) cloneLineup(cloneFromMd);
-                            e.target.value = ""; // reset selection
-                          }}
-                          disabled={isSaving}
+                    {!isEditing ? (
+                      <>
+                        <button 
+                          onClick={enterEditMode} 
+                          className="portal-btn btn-primary"
+                          disabled={loadingPlayers || matchdays.length === 0}
+                          style={{ height: "40px", padding: "0 1.25rem", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
                         >
-                          <option value="">Choose round...</option>
-                          {matchdays.filter(md => md !== activeMatchday).map(md => (
-                            <option key={md} value={md}>Matchday {md}</option>
-                          ))}
-                        </select>
-                      </div>
+                          <i className="fa-solid fa-pen-to-square" /> Edit Players
+                        </button>
+                        {matchdayHasAppearances && matchdays.length > 0 && (
+                          <button 
+                            onClick={handleRevert} 
+                            className="portal-btn btn-danger"
+                            disabled={loadingPlayers || isSaving}
+                            style={{ height: "40px", padding: "0 1.25rem", background: "#ef4444", borderColor: "#dc2626", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                          >
+                            <i className="fa-solid fa-arrow-rotate-left" /> Revert Round
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={handleSave} 
+                          className="portal-btn btn-success" 
+                          disabled={isSaving}
+                          style={{ height: "40px", padding: "0 1.25rem", background: "#10b981", borderColor: "#059669", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                        >
+                          {isSaving ? (
+                            <><i className="fa-solid fa-spinner fa-spin" /> Saving...</>
+                          ) : (
+                            <><i className="fa-solid fa-check" /> Save</>
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => setIsEditing(false)} 
+                          className="portal-btn btn-secondary"
+                          disabled={isSaving}
+                          style={{ height: "40px", padding: "0 1.25rem", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Helper utilities strip inside the card (only shown when editing) */}
+                {isEditing && (
+                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "1.25rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginRight: "0.5rem" }}>
+                      <span style={{ fontSize: "0.75rem", color: "#3b82f6", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>ROSTER HELPERS:</span>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        const allFilteredIds = filteredPlayers.map(p => p.id);
+                        setEditSelections(prev => {
+                          const nonFiltered = prev.filter(id => !players.find(p => p.id === id) || !filteredPlayers.find(fp => fp.id === id));
+                          return [...nonFiltered, ...allFilteredIds];
+                        });
+                      }}
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem", borderColor: "rgba(59, 130, 246, 0.4)", color: "#3b82f6" }}
+                      disabled={isSaving}
+                    >
+                      <i className="fa-solid fa-square-check" /> Select All Filtered
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const filteredIds = filteredPlayers.map(p => p.id);
+                        setEditSelections(prev => prev.filter(id => !filteredIds.includes(id)));
+                      }}
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem" }}
+                      disabled={isSaving}
+                    >
+                      <i className="fa-solid fa-square" /> Clear Filtered
+                    </button>
+
+                    <div style={{ width: "1px", height: "22px", background: "rgba(255, 255, 255, 0.12)" }} />
+
+                    {/* CSV/Excel Template Buttons */}
+                    <button
+                      onClick={exportToCSV}
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }}
+                      disabled={isSaving}
+                    >
+                      <i className="fa-solid fa-file-export" /> Export CSV Template
+                    </button>
+
+                    <label 
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                    >
+                      <i className="fa-solid fa-file-import" /> Import CSV
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={importFromCSV}
+                        style={{ display: "none" }}
+                        disabled={isSaving}
+                      />
+                    </label>
+
+                    <div style={{ width: "1px", height: "22px", background: "rgba(255, 255, 255, 0.12)" }} />
+
+                    {/* Lineup Cloner */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.75rem", color: "#9ca3af", fontWeight: 700, letterSpacing: "0.5px" }}>CLONE FROM:</span>
+                      <select
+                        className="matchday-select-input"
+                        style={{ padding: "4px 10px", fontSize: "0.75rem", background: "rgba(15, 23, 42, 0.8)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "0.4rem", color: "#fff", cursor: "pointer" }}
+                        onChange={(e) => {
+                          const cloneFromMd = parseInt(e.target.value, 10);
+                          if (cloneFromMd) cloneLineup(cloneFromMd);
+                          e.target.value = ""; // reset select
+                        }}
+                        disabled={isSaving}
+                      >
+                        <option value="">Choose round...</option>
+                        {matchdays.filter(md => md !== activeMatchday).map(md => (
+                          <option key={md} value={md}>Matchday {md}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
