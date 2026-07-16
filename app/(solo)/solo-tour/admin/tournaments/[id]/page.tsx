@@ -526,7 +526,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           managerName: guestManagerName.trim(),
           avatarPath: guestManagerAvatar,
           isActive: false, // Inactive guest manager
-          r2gId: guestManagerR2gId.trim() || undefined
+          r2gId: guestManagerR2gId.trim() || undefined,
+          isGuest: true
         });
         
         if (res && res.success && res.id) {

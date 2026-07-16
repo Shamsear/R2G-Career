@@ -1155,7 +1155,7 @@ export async function createClubAndManager(data: any) {
     `, [nextId, data.clubName || '', data.logoPath || '']);
     
     const activeSeason = await fetchActiveSeason();
-    if (activeSeason) {
+    if (activeSeason && !data.isGuest) {
       const dbClubId = data.clubName ? nextId : null;
       
       await pool.query(`
