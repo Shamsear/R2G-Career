@@ -1584,32 +1584,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <i className="fa-solid fa-circle-plus" style={{ color: "#c084fc" }} /> Create & Add Guest Team (Outside Career)
                 </h3>
                 <form onSubmit={handleAddGuestTeam} style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-                  <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
-                    <div className="admin-form-group">
-                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Club Logo</label>
-                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                        <input 
-                          type="text" 
-                          className="admin-input" 
-                          style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }}
-                          placeholder="Logo URL" 
-                          value={guestClubLogo} 
-                          onChange={(e) => setGuestClubLogo(e.target.value)} 
-                        />
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          id="guest-logo-upload" 
-                          style={{ display: "none" }} 
-                          onChange={handleGuestLogoUpload} 
-                          disabled={uploadingGuestLogo} 
-                        />
-                        <label htmlFor="guest-logo-upload" className="portal-btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", pointerEvents: uploadingGuestLogo ? "none" : "auto" }}>
-                          {uploadingGuestLogo ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-cloud-arrow-up" />}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+
 
                   <div className="admin-form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
                     <div className="admin-form-group">
