@@ -402,8 +402,8 @@ export async function fetchManagerRanking() {
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
         const queryStr = includeInactive 
-          ? `SELECT c.id, c.name, m.name as manager, m.r2g_id, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id`
-          : `SELECT c.id, c.name, m.name as manager, m.r2g_id, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id WHERE m.is_active IS NOT FALSE`;
+          ? `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image FROM managers m LEFT JOIN clubs c ON m.id = c.id`
+          : `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image FROM managers m LEFT JOIN clubs c ON m.id = c.id WHERE m.is_active IS NOT FALSE`;
         const { rows: result } = await pool.query(queryStr);
         return result;
     } catch (e) { console.error(e); return []; }
