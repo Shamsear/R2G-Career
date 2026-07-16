@@ -45,10 +45,14 @@ export async function uploadImage(options: UploadOptions): Promise<UploadResult>
     const ik = getImageKit();
     
     // Get authentication parameters from server
-    // Use absolute URL for server-side fetch
+    // Use window.location.origin on client side to handle different ports automatically
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+      
     const authEndpoint = imagekitConfig.authenticationEndpoint.startsWith('http') 
       ? imagekitConfig.authenticationEndpoint
-      : `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}${imagekitConfig.authenticationEndpoint}`;
+      : `${baseUrl}${imagekitConfig.authenticationEndpoint}`;
     
     const authResponse = await fetch(authEndpoint);
     if (!authResponse.ok) {
