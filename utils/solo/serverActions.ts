@@ -64,7 +64,8 @@ export async function fetchManagers() {
                 ms.goals_scored,
                 ms.goals_conceded,
                 ms.clean_sheets,
-                m.is_banned
+                m.is_banned,
+                m.is_active
             FROM managers m
             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
             LEFT JOIN clubs c ON mw.current_club_id = c.id
@@ -109,6 +110,7 @@ export async function fetchManagers() {
                 goals_conceded: m.goals_conceded || 0,
                 clean_sheets: m.clean_sheets || 0,
                 is_banned: m.is_banned || false,
+                is_active: m.is_active !== false,
                 club_total_value: Math.floor(m.club_total_value / 1000000) || 0,
                 trophies,
                 awards: awardsCount,
@@ -390,14 +392,17 @@ export async function fetchPlayerAuctionData() {
 
 export async function fetchManagerRanking() {
     try {
-        const { rows: result } = await pool.query(`SELECT m.name, ms.manager_rank as rank, ms.rank_points as score, m.avatar_path as img FROM managers m JOIN manager_seasons ms ON m.id = ms.manager_id ORDER BY ms.manager_rank ASC NULLS LAST`);
+        const { rows: result } = await pool.query(`SELECT m.name, ms.manager_rank as rank, ms.rank_points as score, m.avatar_path as img FROM managers m JOIN manager_seasons ms ON m.id = ms.manager_id WHERE m.is_active IS NOT FALSE ORDER BY ms.manager_rank ASC NULLS LAST`);
         return result;
     } catch (e) { console.error(e); return []; }
 }
 
-export async function fetchRegisteredClubs() {
+export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
-        const { rows: result } = await pool.query(`SELECT c.id, c.name, m.name as manager, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id`);
+        const queryStr = includeInactive 
+          ? `SELECT c.id, c.name, m.name as manager, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id`
+          : `SELECT c.id, c.name, m.name as manager, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id WHERE m.is_active IS NOT FALSE`;
+        const { rows: result } = await pool.query(queryStr);
         return result;
     } catch (e) { console.error(e); return []; }
 }
@@ -1136,9 +1141,9 @@ export async function createClubAndManager(data: any) {
     const nextId = maxIdRows[0].next_id;
     
     await pool.query(`
-      INSERT INTO managers (id, name, avatar_path)
-      VALUES ($1, $2, $3)
-    `, [nextId, data.managerName, data.avatarPath || '']);
+      INSERT INTO managers (id, name, avatar_path, is_active)
+      VALUES ($1, $2, $3, $4)
+    `, [nextId, data.managerName, data.avatarPath || '', data.isActive !== false]);
     
     await pool.query(`
       INSERT INTO clubs (id, name, logo_path)
@@ -1198,8 +1203,8 @@ export async function updateManagerDetails(data: any) {
     
     // Update the manager's basic info
     await pool.query(`
-      UPDATE managers SET name = $1, avatar_path = $2, is_banned = $3 WHERE id = $4
-    `, [data.name, data.photo || '', data.isBanned || false, data.id]);
+      UPDATE managers SET name = $1, avatar_path = $2, is_banned = $3, is_active = $4 WHERE id = $5
+    `, [data.name, data.photo || '', data.isBanned || false, data.isActive !== false, data.id]);
     
     // Update the club details (name and logo) for this club
     await pool.query(`

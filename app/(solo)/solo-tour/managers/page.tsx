@@ -43,8 +43,9 @@ export default function Managers() {
           if (isNumericB) return 1;
           return rankA.localeCompare(rankB);
         });
-        setManagers(data);
-        setFilteredManagers(data);
+        const activeOnly = data.filter((m: any) => m.is_active !== false);
+        setManagers(activeOnly);
+        setFilteredManagers(activeOnly);
       } catch (err: any) {
         setError(err.message);
       } finally {

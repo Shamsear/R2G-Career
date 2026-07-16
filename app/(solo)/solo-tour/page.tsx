@@ -274,27 +274,6 @@ export default function SoloTourDashboard() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="portal-footer">
-        <div className="portal-footer-brand">
-          <Image
-            src="/assets/images/logo11.webp"
-            alt="R2G"
-            width={26}
-            height={26}
-            className="portal-footer-logo"
-          />
-          <span className="portal-footer-name">Road to Glory</span>
-        </div>
-        <div className="portal-status-bar">
-          <div className="status-item">
-            <span className="status-indicator online" />
-            Career Tour: Active
-          </div>
-          <div className="status-item">Current Season: 7</div>
-        </div>
-        <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-      </footer>
     </div>
   );
 }

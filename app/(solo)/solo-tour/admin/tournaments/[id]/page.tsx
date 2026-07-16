@@ -236,7 +236,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         fetchTournamentById(tournamentId),
         fetchFinancialRules(),
         fetchFixtures(tournamentId),
-        fetchRegisteredClubs(),
+        fetchRegisteredClubs(true),
         fetchTournamentTypes(),
         fetchTournamentClubs(tournamentId),
         fetchTournamentStandings(tournamentId)

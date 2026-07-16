@@ -86,8 +86,11 @@ export default function SpecialTourYearSelection() {
                 className="portal-card" 
                 style={{ minHeight: "180px", cursor: "pointer" }}
               >
+                <div className="portal-card-bg" style={{ backgroundImage: "url('/assets/images/portal/tournament_bg.png')" }} />
+                <div className="portal-card-shimmer" />
+                <div className="portal-card-glow" />
                 <div className="portal-card-overlay" />
-                <div className="portal-card-content" style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
+                <div className="portal-card-content" style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between", position: "relative", zIndex: 2 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
                       <i className="fa-solid fa-folder-open" style={{ fontSize: "2.5rem", color: "var(--solo-primary)" }} />

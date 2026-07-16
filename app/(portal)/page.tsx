@@ -204,10 +204,7 @@ export default function Home() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/special_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/tournament_bg.png')";
-              }}
+              style={{ backgroundImage: "url('/assets/images/portal/tournament_bg.png')" }}
             />
             <div className="portal-card-shimmer" />
             <div className="portal-card-glow" />

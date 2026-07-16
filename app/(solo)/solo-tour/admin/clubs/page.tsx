@@ -36,7 +36,8 @@ export default function ClubsManager() {
     starRating: 3,
     wins: 0, draws: 0, losses: 0, matchesPlayed: 0,
     goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
-    isBanned: false
+    isBanned: false,
+    isActive: true
   });
 
   const [fineModal, setFineModal] = useState({
@@ -81,7 +82,8 @@ export default function ClubsManager() {
       id: "", clubId: "", clubName: "", logoPath: "", managerName: "", avatarPath: "",
       coinBalance: 1500, tokenBalance: 100, voucherBalance: 0, rating: 80, starRating: 3,
       wins: 0, draws: 0, losses: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
-      isBanned: false
+      isBanned: false,
+      isActive: true
     });
   };
 
@@ -151,7 +153,8 @@ export default function ClubsManager() {
       goalsFor: m.goals_scored || 0,
       goalsAgainst: m.goals_conceded || 0,
       cleanSheets: m.clean_sheets || 0,
-      isBanned: m.is_banned || false
+      isBanned: m.is_banned || false,
+      isActive: m.is_active !== false
     });
   };
 
@@ -370,7 +373,13 @@ export default function ClubsManager() {
                       <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>Record: {m.wins || 0}W-{m.draws || 0}D-{m.losses || 0}L</span>
                         <span>
-                          {m.is_banned ? <span className="badge-banned">BANNED</span> : <span className="badge-active">ACTIVE</span>}
+                          {m.is_banned ? (
+                            <span className="badge-banned">BANNED</span>
+                          ) : m.is_active === false ? (
+                            <span style={{ background: "rgba(156, 163, 175, 0.15)", color: "#d1d5db", border: "1px solid rgba(156, 163, 175, 0.3)", borderRadius: "0.25rem", padding: "2px 6px", fontSize: "0.65rem", fontWeight: 800 }}>GUEST/INACTIVE</span>
+                          ) : (
+                            <span className="badge-active">ACTIVE</span>
+                          )}
                         </span>
                       </div>
 
@@ -520,6 +529,21 @@ export default function ClubsManager() {
                       <label>Star Level (1-5★)</label>
                       <input type="number" className="admin-input" min={1} max={5} value={clubForm.starRating} onChange={(e) => setClubForm(prev => ({ ...prev, starRating: parseInt(e.target.value) || 3 }))} />
                     </div>
+                  </div>
+                  
+                  <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>
+                      <input 
+                        type="checkbox" 
+                        checked={clubForm.isActive} 
+                        onChange={(e) => setClubForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                        style={{ width: "16px", height: "16px", accentColor: "#3b82f6", cursor: "pointer" }}
+                      />
+                      <span>Active in Career Universe</span>
+                    </label>
+                    <p style={{ margin: "4px 0 0 1.5rem", fontSize: "0.75rem", color: "#9ca3af", lineHeight: "1.3" }}>
+                      Uncheck for guest/relegated teams. Inactive teams are hidden from public rankings and directories, but all historical standings and fixture scores remain preserved.
+                    </p>
                   </div>
                 </div>
 

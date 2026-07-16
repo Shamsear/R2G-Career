@@ -105,36 +105,41 @@ export default function TournamentsPage() {
               }
 
               return (
-                <div key={t.id} className="glass-panel" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "220px", transition: "all 0.3s ease" }}>
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                      <span className="portal-card-badge" style={{ margin: "0", display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.25rem 0.5rem" }}>
-                        <i className={icon} />
-                        {t.format_type.toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                        SEASON {t.season_number}
-                      </span>
+                <Link 
+                  key={t.id} 
+                  href={`/solo-tour/career-mode/tournaments/${t.id}`}
+                  className="portal-card solo-tour" 
+                  style={{ minHeight: "220px", display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none" }}
+                >
+                  <div className="portal-card-bg" style={{ backgroundImage: "url('/assets/images/portal/tournament_bg.png')" }} />
+                  <div className="portal-card-shimmer" />
+                  <div className="portal-card-glow" />
+                  <div className="portal-card-overlay" />
+                  <div className="portal-card-content" style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between", position: "relative", zIndex: 2, width: "100%", padding: "0" }}>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                        <span className="portal-card-badge" style={{ margin: "0", display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.25rem 0.5rem" }}>
+                          <i className={icon} />
+                          {t.format_type.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                          SEASON {t.season_number}
+                        </span>
+                      </div>
+
+                      <h2 style={{ fontSize: "1.2rem", fontWeight: "800", color: "#ffffff", margin: "0.5rem 0 0.25rem", fontFamily: "var(--font-display)" }}>
+                        {t.name}
+                      </h2>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "0" }}>
+                        Full division league tables, fixture schedules, top goals, and stats.
+                      </p>
                     </div>
 
-                    <h2 style={{ fontSize: "1.2rem", fontWeight: "800", color: "#ffffff", margin: "0.5rem 0 0.25rem", fontFamily: "var(--font-display)" }}>
-                      {t.name}
-                    </h2>
-                    <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "0" }}>
-                      Full division league tables, fixture schedules, top goals, and stats.
-                    </p>
-                  </div>
-
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1rem", marginTop: "1rem" }}>
-                    <Link
-                      href={`/solo-tour/career-mode/tournaments/${t.id}`}
-                      className="portal-btn btn-secondary"
-                      style={{ fontSize: "0.8rem", width: "100%", textAlign: "center", display: "block" }}
-                    >
+                    <div className="portal-card-action" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1rem", marginTop: "1rem" }}>
                       Open Tournament Hub <i className="fas fa-arrow-right" style={{ marginLeft: "0.35rem" }} />
-                    </Link>
+                    </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
