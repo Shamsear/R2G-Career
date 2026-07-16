@@ -216,16 +216,16 @@ export default function Home() {
               </span>
               <h2>SPECIAL TOUR</h2>
               <p>
-                Exclusive invitational tournaments. Compete with custom financial templates, match rewards, and unique rosters.
+                Exclusive invitational tournaments for guest clubs. Track participated teams roster, combined standings table, and match fixtures calendar.
               </p>
               <ul className="portal-card-highlights">
                 <li>
-                  <i className="fa-solid fa-sliders" />
-                  Custom Financial Rules
+                  <i className="fa-solid fa-users" />
+                  Participating Guest Clubs
                 </li>
                 <li>
-                  <i className="fa-solid fa-gift" />
-                  Exclusive Reward Milestones
+                  <i className="fa-solid fa-calendar-days" />
+                  Combined Series Portal
                 </li>
                 <li>
                   <i className="fa-solid fa-ranking-star" />

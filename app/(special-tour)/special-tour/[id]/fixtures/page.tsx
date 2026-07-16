@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchTournamentById, fetchFixtures, fetchTournamentStandings } from "@/utils/solo/serverActions";
