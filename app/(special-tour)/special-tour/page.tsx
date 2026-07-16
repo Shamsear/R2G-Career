@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchActiveSeason, fetchTournamentsByType } from "@/utils/solo/serverActions";
+import "../../portal.css";
+import "../../(rws)/rws/rws.css";
 
 export default function SpecialTourYearSelection() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
@@ -27,6 +29,15 @@ export default function SpecialTourYearSelection() {
     }
     loadData();
   }, []);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty("--mouse-x", `${x}px`);
+    card.style.setProperty("--mouse-y", `${y}px`);
+  };
 
   return (
     <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
@@ -84,6 +95,7 @@ export default function SpecialTourYearSelection() {
                 key={t.id} 
                 href={`/special-tour/${t.id}`} 
                 className="portal-card" 
+                onMouseMove={handleMouseMove}
                 style={{ minHeight: "180px", cursor: "pointer" }}
               >
                 <div className="portal-card-bg" style={{ backgroundImage: "url('/assets/images/portal/tournament_bg.png')" }} />
