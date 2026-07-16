@@ -171,14 +171,14 @@ export default function CareerMode() {
 
         {/* Header */}
         <div className="portal-header">
-          <div className="portal-page-badge animate-entrance" style={{ animationDelay: "80ms" }}>
+          <div className="portal-page-badge animate-entrance" style={{ animationDelay: "30ms" }}>
             <i className="fa-solid fa-briefcase" />
             Career Mode
           </div>
-          <h1 className="portal-title animate-entrance" style={{ animationDelay: "160ms" }}>
+          <h1 className="portal-title animate-entrance" style={{ animationDelay: "65ms" }}>
             CAREER MODE
           </h1>
-          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "240ms" }}>
+          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "100ms" }}>
             Manage your squad list, sign new players, negotiate contracts, and scout top talent.
           </p>
         </div>
@@ -190,7 +190,7 @@ export default function CareerMode() {
               key={card.href}
               href={card.href}
               className="portal-card solo-tour animate-entrance"
-              style={{ animationDelay: `${350 + card.delay}ms` }}
+              style={{ animationDelay: `${130 + card.delay / 2}ms` }}
               onMouseMove={handleMouseMove}
               target={card.target}
               rel={card.target === "_blank" ? "noopener noreferrer" : undefined}
@@ -226,7 +226,7 @@ export default function CareerMode() {
         </div>
 
         {/* Info panel */}
-        <div className="glass-panel animate-entrance" style={{ animationDelay: "800ms" }}>
+        <div className="glass-panel animate-entrance" style={{ animationDelay: "280ms" }}>
           <h2 className="section-heading">Your Career Journey</h2>
           <p className="section-text">
             Embark on an immersive career experience in our football management simulation. Choose

@@ -25,34 +25,34 @@ export default function RwsFooter() {
       <div className="tech-footer-container">
         
         {/* Connection status tag */}
-        <div className="tech-footer-status">
-          <span className="tech-status-dot pulse"></span>
-          <span className="tech-status-text">SYS.RWS: ACTIVE_MODE</span>
+        <div className="tech-footer-brand">
+          <span className="brand-status-dot online"></span>
+          <span className="brand-text">SYS.RWS: ACTIVE_MODE // v7.0</span>
         </div>
 
         {/* Technical navigation links */}
-        <div className="tech-footer-links">
+        <nav className="tech-footer-links" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           {navLinks.map((link, idx) => {
             const isActive = link.href === `/rws/${year}` || link.href === "/rws"
               ? pathname === link.href
               : pathname.startsWith(link.href);
             return (
-              <span key={link.href}>
-                {idx > 0 && <span className="tech-divider">//</span>}
+              <span key={link.href} style={{ display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
+                {idx > 0 && <span className="sep">//</span>}
                 <Link 
                   href={link.href}
-                  className={`tech-footer-link ${isActive ? "active" : ""}`}
+                  className={isActive ? "active" : ""}
                 >
                   [ {link.label} ]
                 </Link>
               </span>
             );
           })}
-        </div>
+        </nav>
 
         {/* System copyright/info */}
         <div className="tech-footer-info">
-          <span>&copy; {new Date().getFullYear()} R2G.WORLD_SERIES // V7.0</span>
+          <span>&copy; {new Date().getFullYear()} R2G.SYSTEMS</span>
         </div>
 
       </div>

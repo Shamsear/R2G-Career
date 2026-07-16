@@ -142,7 +142,6 @@ body {
 .portal-glow-orb-2 {
   position: fixed;
   border-radius: 50%;
-  filter: blur(120px);
   z-index: 0;
   pointer-events: none;
   will-change: transform;
@@ -168,9 +167,9 @@ body {
 }
 
 @keyframes orbDrift {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(40px, 25px) scale(1.08); }
-  100% { transform: translate(-20px, 50px) scale(0.96); }
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(40px, 25px, 0) scale(1.08); }
+  100% { transform: translate3d(-20px, 50px, 0) scale(0.96); }
 }
 
 /* ─── Floating Particles ─────────────────────────────────────────────────────── */
@@ -192,6 +191,7 @@ body {
   opacity: 0;
   animation: floatParticle linear infinite;
   box-shadow: 0 0 6px var(--rose);
+  will-change: transform, opacity;
 }
 
 .particle:nth-child(even) {
@@ -202,10 +202,10 @@ body {
 }
 
 @keyframes floatParticle {
-  0%   { transform: translateY(0) rotate(0deg);   opacity: 0; }
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg);   opacity: 0; }
   5%   { opacity: 0.5; }
   90%  { opacity: 0.4; }
-  100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+  100% { transform: translate3d(0, -110vh, 0) rotate(360deg); opacity: 0; }
 }
 
 /* ─── Main Container ─────────────────────────────────────────────────────────── */
@@ -225,8 +225,8 @@ body {
 
 /* ─── Entrance Animations ────────────────────────────────────────────────────── */
 @keyframes slideUpFade {
-  from { opacity: 0; transform: translateY(28px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translate3d(0, 20px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes fadeIn {

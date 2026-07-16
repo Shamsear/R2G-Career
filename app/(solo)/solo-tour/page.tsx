@@ -149,7 +149,7 @@ export default function SoloTourDashboard() {
 
         {/* Header */}
         <div className="portal-header">
-          <div className="portal-logo-container animate-entrance" style={{ animationDelay: "80ms" }}>
+          <div className="portal-logo-container animate-entrance" style={{ animationDelay: "30ms" }}>
             <div className="portal-logo-glow" />
             <Image
               src="/assets/images/logo11.webp"
@@ -160,20 +160,20 @@ export default function SoloTourDashboard() {
               priority
             />
           </div>
-          <div className="portal-page-badge animate-entrance" style={{ animationDelay: "140ms" }}>
+          <div className="portal-page-badge animate-entrance" style={{ animationDelay: "60ms" }}>
             <i className="fa-solid fa-bolt" />
             Career Tour Mode
           </div>
-          <h1 className="portal-title animate-entrance" style={{ animationDelay: "200ms" }}>
+          <h1 className="portal-title animate-entrance" style={{ animationDelay: "90ms" }}>
             ROAD TO GLORY
           </h1>
-          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "300ms" }}>
+          <p className="portal-subtitle animate-entrance" style={{ animationDelay: "120ms" }}>
             Manage your squad, outbid your rivals, and build your legacy across every season.
           </p>
         </div>
 
         {/* Stats ribbon */}
-        <div className="portal-stats-ribbon animate-entrance" style={{ animationDelay: "380ms" }}>
+        <div className="portal-stats-ribbon animate-entrance" style={{ animationDelay: "150ms" }}>
           <div className="stat-pill">
             <i className="fa-solid fa-trophy" />
             <span>Season {seasonNum}</span>
@@ -202,7 +202,7 @@ export default function SoloTourDashboard() {
               key={card.href}
               href={card.href}
               className={`portal-card solo-tour animate-entrance`}
-              style={{ animationDelay: `${460 + card.delay}ms` }}
+              style={{ animationDelay: `${180 + card.delay / 2}ms` }}
               onMouseMove={handleMouseMove}
             >
               <div
@@ -236,7 +236,7 @@ export default function SoloTourDashboard() {
         </div>
 
         {/* Features panel */}
-        <div className="glass-panel animate-entrance" style={{ animationDelay: "850ms" }}>
+        <div className="glass-panel animate-entrance" style={{ animationDelay: "300ms" }}>
           <h2 className="section-heading">Your Road to Glory Journey</h2>
           <p className="section-text">
             Welcome to Road to Glory — the ultimate virtual football manager simulator. Scout real
@@ -258,7 +258,7 @@ export default function SoloTourDashboard() {
         </div>
 
         {/* CTA banner */}
-        <div className="portal-cta-banner animate-entrance" style={{ animationDelay: "1000ms" }}>
+        <div className="portal-cta-banner animate-entrance" style={{ animationDelay: "350ms" }}>
           <div className="portal-cta-banner-content">
             <h3>Ready to Begin Your Journey?</h3>
             <p>Join active managers competing in tournaments and building elite clubs today.</p>
