@@ -23,6 +23,32 @@ export default function RwsAlbumManager() {
     dateStr: ""
   });
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `album-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: '/solo/album'
+      });
+      setPhotoForm(prev => ({
+        ...prev,
+        imageUrl: res.url
+      }));
+      showToast("Photo uploaded successfully to ImageKit!");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -139,8 +165,22 @@ export default function RwsAlbumManager() {
               </div>
               <div className="admin-form-grid" style={{ marginTop: "0.5rem" }}>
                 <div className="admin-form-group">
-                  <label><i className="fa-solid fa-link" /> Image URL (or path)</label>
-                  <input type="text" className="admin-input" value={photoForm.imageUrl} onChange={(e) => setPhotoForm(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                  <label><i className="fa-solid fa-link" /> Image URL (or upload file)</label>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input type="text" className="admin-input" style={{ flex: 1 }} value={photoForm.imageUrl} onChange={(e) => setPhotoForm(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                    
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: "none" }} 
+                      id="album-photo-file-upload"
+                      onChange={handleFileUpload}
+                      disabled={uploadingImage}
+                    />
+                    <label htmlFor="album-photo-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "8px 12px", fontSize: "0.75rem", cursor: "pointer", height: "38px", alignItems: "center", whiteSpace: "nowrap", flexShrink: 0, pointerEvents: uploadingImage ? "none" : "auto" }}>
+                      {uploadingImage ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Photo</>}
+                    </label>
+                  </div>
                 </div>
                 <div className="admin-form-group">
                   <label><i className="fa-solid fa-calendar-day" /> Date String</label>
