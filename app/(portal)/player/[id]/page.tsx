@@ -122,7 +122,7 @@ export default function PlayerProfilePage() {
     <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <PortalNavbar />
 
-      <main style={{ position: 'relative', zIndex: 2, flex: 1, paddingTop: "80px" }}>
+      <main style={{ position: 'relative', zIndex: 2, flex: 1, paddingTop: "20px", paddingBottom: "60px" }}>
         <div className="portal-container" style={{ maxWidth: "1200px", padding: "0.5rem 1rem" }}>
           
           {/* Navigation Breadcrumb */}
@@ -156,7 +156,7 @@ export default function PlayerProfilePage() {
             .profile-avatar-wrap {
               width: 140px;
               height: 140px;
-              border-radius: 50%;
+              border-radius: 12px;
               margin: 0 auto 1.25rem;
               background-size: cover;
               background-position: center;
@@ -327,7 +327,7 @@ export default function PlayerProfilePage() {
           `}</style>
 
           {/* Hero Banner Header */}
-          <div style={{ textAlign: "center", padding: "0 0 0.5rem", animation: "rwsFadeUp 0.5s ease-out both" }}>
+          <div style={{ textAlign: "center", padding: "0 0 0.5rem", animation: "rwsFadeUp 0.5s ease-out both", display: "none" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "4px 14px", borderRadius: "20px", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", fontSize: "0.72rem", fontWeight: 600, color: "#c084fc", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "0.5rem" }}>
               <i className="fa-solid fa-user-circle" /> Player Profile
             </div>

@@ -136,7 +136,7 @@ export default function PlayersDirectoryPage() {
             .player-dir-avatar {
               width: 60px;
               height: 60px;
-              border-radius: 50%;
+              border-radius: 8px;
               background-size: cover;
               background-position: center;
               border: 2px solid rgba(255, 255, 255, 0.08);
@@ -198,6 +198,7 @@ export default function PlayersDirectoryPage() {
               .player-dir-avatar {
                 width: 50px;
                 height: 50px;
+                border-radius: 6px;
               }
               .player-dir-name {
                 font-size: 0.95rem;
