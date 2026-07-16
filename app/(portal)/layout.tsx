@@ -35,7 +35,10 @@ export default function PortalLayout({
         />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
-      <body>
+      <body style={{ background: '#090a14', minHeight: '100vh' }}>
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
         {children}
       </body>
     </html>

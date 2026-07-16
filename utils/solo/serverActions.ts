@@ -4289,3 +4289,132 @@ export async function releaseMidSeasonContracts(seasonNumber: number) {
     throw e;
   }
 }
+
+export async function fetchPlayerCombinedStats(identifier: string | number) {
+  try {
+    let queryParam: any = identifier;
+    let queryField = 'm.id';
+    
+    // Check if it is a number or numeric string
+    const isNumeric = !isNaN(Number(identifier.toString().trim()));
+    if (isNumeric) {
+      queryParam = parseInt(identifier.toString(), 10);
+      queryField = 'm.id';
+    } else if (identifier.toString().trim().toUpperCase().startsWith('R2GP')) {
+      queryParam = identifier.toString().trim().toUpperCase();
+      queryField = 'm.r2g_id';
+    } else {
+      queryParam = identifier.toString().trim();
+      queryField = 'LOWER(m.name)';
+    }
+
+    const valuePlaceholder = queryField === 'LOWER(m.name)' ? 'LOWER($1)' : '$1';
+
+    // 1. Fetch manager details
+    const { rows: managerRows } = await pool.query(`
+      SELECT m.id, m.name, m.avatar_path, m.r2g_id, m.is_active,
+             c.name as club_name, c.logo_path as club_logo, c.id as club_id,
+             mw.overall_rating, mw.star_rating,
+             mw.r2g_coin_balance, mw.r2g_token_balance, mw.r2g_voucher_balance
+      FROM managers m
+      LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+      LEFT JOIN clubs c ON mw.current_club_id = c.id
+      WHERE ${queryField} = ${valuePlaceholder}
+      LIMIT 1
+    `, [queryParam]);
+
+    if (managerRows.length === 0) return null;
+    const manager = managerRows[0];
+
+    // 2. Fetch all club IDs this manager has ever managed (from manager_seasons history)
+    const { rows: clubHistory } = await pool.query(`
+      SELECT DISTINCT club_id 
+      FROM manager_seasons 
+      WHERE manager_id = $1 AND club_id IS NOT NULL
+      UNION
+      SELECT DISTINCT current_club_id as club_id
+      FROM manager_wallets
+      WHERE manager_id = $1 AND current_club_id IS NOT NULL
+    `, [manager.id]);
+
+    const clubIds = clubHistory.map(row => row.club_id).filter(id => id !== null);
+
+    // If no clubs found, return zero stats
+    if (clubIds.length === 0) {
+      const emptyStats = {
+        solo: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
+        special: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
+        rws: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 }
+      };
+      return { manager, stats: emptyStats };
+    }
+
+    // 3. Fetch stats grouped by tournament_type for all clubs this manager has managed
+    const { rows: statsRows } = await pool.query(`
+      SELECT 
+          t.tournament_type,
+          COUNT(*) as matches_played,
+          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score > f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score > f.home_score) THEN 1 ELSE 0 END) as wins,
+          SUM(CASE WHEN f.home_score = f.away_score THEN 1 ELSE 0 END) as draws,
+          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score < f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score < f.home_score) THEN 1 ELSE 0 END) as losses,
+          SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.home_score ELSE f.away_score END) as goals_scored,
+          SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.away_score ELSE f.home_score END) as goals_conceded,
+          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.away_score = 0) OR (f.away_club_id = ANY($1) AND f.home_score = 0) THEN 1 ELSE 0 END) as clean_sheets
+      FROM fixtures f
+      JOIN tournaments t ON f.tournament_id = t.id
+      WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
+        AND f.home_score IS NOT NULL
+        AND f.away_score IS NOT NULL
+      GROUP BY t.tournament_type
+    `, [clubIds]);
+
+    // 3. Format stats
+    const statsMap: Record<string, any> = {
+      solo: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
+      special: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
+      rws: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 }
+    };
+
+    statsRows.forEach(row => {
+      const type = row.tournament_type || 'solo';
+      if (statsMap[type]) {
+        statsMap[type] = {
+          matches_played: parseInt(row.matches_played) || 0,
+          wins: parseInt(row.wins) || 0,
+          draws: parseInt(row.draws) || 0,
+          losses: parseInt(row.losses) || 0,
+          goals_scored: parseInt(row.goals_scored) || 0,
+          goals_conceded: parseInt(row.goals_conceded) || 0,
+          clean_sheets: parseInt(row.clean_sheets) || 0
+        };
+      }
+    });
+
+    return {
+      manager,
+      stats: statsMap
+    };
+  } catch (error) {
+    console.error("Error fetching player combined stats:", error);
+    throw error;
+  }
+}
+
+export async function fetchAllPlayersDirectory() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT m.id, m.name, m.avatar_path, m.r2g_id, m.is_active,
+             c.name as club_name, c.logo_path as club_logo,
+             mw.overall_rating, mw.star_rating
+      FROM managers m
+      LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+      LEFT JOIN clubs c ON mw.current_club_id = c.id
+      ORDER BY m.name ASC
+    `);
+    return rows;
+  } catch (error) {
+    console.error("Error fetching all players directory:", error);
+    return [];
+  }
+}
+

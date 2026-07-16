@@ -13,6 +13,7 @@ export default function Navbar() {
 
   // Determine which tour we are currently in
   const isTeamTour = pathname.startsWith("/team-tour");
+  const isPlayerPage = pathname.startsWith("/player");
   const prefix = isTeamTour ? "/team-tour" : "/solo-tour";
   const isAdmin = pathname.startsWith("/solo-tour/admin");
   const activePrefix = isAdmin ? "/solo-tour/admin" : prefix;
@@ -20,7 +21,21 @@ export default function Navbar() {
   // Hide the navbar entirely on the root portal page
   if (pathname === "/") return null;
 
-  const navLinks = isAdmin
+  // Extract player id if we are on a profile page
+  let playerId = "";
+  if (isPlayerPage) {
+    const parts = pathname.split("/");
+    if (parts.length > 2 && parts[2]) {
+      playerId = parts[2];
+    }
+  }
+
+  const navLinks = isPlayerPage
+    ? [
+        { href: "/player", label: "01//DIRECTORY" },
+        ...(playerId ? [{ href: `/player/${playerId}`, label: "02//PROFILE" }] : [])
+      ]
+    : isAdmin
     ? [
         { href: "/solo-tour/admin", label: "01//HUB" },
         { href: "/solo-tour/admin/clubs", label: "02//CLUBS" },
@@ -38,6 +53,8 @@ export default function Navbar() {
         { href: `${prefix}/career-tournament`, label: "06//TOUR" },
       ];
 
+
+
   return (
     <>
       <header className="tech-header">
@@ -52,8 +69,8 @@ export default function Navbar() {
               height={26} 
               className="logo-img" 
             />
-            <span className="logo-text">
-              {isTeamTour ? "SYS.TEAM" : (isAdmin ? "R2G.ADMIN" : "R2G.CAREER")}
+             <span className="logo-text">
+              {isPlayerPage ? "R2G.PLAYER" : isTeamTour ? "SYS.TEAM" : (isAdmin ? "R2G.ADMIN" : "R2G.CAREER")}
             </span>
           </Link>
 
@@ -81,14 +98,16 @@ export default function Navbar() {
             </Link>
 
             {/* Mobile Hamburger Trigger */}
-            <button 
-              className={`tech-hamburger ${isMenuOpen ? "open" : ""}`} 
-              aria-label="Toggle menu" 
-              onClick={toggleMenu}
-            >
-              <span></span>
-              <span></span>
-            </button>
+            {navLinks.length > 0 && (
+              <button 
+                className={`tech-hamburger ${isMenuOpen ? "open" : ""}`} 
+                aria-label="Toggle menu" 
+                onClick={toggleMenu}
+              >
+                <span></span>
+                <span></span>
+              </button>
+            )}
           </div>
 
         </div>

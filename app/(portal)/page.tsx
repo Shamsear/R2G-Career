@@ -124,10 +124,14 @@ export default function Home() {
             <span>500+ Players</span>
           </div>
           <div className="stat-divider" />
-          <div className="stat-pill">
-            <i className="fa-solid fa-users" />
-            <span>28 Managers</span>
-          </div>
+          <Link
+            href="/player"
+            className="stat-pill clickable-pill"
+            style={{ textDecoration: "none" }}
+          >
+            <i className="fa-solid fa-users" style={{ color: "#c084fc" }} />
+            <span style={{ color: "#c084fc", fontWeight: 600 }}>28 Players Directory</span>
+          </Link>
           <div className="stat-divider" />
           <div className="stat-pill">
             <span className="live-dot" />
@@ -137,6 +141,18 @@ export default function Home() {
 
         {/* Portal cards */}
         <style>{`
+          .stat-pill.clickable-pill {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            border: 1px solid rgba(168, 85, 247, 0.15);
+            background: rgba(168, 85, 247, 0.05);
+          }
+          .stat-pill.clickable-pill:hover {
+            background: rgba(168, 85, 247, 0.12);
+            border-color: rgba(168, 85, 247, 0.4);
+            transform: scale(1.03);
+          }
           .portal-grid.cols-5 {
             display: grid;
             grid-template-columns: repeat(2, 1fr);

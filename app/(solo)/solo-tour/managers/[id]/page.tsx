@@ -237,6 +237,15 @@ export default function ManagerDetail() {
                                         <i className="fas fa-medal"></i>
                                         <span>Tokens: {manager.r2g_token_balance || 0}</span>
                                     </div>
+                                    <Link 
+                                        href={`/player/${encodeURIComponent(manager.r2g_id || manager.id)}`}
+                                        className="badge clickable"
+                                        style={{ background: 'rgba(168, 85, 247, 0.25)', border: '1px solid rgba(168, 85, 247, 0.4)', color: '#c084fc' }}
+                                        title="View combined stats across Solo, Special, and RWS Tournaments"
+                                    >
+                                        <i className="fas fa-user-circle" style={{ color: '#c084fc' }}></i>
+                                        <span>Unified Player Profile</span>
+                                    </Link>
                                 </div>
                             </div>
                         </div>
