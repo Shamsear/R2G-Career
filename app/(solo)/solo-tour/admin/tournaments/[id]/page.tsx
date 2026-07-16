@@ -1620,6 +1620,111 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 )}
               </form>
             </div>
+
+            {/* Create & Add Guest Team (Outside Career Mode) */}
+            {tournament?.tournament_type === "special" && (
+              <div className="admin-card" style={{ marginTop: "1rem" }}>
+                <h3 className="sub-card-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <i className="fa-solid fa-circle-plus" style={{ color: "#c084fc" }} /> Create & Add Guest Team (Outside Career)
+                </h3>
+                <form onSubmit={handleAddGuestTeam} style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                  <div className="admin-form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Club Name</label>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
+                        placeholder="e.g. Paris Guest FC (leave blank if no club)" 
+                        value={guestClubName} 
+                        onChange={(e) => setGuestClubName(e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Club Logo</label>
+                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                        <input 
+                          type="text" 
+                          className="admin-input" 
+                          style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }}
+                          placeholder="Logo URL" 
+                          value={guestClubLogo} 
+                          onChange={(e) => setGuestClubLogo(e.target.value)} 
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          id="guest-logo-upload" 
+                          style={{ display: "none" }} 
+                          onChange={handleGuestLogoUpload} 
+                          disabled={uploadingGuestLogo} 
+                        />
+                        <label htmlFor="guest-logo-upload" className="portal-btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", pointerEvents: uploadingGuestLogo ? "none" : "auto" }}>
+                          {uploadingGuestLogo ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-cloud-arrow-up" />}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Manager Name *</label>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
+                        placeholder="e.g. Zinedine Zidane" 
+                        value={guestManagerName} 
+                        onChange={(e) => setGuestManagerName(e.target.value)} 
+                        required
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Manager R2G ID (Optional)</label>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
+                        placeholder="e.g. SSPSM9999" 
+                        value={guestManagerR2gId} 
+                        onChange={(e) => setGuestManagerR2gId(e.target.value)} 
+                      />
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Manager Portrait/Avatar</label>
+                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                        <input 
+                          type="text" 
+                          className="admin-input" 
+                          style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }}
+                          placeholder="Avatar URL" 
+                          value={guestManagerAvatar} 
+                          onChange={(e) => setGuestManagerAvatar(e.target.value)} 
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          id="guest-avatar-upload" 
+                          style={{ display: "none" }} 
+                          onChange={handleGuestAvatarUpload} 
+                          disabled={uploadingGuestAvatar} 
+                        />
+                        <label htmlFor="guest-avatar-upload" className="portal-btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", pointerEvents: uploadingGuestAvatar ? "none" : "auto" }}>
+                          {uploadingGuestAvatar ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-cloud-arrow-up" />}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="portal-btn btn-primary" style={{ alignSelf: "flex-start", marginTop: "0.5rem" }} disabled={isPending || uploadingGuestLogo || uploadingGuestAvatar}>
+                    Create & Add Guest Team
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         )}
 
