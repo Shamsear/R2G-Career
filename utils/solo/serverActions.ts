@@ -494,10 +494,10 @@ export async function fetchFixtures(tournamentId?: number) {
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN clubs hc ON f.home_club_id = hc.id
-      LEFT JOIN managers hm ON hc.id = hm.id
-      JOIN clubs ac ON f.away_club_id = ac.id
-      LEFT JOIN managers am ON ac.id = am.id
+      JOIN managers hm ON f.home_club_id = hm.id
+      LEFT JOIN clubs hc ON hm.id = hc.id
+      JOIN managers am ON f.away_club_id = am.id
+      LEFT JOIN clubs ac ON am.id = ac.id
       LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
       LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
     `;
@@ -550,8 +550,10 @@ export async function fetchFixtureById(fixtureId: number) {
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN clubs hc ON f.home_club_id = hc.id
-      JOIN clubs ac ON f.away_club_id = ac.id
+      JOIN managers hm ON f.home_club_id = hm.id
+      LEFT JOIN clubs hc ON hm.id = hc.id
+      JOIN managers am ON f.away_club_id = am.id
+      LEFT JOIN clubs ac ON am.id = ac.id
       LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
       LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
       WHERE f.id = $1
@@ -613,8 +615,8 @@ export async function fetchTournamentStandings(tournamentId: number) {
              tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
              m.name as manager
       FROM tournament_standings ts
-      JOIN clubs c ON ts.club_id = c.id
-      LEFT JOIN managers m ON c.id = m.id
+      JOIN managers m ON ts.club_id = m.id
+      LEFT JOIN clubs c ON m.id = c.id
       JOIN tournaments t ON ts.tournament_id = t.id
       LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
@@ -721,11 +723,13 @@ export async function fetchCompletedFixturesForClub(clubId: string | number, sea
     const { rows } = await pool.query(`
       SELECT f.id, f.round_number, f.tournament_id, t.name as tournament_name,
              f.home_club_id, f.away_club_id, f.home_score, f.away_score,
-             hc.name as home_club_name, ac.name as away_club_name
+             COALESCE(hc.name, hm.name) as home_club_name, COALESCE(ac.name, am.name) as away_club_name
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN clubs hc ON f.home_club_id = hc.id
-      JOIN clubs ac ON f.away_club_id = ac.id
+      JOIN managers hm ON f.home_club_id = hm.id
+      LEFT JOIN clubs hc ON hm.id = hc.id
+      JOIN managers am ON f.away_club_id = am.id
+      LEFT JOIN clubs ac ON am.id = ac.id
       WHERE f.season_id = $1 
         AND (f.home_club_id = $2 OR f.away_club_id = $2)
         AND f.home_score IS NOT NULL 
@@ -2672,16 +2676,16 @@ export async function autoGenerateFixtures(tournamentId: number, legs: string) {
 export async function fetchTournamentClubs(tournamentId: number) {
   try {
     const { rows } = await pool.query(`
-      SELECT ts.club_id, c.name, c.logo_path,
+      SELECT ts.club_id, COALESCE(c.name, m.name) as name, c.logo_path,
              tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
              m.name as manager, ts.group_name
       FROM tournament_standings ts
-      JOIN clubs c ON ts.club_id = c.id
-      LEFT JOIN managers m ON c.id = m.id
+      JOIN managers m ON ts.club_id = m.id
+      LEFT JOIN clubs c ON m.id = c.id
       JOIN tournaments t ON ts.tournament_id = t.id
       LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
-      ORDER BY c.name ASC
+      ORDER BY COALESCE(c.name, m.name) ASC
     `, [tournamentId]);
     return rows.map((r: any) => ({
       club_id: r.club_id,
@@ -3523,10 +3527,11 @@ export async function fetchSeasonByRwsYear(rwsYear: number) {
 export async function fetchRuleViolations(seasonId?: number) {
   try {
     let query = `
-      SELECT rv.*, c.name as club_name, c.logo_path as club_logo,
+      SELECT rv.*, COALESCE(c.name, m.name) as club_name, c.logo_path as club_logo,
              f.round_number, t.name as tournament_name
       FROM rule_violations rv
-      JOIN clubs c ON rv.club_id = c.id
+      JOIN managers m ON rv.club_id = m.id
+      LEFT JOIN clubs c ON m.id = c.id
       LEFT JOIN fixtures f ON rv.fixture_id = f.id
       LEFT JOIN tournaments t ON f.tournament_id = t.id
     `;
@@ -3688,8 +3693,8 @@ export async function fetchDivisionStandings(seasonId: number) {
                tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
                m.name as manager_name
         FROM tournament_standings ts
-        JOIN clubs c ON ts.club_id = c.id
-        LEFT JOIN managers m ON c.id = m.id
+        JOIN managers m ON ts.club_id = m.id
+        LEFT JOIN clubs c ON m.id = c.id
         LEFT JOIN tournaments t ON ts.tournament_id = t.id
         LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
         WHERE ts.tournament_id = $1
@@ -4040,10 +4045,11 @@ export async function fetchAuctions() {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
     const { rows } = await pool.query(`
-      SELECT a.*, p.name as player_name, p.position, p.card_type as star, c.name as club_name
+      SELECT a.*, p.name as player_name, p.position, p.card_type as star, COALESCE(c.name, m.name) as club_name
       FROM auctions a
       JOIN players p ON a.player_id = p.id
-      LEFT JOIN clubs c ON a.bidding_club_id = c.id
+      LEFT JOIN managers m ON a.bidding_club_id = m.id
+      LEFT JOIN clubs c ON m.id = c.id
       WHERE a.season_id = $1
       ORDER BY a.id DESC
     `, [seasonId]);
