@@ -137,21 +137,27 @@ export default function Home() {
 
         {/* Portal cards */}
         <style>{`
-          .portal-grid.cols-4 {
+          .portal-grid.cols-5 {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 2rem;
             max-width: 1200px;
             margin: 0 auto;
           }
+          .portal-grid.cols-5 > *:nth-child(5) {
+            grid-column: span 2;
+          }
           @media (max-width: 768px) {
-            .portal-grid.cols-4 {
+            .portal-grid.cols-5 {
               grid-template-columns: 1fr;
               gap: 1.5rem;
             }
+            .portal-grid.cols-5 > *:nth-child(5) {
+              grid-column: span 1;
+            }
           }
         `}</style>
-        <div className="portal-grid cols-4 animate-entrance" style={{ animationDelay: "520ms" }}>
+        <div className="portal-grid cols-5 animate-entrance" style={{ animationDelay: "520ms" }}>
 
           {/* Solo Tour */}
           <Link
@@ -238,52 +244,6 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* R2G World Series (RWS) */}
-          <Link
-            href="/rws"
-            className="portal-card rws-tour"
-            onMouseMove={handleMouseMove}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/portal/rws_bg.png')" }}
-              onError={(e) => {
-                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
-              }}
-            />
-            <div className="portal-card-shimmer" />
-            <div className="portal-card-glow" />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-crown" />
-                World Series
-              </span>
-              <h2>R2G WORLD SERIES</h2>
-              <p>
-                The ultimate championship arena. Inspect nominated candidates,
-                track matches/brackets, and browse the trophy highlights album.
-              </p>
-              <ul className="portal-card-highlights">
-                <li>
-                  <i className="fa-solid fa-user-check" />
-                  Selected Candidates
-                </li>
-                <li>
-                  <i className="fa-solid fa-calendar-days" />
-                  Series Fixtures &amp; Brackets
-                </li>
-                <li>
-                  <i className="fa-solid fa-images" />
-                  Trophy &amp; Moments Album
-                </li>
-              </ul>
-              <div className="portal-card-action">
-                Enter RWS Portal <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
           {/* Team Tournament — Coming Soon */}
           <div
             className="portal-card team-tour coming-soon-card"
@@ -330,6 +290,98 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Master of Prediction — Coming Soon */}
+          <div
+            className="portal-card prediction-tour coming-soon-card"
+            aria-disabled="true"
+            tabIndex={-1}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/portal/ranking_bg.png')" }}
+            />
+            <div className="portal-card-glow" />
+            <div className="portal-card-overlay" />
+            <div className="coming-soon-lock-overlay">
+              <div className="lock-icon-wrapper">
+                <i className="fa-solid fa-lock" />
+              </div>
+            </div>
+            <div className="portal-card-content">
+              <span className="portal-card-badge coming-soon-badge">
+                <i className="fa-solid fa-clock" />
+                Coming Soon
+              </span>
+              <h2>MASTER OF PREDICTION</h2>
+              <p>
+                Forecast match outcomes, predict tournament champions, and compete with other managers on the prediction leaderboard.
+              </p>
+              <ul className="portal-card-highlights">
+                <li>
+                  <i className="fa-solid fa-square-poll-vertical" />
+                  Matchday Forecasts
+                </li>
+                <li>
+                  <i className="fa-solid fa-award" />
+                  Leaderboard Rankings
+                </li>
+                <li>
+                  <i className="fa-solid fa-coins" />
+                  Exclusive Rewards
+                </li>
+              </ul>
+              <div className="portal-card-action disabled">
+                Coming Soon <i className="fas fa-lock" />
+              </div>
+            </div>
+          </div>
+
+          {/* R2G World Series (RWS) */}
+          <Link
+            href="/rws"
+            className="portal-card rws-tour"
+            onMouseMove={handleMouseMove}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/portal/rws_bg.png')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
+            />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
+            <div className="portal-card-overlay" />
+            <div className="portal-card-content">
+              <span className="portal-card-badge">
+                <i className="fa-solid fa-crown" />
+                World Series
+              </span>
+              <h2>R2G WORLD SERIES</h2>
+              <p>
+                The ultimate championship arena. Inspect nominated candidates,
+                track matches/brackets, and browse the trophy highlights album.
+              </p>
+              <ul className="portal-card-highlights">
+                <li>
+                  <i className="fa-solid fa-user-check" />
+                  Selected Candidates
+                </li>
+                <li>
+                  <i className="fa-solid fa-calendar-days" />
+                  Series Fixtures &amp; Brackets
+                </li>
+                <li>
+                  <i className="fa-solid fa-images" />
+                  Trophy &amp; Moments Album
+                </li>
+              </ul>
+              <div className="portal-card-action">
+                Enter RWS Portal <i className="fas fa-arrow-right" />
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Features panel */}
