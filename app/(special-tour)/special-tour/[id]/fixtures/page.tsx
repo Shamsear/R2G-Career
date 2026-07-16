@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { fetchTournamentById, fetchFixtures, fetchTournamentStandings } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../../portal.css";
-import "../../../../../(rws)/rws/rws.css";
+import "../../../../(rws)/rws/rws.css";
 
 export default function SpecialTourFixtures() {
   const params = useParams();
