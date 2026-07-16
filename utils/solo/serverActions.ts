@@ -4326,7 +4326,45 @@ export async function fetchPlayerCombinedStats(identifier: string | number) {
     if (managerRows.length === 0) return null;
     const manager = managerRows[0];
 
-    // 2. Fetch all club IDs this manager has ever managed (from manager_seasons history)
+    console.log(`📊 Fetching stats for manager ID: ${manager.id}, Name: ${manager.name}`);
+
+    // 2. Fetch SOLO TOUR stats from manager_seasons (all historical data - already aggregated)
+    const { rows: soloStatsRows } = await pool.query(`
+      SELECT 
+          COALESCE(SUM(matches_played), 0) as matches_played,
+          COALESCE(SUM(wins), 0) as wins,
+          COALESCE(SUM(draws), 0) as draws,
+          COALESCE(SUM(losses), 0) as losses,
+          COALESCE(SUM(goals_scored), 0) as goals_scored,
+          COALESCE(SUM(goals_conceded), 0) as goals_conceded,
+          COALESCE(SUM(clean_sheets), 0) as clean_sheets
+      FROM manager_seasons
+      WHERE manager_id = $1
+    `, [manager.id]);
+
+    const soloStats = soloStatsRows[0] || { 
+      matches_played: 0, wins: 0, draws: 0, losses: 0, 
+      goals_scored: 0, goals_conceded: 0, clean_sheets: 0 
+    };
+
+    console.log(`✅ Solo stats from manager_seasons:`, soloStats);
+
+    // Initialize stats with solo data
+    const statsMap: Record<string, any> = {
+      solo: {
+        matches_played: parseInt(soloStats.matches_played) || 0,
+        wins: parseInt(soloStats.wins) || 0,
+        draws: parseInt(soloStats.draws) || 0,
+        losses: parseInt(soloStats.losses) || 0,
+        goals_scored: parseInt(soloStats.goals_scored) || 0,
+        goals_conceded: parseInt(soloStats.goals_conceded) || 0,
+        clean_sheets: parseInt(soloStats.clean_sheets) || 0
+      },
+      special: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
+      rws: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 }
+    };
+
+    // 3. Fetch all club IDs this manager has ever managed (for Special and RWS)
     const { rows: clubHistory } = await pool.query(`
       SELECT DISTINCT club_id 
       FROM manager_seasons 
@@ -4338,57 +4376,49 @@ export async function fetchPlayerCombinedStats(identifier: string | number) {
     `, [manager.id]);
 
     const clubIds = clubHistory.map(row => row.club_id).filter(id => id !== null);
+    console.log(`🏢 Club IDs found for Special/RWS:`, clubIds);
 
-    // If no clubs found, return zero stats
-    if (clubIds.length === 0) {
-      const emptyStats = {
-        solo: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
-        special: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
-        rws: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 }
-      };
-      return { manager, stats: emptyStats };
+    // 4. Fetch SPECIAL and RWS stats from fixtures (if manager has clubs)
+    if (clubIds.length > 0) {
+      const { rows: nonSoloStatsRows } = await pool.query(`
+        SELECT 
+            t.tournament_type,
+            COUNT(*) as matches_played,
+            SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score > f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score > f.home_score) THEN 1 ELSE 0 END) as wins,
+            SUM(CASE WHEN f.home_score = f.away_score THEN 1 ELSE 0 END) as draws,
+            SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score < f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score < f.home_score) THEN 1 ELSE 0 END) as losses,
+            SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.home_score ELSE f.away_score END) as goals_scored,
+            SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.away_score ELSE f.home_score END) as goals_conceded,
+            SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.away_score = 0) OR (f.away_club_id = ANY($1) AND f.home_score = 0) THEN 1 ELSE 0 END) as clean_sheets
+        FROM fixtures f
+        JOIN tournaments t ON f.tournament_id = t.id
+        WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
+          AND f.home_score IS NOT NULL
+          AND f.away_score IS NOT NULL
+          AND t.tournament_type IN ('special', 'rws')
+        GROUP BY t.tournament_type
+      `, [clubIds]);
+
+      console.log(`🎯 Non-solo stats (special/rws):`, nonSoloStatsRows);
+
+      // Merge non-solo stats
+      nonSoloStatsRows.forEach(row => {
+        const type = row.tournament_type;
+        if (statsMap[type]) {
+          statsMap[type] = {
+            matches_played: parseInt(row.matches_played) || 0,
+            wins: parseInt(row.wins) || 0,
+            draws: parseInt(row.draws) || 0,
+            losses: parseInt(row.losses) || 0,
+            goals_scored: parseInt(row.goals_scored) || 0,
+            goals_conceded: parseInt(row.goals_conceded) || 0,
+            clean_sheets: parseInt(row.clean_sheets) || 0
+          };
+        }
+      });
     }
 
-    // 3. Fetch stats grouped by tournament_type for all clubs this manager has managed
-    const { rows: statsRows } = await pool.query(`
-      SELECT 
-          t.tournament_type,
-          COUNT(*) as matches_played,
-          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score > f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score > f.home_score) THEN 1 ELSE 0 END) as wins,
-          SUM(CASE WHEN f.home_score = f.away_score THEN 1 ELSE 0 END) as draws,
-          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.home_score < f.away_score) OR (f.away_club_id = ANY($1) AND f.away_score < f.home_score) THEN 1 ELSE 0 END) as losses,
-          SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.home_score ELSE f.away_score END) as goals_scored,
-          SUM(CASE WHEN f.home_club_id = ANY($1) THEN f.away_score ELSE f.home_score END) as goals_conceded,
-          SUM(CASE WHEN (f.home_club_id = ANY($1) AND f.away_score = 0) OR (f.away_club_id = ANY($1) AND f.home_score = 0) THEN 1 ELSE 0 END) as clean_sheets
-      FROM fixtures f
-      JOIN tournaments t ON f.tournament_id = t.id
-      WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
-        AND f.home_score IS NOT NULL
-        AND f.away_score IS NOT NULL
-      GROUP BY t.tournament_type
-    `, [clubIds]);
-
-    // 3. Format stats
-    const statsMap: Record<string, any> = {
-      solo: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
-      special: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 },
-      rws: { matches_played: 0, wins: 0, draws: 0, losses: 0, goals_scored: 0, goals_conceded: 0, clean_sheets: 0 }
-    };
-
-    statsRows.forEach(row => {
-      const type = row.tournament_type || 'solo';
-      if (statsMap[type]) {
-        statsMap[type] = {
-          matches_played: parseInt(row.matches_played) || 0,
-          wins: parseInt(row.wins) || 0,
-          draws: parseInt(row.draws) || 0,
-          losses: parseInt(row.losses) || 0,
-          goals_scored: parseInt(row.goals_scored) || 0,
-          goals_conceded: parseInt(row.goals_conceded) || 0,
-          clean_sheets: parseInt(row.clean_sheets) || 0
-        };
-      }
-    });
+    console.log(`📈 Final stats map:`, statsMap);
 
     return {
       manager,
