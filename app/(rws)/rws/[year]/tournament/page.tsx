@@ -10,7 +10,6 @@ import {
   fetchTournamentStandings, 
   fetchTournamentClubs 
 } from "@/utils/solo/serverActions";
-import { captureElementAsPng, shareOrDownloadBlob } from "@/lib/share-table";
 import "../../rws.css";
 
 interface Match {
@@ -89,26 +88,7 @@ export default function RwsYearTournament() {
   // Tab selections
   const [activeTab, setActiveTab] = useState<string>("table");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
-  const [sharing, setSharing] = useState<boolean>(false);
-  const posterRef = useRef<HTMLDivElement>(null);
 
-  const handleSharePoster = async () => {
-    if (!posterRef.current) return;
-    setSharing(true);
-    try {
-      const blob = await captureElementAsPng(posterRef.current);
-      if (blob) {
-        const title = tournament?.name 
-          ? `${tournament.name.replace(/\s+/g, "_")}_update.png` 
-          : "r2g_series_update.png";
-        await shareOrDownloadBlob(blob, title);
-      }
-    } catch (e) {
-      console.error("Failed to share poster:", e);
-    } finally {
-      setSharing(false);
-    }
-  };
   
   // Fixtures filtering states
   const [activeRound, setActiveRound] = useState<number>(1);
@@ -219,27 +199,29 @@ export default function RwsYearTournament() {
     }, {} as Record<string, any[]>);
   }, [standings]);
 
-  // Dynamically compute team stats for Boot, Ball, and Glove
+  // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
     const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
-    const winsCount: Record<string, { logo: string; manager: string; value: number }> = {};
+    const goalDiff: Record<string, { logo: string; manager: string; value: number }> = {};
+    const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
     const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
     tournamentClubs.forEach(tc => {
-      goalsScored[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
-      winsCount[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
-      defensiveStats[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", conceded: 0, matches: 0, value: 0 };
+      const name = tc.name;
+      const logo = tc.logo_path || "";
+      const manager = tc.manager || "Unknown";
+      goalsScored[name] = { logo, manager, value: 0 };
+      goalDiff[name] = { logo, manager, value: 0 };
+      cleanSheets[name] = { logo, manager, value: 0 };
+      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
     standings.forEach(row => {
       const name = row.club_name;
       const logo = row.club_logo || "";
-      const existing = goalsScored[name];
-      goalsScored[name] = { 
-        logo, 
-        manager: existing?.manager || "Unknown", 
-        value: row.goals_scored || 0 
-      };
+      const manager = row.manager || "Unknown";
+      goalsScored[name] = { logo, manager, value: row.goals_scored || 0 };
+      goalDiff[name] = { logo, manager, value: row.goal_difference || 0 };
     });
 
     fixtures.forEach(f => {
@@ -248,10 +230,12 @@ export default function RwsYearTournament() {
         const hs = f.homeScore || 0;
         const as = f.awayScore || 0;
 
-        if (hs > as) {
-          if (winsCount[f.homeClub]) winsCount[f.homeClub].value += 1;
-        } else if (as > hs) {
-          if (winsCount[f.awayClub]) winsCount[f.awayClub].value += 1;
+        // Clean Sheets
+        if (hs === 0) {
+          if (cleanSheets[f.awayClub]) cleanSheets[f.awayClub].value += 1;
+        }
+        if (as === 0) {
+          if (cleanSheets[f.homeClub]) cleanSheets[f.homeClub].value += 1;
         }
 
         // Conceded and matches count
@@ -279,15 +263,19 @@ export default function RwsYearTournament() {
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
-    const sortedBall = Object.entries(winsCount)
+    const sortedBall = Object.entries(goalDiff)
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
-    const sortedGlove = Object.values(defensiveStats)
-      .map(ds => ({
-        name: ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "",
-        ...ds
-      }))
+    const sortedGlove = Object.entries(cleanSheets)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.value - a.value);
+
+    const sortedDefender = Object.values(defensiveStats)
+      .map(ds => {
+        const name = ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "";
+        return { name, ...ds };
+      })
       .filter(item => item.name !== "")
       .sort((a, b) => {
         if (a.matches === 0 && b.matches === 0) return 0;
@@ -296,7 +284,7 @@ export default function RwsYearTournament() {
         return a.value - b.value;
       });
 
-    return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove };
+    return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
   }, [fixtures, standings, tournamentClubs]);
 
   const handlePrevRound = () => {
@@ -416,23 +404,6 @@ export default function RwsYearTournament() {
               </button>
             ))}
           </div>
-
-          <button
-            type="button"
-            onClick={handleSharePoster}
-            disabled={sharing}
-            style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              padding: "8px 18px", borderRadius: "12px", border: "1px solid rgba(168, 85, 247, 0.3)",
-              cursor: "pointer", fontSize: "0.82rem", fontWeight: 700, fontFamily: "var(--font-display)",
-              background: "rgba(168, 85, 247, 0.08)", color: "#c084fc",
-              boxShadow: "0 4px 12px rgba(168,85,247,0.1)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <i className={sharing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-share-nodes"} />
-            {sharing ? "GENERATING..." : "SHARE POSTER"}
-          </button>
         </div>
 
         {/* ═══════════════════════ TAB 1 — STANDINGS ═══════════════════════ */}
@@ -650,11 +621,12 @@ export default function RwsYearTournament() {
           <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
             {/* Sub-Tab Pills */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
-              <div style={{ display: "inline-flex", gap: "4px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "10px" }}>
+              <div style={{ display: "inline-flex", gap: "4px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "10px", flexWrap: "wrap", justifyContent: "center" }}>
                 {[
                   { key: "boot", icon: "fa-solid fa-futbol", label: "Golden Boot", color: "#fbbf24" },
                   { key: "ball", icon: "fa-solid fa-award", label: "Golden Ball", color: "#38bdf8" },
                   { key: "glove", icon: "fa-solid fa-shield-halved", label: "Golden Glove", color: "#c084fc" },
+                  { key: "defender", icon: "fa-solid fa-user-shield", label: "Best Defender", color: "#10b981" },
                 ].map(st => (
                   <button key={st.key} type="button" onClick={() => setActiveSubTab(st.key)}
                     style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.78rem", fontWeight: activeSubTab === st.key ? 700 : 500, background: activeSubTab === st.key ? "rgba(255,255,255,0.08)" : "transparent", color: activeSubTab === st.key ? "#fff" : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>
@@ -668,10 +640,11 @@ export default function RwsYearTournament() {
             {(() => {
               const config: Record<string, { data: typeof teamStats.boot; color: string; unit: string; icon: string; title: string }> = {
                 boot: { data: teamStats.boot, color: "#fbbf24", unit: "Goals", icon: "fa-solid fa-futbol", title: "Top Scorers" },
-                ball: { data: teamStats.ball, color: "#38bdf8", unit: "Wins", icon: "fa-solid fa-award", title: "Most Victories" },
-                glove: { data: teamStats.glove, color: "#c084fc", unit: "GA/Match", icon: "fa-solid fa-shield-halved", title: "Best Defence" },
+                ball: { data: teamStats.ball, color: "#38bdf8", unit: "GD", icon: "fa-solid fa-award", title: "Best Goal Difference" },
+                glove: { data: teamStats.glove, color: "#c084fc", unit: "Clean Sheets", icon: "fa-solid fa-shield-halved", title: "Most Clean Sheets" },
+                defender: { data: teamStats.defender, color: "#10b981", unit: "GA/Match", icon: "fa-solid fa-user-shield", title: "Best Defender (Lowest GA/Match)" },
               };
-              const c = config[activeSubTab];
+              const c = config[activeSubTab] || config.boot;
               return (
                 <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
                   <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -693,7 +666,9 @@ export default function RwsYearTournament() {
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
-                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: "1rem", color: idx === 0 ? c.color : "#fff" }}>{s.value}</span>
+                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: "1rem", color: idx === 0 ? c.color : "#fff" }}>
+                              {activeSubTab === "ball" && s.value > 0 ? `+${s.value}` : s.value}
+                            </span>
                             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>{c.unit}</span>
                           </div>
                         </div>
@@ -707,225 +682,6 @@ export default function RwsYearTournament() {
         )}
 
       </div>
-      {/* Off-screen Poster Capture Container */}
-      <div 
-        style={{ 
-          position: "fixed", 
-          left: "-9999px", 
-          top: "-9999px", 
-          width: "800px", 
-          overflow: "hidden" 
-        }}
-      >
-        <div 
-          ref={posterRef} 
-          style={{ 
-            width: "800px", 
-            padding: "3rem", 
-            background: "linear-gradient(135deg, #0f0c1b 0%, #050508 100%)", 
-            border: "2px solid rgba(168, 85, 247, 0.3)",
-            color: "#fff",
-            fontFamily: "var(--font-mono)"
-          }}
-        >
-          {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: "2rem", borderBottom: "1px dashed rgba(255,255,255,0.1)", paddingBottom: "1.5rem" }}>
-            <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#c084fc", letterSpacing: "3px", fontWeight: "bold" }}>
-              ROAD TO GLORY // SERIES UPDATE
-            </span>
-            <h1 style={{ fontSize: "2rem", fontWeight: "bold", textTransform: "uppercase", margin: "0.5rem 0", background: "linear-gradient(135deg, #ffffff 0%, #c084fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {tournament?.name || `RWS ${yearStr} Series`}
-            </h1>
-            <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-              Official standings and statistics captured on {new Date().toLocaleDateString()}
-            </p>
-          </div>
-
-          {/* Table Tab */}
-          {activeTab === "table" && (
-            <div>
-              <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                OFFICIAL STANDINGS TABLE
-              </div>
-              {standings.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                  No standings data available.
-                </div>
-              ) : tournament?.num_groups && tournament.num_groups > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-                  {Object.entries(groupedStandings).map(([groupName, rows]) => (
-                    <div key={groupName} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
-                      <div style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>
-                        Group {groupName}
-                      </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
-                        <thead>
-                          <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                            <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                            <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>P</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>W</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>D</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>L</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
-                            <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row: any, idx: number) => (
-                            <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                              <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
-                              <td style={{ padding: "12px", textAlign: "left" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                  {row.logo && <img src={row.logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
-                                  <div>
-                                    <div style={{ fontWeight: "bold" }}>{row.clubName}</div>
-                                    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager?.name || "No Manager"}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: "12px", textAlign: "center" }}>{row.played}</td>
-                              <td style={{ padding: "12px", textAlign: "center" }}>{row.wins}</td>
-                              <td style={{ padding: "12px", textAlign: "center" }}>{row.draws}</td>
-                              <td style={{ padding: "12px", textAlign: "center" }}>{row.losses}</td>
-                              <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_scored - row.goals_against}</td>
-                              <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
-                    <thead>
-                      <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                        <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                        <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>P</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>W</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>D</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>L</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
-                        <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {standings.map((row: any, idx: number) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                          <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
-                          <td style={{ padding: "12px", textAlign: "left" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              {row.logo && <img src={row.logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
-                              <div>
-                                <div style={{ fontWeight: "bold" }}>{row.clubName}</div>
-                                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager?.name || "No Manager"}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>{row.played}</td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>{row.wins}</td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>{row.draws}</td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>{row.losses}</td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_scored - row.goals_against}</td>
-                          <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Fixture Tab */}
-          {activeTab === "fixture" && (
-            <div>
-              <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                ROUND {activeRound} MATCH CALENDAR
-              </div>
-              {filteredFixtures.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                  No matches scheduled for Round {activeRound}.
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {filteredFixtures.map((match) => {
-                    const homeWon = match.match_status === "completed" && match.homeScore > match.awayScore;
-                    const awayWon = match.match_status === "completed" && match.awayScore > match.homeScore;
-                    return (
-                      <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1.2rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
-                            {match.homeLogo && <img src={match.homeLogo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
-                            <span style={{ fontSize: "0.85rem", fontWeight: homeWon ? "bold" : "500" }}>{match.homeClub}</span>
-                          </div>
-                          <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#c084fc", padding: "0 1.5rem" }}>
-                            {match.match_status === "completed" ? `${match.homeScore} - ${match.awayScore}` : "VS"}
-                          </span>
-                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px", justifyContent: "flex-end" }}>
-                            <span style={{ fontSize: "0.85rem", fontWeight: awayWon ? "bold" : "500" }}>{match.awayClub}</span>
-                            {match.awayLogo && <img src={match.awayLogo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Stats Tab */}
-          {activeTab === "stats" && (() => {
-            const config: Record<string, { data: typeof teamStats.boot; color: string; unit: string; icon: string; title: string }> = {
-              boot: { data: teamStats.boot, color: "#fbbf24", unit: "Goals", icon: "fa-solid fa-futbol", title: "Top Scorers" },
-              ball: { data: teamStats.ball, color: "#38bdf8", unit: "Wins", icon: "fa-solid fa-award", title: "Most Victories" },
-              glove: { data: teamStats.glove, color: "#c084fc", unit: "GA/Match", icon: "fa-solid fa-shield-halved", title: "Best Defence" },
-            };
-            const c = config[activeSubTab];
-            return (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", background: `${c.color}15`, border: `1px solid ${c.color}33`, padding: "0.5rem 1rem", borderRadius: "8px", color: c.color, fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                  {c.title} ({c.unit})
-                </div>
-                {c.data.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                    No stats recorded yet.
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {c.data.slice(0, 10).map((s, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "rgba(255,255,255,0.4)" }}>#{idx + 1}</span>
-                          {s.logo && <img src={s.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
-                          <div>
-                            <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>{s.name}</div>
-                            <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: c.color }}>
-                          {s.value} <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", fontWeight: "normal" }}>{c.unit}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Footer */}
-          <div style={{ marginTop: "3rem", paddingTop: "1.5rem", borderTop: "1px dashed rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
-            <span>SYS.R2G.POSTER // LIVE_SNAPSHOT</span>
-            <span>&copy; {new Date().getFullYear()} ROAD TO GLORY. ALL RIGHTS RESERVED</span>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }

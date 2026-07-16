@@ -4,6 +4,8 @@ import Link from "next/link";
 import "../../../../../portal.css";
 import "../../admin.css";
 
+import { captureElementAsPng, shareOrDownloadBlob } from "@/lib/share-table";
+
 import {
   fetchTournamentById,
   fetchFinancialRules,
@@ -36,6 +38,26 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [activeRound, setActiveRound] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
+  const [sharing, setSharing] = useState<boolean>(false);
+  const posterRef = useRef<HTMLDivElement>(null);
+
+  const handleSharePoster = async () => {
+    if (!posterRef.current) return;
+    setSharing(true);
+    try {
+      const blob = await captureElementAsPng(posterRef.current);
+      if (blob) {
+        const title = tournament?.name 
+          ? `${tournament.name.replace(/\s+/g, "_")}_update.png` 
+          : "tournament_update.png";
+        await shareOrDownloadBlob(blob, title);
+      }
+    } catch (e) {
+      console.error("Failed to share poster:", e);
+    } finally {
+      setSharing(false);
+    }
+  };
   const [clubs, setClubs] = useState<any[]>([]);
   const [tournamentTypes, setTournamentTypes] = useState<any[]>([]);
 
@@ -161,44 +183,47 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     }, {} as Record<string, any[]>);
   }, [standings]);
 
-  // Dynamically compute team stats for Boot, Ball, and Glove
+  // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
     const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
-    const winsCount: Record<string, { logo: string; manager: string; value: number }> = {};
+    const goalDiff: Record<string, { logo: string; manager: string; value: number }> = {};
     const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
+    const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
     // Initialize all participating teams
     tournamentClubs.forEach(tc => {
-      goalsScored[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
-      winsCount[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
-      cleanSheets[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
+      const name = tc.name;
+      const logo = tc.logo_path || "";
+      const manager = tc.manager || "Unknown";
+      goalsScored[name] = { logo, manager, value: 0 };
+      goalDiff[name] = { logo, manager, value: 0 };
+      cleanSheets[name] = { logo, manager, value: 0 };
+      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
-    // Parse standings for goals
+    // Parse standings for goals and goal difference
     standings.forEach(row => {
       const name = row.club_name;
       const logo = row.club_logo || "";
-      const existing = goalsScored[name];
+      const manager = row.manager || "Unknown";
       goalsScored[name] = { 
         logo, 
-        manager: existing?.manager || "Unknown", 
+        manager, 
         value: row.goals_scored || 0 
+      };
+      goalDiff[name] = {
+        logo,
+        manager,
+        value: row.goal_difference || 0
       };
     });
 
-    // Parse fixtures for wins and clean sheets
+    // Parse fixtures for clean sheets and concedes
     fixtures.forEach(f => {
       const isFinished = f.homeScore !== null && f.awayScore !== null;
       if (isFinished) {
         const hs = f.homeScore || 0;
         const as = f.awayScore || 0;
-
-        // Wins (Golden Ball)
-        if (hs > as) {
-          if (winsCount[f.homeClub]) winsCount[f.homeClub].value += 1;
-        } else if (as > hs) {
-          if (winsCount[f.awayClub]) winsCount[f.awayClub].value += 1;
-        }
 
         // Clean Sheets (Golden Glove)
         if (hs === 0) {
@@ -207,6 +232,25 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         if (as === 0) {
           if (cleanSheets[f.homeClub]) cleanSheets[f.homeClub].value += 1;
         }
+
+        // Conceded and matches count for Best Defender
+        if (defensiveStats[f.homeClub]) {
+          defensiveStats[f.homeClub].conceded += as;
+          defensiveStats[f.homeClub].matches += 1;
+        }
+        if (defensiveStats[f.awayClub]) {
+          defensiveStats[f.awayClub].conceded += hs;
+          defensiveStats[f.awayClub].matches += 1;
+        }
+      }
+    });
+
+    // Map defensive stats values (conceded / matches)
+    Object.values(defensiveStats).forEach(ds => {
+      if (ds.matches > 0) {
+        ds.value = Math.round((ds.conceded / ds.matches) * 100) / 100;
+      } else {
+        ds.value = 0;
       }
     });
 
@@ -214,7 +258,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
-    const sortedBall = Object.entries(winsCount)
+    const sortedBall = Object.entries(goalDiff)
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
@@ -222,7 +266,20 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
-    return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove };
+    const sortedDefender = Object.values(defensiveStats)
+      .map(ds => {
+        const name = ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "";
+        return { name, ...ds };
+      })
+      .filter(item => item.name !== "")
+      .sort((a, b) => {
+        if (a.matches === 0 && b.matches === 0) return 0;
+        if (a.matches === 0) return 1;
+        if (b.matches === 0) return -1;
+        return a.value - b.value;
+      });
+
+    return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
   }, [fixtures, standings, tournamentClubs]);
 
   const showToast = (msg: string) => {
@@ -683,42 +740,71 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         {/* Navigation Tabs */}
-        <div className="tabs-filter" style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", width: "100%" }}>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
-            onClick={() => setActiveTab("overview")}
-          >
-            <i className="fa-solid fa-circle-info" style={{ marginRight: "6px" }} /> Overview
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "teams" ? "active" : ""}`}
-            onClick={() => setActiveTab("teams")}
-          >
-            <i className="fa-solid fa-users" style={{ marginRight: "6px" }} /> Teams ({tournamentClubs.length})
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "table" ? "active" : ""}`}
-            onClick={() => setActiveTab("table")}
-          >
-            <i className="fa-solid fa-list-ol" style={{ marginRight: "6px" }} /> Table
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "fixtures" ? "active" : ""}`}
-            onClick={() => setActiveTab("fixtures")}
-          >
-            <i className="fa-solid fa-calendar-days" style={{ marginRight: "6px" }} /> Fixtures ({fixtures.length})
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === "stats" ? "active" : ""}`}
-            onClick={() => setActiveTab("stats")}
-          >
-            <i className="fa-solid fa-chart-simple" style={{ marginRight: "6px" }} /> Stats
-          </button>
+        <div className="tabs-filter" style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", width: "100%", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
+              onClick={() => setActiveTab("overview")}
+            >
+              <i className="fa-solid fa-circle-info" style={{ marginRight: "6px" }} /> Overview
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "teams" ? "active" : ""}`}
+              onClick={() => setActiveTab("teams")}
+            >
+              <i className="fa-solid fa-users" style={{ marginRight: "6px" }} /> Teams ({tournamentClubs.length})
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "table" ? "active" : ""}`}
+              onClick={() => setActiveTab("table")}
+            >
+              <i className="fa-solid fa-list-ol" style={{ marginRight: "6px" }} /> Table
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "fixtures" ? "active" : ""}`}
+              onClick={() => setActiveTab("fixtures")}
+            >
+              <i className="fa-solid fa-calendar-days" style={{ marginRight: "6px" }} /> Fixtures ({fixtures.length})
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === "stats" ? "active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              <i className="fa-solid fa-chart-simple" style={{ marginRight: "6px" }} /> Stats
+            </button>
+          </div>
+
+          {(activeTab === "table" || activeTab === "fixtures" || activeTab === "stats") && (
+            <button
+              type="button"
+              onClick={handleSharePoster}
+              disabled={sharing}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 18px",
+                borderRadius: "12px",
+                border: "1px solid rgba(168, 85, 247, 0.4)",
+                cursor: "pointer",
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                fontFamily: "var(--font-display)",
+                background: "rgba(168, 85, 247, 0.08)",
+                color: "#c084fc",
+                boxShadow: "0 4px 12px rgba(168,85,247,0.15)",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <i className={sharing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-share-nodes"} />
+              {sharing ? "GENERATING..." : "SHARE POSTER"}
+            </button>
+          )}
         </div>
 
         {/* Tab 1: Overview */}
@@ -1548,7 +1634,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         {activeTab === "stats" && (
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
             {/* Stats Sub-Tabs */}
-            <div className="tabs-filter" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", width: "100%" }}>
+            <div className="tabs-filter" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", width: "100%", flexWrap: "wrap" }}>
               <button
                 type="button"
                 className={`tab-btn ${activeSubTab === "boot" ? "active" : ""}`}
@@ -1572,6 +1658,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 onClick={() => setActiveSubTab("glove")}
               >
                 <i className="fa-solid fa-shield-halved" style={{ marginRight: "6px", color: "#a855f7" }} /> Golden Glove
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeSubTab === "defender" ? "active" : ""}`}
+                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+                onClick={() => setActiveSubTab("defender")}
+              >
+                <i className="fa-solid fa-user-shield" style={{ marginRight: "6px", color: "#10b981" }} /> Best Defender
               </button>
             </div>
 
@@ -1602,14 +1696,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               </div>
             )}
 
-            {/* Sub-Tab 2: Golden Ball (Most Wins) */}
+            {/* Sub-Tab 2: Golden Ball (Goal Difference) */}
             {activeSubTab === "ball" && (
               <div className="admin-card" style={{ marginTop: 0 }}>
                 <h3 className="sub-card-title">
-                  <i className="fa-solid fa-award" style={{ marginRight: "0.5rem", color: "#38bdf8" }} /> Golden Ball (Most Wins by Team)
+                  <i className="fa-solid fa-award" style={{ marginRight: "0.5rem", color: "#38bdf8" }} /> Golden Ball (Best Goal Difference)
                 </h3>
                 {teamStats.ball.length === 0 ? (
-                  <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No matches played yet.</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No standings recorded yet.</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                     {teamStats.ball.map((s, idx) => (
@@ -1620,7 +1714,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#38bdf8", fontSize: "0.95rem" }}>
-                          {s.value} Wins
+                          {s.value > 0 ? `+${s.value}` : s.value} GD
                         </span>
                       </div>
                     ))}
@@ -1648,6 +1742,33 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#a855f7", fontSize: "0.95rem" }}>
                           {s.value} Clean Sheets
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-Tab 4: Best Defender (Concedes Less Per Match) */}
+            {activeSubTab === "defender" && (
+              <div className="admin-card" style={{ marginTop: 0 }}>
+                <h3 className="sub-card-title">
+                  <i className="fa-solid fa-user-shield" style={{ marginRight: "0.5rem", color: "#10b981" }} /> Best Defender (Lowest Goals Conceded per Match)
+                </h3>
+                {!teamStats.defender || teamStats.defender.length === 0 ? (
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No matches played yet.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                    {teamStats.defender.map((s, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.8rem", background: "rgba(255,255,255,0.02)", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span style={{ fontWeight: "600", color: "#ffffff", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span style={{ color: "var(--text-secondary)", marginRight: "0.25rem" }}>#{idx + 1}</span>
+                          {s.logo && <img src={s.logo} alt={s.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
+                          {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
+                        </span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#10b981", fontSize: "0.95rem" }}>
+                          {s.value} GA/Match
                         </span>
                       </div>
                     ))}
@@ -1793,6 +1914,220 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             </div>
           </div>
         )}
+
+        {/* Off-screen Poster Capture Container */}
+        <div 
+          style={{ 
+            position: "fixed", 
+            left: "-9999px", 
+            top: "-9999px", 
+            width: "800px", 
+            overflow: "hidden" 
+          }}
+        >
+          <div 
+            ref={posterRef} 
+            style={{ 
+              width: "800px", 
+              padding: "3rem", 
+              background: "linear-gradient(135deg, #0f0c1b 0%, #050508 100%)", 
+              border: "2px solid rgba(168, 85, 247, 0.3)",
+              color: "#fff",
+              fontFamily: "var(--font-mono)"
+            }}
+          >
+            {/* Header */}
+            <div style={{ textAlign: "center", marginBottom: "2rem", borderBottom: "1px dashed rgba(255,255,255,0.1)", paddingBottom: "1.5rem" }}>
+              <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#c084fc", letterSpacing: "3px", fontWeight: "bold" }}>
+                ROAD TO GLORY // TOURNAMENT UPDATE
+              </span>
+              <h1 style={{ fontSize: "2rem", fontWeight: "bold", textTransform: "uppercase", margin: "0.5rem 0", background: "linear-gradient(135deg, #ffffff 0%, #c084fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                {tournament?.name || "TOURNAMENT DETAILS"}
+              </h1>
+              <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+                Official tournament standings and statistics captured on {new Date().toLocaleDateString()}
+              </p>
+            </div>
+
+            {/* Table Tab */}
+            {activeTab === "table" && (
+              <div>
+                <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
+                  OFFICIAL STANDINGS TABLE
+                </div>
+                {standings.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
+                    No standings data available.
+                  </div>
+                ) : (tournament.format_type === "Group + Knockout" || tournament.format_type === "League + Knockout") && tournament.num_groups ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+                    {Array.from({ length: tournament.num_groups }, (_, i) => String.fromCharCode(65 + i)).map(groupLetter => {
+                      const rows = standings.filter(row => row.group_name === groupLetter);
+                      return (
+                        <div key={groupLetter} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
+                          <div style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>
+                            Group {groupLetter}
+                          </div>
+                          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+                            <thead>
+                              <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
+                                <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
+                                <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
+                                <th style={{ padding: "12px", textAlign: "center" }}>P</th>
+                                <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
+                                <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row: any, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                  <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
+                                  <td style={{ padding: "12px", textAlign: "left" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                      {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
+                                      <div>
+                                        <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
+                                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: "12px", textAlign: "center" }}>{row.matches_played}</td>
+                                  <td style={{ padding: "12px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                                  <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+                      <thead>
+                        <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
+                          <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
+                          <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
+                          <th style={{ padding: "12px", textAlign: "center" }}>P</th>
+                          <th style={{ padding: "12px", textAlign: "center" }}>GF</th>
+                          <th style={{ padding: "12px", textAlign: "center" }}>GA</th>
+                          <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
+                          <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {standings.map((row: any, idx: number) => (
+                          <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                            <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
+                            <td style={{ padding: "12px", textAlign: "left" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
+                                <div>
+                                  <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
+                                  <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px", textAlign: "center" }}>{row.matches_played}</td>
+                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_scored}</td>
+                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_against}</td>
+                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                            <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fixtures Tab */}
+            {activeTab === "fixtures" && (
+              <div>
+                <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
+                  ROUND {activeRound} MATCH CALENDAR
+                </div>
+                {roundFixtures.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
+                    No matches scheduled for Round {activeRound}.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {roundFixtures.map((match) => {
+                      const isFinished = match.homeScore !== null && match.awayScore !== null;
+                      const homeWon = isFinished && match.homeScore > match.awayScore;
+                      const awayWon = isFinished && match.awayScore > match.homeScore;
+                      return (
+                        <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1.2rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
+                              <span style={{ fontSize: "0.85rem", fontWeight: homeWon ? "bold" : "500" }}>{match.homeClub}</span>
+                            </div>
+                            <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#c084fc", padding: "0 1.5rem" }}>
+                              {isFinished ? `${match.homeScore} - ${match.awayScore}` : "VS"}
+                            </span>
+                            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px", justifyContent: "flex-end" }}>
+                              <span style={{ fontSize: "0.85rem", fontWeight: awayWon ? "bold" : "500" }}>{match.awayClub}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Stats Tab */}
+            {activeTab === "stats" && (() => {
+              const config: Record<string, { data: typeof teamStats.boot; color: string; unit: string; icon: string; title: string }> = {
+                boot: { data: teamStats.boot, color: "#fbbf24", unit: "Goals", icon: "fa-solid fa-futbol", title: "Top Scorers" },
+                ball: { data: teamStats.ball, color: "#38bdf8", unit: "GD", icon: "fa-solid fa-award", title: "Best Goal Difference" },
+                glove: { data: teamStats.glove, color: "#c084fc", unit: "Clean Sheets", icon: "fa-solid fa-shield-halved", title: "Most Clean Sheets" },
+                defender: { data: teamStats.defender, color: "#10b981", unit: "GA/Match", icon: "fa-solid fa-user-shield", title: "Best Defender (Lowest GA/Match)" },
+              };
+              const c = config[activeSubTab] || config.boot;
+              return (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: `${c.color}15`, border: `1px solid ${c.color}33`, padding: "0.5rem 1rem", borderRadius: "8px", color: c.color, fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
+                    {c.title} ({c.unit})
+                  </div>
+                  {c.data.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
+                      No stats recorded yet.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {c.data.slice(0, 10).map((s, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "rgba(255,255,255,0.4)" }}>#{idx + 1}</span>
+                            {s.logo && <img src={s.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
+                            <div>
+                              <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>{s.name}</div>
+                              <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: c.color }}>
+                            {activeSubTab === "ball" && s.value > 0 ? `+${s.value}` : s.value} <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", fontWeight: "normal" }}>{c.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Footer */}
+            <div style={{ marginTop: "3rem", paddingTop: "1.5rem", borderTop: "1px dashed rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
+              <span>SYS.R2G.POSTER // LIVE_SNAPSHOT</span>
+              <span>&copy; {new Date().getFullYear()} ROAD TO GLORY. ALL RIGHTS RESERVED</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
