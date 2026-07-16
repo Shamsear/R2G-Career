@@ -1142,7 +1142,7 @@ export async function createClubAndManager(data: any) {
     
     const { rows: maxIdRows } = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM managers');
     const nextId = maxIdRows[0].next_id;
-    const r2gId = 'SSPSM' + nextId.toString().padStart(4, '0');
+    const r2gId = data.r2gId ? data.r2gId.trim() : ('R2GP' + nextId.toString().padStart(4, '0'));
     
     await pool.query(`
       INSERT INTO managers (id, r2g_id, name, avatar_path, is_active)

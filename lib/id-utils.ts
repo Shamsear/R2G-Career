@@ -18,7 +18,7 @@ export const ID_PREFIXES = {
   BULK_ROUND: 'SSPSLFBR',
   BULK_TIEBREAKER: 'SSPSLBT',
   OWNER: 'SSPSO',
-  MANAGER: 'SSPSM',
+  MANAGER: 'R2GP',
 } as const;
 
 export const ID_PADDING = {

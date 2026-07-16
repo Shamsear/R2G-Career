@@ -1642,7 +1642,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         type="text" 
                         className="admin-input" 
                         style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                        placeholder="e.g. SSPSM9999" 
+                        placeholder="e.g. R2GP9999" 
                         value={guestManagerR2gId} 
                         onChange={(e) => setGuestManagerR2gId(e.target.value)} 
                       />
