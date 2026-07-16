@@ -155,11 +155,11 @@ export default function RwsYearAlbum() {
           });
           setPhotos(mapped);
         } else {
-          setPhotos(mockPhotos);
+          setPhotos([]);
         }
       } catch (e) {
         console.error("Failed to load active season or photos:", e);
-        setPhotos(mockPhotos);
+        setPhotos([]);
       } finally {
         setLoading(false);
       }
@@ -223,28 +223,38 @@ export default function RwsYearAlbum() {
         </div>
 
         {/* Album grid */}
-        <div className="album-gallery">
-          {photos.map((photo) => (
-            <div key={photo.id} className={`album-item ${photo.tiltClass}`}>
-              <div className="album-image-wrapper">
-                <img 
-                  src={photo.imageUrl} 
-                  alt={photo.title} 
-                  className="album-img"
-                  loading="lazy"
-                />
-                <div className="album-overlay" />
-              </div>
-              <div className="album-details">
-                <h3 className="album-title">{photo.title.replace("Season 7", `RWS ${yearStr}`)}</h3>
-                <div className="album-meta-row">
-                  <span className="album-tag">#{photo.tag}</span>
-                  <span>{photo.date}</span>
+        {photos.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "5rem 2rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "16px", color: "var(--text-secondary)" }}>
+            <i className="fa-solid fa-images" style={{ fontSize: "3rem", marginBottom: "1.5rem", color: "var(--solo-primary)", opacity: 0.4 }} />
+            <h3 style={{ color: "#fff", fontSize: "1.2rem", marginBottom: "0.5rem" }}>No Album Snaps Uploaded</h3>
+            <p style={{ fontSize: "0.85rem", maxWidth: "450px", margin: "0 auto", color: "rgba(255,255,255,0.4)" }}>
+              The gallery is currently empty. Administrators can upload tournament highlights and awards from the Admin Console.
+            </p>
+          </div>
+        ) : (
+          <div className="album-gallery">
+            {photos.map((photo) => (
+              <div key={photo.id} className={`album-item ${photo.tiltClass}`}>
+                <div className="album-image-wrapper">
+                  <img 
+                    src={photo.imageUrl} 
+                    alt={photo.title} 
+                    className="album-img"
+                    loading="lazy"
+                  />
+                  <div className="album-overlay" />
+                </div>
+                <div className="album-details">
+                  <h3 className="album-title">{photo.title.replace("Season 7", `RWS ${yearStr}`)}</h3>
+                  <div className="album-meta-row">
+                    <span className="album-tag">#{photo.tag}</span>
+                    <span>{photo.date}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
       </div>
     </div>
