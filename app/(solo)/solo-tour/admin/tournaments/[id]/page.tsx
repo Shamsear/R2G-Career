@@ -1600,17 +1600,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       />
                     </div>
 
-                    <div className="admin-form-group">
-                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Manager R2G ID (Optional)</label>
-                      <input 
-                        type="text" 
-                        className="admin-input" 
-                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                        placeholder="e.g. R2GP9999" 
-                        value={guestManagerR2gId} 
-                        onChange={(e) => setGuestManagerR2gId(e.target.value)} 
-                      />
-                    </div>
+
 
                     <div className="admin-form-group">
                       <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Manager Portrait/Avatar</label>
