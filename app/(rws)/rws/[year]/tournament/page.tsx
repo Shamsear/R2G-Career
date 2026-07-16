@@ -202,12 +202,12 @@ export default function RwsYearTournament() {
   const teamStats = useMemo(() => {
     const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
     const winsCount: Record<string, { logo: string; manager: string; value: number }> = {};
-    const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
+    const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
     tournamentClubs.forEach(tc => {
       goalsScored[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
       winsCount[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
-      cleanSheets[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", value: 0 };
+      defensiveStats[tc.name] = { logo: tc.logo_path || "", manager: tc.manager || "Unknown", conceded: 0, matches: 0, value: 0 };
     });
 
     standings.forEach(row => {
@@ -233,12 +233,24 @@ export default function RwsYearTournament() {
           if (winsCount[f.awayClub]) winsCount[f.awayClub].value += 1;
         }
 
-        if (hs === 0) {
-          if (cleanSheets[f.awayClub]) cleanSheets[f.awayClub].value += 1;
+        // Conceded and matches count
+        if (defensiveStats[f.homeClub]) {
+          defensiveStats[f.homeClub].conceded += as;
+          defensiveStats[f.homeClub].matches += 1;
         }
-        if (as === 0) {
-          if (cleanSheets[f.homeClub]) cleanSheets[f.homeClub].value += 1;
+        if (defensiveStats[f.awayClub]) {
+          defensiveStats[f.awayClub].conceded += hs;
+          defensiveStats[f.awayClub].matches += 1;
         }
+      }
+    });
+
+    // Map defensive stats values (conceded / matches)
+    Object.values(defensiveStats).forEach(ds => {
+      if (ds.matches > 0) {
+        ds.value = Math.round((ds.conceded / ds.matches) * 100) / 100;
+      } else {
+        ds.value = 0;
       }
     });
 
@@ -250,9 +262,18 @@ export default function RwsYearTournament() {
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.value - a.value);
 
-    const sortedGlove = Object.entries(cleanSheets)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.value - a.value);
+    const sortedGlove = Object.values(defensiveStats)
+      .map(ds => ({
+        name: ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "",
+        ...ds
+      }))
+      .filter(item => item.name !== "")
+      .sort((a, b) => {
+        if (a.matches === 0 && b.matches === 0) return 0;
+        if (a.matches === 0) return 1;
+        if (b.matches === 0) return -1;
+        return a.value - b.value;
+      });
 
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove };
   }, [fixtures, standings, tournamentClubs]);
@@ -610,7 +631,7 @@ export default function RwsYearTournament() {
               const config: Record<string, { data: typeof teamStats.boot; color: string; unit: string; icon: string; title: string }> = {
                 boot: { data: teamStats.boot, color: "#fbbf24", unit: "Goals", icon: "fa-solid fa-futbol", title: "Top Scorers" },
                 ball: { data: teamStats.ball, color: "#38bdf8", unit: "Wins", icon: "fa-solid fa-award", title: "Most Victories" },
-                glove: { data: teamStats.glove, color: "#c084fc", unit: "Clean Sheets", icon: "fa-solid fa-shield-halved", title: "Best Defence" },
+                glove: { data: teamStats.glove, color: "#c084fc", unit: "GA/Match", icon: "fa-solid fa-shield-halved", title: "Best Defence" },
               };
               const c = config[activeSubTab];
               return (

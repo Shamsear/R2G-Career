@@ -16,6 +16,7 @@ export default function SpecialTourFixtures() {
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>("table");
+  const [activeSubTab, setActiveSubTab] = useState<string>("boot");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +49,79 @@ export default function SpecialTourFixtures() {
     }
     loadData();
   }, [tourneyId]);
+
+  // Dynamically compute stats lists for Boot, Ball, and Glove
+  const teamStats = useMemo(() => {
+    const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
+    const winsCount: Record<string, { logo: string; manager: string; value: number }> = {};
+    const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
+
+    standings.forEach(row => {
+      const name = row.club_name;
+      const logo = row.club_logo || "";
+      const manager = row.manager || "Unknown";
+
+      goalsScored[name] = { logo, manager, value: row.goals_scored || 0 };
+      winsCount[name] = { logo, manager, value: 0 };
+      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
+    });
+
+    fixtures.forEach(f => {
+      const isFinished = f.homeScore !== null && f.awayScore !== null;
+      if (isFinished) {
+        const hs = f.homeScore || 0;
+        const as = f.awayScore || 0;
+
+        if (hs > as) {
+          if (winsCount[f.homeClub]) winsCount[f.homeClub].value += 1;
+        } else if (as > hs) {
+          if (winsCount[f.awayClub]) winsCount[f.awayClub].value += 1;
+        }
+
+        // Conceded and matches count
+        if (defensiveStats[f.homeClub]) {
+          defensiveStats[f.homeClub].conceded += as;
+          defensiveStats[f.homeClub].matches += 1;
+        }
+        if (defensiveStats[f.awayClub]) {
+          defensiveStats[f.awayClub].conceded += hs;
+          defensiveStats[f.awayClub].matches += 1;
+        }
+      }
+    });
+
+    // Map defensive stats values (conceded / matches)
+    Object.values(defensiveStats).forEach(ds => {
+      if (ds.matches > 0) {
+        ds.value = Math.round((ds.conceded / ds.matches) * 100) / 100;
+      } else {
+        ds.value = 0;
+      }
+    });
+
+    const sortedBoot = Object.entries(goalsScored)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.value - a.value);
+
+    const sortedBall = Object.entries(winsCount)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.value - a.value);
+
+    const sortedGlove = Object.values(defensiveStats)
+      .map(ds => ({
+        name: ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "",
+        ...ds
+      }))
+      .filter(item => item.name !== "")
+      .sort((a, b) => {
+        if (a.matches === 0 && b.matches === 0) return 0;
+        if (a.matches === 0) return 1;
+        if (b.matches === 0) return -1;
+        return a.value - b.value;
+      });
+
+    return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove };
+  }, [fixtures, standings]);
 
   // Group fixtures by round
   const fixturesByRound = fixtures.reduce((acc: Record<number, any[]>, fix) => {
@@ -126,7 +200,8 @@ export default function SpecialTourFixtures() {
           <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "4px", gap: "4px" }}>
             {[
               { key: "table", icon: "fa-solid fa-list-ol", label: "Standings Table" },
-              { key: "fixture", icon: "fa-solid fa-calendar-days", label: "Match Calendar" }
+              { key: "fixture", icon: "fa-solid fa-calendar-days", label: "Match Calendar" },
+              { key: "stats", icon: "fa-solid fa-chart-line", label: "Stats & Awards" }
             ].map(tab => (
               <button
                 key={tab.key}
@@ -289,7 +364,70 @@ export default function SpecialTourFixtures() {
               ))}
             </div>
           )
-        )}</div>
+        )}
+
+        {/* TAB 3: STATS & AWARDS */}
+        {activeTab === "stats" && (
+          <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
+            {/* Sub-Tab Pills */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
+              <div style={{ display: "inline-flex", gap: "4px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "10px" }}>
+                {[
+                  { key: "boot", icon: "fa-solid fa-futbol", label: "Golden Boot", color: "#fbbf24" },
+                  { key: "ball", icon: "fa-solid fa-award", label: "Golden Ball", color: "#38bdf8" },
+                  { key: "glove", icon: "fa-solid fa-shield-halved", label: "Golden Glove", color: "#c084fc" },
+                ].map(st => (
+                  <button key={st.key} type="button" onClick={() => setActiveSubTab(st.key)}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.78rem", fontWeight: activeSubTab === st.key ? 700 : 500, background: activeSubTab === st.key ? "rgba(255,255,255,0.08)" : "transparent", color: activeSubTab === st.key ? "#fff" : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>
+                    <i className={st.icon} style={{ fontSize: "0.7rem", color: activeSubTab === st.key ? st.color : "rgba(255,255,255,0.25)" }} /> {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Leaderboard Cards */}
+            {(() => {
+              const config: Record<string, { data: typeof teamStats.boot; color: string; unit: string; icon: string; title: string }> = {
+                boot: { data: teamStats.boot, color: "#fbbf24", unit: "Goals", icon: "fa-solid fa-futbol", title: "Top Scorers" },
+                ball: { data: teamStats.ball, color: "#38bdf8", unit: "Wins", icon: "fa-solid fa-award", title: "Most Victories" },
+                glove: { data: teamStats.glove, color: "#c084fc", unit: "GA/Match", icon: "fa-solid fa-shield-halved", title: "Best Defence" },
+              };
+              const c = config[activeSubTab];
+              return (
+                <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+                  <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <i className={c.icon} style={{ color: c.color, fontSize: "0.9rem" }} />
+                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#fff" }}>{c.title}</span>
+                  </div>
+                  {c.data.length === 0 ? (
+                    <div style={{ padding: "3rem 2rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.82rem" }}>No data recorded yet.</div>
+                  ) : (
+                    <div style={{ padding: "0.5rem 0" }}>
+                      {c.data.map((s, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1.5rem", borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.03)" : "none", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: 700, background: idx === 0 ? `${c.color}22` : "rgba(255,255,255,0.04)", color: idx === 0 ? c.color : "rgba(255,255,255,0.4)" }}>{idx + 1}</span>
+                            {s.logo && <img src={s.logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "4px" }} />}
+                            <div>
+                              <span style={{ fontWeight: 600, color: "#fff", fontSize: "0.85rem" }}>{s.name}</span>
+                              <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: "1px" }}>{s.manager}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: "1rem", color: idx === 0 ? c.color : "#fff" }}>{s.value}</span>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>{c.unit}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
