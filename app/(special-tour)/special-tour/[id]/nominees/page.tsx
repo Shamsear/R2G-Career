@@ -10,6 +10,7 @@ import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 interface Candidate {
   id: number;
   name: string;
+  r2g_id?: string;
   club: string;
   role: string;
   status: string;
@@ -144,7 +145,7 @@ export default function SpecialTourNominees() {
                     />
                   </div>
                   <h3 className="rws-team-name">{candidate.club}</h3>
-                  <div className="rws-team-manager">Manager: {candidate.name}</div>
+                  <div className="rws-team-manager">Manager: {candidate.name} {candidate.r2g_id && `(${candidate.r2g_id})`}</div>
                 </div>
               );
             })}

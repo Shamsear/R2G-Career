@@ -35,7 +35,7 @@ export async function fetchManagers() {
     try {
         const { rows: managersResult } = await pool.query(`
             SELECT DISTINCT ON (m.id)
-                m.id, m.name, m.avatar_path as photo,
+                m.id, m.name, m.avatar_path as photo, m.r2g_id,
                 c.name as club_name,
                 c.logo_path as club_logo,
                 ms.manager_rank as age,
@@ -92,6 +92,7 @@ export async function fetchManagers() {
             return {
                 id: m.id,
                 name: m.name,
+                r2g_id: m.r2g_id || '',
                 photo: m.photo || '',
                 club: m.club_name || 'No Club',
                 club_id: m.club_id,
@@ -131,7 +132,7 @@ export async function fetchManagerByName(name: string) {
         const decodedName = decodeURIComponent(name);
         const { rows: managersResult } = await pool.query(`
             SELECT 
-                m.id, m.name, m.avatar_path as photo,
+                m.id, m.name, m.avatar_path as photo, m.r2g_id,
                 c.name as club_name,
                 ms.manager_rank as age,
                 mw.overall_rating,
@@ -225,6 +226,7 @@ export async function fetchManagerByName(name: string) {
         return {
             id: m.id,
             name: m.name,
+            r2g_id: m.r2g_id || '',
             photo: m.photo || '',
             club: m.club_name || 'No Club',
             age: m.age || 0,
@@ -400,8 +402,8 @@ export async function fetchManagerRanking() {
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
         const queryStr = includeInactive 
-          ? `SELECT c.id, c.name, m.name as manager, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id`
-          : `SELECT c.id, c.name, m.name as manager, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id WHERE m.is_active IS NOT FALSE`;
+          ? `SELECT c.id, c.name, m.name as manager, m.r2g_id, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id`
+          : `SELECT c.id, c.name, m.name as manager, m.r2g_id, c.logo_path as image FROM clubs c JOIN managers m ON c.id = m.id WHERE m.is_active IS NOT FALSE`;
         const { rows: result } = await pool.query(queryStr);
         return result;
     } catch (e) { console.error(e); return []; }
@@ -412,7 +414,7 @@ export async function fetchSelectedCandidates(tournamentName: string) {
         const { rows: result } = await pool.query(`
             SELECT DISTINCT ON (c.id)
                 c.id, c.name as club_name, c.logo_path,
-                m.name as manager_name, m.avatar_path,
+                m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
                 tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
                 ms.wins, ms.losses, ms.matches_played, ms.competitions
@@ -443,6 +445,7 @@ export async function fetchSelectedCandidates(tournamentName: string) {
             return {
                 id: row.id,
                 name: row.manager_name || 'Unknown',
+                r2g_id: row.manager_r2g_id || '',
                 club: displayName,
                 customTeamName: row.custom_team_name,
                 useExistingClub: row.use_existing_club,
@@ -1139,11 +1142,12 @@ export async function createClubAndManager(data: any) {
     
     const { rows: maxIdRows } = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM managers');
     const nextId = maxIdRows[0].next_id;
+    const r2gId = 'SSPSM' + nextId.toString().padStart(4, '0');
     
     await pool.query(`
-      INSERT INTO managers (id, name, avatar_path, is_active)
-      VALUES ($1, $2, $3, $4)
-    `, [nextId, data.managerName, data.avatarPath || '', data.isActive !== false]);
+      INSERT INTO managers (id, r2g_id, name, avatar_path, is_active)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [nextId, r2gId, data.managerName, data.avatarPath || '', data.isActive !== false]);
     
     await pool.query(`
       INSERT INTO clubs (id, name, logo_path)

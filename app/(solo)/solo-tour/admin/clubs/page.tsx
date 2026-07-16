@@ -347,7 +347,7 @@ export default function ClubsManager() {
                         </div>
                         <div className="club-card-details">
                           <h4>{m.club || "Free Agent"}</h4>
-                          <span>{m.name}</span>
+                          <span>{m.name} {m.r2g_id && `(${m.r2g_id})`}</span>
                         </div>
                       </div>
 

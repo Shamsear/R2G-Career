@@ -1284,9 +1284,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                           readOnly 
                                           style={{ accentColor: "#fbbf24", cursor: "pointer" }} 
                                         />
-                                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{c.name}</span>
+                                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{c.r2g_id || c.name}</span>
                                       </div>
-                                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", flexShrink: 0, marginLeft: "8px" }}>{c.manager}</span>
+                                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", flexShrink: 0, marginLeft: "8px" }}>{c.manager} ({c.name})</span>
                                     </button>
                                   );
                                 })

@@ -197,6 +197,12 @@ export default function ManagerDetail() {
                                     </div>
                                 )}
                                 <div className="manager-badges">
+                                    {manager.r2g_id && (
+                                        <div className="badge">
+                                            <i className="fas fa-id-badge"></i>
+                                            <span>R2G ID: {manager.r2g_id}</span>
+                                        </div>
+                                    )}
                                     <div className="badge">
                                         <i className="fas fa-sort-numeric-up"></i>
                                         <span>Rank: {manager.age || '-'}</span>

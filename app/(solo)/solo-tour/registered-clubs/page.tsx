@@ -98,7 +98,7 @@ export default function RegisteredClubs() {
                     <div className="club-info">
                       <h3 className="club-name">{club.name}</h3>
                       <p className="club-manager">
-                        <i className="fas fa-user-tie" /> {club.manager}
+                        <i className="fas fa-user-tie" /> {club.manager} {club.r2g_id && `(${club.r2g_id})`}
                       </p>
                     </div>
                   </div>

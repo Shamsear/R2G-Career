@@ -240,7 +240,7 @@ export default function RwsNomineesManager() {
                           onClick={() => setDropdownOpen(!dropdownOpen)}
                         >
                           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {selectedClubObj ? `${selectedClubObj.name} (${selectedClubObj.manager})` : "-- Select Club --"}
+                            {selectedClubObj ? `${selectedClubObj.r2g_id || '—'} (${selectedClubObj.manager})` : "-- Select Club --"}
                           </span>
                           <i className={`fa-solid fa-chevron-${dropdownOpen ? 'up' : 'down'}`} style={{ opacity: 0.5, fontSize: "0.75rem", marginLeft: "8px" }} />
                         </button>
@@ -314,7 +314,7 @@ export default function RwsNomineesManager() {
                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"}
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                                   >
-                                    <span>{c.name}</span>
+                                    <span>{c.r2g_id || c.name}</span>
                                     <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>{c.manager}</span>
                                   </button>
                                 ))
@@ -415,7 +415,7 @@ export default function RwsNomineesManager() {
                   {candidates.map(cand => (
                     <tr key={cand.id}>
                       <td>
-                        <strong>{cand.name}</strong>
+                        <strong>{cand.name} {cand.r2g_id && `(${cand.r2g_id})`}</strong>
                         <span style={{ color: "var(--text-secondary)", marginLeft: "0.5rem", fontSize: "0.8rem" }}>
                           ({cand.club} {!cand.useExistingClub && cand.customTeamName ? `as ${cand.customTeamName}` : ''})
                         </span>
