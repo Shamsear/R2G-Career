@@ -1152,19 +1152,21 @@ export async function createClubAndManager(data: any) {
     await pool.query(`
       INSERT INTO clubs (id, name, logo_path)
       VALUES ($1, $2, $3)
-    `, [nextId, data.clubName, data.logoPath || '']);
+    `, [nextId, data.clubName || '', data.logoPath || '']);
     
     const activeSeason = await fetchActiveSeason();
     if (activeSeason) {
+      const dbClubId = data.clubName ? nextId : null;
+      
       await pool.query(`
         INSERT INTO manager_wallets (manager_id, season_id, current_club_id, r2g_coin_balance, r2g_token_balance, r2g_voucher_balance, overall_rating, star_rating)
-        VALUES ($1, $2, $1, $3, $4, $5, $6, $7)
-      `, [nextId, activeSeason.id, data.coinBalance || 0, data.tokenBalance || 0, data.voucherBalance || 0, data.rating || 80, data.starRating || 3]);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [nextId, activeSeason.id, dbClubId, data.coinBalance || 0, data.tokenBalance || 0, data.voucherBalance || 0, data.rating || 80, data.starRating || 3]);
       
       await pool.query(`
         INSERT INTO manager_seasons (manager_id, season_id, club_id, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, team_income, team_expense, team_profit)
-        VALUES ($1, $2, $1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      `, [nextId, activeSeason.id]);
+        VALUES ($1, $2, $3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      `, [nextId, activeSeason.id, dbClubId]);
 
       if ((data.coinBalance || 0) > 0) {
         await logTransaction(nextId, activeSeason.id, 'coin', data.coinBalance, 'initial', 'Starting coins balance');

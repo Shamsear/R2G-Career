@@ -521,8 +521,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         const { createClubAndManager, addClubToTournament } = await import("@/utils/solo/serverActions");
         // Create the club & manager in the database
         const res = await createClubAndManager({
-          clubName: guestClubName.trim() || `${guestManagerName.trim()} FC`,
-          logoPath: guestClubLogo,
+          clubName: "", // Leaving empty so no permanent club is created
+          logoPath: "",
           managerName: guestManagerName.trim(),
           avatarPath: guestManagerAvatar,
           isActive: false, // Inactive guest manager
@@ -534,9 +534,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           await addClubToTournament(
             tournamentId, 
             res.id,
-            null,
-            true,
-            null
+            guestManagerName.trim(),
+            false, // useExistingClub is false so it uses custom details
+            guestClubLogo || null
           );
           
           showToast("Guest team created and added!");
@@ -1583,19 +1583,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <i className="fa-solid fa-circle-plus" style={{ color: "#c084fc" }} /> Create & Add Guest Team (Outside Career)
                 </h3>
                 <form onSubmit={handleAddGuestTeam} style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-                  <div className="admin-form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-                    <div className="admin-form-group">
-                      <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Club Name</label>
-                      <input 
-                        type="text" 
-                        className="admin-input" 
-                        style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                        placeholder="e.g. Paris Guest FC (leave blank if no club)" 
-                        value={guestClubName} 
-                        onChange={(e) => setGuestClubName(e.target.value)} 
-                      />
-                    </div>
-                    
+                  <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
                     <div className="admin-form-group">
                       <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Club Logo</label>
                       <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
