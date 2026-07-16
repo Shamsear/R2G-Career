@@ -139,7 +139,17 @@ export default function AdminFixtureDetail() {
               <i className="fas fa-arrow-left" /> Back to Fixture Manager
             </Link>
           </div>
-          <div className="admin-card skeleton" style={{ height: "300px", marginTop: "1.5rem" }} />
+          <div className="admin-card" style={{ padding: "2rem", marginTop: "1.5rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px" }}>
+            <div className="skeleton" style={{ width: "40%", height: "24px", borderRadius: "4px", marginBottom: "2rem", background: "rgba(255,255,255,0.06)" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <div className="skeleton" style={{ flex: 1, height: "40px", borderRadius: "6px", background: "rgba(255,255,255,0.04)" }} />
+                <div className="skeleton" style={{ flex: 1, height: "40px", borderRadius: "6px", background: "rgba(255,255,255,0.04)" }} />
+              </div>
+              <div className="skeleton" style={{ width: "100%", height: "40px", borderRadius: "6px", background: "rgba(255,255,255,0.04)" }} />
+              <div className="skeleton" style={{ width: "130px", height: "36px", borderRadius: "8px", background: "rgba(255,255,255,0.05)" }} />
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -729,69 +729,24 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             <div className="skeleton" style={{ width: "240px", height: "16px", borderRadius: "4px" }} />
           </div>
 
-          {/* 2-Column Sidebar Layout Skeleton */}
-          <div className="financial-layout" style={{ width: "100%" }}>
-            {/* Left Sidebar Skeletons */}
-            <div className="financial-sidebar" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              {/* Tour Info Card Skeleton */}
-              <div className="admin-card skeleton" style={{ marginTop: 0, padding: "1.5rem", minHeight: "180px" }}>
-                <div className="skeleton" style={{ width: "60%", height: "20px", borderRadius: "4px", marginBottom: "1.25rem", background: "rgba(255,255,255,0.06)" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                  <div className="skeleton" style={{ width: "85%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                  <div className="skeleton" style={{ width: "70%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                  <div className="skeleton" style={{ width: "90%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                  <div className="skeleton" style={{ width: "65%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                </div>
-              </div>
+          {/* Navigation Tabs Skeleton */}
+          <div className="tabs-filter" style={{ marginBottom: "1.5rem", display: "flex", gap: "0.5rem", width: "100%", flexWrap: "wrap" }}>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div key={idx} className="skeleton" style={{ width: "120px", height: "36px", borderRadius: "8px", background: "rgba(255,255,255,0.05)" }} />
+            ))}
+          </div>
 
-              {/* Teams Card Skeleton */}
-              <div className="admin-card skeleton" style={{ padding: "1.5rem", minHeight: "220px" }}>
-                <div className="skeleton" style={{ width: "75%", height: "20px", borderRadius: "4px", marginBottom: "1.25rem", background: "rgba(255,255,255,0.06)" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  {Array.from({ length: 4 }).map((_, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                        <div className="skeleton" style={{ width: "20px", height: "20px", borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
-                        <div className="skeleton" style={{ width: "60%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                      </div>
-                      <div className="skeleton" style={{ width: "14px", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                    </div>
-                  ))}
+          {/* Main Card Content Skeleton */}
+          <div className="admin-card" style={{ marginTop: 0, padding: "1.5rem", minHeight: "350px", width: "100%", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px" }}>
+            <div className="skeleton" style={{ width: "40%", height: "24px", borderRadius: "4px", marginBottom: "1.5rem", background: "rgba(255,255,255,0.06)" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: "1rem" }}>
+                  <div className="skeleton" style={{ width: "25%", height: "16px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
+                  <div className="skeleton" style={{ width: "40%", height: "16px", borderRadius: "3px", marginLeft: "5%", background: "rgba(255,255,255,0.04)" }} />
+                  <div className="skeleton" style={{ width: "80px", height: "24px", borderRadius: "4px", marginLeft: "auto", background: "rgba(255,255,255,0.04)" }} />
                 </div>
-              </div>
-            </div>
-
-            {/* Right Main Panel Skeleton */}
-            <div className="financial-main">
-              <div className="admin-card skeleton" style={{ marginTop: 0, padding: "1.5rem", minHeight: "420px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                  <div className="skeleton" style={{ width: "40%", height: "24px", borderRadius: "4px", background: "rgba(255,255,255,0.06)" }} />
-                  <div className="skeleton" style={{ width: "120px", height: "30px", borderRadius: "6px", background: "rgba(255,255,255,0.06)" }} />
-                </div>
-                
-                {/* Table Header Skeleton */}
-                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.75rem", marginBottom: "0.75rem", display: "flex" }}>
-                  <div className="skeleton" style={{ width: "20%", height: "14px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                  <div className="skeleton" style={{ width: "50%", height: "14px", borderRadius: "3px", marginLeft: "10%", background: "rgba(255,255,255,0.04)" }} />
-                  <div className="skeleton" style={{ width: "20%", height: "14px", borderRadius: "3px", marginLeft: "auto", background: "rgba(255,255,255,0.04)" }} />
-                </div>
-
-                {/* Table Rows Skeletons */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  {Array.from({ length: 5 }).map((_, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: "1rem" }}>
-                      <div className="skeleton" style={{ width: "15%", height: "16px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                      <div style={{ display: "flex", gap: "0.5rem", width: "45%", marginLeft: "10%", alignItems: "center" }}>
-                        <div className="skeleton" style={{ width: "40%", height: "16px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.75rem" }}>vs</span>
-                        <div className="skeleton" style={{ width: "40%", height: "16px", borderRadius: "3px", background: "rgba(255,255,255,0.04)" }} />
-                      </div>
-                      <div className="skeleton" style={{ width: "60px", height: "24px", borderRadius: "4px", marginLeft: "auto", background: "rgba(255,255,255,0.04)" }} />
-                      <div className="skeleton" style={{ width: "80px", height: "24px", borderRadius: "4px", marginLeft: "1rem", background: "rgba(255,255,255,0.04)" }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
