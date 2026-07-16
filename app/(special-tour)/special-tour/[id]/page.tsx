@@ -125,7 +125,7 @@ export default function SpecialTourHub() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
             />
             <div className="portal-card-overlay" />
             <div className="portal-card-content">
@@ -152,7 +152,7 @@ export default function SpecialTourHub() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.jpg')" }}
             />
             <div className="portal-card-overlay" />
             <div className="portal-card-content">
@@ -179,7 +179,7 @@ export default function SpecialTourHub() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
             />
             <div className="portal-card-overlay" />
             <div className="portal-card-content">

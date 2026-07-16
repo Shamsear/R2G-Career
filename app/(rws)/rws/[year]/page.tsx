@@ -164,7 +164,7 @@ export default function RwsYearDashboard() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
               onError={(e) => {
                 e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
               }}
@@ -195,7 +195,7 @@ export default function RwsYearDashboard() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.jpg')" }}
               onError={(e) => {
                 e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
               }}
@@ -226,7 +226,7 @@ export default function RwsYearDashboard() {
           >
             <div
               className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/album_bg.png')" }}
+              style={{ backgroundImage: "url('/assets/images/rws/album_bg.jpg')" }}
               onError={(e) => {
                 e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
               }}
