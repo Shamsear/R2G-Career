@@ -412,19 +412,19 @@ export async function fetchRegisteredClubs(includeInactive: boolean = false) {
 export async function fetchSelectedCandidates(tournamentName: string) {
     try {
         const { rows: result } = await pool.query(`
-            SELECT DISTINCT ON (c.id)
-                c.id, c.name as club_name, c.logo_path,
+            SELECT DISTINCT ON (m.id)
+                m.id, c.name as club_name, c.logo_path,
                 m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
                 tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
                 ms.wins, ms.losses, ms.matches_played, ms.competitions
             FROM tournament_teams tt
-            JOIN clubs c ON tt.club_id = c.id
-            LEFT JOIN managers m ON c.id = m.id
+            JOIN managers m ON tt.club_id = m.id
+            LEFT JOIN clubs c ON m.id = c.id
             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
             WHERE tt.tournament_name = $1
-            ORDER BY c.id, ms.id DESC
+            ORDER BY m.id, ms.id DESC
         `, [tournamentName]);
 
         return result.map((row: any) => {
@@ -1149,10 +1149,12 @@ export async function createClubAndManager(data: any) {
       VALUES ($1, $2, $3, $4, $5)
     `, [nextId, r2gId, data.managerName, data.avatarPath || '', data.isActive !== false]);
     
-    await pool.query(`
-      INSERT INTO clubs (id, name, logo_path)
-      VALUES ($1, $2, $3)
-    `, [nextId, data.clubName || '', data.logoPath || '']);
+    if (data.clubName) {
+      await pool.query(`
+        INSERT INTO clubs (id, name, logo_path)
+        VALUES ($1, $2, $3)
+      `, [nextId, data.clubName, data.logoPath || '']);
+    }
     
     const activeSeason = await fetchActiveSeason();
     if (activeSeason && !data.isGuest) {
