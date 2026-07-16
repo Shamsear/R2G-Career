@@ -461,6 +461,101 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     }
   };
 
+  // Guest Team Form States
+  const [guestClubName, setGuestClubName] = useState("");
+  const [guestClubLogo, setGuestClubLogo] = useState("");
+  const [guestManagerName, setGuestManagerName] = useState("");
+  const [guestManagerAvatar, setGuestManagerAvatar] = useState("");
+  const [guestManagerR2gId, setGuestManagerR2gId] = useState("");
+  const [uploadingGuestLogo, setUploadingGuestLogo] = useState(false);
+  const [uploadingGuestAvatar, setUploadingGuestAvatar] = useState(false);
+
+  const handleGuestLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingGuestLogo(true);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `guest-logo-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: "/tournaments/custom-logos"
+      });
+      setGuestClubLogo(res.url);
+      showToast("Guest Club Logo uploaded!");
+    } catch (err: any) {
+      console.error(err);
+      showToast("Upload failed");
+    } finally {
+      setUploadingGuestLogo(false);
+    }
+  };
+
+  const handleGuestAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingGuestAvatar(true);
+    try {
+      const { uploadImage } = await import("@/lib/imagekit/upload");
+      const res = await uploadImage({
+        file,
+        fileName: `guest-avatar-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
+        folder: "/solo/manager-avatars"
+      });
+      setGuestManagerAvatar(res.url);
+      showToast("Guest Manager Avatar uploaded!");
+    } catch (err: any) {
+      console.error(err);
+      showToast("Upload failed");
+    } finally {
+      setUploadingGuestAvatar(false);
+    }
+  };
+
+  const handleAddGuestTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestManagerName) return showToast("Manager Name is required!");
+    
+    startTransition(async () => {
+      try {
+        const { createClubAndManager, addClubToTournament } = await import("@/utils/solo/serverActions");
+        // Create the club & manager in the database
+        const res = await createClubAndManager({
+          clubName: guestClubName.trim() || `${guestManagerName.trim()} FC`,
+          logoPath: guestClubLogo,
+          managerName: guestManagerName.trim(),
+          avatarPath: guestManagerAvatar,
+          isActive: false, // Inactive guest manager
+          r2gId: guestManagerR2gId.trim() || undefined
+        });
+        
+        if (res && res.success && res.id) {
+          // Add newly created club to the tournament
+          await addClubToTournament(
+            tournamentId, 
+            res.id,
+            null,
+            true,
+            null
+          );
+          
+          showToast("Guest team created and added!");
+          setGuestClubName("");
+          setGuestClubLogo("");
+          setGuestManagerName("");
+          setGuestManagerAvatar("");
+          setGuestManagerR2gId("");
+          loadData();
+        } else {
+          showToast("Error registering guest team!");
+        }
+      } catch (err: any) {
+        console.error(err);
+        showToast("Failed to create guest team!");
+      }
+    });
+  };
+
   const handleLogoUploadForClub = async (clubId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

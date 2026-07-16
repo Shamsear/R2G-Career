@@ -177,7 +177,11 @@ export default function ManagerDetail() {
                             <div className="manager-avatar-wrapper">
                                 <div 
                                     className="manager-portrait" 
-                                    style={{ backgroundImage: `url('/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, '-')}.webp'), url('/assets/images/default-manager.webp')` }}
+                                    style={{ 
+                                        backgroundImage: manager.photo 
+                                            ? `url('${manager.photo}')`
+                                            : `url('/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, '-')}.webp'), url('/assets/images/default-manager.webp')` 
+                                    }}
                                 ></div>
                                 <div 
                                     className="manager-club-badge-overlay" 

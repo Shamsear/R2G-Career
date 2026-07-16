@@ -89,7 +89,7 @@ export default function ClubsManager() {
 
   const handleSaveClub = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clubForm.clubName || !clubForm.managerName) return showToast("Club & Manager names required!");
+    if (!clubForm.managerName) return showToast("Manager name is required!");
     startTransition(async () => {
       try {
         if (clubForm.id) {
@@ -323,7 +323,7 @@ export default function ClubsManager() {
           {/* Left Column: Clubs list cards */}
           <div className="financial-sidebar">
             <button className="portal-btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={clearForm}>
-              <i className="fa-solid fa-circle-plus" /> Register New Club
+              <i className="fa-solid fa-circle-plus" /> Register New Club / Manager
             </button>
             
             <div className="clubs-scroll-container">
@@ -448,7 +448,7 @@ export default function ClubsManager() {
                   <div className="admin-form-grid">
                     <div className="admin-form-group">
                       <label>Club Name</label>
-                      <input type="text" className="admin-input" value={clubForm.clubName} onChange={(e) => setClubForm(prev => ({ ...prev, clubName: e.target.value }))} placeholder="e.g. London FC" />
+                      <input type="text" className="admin-input" value={clubForm.clubName} onChange={(e) => setClubForm(prev => ({ ...prev, clubName: e.target.value }))} placeholder="e.g. London FC (leave blank if no club)" />
                     </div>
                     <div className="admin-form-group">
                       <label>Manager Name</label>

@@ -175,7 +175,9 @@ export default function Managers() {
                   <div
                     className="manager-photo"
                     style={{
-                      backgroundImage: `url('/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, "-")}.webp'), url('/assets/images/default-manager.webp')`,
+                      backgroundImage: manager.photo 
+                        ? `url('${manager.photo}')`
+                        : `url('/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, "-")}.webp'), url('/assets/images/default-manager.webp')`,
                     }}
                   />
                   <div className="manager-info">
