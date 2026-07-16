@@ -108,7 +108,7 @@ export default function SpecialTourYearSelection() {
                     </div>
                     <h2 style={{ fontSize: "1.3rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>{t.name}</h2>
                     <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>
-                      Season {t.season_number} // Format: {t.format_type === "round_robin" ? "Round Robin" : "Knockout"}
+                      Format: {t.format_type === "round_robin" ? "Round Robin" : "Knockout"}
                     </p>
                   </div>
                   <div className="portal-card-action" style={{ marginTop: "1rem", fontSize: "0.75rem" }}>

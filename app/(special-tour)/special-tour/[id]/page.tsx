@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchTournamentById } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
+import "../../../portal.css";
+import "../../../../(rws)/rws/rws.css";
 
 export default function SpecialTourHub() {
   const params = useParams();
@@ -103,7 +105,7 @@ export default function SpecialTourHub() {
         <div className="rws-page-hero">
           <div className="portal-page-badge">
             <i className="fa-solid fa-trophy" />
-            Season {tournament.season_number} Invitational
+            Special Tour Invitational
           </div>
           <h1 className="rws-hero-title">
             {tournament.name.toUpperCase()}
@@ -114,36 +116,9 @@ export default function SpecialTourHub() {
         </div>
 
         {/* Sub-modules Grid */}
-        <div className="rws-dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "2rem" }}>
+        <div className="rws-dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "2rem" }}>
           
-          {/* Card 1: Standings */}
-          <Link 
-            href={`/special-tour/${tourneyId}/standings`} 
-            className="portal-card"
-            onMouseMove={handleMouseMove}
-            style={{ minHeight: "220px" }}
-          >
-            <div
-              className="portal-card-bg"
-              style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
-            />
-            <div className="portal-card-overlay" />
-            <div className="portal-card-content">
-              <span className="portal-card-badge">
-                <i className="fa-solid fa-list-ol" />
-                Table
-              </span>
-              <h2>STANDINGS TABLE</h2>
-              <p>
-                Inspect current tournament points, goal differences, wins, draws, and matches played.
-              </p>
-              <div className="portal-card-action">
-                View Standings <i className="fas fa-arrow-right" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 2: Fixtures */}
+          {/* Card 1: Series Portal (Standings + Fixtures combined) */}
           <Link 
             href={`/special-tour/${tourneyId}/fixtures`} 
             className="portal-card"
@@ -154,23 +129,25 @@ export default function SpecialTourHub() {
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.jpg')" }}
             />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
             <div className="portal-card-overlay" />
             <div className="portal-card-content">
               <span className="portal-card-badge">
-                <i className="fa-solid fa-calendar-days" />
-                Calendar
+                <i className="fa-solid fa-trophy" />
+                Series Portal
               </span>
-              <h2>MATCH SCHEDULE</h2>
+              <h2>SERIES PORTAL</h2>
               <p>
-                Track match kickoff times, score results, upcoming fixtures, and round-by-round pairings.
+                Track standings points, goal differences, matchday calendar, and live round-by-round score results.
               </p>
               <div className="portal-card-action">
-                View Fixtures <i className="fas fa-arrow-right" />
+                Open Portal <i className="fas fa-arrow-right" />
               </div>
             </div>
           </Link>
 
-          {/* Card 3: Nominees */}
+          {/* Card 2: Nominees / Teams */}
           <Link 
             href={`/special-tour/${tourneyId}/nominees`} 
             className="portal-card"
@@ -181,6 +158,8 @@ export default function SpecialTourHub() {
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
             />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
             <div className="portal-card-overlay" />
             <div className="portal-card-content">
               <span className="portal-card-badge">
@@ -189,7 +168,7 @@ export default function SpecialTourHub() {
               </span>
               <h2>PARTICIPATING TEAMS</h2>
               <p>
-                View all confirmed participants, representative managers, custom team logos, and manager statistics.
+                View all confirmed guest clubs, representative managers, custom team logos, and career details.
               </p>
               <div className="portal-card-action">
                 View Confirmed Teams <i className="fas fa-arrow-right" />

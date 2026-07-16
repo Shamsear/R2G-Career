@@ -100,7 +100,7 @@ export default function SpecialTourStandings() {
             {tournament.name.toUpperCase()} STANDINGS
           </h1>
           <p className="rws-hero-sub">
-            Track points, matches played, goal differences, and leading team standings in Season {tournament.season_number}.
+            Track points, matches played, goal differences, and leading team standings.
           </p>
         </div>
 

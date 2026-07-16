@@ -131,60 +131,20 @@ export default function SpecialTourNominees() {
             <p>No teams have been added or nominated for this tournament yet.</p>
           </div>
         ) : (
-          <div className="candidates-grid">
+          <div className="rws-teams-grid">
             {candidates.map((candidate) => {
-              const avatarSrc = candidate.avatar || `/assets/images/managers/${candidate.name.toLowerCase().replace(/\s+/g, "-")}.webp`;
+              const teamLogo = candidate.customLogoPath || "/assets/images/default-club-logo.png";
               return (
-                <div key={candidate.id} className="candidate-card">
-                  <div className="candidate-header">
+                <div key={candidate.id} className="rws-team-card">
+                  <div className="rws-team-logo-wrap">
                     <img 
-                      src={avatarSrc} 
-                      alt={candidate.name} 
-                      className="candidate-avatar"
-                      onError={(e) => {
-                        e.currentTarget.src = "/assets/images/default-manager.webp";
-                      }}
+                      src={teamLogo} 
+                      alt={candidate.club}
+                      onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }}
                     />
-                    <div className="candidate-info">
-                      <h3 className="candidate-name">{candidate.name}</h3>
-                      <span className="candidate-role">{candidate.role}</span>
-                    </div>
-                    <span className="candidate-badge selected">
-                      Confirmed
-                    </span>
                   </div>
-
-                  <div className="candidate-stats">
-                    <div className="cand-stat-item">
-                      <span className="cand-stat-val">{candidate.stat1.value}</span>
-                      <span className="cand-stat-lbl">{candidate.stat1.label}</span>
-                    </div>
-                    <div className="cand-stat-item">
-                      <span className="cand-stat-val">{candidate.stat2.value}</span>
-                      <span className="cand-stat-lbl">{candidate.stat2.label}</span>
-                    </div>
-                    <div className="cand-stat-item">
-                      <span className="cand-stat-val">{candidate.stat3.value}</span>
-                      <span className="cand-stat-lbl">{candidate.stat3.label}</span>
-                    </div>
-                  </div>
-
-                  <div className="candidate-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <div 
-                        style={{ 
-                          width: "18px", 
-                          height: "18px", 
-                          backgroundSize: "contain", 
-                          backgroundPosition: "center", 
-                          backgroundRepeat: "no-repeat", 
-                          backgroundImage: `url('${candidate.customLogoPath || `/assets/images/club-logos/${encodeURIComponent(candidate.club.replace(/\s+/g, '-'))}.webp`}'), url('/assets/images/default-club-logo.png')`
-                        }}
-                      />
-                      <span className="candidate-club">{candidate.club}</span>
-                    </div>
-                    <span className="candidate-rating">OVR {candidate.rating}</span>
-                  </div>
+                  <h3 className="rws-team-name">{candidate.club}</h3>
+                  <div className="rws-team-manager">Manager: {candidate.name}</div>
                 </div>
               );
             })}
