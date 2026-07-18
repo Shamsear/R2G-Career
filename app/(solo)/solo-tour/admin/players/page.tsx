@@ -378,7 +378,7 @@ export default function PlayersManager() {
         <div className="portal-header">
           <div className="portal-page-badge"><i className="fa-solid fa-people-group" /> Players & Contracts</div>
           <h1 className="portal-title">PLAYERS & CONTRACTS</h1>
-          <p className="portal-subtitle">Configure player card profiles, sign active contract terms, and toggle player suspensions.</p>
+          <p className="portal-subtitle">Configure player card profiles, search and filter the registry, and upload player photos.</p>
         </div>
 
         {/* Summary Stats Row */}

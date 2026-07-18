@@ -4776,4 +4776,43 @@ export async function fetchAdminPlayersList() {
   }
 }
 
+export async function fetchClubPlayersWithContracts(clubId: string | number, seasonId: string | number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        p.id, 
+        p.name, 
+        p.position, 
+        p.card_type as star, 
+        p.base_value as value, 
+        p.image_path as imagepath, 
+        p.is_suspended,
+        pc.start_season,
+        pc.expire_season,
+        pc.signed_value
+      FROM players p
+      JOIN player_contracts pc ON p.id = pc.player_id
+      WHERE pc.current_club_id = $1 
+        AND LOWER(pc.status) = 'active'
+        AND pc.season_id = $2
+      ORDER BY p.name ASC
+    `, [clubId, seasonId]);
+    return rows.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      position: p.position || '',
+      value: p.value || 0,
+      star: p.star || '3-star-standard',
+      imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+      isSuspended: p.is_suspended || false,
+      startSeason: p.start_season || '',
+      expireSeason: p.expire_season || '',
+      signedValue: p.signed_value || 0
+    }));
+  } catch (e) {
+    console.error("Error fetching club players with contracts:", e);
+    return [];
+  }
+}
+
 

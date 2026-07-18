@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "../globals.css";
 import "../portal.css";
 import "../styles.css";
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     apple: '/assets/images/logo11.webp',
     shortcut: '/assets/images/logo11.webp',
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function SoloLayout({

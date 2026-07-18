@@ -16,7 +16,8 @@ import {
   releaseExpiredContractsForSeason,
   releaseMidSeasonContracts,
   fetchActivePlayerContract,
-  releasePlayerContract
+  releasePlayerContract,
+  fetchClubPlayersWithContracts
 } from "@/utils/solo/serverActions";
 
 export default function TransfersManager() {
@@ -39,10 +40,15 @@ export default function TransfersManager() {
   const [sellPlayerId, setSellPlayerId] = useState<string>("");
   const [sellPrice, setSellPrice] = useState<number>(40);
   const [sellOpType, setSellOpType] = useState<"sell" | "release">("sell");
+
+  // Release state
+  const [releaseClubId, setReleaseClubId] = useState<string>("");
+  const [releaseClubPlayers, setReleaseClubPlayers] = useState<any[]>([]);
+  const [releaseSearchTerm, setReleaseSearchTerm] = useState<string>("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [releaseTiming, setReleaseTiming] = useState<"start" | "mid">("start");
   const [refundPercentage, setRefundPercentage] = useState<number>(75);
-  const [activeContract, setActiveContract] = useState<any>(null);
-  const [loadingContract, setLoadingContract] = useState<boolean>(false);
+  const [loadingReleasePlayers, setLoadingReleasePlayers] = useState<boolean>(false);
 
   // Swap state
   const [swapClubAId, setSwapClubAId] = useState<string>("");
@@ -92,64 +98,72 @@ export default function TransfersManager() {
     }
   }, [sellClubId]);
 
-  // Fetch contract of selected player in sell tab
+  // Fetch players with contracts for release tab
   useEffect(() => {
-    if (sellPlayerId && sellOpType === "release") {
-      setLoadingContract(true);
-      fetchActivePlayerContract(parseInt(sellPlayerId), activeSeason?.id || 6)
-        .then((contract) => {
-          setActiveContract(contract);
-          setLoadingContract(false);
+    if (releaseClubId && activeSeason) {
+      setLoadingReleasePlayers(true);
+      fetchClubPlayersWithContracts(parseInt(releaseClubId), activeSeason.id)
+        .then((data) => {
+          setReleaseClubPlayers(data || []);
+          setSelectedPlayerIds([]);
+          setLoadingReleasePlayers(false);
         })
         .catch(() => {
-          showToast("Error loading contract details");
-          setLoadingContract(false);
-          setActiveContract(null);
+          showToast("Error loading club players");
+          setLoadingReleasePlayers(false);
         });
     } else {
-      setActiveContract(null);
+      setReleaseClubPlayers([]);
+      setSelectedPlayerIds([]);
     }
-  }, [sellPlayerId, sellOpType, activeSeason]);
+  }, [releaseClubId, activeSeason]);
 
-  // Compute release preview dynamically
-  const releasePreview = useMemo(() => {
-    if (sellOpType !== "release" || !activeContract || !activeSeason) return null;
-
-    const contract = activeContract;
-    const signedValue = Number(contract.signed_value) || 0;
+  // Compute release calculations for squad players
+  const releasePlayersWithRefunds = useMemo(() => {
+    if (!activeSeason) return [];
+    
     const currentSeasonNum = Number(activeSeason.season_number) || 9;
+    const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
 
     const parseSeason = (s: string) => {
       const cleaned = s.replace(/[^\d.]/g, '');
       return parseFloat(cleaned) || 0.0;
     };
 
-    const startSeasonNum = parseSeason(contract.start_season || '');
-    const expireSeasonNum = parseSeason(contract.expire_season || '');
-    const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
+    return releaseClubPlayers.map(p => {
+      const signedValue = Number(p.signedValue) || 0;
+      const startSeasonNum = parseSeason(p.startSeason || '');
+      const expireSeasonNum = parseSeason(p.expireSeason || '');
 
-    const totalDuration = expireSeasonNum - startSeasonNum;
-    const remainingDuration = expireSeasonNum - releaseSeasonNum;
-    const elapsedDuration = releaseSeasonNum - startSeasonNum;
+      const totalDuration = expireSeasonNum - startSeasonNum;
+      const remainingDuration = expireSeasonNum - releaseSeasonNum;
+      const elapsedDuration = releaseSeasonNum - startSeasonNum;
 
-    const remainingRatio = totalDuration > 0 
-      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
-      : 1.0;
+      const remainingRatio = totalDuration > 0 
+        ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
+        : 1.0;
 
-    const remainingValue = signedValue * remainingRatio;
-    const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
+      const remainingValue = signedValue * remainingRatio;
+      const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
 
-    return {
-      startSeasonNum,
-      expireSeasonNum,
-      releaseSeasonNum,
-      totalDuration,
-      elapsedDuration,
-      remainingDuration,
-      remainingValue,
-      refundAmount
-    };
-  }, [sellOpType, activeContract, releaseTiming, refundPercentage, activeSeason]);
+      return {
+        ...p,
+        totalDuration,
+        elapsedDuration,
+        remainingDuration,
+        remainingValue,
+        refundAmount
+      };
+    });
+  }, [releaseClubPlayers, releaseTiming, refundPercentage, activeSeason]);
+
+  // Roster filtering via search input
+  const filteredReleasePlayers = useMemo(() => {
+    return releasePlayersWithRefunds.filter(p => 
+      p.name.toLowerCase().includes(releaseSearchTerm.toLowerCase()) ||
+      p.position.toLowerCase().includes(releaseSearchTerm.toLowerCase())
+    );
+  }, [releasePlayersWithRefunds, releaseSearchTerm]);
 
   // Fetch players for swap tab
   useEffect(() => {
