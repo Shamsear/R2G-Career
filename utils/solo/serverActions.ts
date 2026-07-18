@@ -4743,8 +4743,8 @@ export async function fetchPlayersToBeReleased(seasonNumber: number) {
   try {
     const { rows } = await pool.query(`
       SELECT
-        m.name AS player_name,
-        m.position,
+        p.name AS player_name,
+        p.position,
         pc.expire_season,
         pc.start_season,
         c.name AS club_name,
@@ -4755,11 +4755,11 @@ export async function fetchPlayersToBeReleased(seasonNumber: number) {
           ELSE 'start'
         END AS contract_type
       FROM player_contracts pc
-      JOIN members m ON pc.player_id = m.id
-      LEFT JOIN clubs c ON pc.club_id = c.id
+      JOIN players p ON pc.player_id = p.id
+      LEFT JOIN clubs c ON pc.current_club_id = c.id
       WHERE LOWER(pc.status) = 'active'
         AND CAST(NULLIF(regexp_replace(pc.expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) <= $1 + 0.5
-      ORDER BY c.name, m.position, m.name
+      ORDER BY c.name, p.position, p.name
     `, [seasonNumber]);
     return { success: true, players: rows };
   } catch (e) {

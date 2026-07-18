@@ -245,7 +245,7 @@ export default function AuctionManager() {
         lastClub = p.club_name;
       }
       const typeLabel = p.contract_type === 'mid' ? '[Mid]' : '[Start]';
-      lines.push(`  â€¢ ${p.player_name} (${p.position}) ${typeLabel} â€” Contract: ${cleanSeason(p.start_season)}â€“${cleanSeason(p.expire_season)}`);
+      lines.push(`  * ${p.player_name} (${p.position}) ${typeLabel} -- Contract: ${cleanSeason(p.start_season)}-${cleanSeason(p.expire_season)}`);
     }
     navigator.clipboard.writeText(lines.join("\n"));
     showToast("Copied to clipboard!");
@@ -331,7 +331,7 @@ export default function AuctionManager() {
     const minPrice = 0.5 * prevValue;
     const maxPrice = 2.0 * prevValue;
     if (prevValue > 0 && (sellPrice < minPrice || sellPrice > maxPrice)) {
-      return showToast(`Price must be between ${minPrice} and ${maxPrice} Coins (50%â€“200% of ${prevValue})`);
+      return showToast(`Price must be between ${minPrice} and ${maxPrice} Coins (50%-200% of ${prevValue})`);
     }
     const alreadyQueued = bulkTransfers.some(t => t.playerId === sellSelectedPlayer.id);
     if (alreadyQueued) return showToast(`${sellSelectedPlayer.name} is already in the queue!`);
@@ -1050,7 +1050,7 @@ export default function AuctionManager() {
                               const start = auctionTiming === "mid" ? num + 0.5 : num;
                               const end = start + 2;
                               const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
-                              return `${fmt(start)}â€“${fmt(end)}`;
+                              return `${fmt(start)}-${fmt(end)}`;
                             })()}
                           </strong></span>
                         </div>
@@ -1184,7 +1184,7 @@ export default function AuctionManager() {
                 )}
               </div>
 
-              {/* Player table â€” appears after club selected */}
+              {/* Player table -- appears after club selected */}
               {sellClubId && (
                 sellSelectedPlayer ? (
                   // Selected player chip
@@ -1194,7 +1194,7 @@ export default function AuctionManager() {
                       <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{sellSelectedPlayer.name}</strong>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                         <span style={{ background: `${getPositionColor(sellSelectedPlayer.position)}18`, color: getPositionColor(sellSelectedPlayer.position), border: `1px solid ${getPositionColor(sellSelectedPlayer.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{sellSelectedPlayer.position}</span>
-                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(sellSelectedPlayer.startSeason)}â€“{cleanSeason(sellSelectedPlayer.expireSeason)}</span>
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(sellSelectedPlayer.startSeason)}-{cleanSeason(sellSelectedPlayer.expireSeason)}</span>
                         <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{sellSelectedPlayer.signedValue}c</span>
                       </div>
                     </div>
@@ -1225,7 +1225,7 @@ export default function AuctionManager() {
                                 </div>
                               </div>
                               <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span></div>
                                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                               </div>
                             </div>
@@ -1241,7 +1241,7 @@ export default function AuctionManager() {
                                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                                   <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                   <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                  <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
+                                  <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</td>
                                   <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                 </tr>
                               ))}
@@ -1301,7 +1301,7 @@ export default function AuctionManager() {
                     const v = Number(sellSelectedPlayer.signedValue) || 0;
                     return v > 0 ? (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "5px" }}>
-                        <span>Range: <strong style={{ color: "#fff" }}>{v * 0.5}â€“{v * 2} Coins</strong></span>
+                        <span>Range: <strong style={{ color: "#fff" }}>{v * 0.5}-{v * 2} Coins</strong></span>
                         <span>Current value: <strong style={{ color: "#f59e0b" }}>{v}c</strong></span>
                       </div>
                     ) : null;
@@ -1645,7 +1645,7 @@ export default function AuctionManager() {
                               <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
                               <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                                 <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
-                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
                                 <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
                               </div>
                             </div>
@@ -1671,7 +1671,7 @@ export default function AuctionManager() {
                                   </div>
                                 </div>
                                 <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span></div>
                                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                                 </div>
                               </div>
@@ -1687,7 +1687,7 @@ export default function AuctionManager() {
                                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                                     <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                     <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</td>
                                     <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                   </tr>
                                 ))}
@@ -1751,7 +1751,7 @@ export default function AuctionManager() {
                               <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
                               <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                                 <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
-                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
                                 <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
                               </div>
                             </div>
@@ -1777,7 +1777,7 @@ export default function AuctionManager() {
                                   </div>
                                 </div>
                                 <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span></div>
                                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                                 </div>
                               </div>
@@ -1793,7 +1793,7 @@ export default function AuctionManager() {
                                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                                     <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                     <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</td>
                                     <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                   </tr>
                                 ))}
@@ -1833,7 +1833,7 @@ export default function AuctionManager() {
                         <span style={{ background: `${getPositionColor(player.position)}18`, color: getPositionColor(player.position), border: `1px solid ${getPositionColor(player.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{player.position}</span>
                       </div>
                       <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                        <span>Current contract: <strong style={{ color: "#fff" }}>{cleanSeason(player.startSeason)}â€“{cleanSeason(player.expireSeason)}</strong></span>
+                        <span>Current contract: <strong style={{ color: "#fff" }}>{cleanSeason(player.startSeason)}-{cleanSeason(player.expireSeason)}</strong></span>
                         <span>Current value: <strong style={{ color: "#f59e0b" }}>{valA === Number(player.signedValue) ? valA : valB}c</strong></span>
                       </div>
                     </div>
@@ -1879,7 +1879,7 @@ export default function AuctionManager() {
                         </div>
                         <div style={{ fontSize: "0.85rem" }}>
                           <span style={{ color: "var(--text-secondary)" }}>New Contract: </span>
-                          <strong style={{ color: "#22c55e" }}>{newStart}â€“{newEnd}</strong>
+                          <strong style={{ color: "#22c55e" }}>{newStart}-{newEnd}</strong>
                           <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", marginLeft: "6px" }}>(2 season reset)</span>
                         </div>
                       </div>
@@ -1975,7 +1975,7 @@ export default function AuctionManager() {
                   disabled={batchLoadingPreview || isPending}
                 >
                   {batchLoadingPreview
-                    ? <><i className="fa-solid fa-spinner fa-spin" /> Loadingâ€¦</>
+                    ? <><i className="fa-solid fa-spinner fa-spin" /> Loading...</>
                     : <><i className="fa-solid fa-eye" /> Preview All Expiring Contracts</>}
                 </button>
                 {batchPreviewPlayers.length > 0 && (
@@ -1993,7 +1993,7 @@ export default function AuctionManager() {
                 return (
                   <div className="sub-card" style={{ overflow: "visible" }}>
                     <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span><i className="fa-solid fa-calendar-day" /> Season {activeSeason?.season_number} â€” Start Contracts</span>
+                      <span><i className="fa-solid fa-calendar-day" /> Season {activeSeason?.season_number} -- Start Contracts</span>
                       <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#fbbf24" }}>{startPlayers.length} players</span>
                     </div>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
@@ -2023,7 +2023,7 @@ export default function AuctionManager() {
                                         <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
                                         <span style={{ color: "#fff" }}>{p.player_name}</span>
                                       </div>
-                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}-{cleanSeason(p.expire_season)}</span>
                                     </div>
                                   </div>
                                 );
@@ -2036,7 +2036,7 @@ export default function AuctionManager() {
                           <button className="portal-btn btn-danger" onClick={triggerSeasonStartReleases} disabled={isPending}>
                             <i className="fa-solid fa-circle-xmark" /> Release {startPlayers.length} Players
                           </button>
-                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(startPlayers, `Season ${activeSeason?.season_number} Start â€” Players to be Released`)}>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(startPlayers, `Season ${activeSeason?.season_number} Start -- Players to be Released`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy List
                           </button>
                         </div>
@@ -2048,7 +2048,7 @@ export default function AuctionManager() {
                       <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
                         <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'start').length} released</span>
-                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'start'), `Season ${activeSeason?.season_number} Start â€” Released Players`)}>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'start'), `Season ${activeSeason?.season_number} Start -- Released Players`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy
                           </button>
                         </div>
@@ -2063,7 +2063,7 @@ export default function AuctionManager() {
                                   {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
                                   <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
-                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}-{cleanSeason(p.expire_season)}</span>
                                   </div>
                                 </div>
                               );
@@ -2087,7 +2087,7 @@ export default function AuctionManager() {
                 return (
                   <div className="sub-card" style={{ overflow: "visible" }}>
                     <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span><i className="fa-solid fa-calendar-half" style={{ fontSize: "0.85em" }} /> Season {activeSeason?.season_number}.5 â€” Mid-Season Contracts</span>
+                      <span><i className="fa-solid fa-calendar-half" style={{ fontSize: "0.85em" }} /> Season {activeSeason?.season_number}.5 -- Mid-Season Contracts</span>
                       <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#60a5fa" }}>{midPlayers.length} players</span>
                     </div>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
@@ -2116,7 +2116,7 @@ export default function AuctionManager() {
                                         <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
                                         <span style={{ color: "#fff" }}>{p.player_name}</span>
                                       </div>
-                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}-{cleanSeason(p.expire_season)}</span>
                                     </div>
                                   </div>
                                 );
@@ -2141,7 +2141,7 @@ export default function AuctionManager() {
                           }} disabled={isPending}>
                             <i className="fa-solid fa-circle-xmark" /> Release {midPlayers.length} Mid-Season Players
                           </button>
-                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(midPlayers, `Season ${activeSeason?.season_number}.5 Mid â€” Players to be Released`)}>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(midPlayers, `Season ${activeSeason?.season_number}.5 Mid -- Players to be Released`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy List
                           </button>
                         </div>
@@ -2153,7 +2153,7 @@ export default function AuctionManager() {
                       <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
                         <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'mid').length} released</span>
-                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'mid'), `Season ${activeSeason?.season_number}.5 Mid â€” Released Players`)}>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'mid'), `Season ${activeSeason?.season_number}.5 Mid -- Released Players`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy
                           </button>
                         </div>
@@ -2168,7 +2168,7 @@ export default function AuctionManager() {
                                   {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
                                   <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
-                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}-{cleanSeason(p.expire_season)}</span>
                                   </div>
                                 </div>
                               );
