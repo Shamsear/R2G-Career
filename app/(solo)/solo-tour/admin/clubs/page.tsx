@@ -18,6 +18,33 @@ import {
   fetchRegisteredClubs
 } from "@/utils/solo/serverActions";
 
+const countriesList = [
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+971", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "+966", name: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "+974", name: "Qatar", flag: "🇶🇦" },
+  { code: "+965", name: "Kuwait", flag: "🇰🇼" },
+  { code: "+968", name: "Oman", flag: "🇴🇲" },
+  { code: "+973", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+1", name: "United States / Canada", flag: "🇺🇸" },
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+65", name: "Singapore", flag: "🇸🇬" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" }
+];
+
 export default function ClubsManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [managers, setManagers] = useState<any[]>([]);
@@ -537,28 +564,136 @@ export default function ClubsManager() {
                   <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
                     <div className="admin-form-group">
                       <label>Mobile Number</label>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <select 
-                          className="admin-select" 
-                          style={{ width: "110px", flexShrink: 0 }}
-                          value={selectedCountryCode}
-                          onChange={(e) => setSelectedCountryCode(e.target.value)}
-                        >
-                          <option value="+91">IN (+91)</option>
-                          <option value="+971">UAE (+971)</option>
-                          <option value="+966">KSA (+966)</option>
-                          <option value="+974">QA (+974)</option>
-                          <option value="+965">KW (+965)</option>
-                          <option value="+968">OM (+968)</option>
-                          <option value="+973">BH (+973)</option>
-                          <option value="+1">US (+1)</option>
-                          <option value="+44">UK (+44)</option>
-                          <option value="+92">PK (+92)</option>
-                          <option value="+880">BD (+880)</option>
-                          <option value="+60">MY (+60)</option>
-                          <option value="+65">SG (+65)</option>
-                          <option value="+61">AU (+61)</option>
-                        </select>
+                      <div style={{ display: "flex", gap: "0.5rem", position: "relative" }}>
+                        
+                        {/* Custom Searchable Country Code Dropdown */}
+                        <div style={{ position: "relative", width: "120px", flexShrink: 0, zIndex: 999 }}>
+                          <button
+                            type="button"
+                            className="admin-input"
+                            style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              justifyContent: "space-between", 
+                              width: "100%", 
+                              textAlign: "left",
+                              cursor: "pointer",
+                              padding: "10px 12px"
+                            }}
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          >
+                            <span>
+                              {countriesList.find(c => c.code === selectedCountryCode)?.flag || "🇮🇳"} {selectedCountryCode}
+                            </span>
+                            <i className="fa-solid fa-chevron-down" style={{ fontSize: "0.7rem", opacity: 0.6 }} />
+                          </button>
+
+                          {isDropdownOpen && (
+                            <>
+                              {/* Fullscreen Backdrop click-outside handle */}
+                              <div 
+                                style={{ 
+                                  position: "fixed", 
+                                  top: 0, 
+                                  left: 0, 
+                                  right: 0, 
+                                  bottom: 0, 
+                                  zIndex: 998,
+                                  background: "transparent"
+                                }} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsDropdownOpen(false);
+                                  setCountrySearchQuery("");
+                                }} 
+                              />
+                              
+                              {/* Dropdown Menu Option list overlay */}
+                              <div 
+                                style={{ 
+                                  position: "absolute", 
+                                  top: "calc(100% + 4px)", 
+                                  left: 0, 
+                                  width: "250px", 
+                                  maxHeight: "220px", 
+                                  overflowY: "auto", 
+                                  background: "#161b22", 
+                                  border: "1px solid rgba(255, 255, 255, 0.15)", 
+                                  borderRadius: "6px", 
+                                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)", 
+                                  zIndex: 999,
+                                  padding: "6px"
+                                }}
+                              >
+                                {/* Search input */}
+                                <input 
+                                  type="text" 
+                                  className="admin-input"
+                                  style={{ 
+                                    width: "100%", 
+                                    padding: "6px 10px", 
+                                    fontSize: "0.8rem", 
+                                    marginBottom: "6px",
+                                    background: "#0d1117"
+                                  }}
+                                  placeholder="Search country / code..."
+                                  value={countrySearchQuery}
+                                  onChange={(e) => setCountrySearchQuery(e.target.value)}
+                                  autoFocus
+                                />
+                                
+                                {/* Scrollable List */}
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                  {countriesList
+                                    .filter(c => 
+                                      c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) ||
+                                      c.code.includes(countrySearchQuery)
+                                    )
+                                    .map(c => (
+                                      <button
+                                        key={c.code + c.name}
+                                        type="button"
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "space-between",
+                                          width: "100%",
+                                          padding: "8px 10px",
+                                          background: "transparent",
+                                          border: "none",
+                                          borderRadius: "4px",
+                                          color: "#fff",
+                                          fontSize: "0.82rem",
+                                          textAlign: "left",
+                                          cursor: "pointer",
+                                          transition: "background 0.2s"
+                                        }}
+                                        onClick={() => {
+                                          setSelectedCountryCode(c.code);
+                                          setIsDropdownOpen(false);
+                                          setCountrySearchQuery("");
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)")}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                      >
+                                        <span>{c.flag} {c.name}</span>
+                                        <span style={{ color: "#a855f7", fontWeight: 600 }}>{c.code}</span>
+                                      </button>
+                                    ))}
+                                  {countriesList.filter(c => 
+                                    c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) ||
+                                    c.code.includes(countrySearchQuery)
+                                  ).length === 0 && (
+                                    <div style={{ padding: "10px", fontSize: "0.75rem", color: "#8b949e", textAlign: "center" }}>
+                                      No matches found
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
                         <input 
                           type="text" 
                           className="admin-input" 
