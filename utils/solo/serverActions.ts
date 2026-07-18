@@ -4345,29 +4345,71 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
   }
 }
 
-export async function executeTransferSale(clubId: number, playerId: number, price: number) {
+export async function executeTransferSale(clubId: number, playerId: number, price: number, buyingClubId: number, expireSeason: string) {
   try {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
+    const seasonNumber = activeSeason ? activeSeason.season_number : 9;
 
     await pool.query('BEGIN');
 
+    // 1. Verify buying club exists and has enough coins
+    const { rows: walletRows } = await pool.query(`
+      SELECT r2g_coin_balance FROM manager_wallets
+      WHERE manager_id = $1 AND season_id = $2
+    `, [buyingClubId, seasonId]);
+
+    if (walletRows.length === 0) {
+      throw new Error("Buying club does not have a wallet for this season.");
+    }
+
+    const buyingBalance = Number(walletRows[0].r2g_coin_balance) || 0;
+    if (buyingBalance < price) {
+      throw new Error("Buying club has insufficient balance.");
+    }
+
+    // 2. Fetch player and club names for transactions logging
+    const { rows: pRows } = await pool.query('SELECT name FROM players WHERE id = $1', [playerId]);
+    const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
+
+    const { rows: clubRows } = await pool.query('SELECT id, name FROM clubs WHERE id IN ($1, $2)', [clubId, buyingClubId]);
+    const clubMap = Object.fromEntries(clubRows.map((r: any) => [r.id, r.name]));
+    const sellingClubName = clubMap[clubId] || `Club #${clubId}`;
+    const buyingClubName = clubMap[buyingClubId] || `Club #${buyingClubId}`;
+
+    // 3. Deduct coins from buying club
+    await pool.query(`
+      UPDATE manager_wallets
+      SET r2g_coin_balance = r2g_coin_balance - $1
+      WHERE manager_id = $2 AND season_id = $3
+    `, [price, buyingClubId, seasonId]);
+
+    // 4. Add coins to selling club
     await pool.query(`
       UPDATE manager_wallets
       SET r2g_coin_balance = r2g_coin_balance + $1
       WHERE manager_id = $2 AND season_id = $3
     `, [price, clubId, seasonId]);
 
-    const { rows: pRows } = await pool.query('SELECT name FROM players WHERE id = $1', [playerId]);
-    const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
-    await logTransaction(clubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sale: sold ${pName} for ${price} Coins`);
+    // 5. Log transactions
+    await logTransaction(clubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sell: sold ${pName} to ${buyingClubName} for ${price} Coins`);
+    await logTransaction(buyingClubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: bought ${pName} from ${sellingClubName} for ${price} Coins`);
 
-    const currentSeasonStr = (activeSeason?.season_number || 9).toString();
+    // 6. Deactivate old contract
+    const currentSeasonStr = seasonNumber.toString();
     await pool.query(`
       UPDATE player_contracts 
       SET status = 'inactive', expire_season = $1
       WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
     `, [currentSeasonStr, playerId, clubId, seasonId]);
+
+    // 7. Insert new active contract for buying club
+    const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
+    const salary = Number(price) * 0.05;
+    await pool.query(`
+      INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+    `, [playerId, seasonId, buyingClubId, price, salary, currentSeasonStr, cleanExpire]);
 
     await pool.query('COMMIT');
     return { success: true };

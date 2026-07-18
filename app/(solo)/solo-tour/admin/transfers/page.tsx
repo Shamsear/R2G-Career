@@ -39,7 +39,8 @@ export default function TransfersManager() {
   const [sellClubPlayers, setSellClubPlayers] = useState<any[]>([]);
   const [sellPlayerId, setSellPlayerId] = useState<string>("");
   const [sellPrice, setSellPrice] = useState<number>(40);
-  const [sellOpType, setSellOpType] = useState<"sell" | "release">("sell");
+  const [sellBuyingClubId, setSellBuyingClubId] = useState<string>("");
+  const [sellExpireSeason, setSellExpireSeason] = useState<string>("");
 
   // Release state
   const [releaseClubId, setReleaseClubId] = useState<string>("");
@@ -82,6 +83,7 @@ export default function TransfersManager() {
 
       if (season) {
         setBuyExpireSeason((season.season_number + 1).toString());
+        setSellExpireSeason((season.season_number + 1).toString());
       }
     } catch {
       showToast("Error loading transfers data!");
@@ -215,18 +217,23 @@ export default function TransfersManager() {
 
   const handleSell = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellClubId || !sellPlayerId) {
-      return showToast("Please select a club and a player!");
+    if (!sellClubId || !sellPlayerId || !sellBuyingClubId || !sellExpireSeason) {
+      return showToast("Please select selling club, player, buying club, and contract expiration season!");
     }
     if (sellPrice < 0) return showToast("Price cannot be negative!");
+    if (sellClubId === sellBuyingClubId) {
+      return showToast("Selling club and buying club cannot be the same!");
+    }
     startTransition(async () => {
       try {
         await executeTransferSale(
           parseInt(sellClubId),
           parseInt(sellPlayerId),
-          sellPrice
+          sellPrice,
+          parseInt(sellBuyingClubId),
+          sellExpireSeason
         );
-        showToast("Player sold successfully!");
+        showToast("Player transferred successfully!");
         setSellPlayerId("");
         loadData();
       } catch (err: any) {
@@ -372,7 +379,7 @@ export default function TransfersManager() {
             <i className="fa-solid fa-cart-shopping" /> Buy Free Agent
           </button>
           <button className={`portal-btn ${activeTab === 'sell' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('sell')}>
-            <i className="fa-solid fa-hand-holding-dollar" /> Sell Squad Player
+            <i className="fa-solid fa-shuffle" /> Transfer Squad Player
           </button>
           <button className={`portal-btn ${activeTab === 'release' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('release')}>
             <i className="fa-solid fa-file-contract" /> Release Squad Player
@@ -440,7 +447,7 @@ export default function TransfersManager() {
         {/* Tab 2: Sell */}
         {activeTab === 'sell' && (
           <div className="admin-card">
-            <h2 className="admin-card-title"><i className="fa-solid fa-hand-holding-dollar" /> Sell Squad Player</h2>
+            <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Player</h2>
             <form onSubmit={handleSell}>
               <div className="admin-form-grid">
                 <div className="admin-form-group">
@@ -453,7 +460,7 @@ export default function TransfersManager() {
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label>Select Player to Sell</label>
+                  <label>Select Player to Transfer</label>
                   <select className="admin-select" value={sellPlayerId} onChange={(e) => setSellPlayerId(e.target.value)} required>
                     <option value="">-- Select Player --</option>
                     {sellClubPlayers.map(p => (
@@ -463,14 +470,39 @@ export default function TransfersManager() {
                 </div>
 
                 <div className="admin-form-group">
-                  <label>Selling Price / Compensation (Coins)</label>
+                  <label>Select Buying Club</label>
+                  <select className="admin-select" value={sellBuyingClubId} onChange={(e) => setSellBuyingClubId(e.target.value)} required>
+                    <option value="">-- Select Club --</option>
+                    {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Transfer Price (Coins)</label>
                   <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Contract Expiration Season</label>
+                  <select className="admin-select" value={sellExpireSeason} onChange={(e) => setSellExpireSeason(e.target.value)} required>
+                    {activeSeason && (
+                      <>
+                        <option value={activeSeason.season_number.toString()}>Start of Season {activeSeason.season_number}</option>
+                        <option value={(activeSeason.season_number + 0.5).toString()}>Mid of Season {activeSeason.season_number}</option>
+                        <option value={(activeSeason.season_number + 1).toString()}>Start of Season {activeSeason.season_number + 1}</option>
+                        <option value={(activeSeason.season_number + 1.5).toString()}>Mid of Season {activeSeason.season_number + 1}</option>
+                        <option value={(activeSeason.season_number + 2).toString()}>Start of Season {activeSeason.season_number + 2}</option>
+                      </>
+                    )}
+                  </select>
                 </div>
               </div>
 
               <div className="admin-btn-row" style={{ marginTop: "1rem" }}>
-                <button type="submit" className="portal-btn btn-danger" disabled={isPending}>
-                  Confirm Sale & Terminate Contract
+                <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
+                  Confirm Transfer
                 </button>
               </div>
             </form>
