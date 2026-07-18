@@ -945,7 +945,7 @@ export default function ClubsManager() {
                     grid-template-columns: 420px 1fr !important;
                   }
                   .clubs-scroll-container {
-                    max-height: 95vh !important;
+                    max-height: 120vh !important;
                   }
                 }
 
