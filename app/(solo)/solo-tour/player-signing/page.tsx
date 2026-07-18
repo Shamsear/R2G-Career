@@ -44,6 +44,10 @@ export default function PlayerSigning() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   useEffect(() => {
     async function loadData() {
@@ -102,6 +106,7 @@ export default function PlayerSigning() {
       });
     }
     setFilteredPlayers(result);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [players, activeTab, searchTerm, sortConfig]);
 
   const requestSort = (key: string) => {
@@ -120,6 +125,38 @@ export default function PlayerSigning() {
   };
 
   const colCount = activeTab === "all" ? 7 : 6;
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPlayers = filteredPlayers.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = [];
+    const maxVisible = 7;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        for (let i = 1; i <= 5; i++) pages.push(i);
+        pages.push("ellipsis");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1);
+        pages.push("ellipsis");
+        for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push("ellipsis");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push("ellipsis");
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   return (
     <div className="portal-root-wrapper">
@@ -153,6 +190,11 @@ export default function PlayerSigning() {
           <div className="stat-pill">
             <i className="fa-solid fa-users" />
             <span>Total Records: {players.length}</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-pill">
+            <i className="fa-solid fa-filter" />
+            <span>Filtered: {filteredPlayers.length}</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
@@ -275,7 +317,7 @@ export default function PlayerSigning() {
                     </td>
                   </tr>
                 )}
-                {filteredPlayers.map((player) => {
+                {currentPlayers.map((player) => {
                   const tier = getTierBadgeLabel(player.rating);
                   return (
                     <tr key={player.rowId} className={getRatingClass(player.rating)}>
@@ -296,17 +338,45 @@ export default function PlayerSigning() {
           </div>
         )}
 
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              Ledger Status: Connected
+        {/* Pagination Controls */}
+        {!loading && filteredPlayers.length > 0 && (
+          <div className="pagination-container">
+            <div className="pagination-info">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredPlayers.length)} of {filteredPlayers.length} players
             </div>
-            <div className="status-item">Total Records: {players.length}</div>
+            <div className="pagination-controls">
+              <button
+                className="page-btn"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <i className="fas fa-chevron-left" />
+              </button>
+              
+              {getPageNumbers().map((page, idx) =>
+                page === "ellipsis" ? (
+                  <span className="page-ellipsis" key={`ellipsis-${idx}`}>...</span>
+                ) : (
+                  <button
+                    key={page}
+                    className={`page-btn ${currentPage === page ? "active" : ""}`}
+                    onClick={() => setCurrentPage(page as number)}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+              
+              <button
+                className="page-btn"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <i className="fas fa-chevron-right" />
+              </button>
+            </div>
           </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
+        )}
       </div>
     </div>
   );
