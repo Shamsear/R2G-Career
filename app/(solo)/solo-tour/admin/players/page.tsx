@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -13,13 +13,17 @@ import {
   deletePlayer,
   createPlayerContract,
   applyFine,
-  fetchClubPlayers
+  fetchClubPlayers,
+  fetchFreeAgents,
+  fetchActivePlayerContract,
+  releasePlayerContract
 } from "@/utils/solo/serverActions";
 
 export default function PlayersManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [clubs, setClubs] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
+  const [freeAgents, setFreeAgents] = useState<any[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -52,6 +56,18 @@ export default function PlayersManager() {
     playerObj: null as any
   });
 
+  const [releaseModal, setReleaseModal] = useState({
+    show: false,
+    playerId: "",
+    playerName: "",
+    clubId: "",
+    clubName: "",
+    timing: "start" as "start" | "mid",
+    refundPercentage: 75,
+    contractInfo: null as any,
+    loadingContract: false
+  });
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -70,6 +86,9 @@ export default function PlayersManager() {
         allPlayers.push(...cPlayers.map(p => ({ ...p, clubName: club.name, clubId: club.id })));
       }
       setPlayers(allPlayers);
+
+      const agents = await fetchFreeAgents();
+      setFreeAgents(agents || []);
     } catch {
       showToast("Error loading players data!");
     }
@@ -78,6 +97,104 @@ export default function PlayersManager() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleOpenReleaseModal = (p: any) => {
+    setReleaseModal({
+      show: true,
+      playerId: p.id.toString(),
+      playerName: p.name,
+      clubId: p.clubId.toString(),
+      clubName: p.clubName,
+      timing: "start",
+      refundPercentage: 75,
+      contractInfo: null,
+      loadingContract: true
+    });
+
+    startTransition(async () => {
+      try {
+        const contract = await fetchActivePlayerContract(p.id, activeSeason?.id || 6);
+        setReleaseModal(prev => ({
+          ...prev,
+          contractInfo: contract,
+          loadingContract: false
+        }));
+      } catch {
+        showToast("Error loading contract details!");
+        setReleaseModal(prev => ({ ...prev, loadingContract: false }));
+      }
+    });
+  };
+
+  const handleConfirmRelease = () => {
+    if (!releaseModal.playerId || !activeSeason) return;
+    startTransition(async () => {
+      try {
+        const res = await releasePlayerContract(
+          parseInt(releaseModal.playerId),
+          activeSeason.id,
+          releaseModal.timing,
+          releaseModal.refundPercentage
+        );
+        if (res.success) {
+          showToast(`Released ${res.playerName}!`);
+          setReleaseModal({
+            show: false,
+            playerId: "",
+            playerName: "",
+            clubId: "",
+            clubName: "",
+            timing: "start",
+            refundPercentage: 75,
+            contractInfo: null,
+            loadingContract: false
+          });
+          loadData();
+        }
+      } catch {
+        showToast("Error releasing player!");
+      }
+    });
+  };
+
+  const releasePreview = useMemo(() => {
+    if (!releaseModal.show || !releaseModal.contractInfo || !activeSeason) return null;
+
+    const contract = releaseModal.contractInfo;
+    const signedValue = Number(contract.signed_value) || 0;
+    const currentSeasonNum = Number(activeSeason.season_number) || 9;
+
+    const parseSeason = (s: string) => {
+      const cleaned = s.replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0.0;
+    };
+
+    const startSeasonNum = parseSeason(contract.start_season || '');
+    const expireSeasonNum = parseSeason(contract.expire_season || '');
+    const releaseSeasonNum = currentSeasonNum + (releaseModal.timing === 'mid' ? 0.5 : 0);
+
+    const totalDuration = expireSeasonNum - startSeasonNum;
+    const remainingDuration = expireSeasonNum - releaseSeasonNum;
+    const elapsedDuration = releaseSeasonNum - startSeasonNum;
+
+    const remainingRatio = totalDuration > 0 
+      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
+      : 1.0;
+
+    const remainingValue = signedValue * remainingRatio;
+    const refundAmount = Math.round(remainingValue * (releaseModal.refundPercentage / 100));
+
+    return {
+      startSeasonNum,
+      expireSeasonNum,
+      releaseSeasonNum,
+      totalDuration,
+      elapsedDuration,
+      remainingDuration,
+      remainingValue,
+      refundAmount
+    };
+  }, [releaseModal.show, releaseModal.contractInfo, releaseModal.timing, releaseModal.refundPercentage, activeSeason]);
 
   const handleSavePlayer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,6 +368,121 @@ export default function PlayersManager() {
         </div>
       )}
 
+      {releaseModal.show && (
+        <div className="fine-modal-backdrop">
+          <div className="fine-modal-content" style={{ maxWidth: "550px" }}>
+            <h3><i className="fa-solid fa-file-contract" style={{ color: "#fbbf24", marginRight: "6px" }} /> Release Player Contract</h3>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              Releasing <strong>{releaseModal.playerName}</strong> from <strong>{releaseModal.clubName}</strong>.
+            </p>
+
+            {releaseModal.loadingContract ? (
+              <div style={{ textAlign: "center", padding: "1.5rem" }}>
+                <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "1.5rem", color: "var(--solo-primary)" }} />
+                <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>Loading contract details...</p>
+              </div>
+            ) : !releaseModal.contractInfo ? (
+              <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-secondary)" }}>
+                No active contract record found to calculate duration refund.
+                <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                  <button className="portal-btn btn-secondary" onClick={() => setReleaseModal(prev => ({ ...prev, show: false }))}>Cancel</button>
+                  <button className="portal-btn btn-danger" onClick={handleConfirmRelease}>Confirm Release Anyway</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Release Timing Option */}
+                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                  <label>Release Timing</label>
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
+                    <button
+                      type="button"
+                      className={`portal-btn ${releaseModal.timing === 'start' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, padding: "8px" }}
+                      onClick={() => setReleaseModal(prev => ({ ...prev, timing: 'start' }))}
+                    >
+                      Season Start (Season {activeSeason?.season_number})
+                    </button>
+                    <button
+                      type="button"
+                      className={`portal-btn ${releaseModal.timing === 'mid' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, padding: "8px" }}
+                      onClick={() => setReleaseModal(prev => ({ ...prev, timing: 'mid' }))}
+                    >
+                      Mid-Season (Season {activeSeason?.season_number}.5)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Refund percentage slider */}
+                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Refund Percentage</span>
+                    <strong style={{ color: "var(--solo-primary)" }}>{releaseModal.refundPercentage}%</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
+                    value={releaseModal.refundPercentage}
+                    onChange={(e) => setReleaseModal(prev => ({ ...prev, refundPercentage: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+
+                {/* Calculation preview */}
+                {releasePreview && (
+                  <div style={{
+                    background: "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    borderRadius: "8px",
+                    padding: "0.75rem",
+                    marginBottom: "1.5rem",
+                    fontSize: "0.8rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.4rem"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Contract Duration:</span>
+                      <span>Season {releasePreview.startSeasonNum} to {releasePreview.expireSeasonNum} ({releasePreview.totalDuration} Season{releasePreview.totalDuration > 1 ? 's' : ''})</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Release Season:</span>
+                      <span>Season {releasePreview.releaseSeasonNum} ({releasePreview.elapsedDuration} Season{releasePreview.elapsedDuration !== 1 ? 's' : ''} Elapsed)</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Remaining Contract:</span>
+                      <span>{releasePreview.remainingDuration} Season{releasePreview.remainingDuration !== 1 ? 's' : ''} ({Math.round(releasePreview.remainingDuration / releasePreview.totalDuration * 100)}%)</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Original Value:</span>
+                      <span>{releaseModal.contractInfo.signed_value} Coins</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", paddingTop: "0.4rem", marginTop: "0.2rem" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Remaining Contract Value:</span>
+                      <span>{Math.round(releasePreview.remainingValue)} Coins</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", fontWeight: "bold" }}>
+                      <span style={{ color: "#fbbf24" }}>Calculated Refund Amount:</span>
+                      <span style={{ color: "#fbbf24" }}>{releasePreview.refundAmount} Coins <span style={{ fontSize: "0.7rem", fontWeight: "normal", color: "var(--text-secondary)" }}>(disabled)</span></span>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                  <button className="portal-btn btn-secondary" onClick={() => setReleaseModal(prev => ({ ...prev, show: false }))}>Cancel</button>
+                  <button className="portal-btn btn-danger" onClick={handleConfirmRelease} disabled={isPending}>
+                    {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Processing...</> : <><i className="fa-solid fa-file-contract" /> Terminate Contract</>}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="portal-container">
         <div className="portal-breadcrumb">
           <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
@@ -358,9 +590,16 @@ export default function PlayersManager() {
                   <label>Select Player</label>
                   <select className="admin-select" value={contractForm.playerId} onChange={(e) => setContractForm(prev => ({ ...prev, playerId: e.target.value }))}>
                     <option value="">-- Select Player --</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
-                    ))}
+                    <optgroup label="Free Agents (No Contract)">
+                      {freeAgents.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Active Players (Will overwrite existing contract)">
+                      {players.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.position} - {p.clubName || 'Unknown Club'})</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div className="admin-form-group">
@@ -445,6 +684,15 @@ export default function PlayersManager() {
                         >
                           <i className={`fa-solid ${p.isSuspended ? 'fa-lock-open' : 'fa-ban'}`} /> {p.isSuspended ? 'Lift' : 'Suspend'}
                         </button>
+                        {p.clubId && (
+                          <button 
+                            className="portal-btn"
+                            style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem", background: "#f59e0b", borderColor: "#d97706", color: "#fff" }} 
+                            onClick={() => handleOpenReleaseModal(p)}
+                          >
+                            <i className="fa-solid fa-file-contract" /> Release
+                          </button>
+                        )}
                         <button className="portal-btn btn-danger" style={{ padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleDeletePlayer(p.id)}>
                           <i className="fa-solid fa-trash" /> Delete
                         </button>

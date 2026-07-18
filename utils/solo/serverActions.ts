@@ -1151,7 +1151,7 @@ export async function createClubAndManager(data: any) {
     const avatarPath = data.avatarPath || data.photo || '';
     const mobNo = data.mobNo || data.mob_no || '';
     const place = data.place || '';
-    const r2gId = managerName;
+    const r2gId = data.r2gId || data.r2g_id || managerName;
     
     await pool.query(`
       INSERT INTO managers (id, r2g_id, name, avatar_path, is_active, mob_no, place)
@@ -1220,7 +1220,7 @@ export async function updateManagerDetails(data: any) {
     const avatarPath = data.avatarPath || data.photo || '';
     const mobNo = data.mobNo || data.mob_no || '';
     const place = data.place || '';
-    const r2gId = managerName;
+    const r2gId = data.r2gId || data.r2g_id || managerName;
     
     await pool.query(`
       UPDATE managers 
@@ -1307,12 +1307,13 @@ export async function updateManagerProfileOnly(data: any) {
     const mobNo = data.mobNo || data.mob_no || '';
     const place = data.place || '';
     const managerId = parseInt(data.id, 10);
+    const r2gId = data.r2gId || data.r2g_id || managerName;
     
     await pool.query(`
       UPDATE managers 
       SET name = $1, avatar_path = $2, is_active = $3, mob_no = $4, place = $5, r2g_id = $6
       WHERE id = $7
-    `, [managerName, avatarPath, data.isActive !== false, mobNo, place, managerName, managerId]);
+    `, [managerName, avatarPath, data.isActive !== false, mobNo, place, r2gId, managerId]);
     return { success: true };
   } catch (e) {
     console.error("Error updating manager profile:", e);
@@ -4582,4 +4583,114 @@ export async function fetchAllPlayersDirectory() {
     return [];
   }
 }
+
+export async function fetchActivePlayerContract(playerId: number, seasonId: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * 
+      FROM player_contracts 
+      WHERE player_id = $1 AND season_id = $2 AND LOWER(status) = 'active'
+      LIMIT 1
+    `, [playerId, seasonId]);
+    return rows[0] || null;
+  } catch (e) {
+    console.error("Error fetching active contract:", e);
+    throw e;
+  }
+}
+
+export async function releasePlayerContract(
+  playerId: number,
+  seasonId: number,
+  releaseTiming: 'start' | 'mid',
+  refundPercentage: number
+) {
+  try {
+    await pool.query('BEGIN');
+
+    // 1. Fetch active contract for player in current season
+    const { rows: contractRows } = await pool.query(`
+      SELECT pc.*, p.name as player_name 
+      FROM player_contracts pc
+      JOIN players p ON pc.player_id = p.id
+      WHERE pc.player_id = $1 
+        AND pc.season_id = $2 
+        AND LOWER(pc.status) = 'active'
+    `, [playerId, seasonId]);
+
+    if (contractRows.length === 0) {
+      throw new Error("No active contract found for this player in the current season.");
+    }
+
+    const contract = contractRows[0];
+    const clubId = contract.current_club_id;
+    const pName = contract.player_name;
+    const signedValue = Number(contract.signed_value) || 0;
+
+    // 2. Fetch season number
+    const { rows: seasonRows } = await pool.query(`
+      SELECT season_number FROM seasons WHERE id = $1
+    `, [seasonId]);
+    
+    if (seasonRows.length === 0) {
+      throw new Error("Active season not found.");
+    }
+    const currentSeasonNum = Number(seasonRows[0].season_number);
+
+    const parseSeason = (s: string) => {
+      const cleaned = s.replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0.0;
+    };
+
+    const startSeasonNum = parseSeason(contract.start_season || '');
+    const expireSeasonNum = parseSeason(contract.expire_season || '');
+    const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
+
+    // 3. Compute remaining contract duration ratio
+    const totalDuration = expireSeasonNum - startSeasonNum;
+    const remainingDuration = expireSeasonNum - releaseSeasonNum;
+    
+    const remainingRatio = totalDuration > 0 
+      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
+      : 1.0;
+
+    const remainingValue = signedValue * remainingRatio;
+    const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
+
+    // 4. Update manager wallet (refund) - COMMENTED OUT/DISABLED BY USER REQUEST
+    /*
+    await pool.query(`
+      UPDATE manager_wallets
+      SET r2g_coin_balance = r2g_coin_balance + $1
+      WHERE manager_id = $2 AND season_id = $3
+    `, [refundAmount, clubId, seasonId]);
+    */
+
+    // 5. Log transaction - COMMENTED OUT/DISABLED BY USER REQUEST
+    /*
+    const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins (${refundPercentage}% of remaining contract)`;
+    await logTransaction(clubId, seasonId, 'coin', refundAmount, 'player_release', desc);
+    */
+
+    // 6. Terminate contract (make inactive)
+    await pool.query(`
+      UPDATE player_contracts
+      SET status = 'inactive'
+      WHERE id = $1
+    `, [contract.id]);
+
+    await pool.query('COMMIT');
+    return {
+      success: true,
+      refundAmount,
+      playerName: pName,
+      clubId
+    };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error releasing contract:", e);
+    throw e;
+  }
+}
+
 

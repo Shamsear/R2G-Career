@@ -56,6 +56,7 @@ export default function ClubsManager() {
   const [localMobileNo, setLocalMobileNo] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState("");
+  const [managerSearchQuery, setManagerSearchQuery] = useState("");
 
   const [clubForm, setClubForm] = useState({
     id: "",
@@ -63,6 +64,7 @@ export default function ClubsManager() {
     clubName: "",
     logoPath: "",
     managerName: "",
+    r2gId: "",
     avatarPath: "",
     mobNo: "",
     place: "",
@@ -117,7 +119,7 @@ export default function ClubsManager() {
 
   const clearForm = () => {
     setClubForm({
-      id: "", clubId: "", clubName: "", logoPath: "", managerName: "", avatarPath: "",
+      id: "", clubId: "", clubName: "", logoPath: "", managerName: "", r2gId: "", avatarPath: "",
       mobNo: "", place: "",
       coinBalance: 1500, tokenBalance: 100, voucherBalance: 0, rating: 80, starRating: 3,
       wins: 0, draws: 0, losses: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
@@ -247,6 +249,7 @@ export default function ClubsManager() {
       clubName: m.club || '',
       logoPath: m.club_logo || '',
       managerName: m.name,
+      r2gId: m.r2g_id || m.name,
       avatarPath: m.photo || '',
       mobNo: m.mob_no || '',
       place: m.place || '',
@@ -435,6 +438,47 @@ export default function ClubsManager() {
               <i className="fa-solid fa-circle-plus" /> Register New Club / Manager
             </button>
             
+            {/* Search Bar */}
+            <div style={{ position: "relative", marginBottom: "0.25rem" }}>
+              <i 
+                className="fa-solid fa-magnifying-glass" 
+                style={{ 
+                  position: "absolute", 
+                  left: "12px", 
+                  top: "50%", 
+                  transform: "translateY(-50%)", 
+                  color: "rgba(255, 255, 255, 0.4)",
+                  fontSize: "0.9rem" 
+                }} 
+              />
+              <input
+                type="text"
+                className="admin-input"
+                style={{ paddingLeft: "36px", width: "100%", height: "42px", borderRadius: "8px" }}
+                placeholder="Search managers, clubs or IDs..."
+                value={managerSearchQuery}
+                onChange={(e) => setManagerSearchQuery(e.target.value)}
+              />
+              {managerSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setManagerSearchQuery("")}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.6)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <i className="fa-solid fa-circle-xmark" />
+                </button>
+              )}
+            </div>
+
             <div className="clubs-scroll-container">
               {managers.length === 0 ? (
                 <div className="admin-empty">
@@ -442,75 +486,83 @@ export default function ClubsManager() {
                   No clubs registered yet.
                 </div>
               ) : (
-                managers.map(m => {
-                  const isActive = clubForm.id === m.id.toString();
-                  return (
-                    <div 
-                      key={m.id}
-                      className={`club-select-card ${isActive ? 'active' : ''}`}
-                      onClick={() => handleEditManager(m)}
-                    >
-                      <div className="club-card-meta">
-                        <div className="club-card-avatar">
-                          {m.photo ? <img src={m.photo} alt={m.name} /> : <i className="fa-solid fa-user-tie" />}
-                        </div>
-                        <div className="club-card-details">
-                          <h4>{m.club || "Free Agent"}</h4>
-                          <span>{m.name} {m.r2g_id && `(${m.r2g_id})`}</span>
-                        </div>
+                (() => {
+                  const filtered = managers.filter(m => {
+                    const query = managerSearchQuery.toLowerCase();
+                    return (
+                      m.name.toLowerCase().includes(query) ||
+                      (m.club && m.club.toLowerCase().includes(query)) ||
+                      (m.r2g_id && m.r2g_id.toLowerCase().includes(query))
+                    );
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="admin-empty" style={{ padding: "20px 10px" }}>
+                        <i className="fa-solid fa-magnifying-glass-slash" style={{ fontSize: "1.5rem" }} />
+                        No matching managers found.
                       </div>
+                    );
+                  }
+                  return filtered.map(m => {
+                    const isActive = clubForm.id === m.id.toString();
+                    return (
+                      <div 
+                        key={m.id}
+                        className={`club-select-card ${isActive ? 'active' : ''}`}
+                        onClick={() => handleEditManager(m)}
+                        style={{ padding: "0.6rem 0.75rem", gap: "0.25rem" }}
+                      >
+                        <div className="club-card-meta" style={{ gap: "0.5rem" }}>
+                          <div className="club-card-avatar" style={{ width: "32px", height: "32px", minWidth: "32px", borderRadius: "50%", overflow: "hidden" }}>
+                            {m.photo ? <img src={m.photo} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <i className="fa-solid fa-user-tie" />}
+                          </div>
+                          <div className="club-card-details">
+                            <h4 style={{ fontSize: "0.85rem", margin: 0, fontWeight: 600 }}>{m.club || "Free Agent"}</h4>
+                            <span style={{ fontSize: "0.72rem", opacity: 0.8 }}>{m.name} {m.r2g_id && `(${m.r2g_id})`}</span>
+                          </div>
+                          <div style={{ marginLeft: "auto" }}>
+                            {m.is_banned ? (
+                              <span className="badge-banned" style={{ padding: "2px 4px", fontSize: "0.58rem" }}>BANNED</span>
+                            ) : m.is_active === false ? (
+                              <span style={{ background: "rgba(156, 163, 175, 0.15)", color: "#d1d5db", border: "1px solid rgba(156, 163, 175, 0.3)", borderRadius: "0.25rem", padding: "2px 4px", fontSize: "0.58rem", fontWeight: 800 }}>GUEST</span>
+                            ) : (
+                              <span className="badge-active" style={{ padding: "2px 4px", fontSize: "0.58rem" }}>ACTIVE</span>
+                            )}
+                          </div>
+                        </div>
 
-                      <div className="club-card-pills">
-                        <div className="club-pill-item" style={{ borderColor: "#fbbf24", color: "#fbbf24" }}>
-                          <span><i className="fa-solid fa-coins" style={{ marginRight: "4px" }} /> Coins</span>
-                          <span>{parseInt(m.r2g_coin_balance) || 0}</span>
+                        <div style={{ display: "flex", gap: "0.65rem", fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", margin: "4px 0" }}>
+                          <span><i className="fa-solid fa-coins" style={{ color: "#fbbf24", marginRight: "3px" }} />{parseInt(m.r2g_coin_balance) || 0}</span>
+                          <span><i className="fa-solid fa-star" style={{ color: "#38bdf8", marginRight: "3px" }} />{parseInt(m.r2g_token_balance) || 0}</span>
+                          <span><i className="fa-solid fa-ticket" style={{ color: "#ec4899", marginRight: "3px" }} />{parseInt(m.r2g_voucher_balance) || 0}</span>
+                          <span style={{ marginLeft: "auto", opacity: 0.8 }}>OVR: {m.overall_rating || 80}</span>
                         </div>
-                        <div className="club-pill-item" style={{ borderColor: "#38bdf8", color: "#38bdf8" }}>
-                          <span><i className="fa-solid fa-star" style={{ marginRight: "4px" }} /> Tokens</span>
-                          <span>{parseInt(m.r2g_token_balance) || 0}</span>
-                        </div>
-                        <div className="club-pill-item" style={{ borderColor: "#ec4899", color: "#ec4899" }}>
-                          <span><i className="fa-solid fa-ticket" style={{ marginRight: "4px" }} /> Vouchers</span>
-                          <span>{parseInt(m.r2g_voucher_balance) || 0}</span>
-                        </div>
-                        <div className="club-pill-item">
-                          <span><i className="fa-solid fa-chart-line" style={{ marginRight: "4px" }} /> Rating</span>
-                          <span>{m.overall_rating || 80} OVR</span>
-                        </div>
-                      </div>
 
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>Record: {m.wins || 0}W-{m.draws || 0}D-{m.losses || 0}L</span>
-                        <span>
-                          {m.is_banned ? (
-                            <span className="badge-banned">BANNED</span>
-                          ) : m.is_active === false ? (
-                            <span style={{ background: "rgba(156, 163, 175, 0.15)", color: "#d1d5db", border: "1px solid rgba(156, 163, 175, 0.3)", borderRadius: "0.25rem", padding: "2px 6px", fontSize: "0.65rem", fontWeight: 800 }}>GUEST/INACTIVE</span>
-                          ) : (
-                            <span className="badge-active">ACTIVE</span>
-                          )}
-                        </span>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "4px", borderTop: "1px dashed rgba(255,255,255,0.06)", marginTop: "4px" }}>
+                          <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>
+                            Record: {m.wins || 0}W-{m.draws || 0}D-{m.losses || 0}L
+                          </span>
+                          <div style={{ display: "flex", gap: "0.3rem" }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              className={`portal-btn ${m.is_banned ? 'btn-primary' : 'btn-danger'}`}
+                              style={{ padding: "1px 6px", fontSize: "0.62rem", height: "20px", borderRadius: "4px" }}
+                              onClick={() => toggleBanStatus(m)}
+                            >
+                              {m.is_banned ? "Unban" : "Ban"}
+                            </button>
+                            <button 
+                              className="portal-btn btn-danger" 
+                              style={{ padding: "1px 6px", fontSize: "0.62rem", height: "20px", borderRadius: "4px" }}
+                              onClick={() => handleDeleteClub(m.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="club-card-footer" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          className={`portal-btn ${m.is_banned ? 'btn-primary' : 'btn-danger'}`}
-                          style={{ padding: "2px 8px", fontSize: "0.7rem" }}
-                          onClick={() => toggleBanStatus(m)}
-                        >
-                          <i className={`fa-solid ${m.is_banned ? 'fa-lock-open' : 'fa-ban'}`} /> {m.is_banned ? "Unban" : "Ban"}
-                        </button>
-                        <button 
-                          className="portal-btn btn-danger" 
-                          style={{ padding: "2px 8px", fontSize: "0.7rem" }}
-                          onClick={() => handleDeleteClub(m.id)}
-                        >
-                          <i className="fa-solid fa-trash" /> Delete
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  });
+                })()
               )}
             </div>
           </div>
@@ -545,6 +597,13 @@ export default function ClubsManager() {
                       <input type="text" className="admin-input" value={clubForm.managerName} onChange={(e) => setClubForm(prev => ({ ...prev, managerName: e.target.value }))} placeholder="e.g. John Doe" />
                     </div>
                     <div className="admin-form-group">
+                      <label>R2G ID</label>
+                      <input type="text" className="admin-input" value={clubForm.r2gId} onChange={(e) => setClubForm(prev => ({ ...prev, r2gId: e.target.value }))} placeholder="e.g. MAJEE" />
+                    </div>
+                  </div>
+
+                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
+                    <div className="admin-form-group" style={{ gridColumn: "span 2" }}>
                       <label>Manager Avatar Path</label>
                       <input type="text" className="admin-input" value={clubForm.avatarPath} onChange={(e) => setClubForm(prev => ({ ...prev, avatarPath: e.target.value }))} placeholder="/assets/images/managers/avatar.png" />
                       <input 
@@ -879,6 +938,24 @@ export default function ClubsManager() {
                 )}
 
               </form>
+              <style>{`
+                /* Desktop: wide sidebar list */
+                @media (min-width: 1025px) {
+                  .financial-layout {
+                    grid-template-columns: 420px 1fr !important;
+                  }
+                  .clubs-scroll-container {
+                    max-height: 95vh !important;
+                  }
+                }
+
+                /* Mobile/Tablet: compact scroll container so form is visible */
+                @media (max-width: 1024px) {
+                  .clubs-scroll-container {
+                    max-height: 280px !important;
+                  }
+                }
+              `}</style>
             </div>
           </div>
 

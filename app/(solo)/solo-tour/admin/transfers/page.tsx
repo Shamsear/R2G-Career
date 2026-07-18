@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -14,7 +14,9 @@ import {
   executeTransferSale,
   executeTransferSwap,
   releaseExpiredContractsForSeason,
-  releaseMidSeasonContracts
+  releaseMidSeasonContracts,
+  fetchActivePlayerContract,
+  releasePlayerContract
 } from "@/utils/solo/serverActions";
 
 export default function TransfersManager() {
@@ -36,6 +38,11 @@ export default function TransfersManager() {
   const [sellClubPlayers, setSellClubPlayers] = useState<any[]>([]);
   const [sellPlayerId, setSellPlayerId] = useState<string>("");
   const [sellPrice, setSellPrice] = useState<number>(40);
+  const [sellOpType, setSellOpType] = useState<"sell" | "release">("sell");
+  const [releaseTiming, setReleaseTiming] = useState<"start" | "mid">("start");
+  const [refundPercentage, setRefundPercentage] = useState<number>(75);
+  const [activeContract, setActiveContract] = useState<any>(null);
+  const [loadingContract, setLoadingContract] = useState<boolean>(false);
 
   // Swap state
   const [swapClubAId, setSwapClubAId] = useState<string>("");
@@ -85,6 +92,65 @@ export default function TransfersManager() {
     }
   }, [sellClubId]);
 
+  // Fetch contract of selected player in sell tab
+  useEffect(() => {
+    if (sellPlayerId && sellOpType === "release") {
+      setLoadingContract(true);
+      fetchActivePlayerContract(parseInt(sellPlayerId), activeSeason?.id || 6)
+        .then((contract) => {
+          setActiveContract(contract);
+          setLoadingContract(false);
+        })
+        .catch(() => {
+          showToast("Error loading contract details");
+          setLoadingContract(false);
+          setActiveContract(null);
+        });
+    } else {
+      setActiveContract(null);
+    }
+  }, [sellPlayerId, sellOpType, activeSeason]);
+
+  // Compute release preview dynamically
+  const releasePreview = useMemo(() => {
+    if (sellOpType !== "release" || !activeContract || !activeSeason) return null;
+
+    const contract = activeContract;
+    const signedValue = Number(contract.signed_value) || 0;
+    const currentSeasonNum = Number(activeSeason.season_number) || 9;
+
+    const parseSeason = (s: string) => {
+      const cleaned = s.replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0.0;
+    };
+
+    const startSeasonNum = parseSeason(contract.start_season || '');
+    const expireSeasonNum = parseSeason(contract.expire_season || '');
+    const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
+
+    const totalDuration = expireSeasonNum - startSeasonNum;
+    const remainingDuration = expireSeasonNum - releaseSeasonNum;
+    const elapsedDuration = releaseSeasonNum - startSeasonNum;
+
+    const remainingRatio = totalDuration > 0 
+      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
+      : 1.0;
+
+    const remainingValue = signedValue * remainingRatio;
+    const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
+
+    return {
+      startSeasonNum,
+      expireSeasonNum,
+      releaseSeasonNum,
+      totalDuration,
+      elapsedDuration,
+      remainingDuration,
+      remainingValue,
+      refundAmount
+    };
+  }, [sellOpType, activeContract, releaseTiming, refundPercentage, activeSeason]);
+
   // Fetch players for swap tab
   useEffect(() => {
     if (swapClubAId) {
@@ -126,21 +192,32 @@ export default function TransfersManager() {
 
   const handleSell = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellClubId || !sellPlayerId || sellPrice < 0) {
-      return showToast("Please fill in all sell options correctly!");
+    if (!sellClubId || !sellPlayerId) {
+      return showToast("Please select a club and a player!");
     }
     startTransition(async () => {
       try {
-        await executeTransferSale(
-          parseInt(sellClubId),
-          parseInt(sellPlayerId),
-          sellPrice
-        );
-        showToast("Player sold successfully!");
+        if (sellOpType === "sell") {
+          if (sellPrice < 0) return showToast("Price cannot be negative!");
+          await executeTransferSale(
+            parseInt(sellClubId),
+            parseInt(sellPlayerId),
+            sellPrice
+          );
+          showToast("Player sold successfully!");
+        } else {
+          await releasePlayerContract(
+            parseInt(sellPlayerId),
+            activeSeason.id,
+            releaseTiming,
+            refundPercentage
+          );
+          showToast("Player contract terminated!");
+        }
         setSellPlayerId("");
         loadData();
-      } catch {
-        showToast("Transaction failed!");
+      } catch (err: any) {
+        showToast(`Operation failed: ${err.message || "Failed to execute"}`);
       }
     });
   };
@@ -298,6 +375,29 @@ export default function TransfersManager() {
           <div className="admin-card">
             <h2 className="admin-card-title"><i className="fa-solid fa-hand-holding-dollar" /> Sell/Release Squad Player</h2>
             <form onSubmit={handleSell}>
+              {/* Operation Selector */}
+              <div className="admin-form-group" style={{ marginBottom: "1.5rem" }}>
+                <label>Operation Type</label>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
+                  <button
+                    type="button"
+                    className={`portal-btn ${sellOpType === 'sell' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: "8px" }}
+                    onClick={() => setSellOpType('sell')}
+                  >
+                    <i className="fa-solid fa-hand-holding-dollar" /> Sell (Receive Custom Price)
+                  </button>
+                  <button
+                    type="button"
+                    className={`portal-btn ${sellOpType === 'release' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: "8px" }}
+                    onClick={() => setSellOpType('release')}
+                  >
+                    <i className="fa-solid fa-file-contract" /> Release (Cut Contract)
+                  </button>
+                </div>
+              </div>
+
               <div className="admin-form-grid">
                 <div className="admin-form-group">
                   <label>Select Selling Club</label>
@@ -309,7 +409,7 @@ export default function TransfersManager() {
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label>Select Player to Sell</label>
+                  <label>Select Player to Sell/Release</label>
                   <select className="admin-select" value={sellPlayerId} onChange={(e) => setSellPlayerId(e.target.value)} required>
                     <option value="">-- Select Player --</option>
                     {sellClubPlayers.map(p => (
@@ -317,14 +417,101 @@ export default function TransfersManager() {
                     ))}
                   </select>
                 </div>
-                <div className="admin-form-group">
-                  <label>Selling Price / Compensation (Coins)</label>
-                  <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
-                </div>
+
+                {sellOpType === 'sell' ? (
+                  <div className="admin-form-group">
+                    <label>Selling Price / Compensation (Coins)</label>
+                    <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
+                  </div>
+                ) : (
+                  <>
+                    <div className="admin-form-group">
+                      <label>Release Timing</label>
+                      <select className="admin-select" value={releaseTiming} onChange={(e) => setReleaseTiming(e.target.value as 'start' | 'mid')} required>
+                        <option value="start">Season Start (Season {activeSeason?.season_number})</option>
+                        <option value="mid">Mid-Season (Season {activeSeason?.season_number}.5)</option>
+                      </select>
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Refund Percentage</span>
+                        <strong style={{ color: "var(--solo-primary)" }}>{refundPercentage}%</strong>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
+                        value={refundPercentage}
+                        onChange={(e) => setRefundPercentage(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
+
+              {/* Release Preview Card */}
+              {sellOpType === 'release' && (
+                <div style={{ marginTop: "1.5rem" }}>
+                  {loadingContract ? (
+                    <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-secondary)" }}>
+                      <i className="fa-solid fa-spinner fa-spin" style={{ color: "var(--solo-primary)" }} /> Loading contract details...
+                    </div>
+                  ) : activeContract ? (
+                    <div style={{
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      borderRadius: "8px",
+                      padding: "1rem",
+                      fontSize: "0.85rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.5rem",
+                      maxWidth: "500px"
+                    }}>
+                      <h4 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <i className="fa-solid fa-calculator" style={{ color: "#fbbf24" }} /> Contract Cut Calculation
+                      </h4>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Contract Duration:</span>
+                        <span>Season {releasePreview?.startSeasonNum} to {releasePreview?.expireSeasonNum} ({releasePreview?.totalDuration} Season{releasePreview?.totalDuration !== 1 ? 's' : ''})</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Release Timing:</span>
+                        <span>Season {releasePreview?.releaseSeasonNum} ({releasePreview?.elapsedDuration} Season{releasePreview?.elapsedDuration !== 1 ? 's' : ''} Elapsed)</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Remaining Contract:</span>
+                        <span>{releasePreview?.remainingDuration} Season{releasePreview?.remainingDuration !== 1 ? 's' : ''} ({Math.round((releasePreview?.remainingDuration || 0) / (releasePreview?.totalDuration || 1) * 100)}%)</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Original Value:</span>
+                        <span>{activeContract.signed_value} Coins</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", paddingTop: "0.5rem", marginTop: "0.3rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Remaining Contract Value:</span>
+                        <span>{Math.round(releasePreview?.remainingValue || 0)} Coins</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem", fontWeight: "bold" }}>
+                        <span style={{ color: "#fbbf24" }}>Calculated Refund Amount:</span>
+                        <span style={{ color: "#fbbf24" }}>{releasePreview?.refundAmount || 0} Coins <span style={{ fontSize: "0.75rem", fontWeight: "normal", color: "var(--text-secondary)" }}>(disabled)</span></span>
+                      </div>
+                    </div>
+                  ) : (
+                    sellPlayerId && (
+                      <div style={{ padding: "0.5rem", color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>
+                        No active contract details found to compute refund calculations.
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
               <div className="admin-btn-row" style={{ marginTop: "1rem" }}>
                 <button type="submit" className="portal-btn btn-danger" disabled={isPending}>
-                  Confirm Sale & Terminate Contract
+                  {sellOpType === 'sell' ? 'Confirm Sale & Terminate Contract' : 'Confirm Release & Cut Contract'}
                 </button>
               </div>
             </form>
