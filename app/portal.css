@@ -2286,6 +2286,33 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* Portal tech menu button */
+.tech-menu-btn {
+  display: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: all 0.25s ease;
+  border-radius: 4px;
+}
+
+.tech-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--rose-light);
+  color: var(--rose-light);
+}
+
+@media (max-width: 768px) {
+  .tech-menu-btn {
+    display: inline-block;
+  }
+}
+
 /* Responsiveness overrides */
 @media (max-width: 1024px) {
   .tech-nav {
