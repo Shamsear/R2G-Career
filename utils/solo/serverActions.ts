@@ -1,6 +1,8 @@
 "use server";
 
 import { Pool } from 'pg';
+import fs from 'fs';
+import path from 'path';
 
 const connectionString = process.env.SOLO_DATABASE_URL;
 
@@ -2044,14 +2046,49 @@ export async function deleteFixture(id: number) {
   }
 }
 
+function savePlayerImage(playerId: number, base64Data: string): string {
+  if (!base64Data || !base64Data.startsWith('data:image/')) return base64Data;
+  
+  try {
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return base64Data;
+    
+    const buffer = Buffer.from(matches[2], 'base64');
+    const uploadDir = path.join(process.cwd(), 'public', 'assets', 'images', 'players');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    const fileName = `${playerId}.png`;
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+    
+    return `/assets/images/players/${fileName}`;
+  } catch (e) {
+    console.error("Error saving player image to file:", e);
+    return base64Data;
+  }
+}
+
 export async function createPlayer(data: any) {
   try {
     const { rows } = await pool.query(`
       INSERT INTO players (name, position, card_type, base_value, image_path)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, data.imagePath || '']);
-    return rows[0];
+    `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, '']);
+    
+    const newPlayer = rows[0];
+    
+    if (data.imagePath && data.imagePath.startsWith('data:image/')) {
+      const savedPath = savePlayerImage(newPlayer.id, data.imagePath);
+      await pool.query(`
+        UPDATE players SET image_path = $1 WHERE id = $2
+      `, [savedPath, newPlayer.id]);
+      newPlayer.image_path = savedPath;
+    }
+    
+    return newPlayer;
   } catch (e) {
     console.error("Error creating player:", e);
     throw e;
@@ -2060,12 +2097,17 @@ export async function createPlayer(data: any) {
 
 export async function updatePlayer(data: any) {
   try {
+    let finalPath = data.imagePath || '';
+    if (finalPath.startsWith('data:image/')) {
+      finalPath = savePlayerImage(parseInt(data.id), finalPath);
+    }
+    
     const { rows } = await pool.query(`
       UPDATE players SET
         name = $1, position = $2, card_type = $3, base_value = $4, image_path = $5, is_suspended = $6
       WHERE id = $7
       RETURNING *
-    `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, data.imagePath || '', data.isSuspended || false, data.id]);
+    `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, finalPath, data.isSuspended || false, data.id]);
     return rows[0];
   } catch (e) {
     console.error("Error updating player:", e);

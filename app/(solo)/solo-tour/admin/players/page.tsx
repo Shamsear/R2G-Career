@@ -11,12 +11,7 @@ import {
   createPlayer,
   updatePlayer,
   deletePlayer,
-  createPlayerContract,
-  applyFine,
   fetchClubPlayers,
-  fetchFreeAgents,
-  fetchActivePlayerContract,
-  releasePlayerContract,
   fetchAdminPlayersList
 } from "@/utils/solo/serverActions";
 
@@ -24,9 +19,11 @@ export default function PlayersManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [clubs, setClubs] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
-  const [freeAgents, setFreeAgents] = useState<any[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [playerModalShow, setPlayerModalShow] = useState(false);
 
   const [playerForm, setPlayerForm] = useState({
     id: "",
@@ -36,37 +33,6 @@ export default function PlayersManager() {
     value: 80,
     imagePath: "",
     isSuspended: false
-  });
-
-  const [contractForm, setContractForm] = useState({
-    playerId: "",
-    clubId: "",
-    signedValue: 80,
-    salary: 20,
-    startSeason: "Season 9",
-    expireSeason: "Season 10"
-  });
-
-  const [fineModal, setFineModal] = useState({
-    show: false,
-    targetId: "",
-    targetName: "",
-    rc: 0,
-    rt: 0,
-    voucher: 0,
-    playerObj: null as any
-  });
-
-  const [releaseModal, setReleaseModal] = useState({
-    show: false,
-    playerId: "",
-    playerName: "",
-    clubId: "",
-    clubName: "",
-    timing: "start" as "start" | "mid",
-    refundPercentage: 75,
-    contractInfo: null as any,
-    loadingContract: false
   });
 
   const showToast = (msg: string) => {
@@ -83,9 +49,6 @@ export default function PlayersManager() {
 
       const allPlayers = await fetchAdminPlayersList();
       setPlayers(allPlayers || []);
-
-      const agents = await fetchFreeAgents();
-      setFreeAgents(agents || []);
     } catch {
       showToast("Error loading players data!");
     }
@@ -95,103 +58,25 @@ export default function PlayersManager() {
     loadData();
   }, []);
 
-  const handleOpenReleaseModal = (p: any) => {
-    setReleaseModal({
-      show: true,
-      playerId: p.id.toString(),
-      playerName: p.name,
-      clubId: p.clubId.toString(),
-      clubName: p.clubName,
-      timing: "start",
-      refundPercentage: 75,
-      contractInfo: null,
-      loadingContract: true
-    });
+  const filteredPlayers = useMemo(() => {
+    return players.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.clubName && p.clubName.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [players, searchTerm]);
 
-    startTransition(async () => {
-      try {
-        const contract = await fetchActivePlayerContract(p.id, activeSeason?.id || 6);
-        setReleaseModal(prev => ({
-          ...prev,
-          contractInfo: contract,
-          loadingContract: false
-        }));
-      } catch {
-        showToast("Error loading contract details!");
-        setReleaseModal(prev => ({ ...prev, loadingContract: false }));
-      }
-    });
-  };
+  const itemsPerPage = 15;
+  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage);
 
-  const handleConfirmRelease = () => {
-    if (!releaseModal.playerId || !activeSeason) return;
-    startTransition(async () => {
-      try {
-        const res = await releasePlayerContract(
-          parseInt(releaseModal.playerId),
-          activeSeason.id,
-          releaseModal.timing,
-          releaseModal.refundPercentage
-        );
-        if (res.success) {
-          showToast(`Released ${res.playerName}!`);
-          setReleaseModal({
-            show: false,
-            playerId: "",
-            playerName: "",
-            clubId: "",
-            clubName: "",
-            timing: "start",
-            refundPercentage: 75,
-            contractInfo: null,
-            loadingContract: false
-          });
-          loadData();
-        }
-      } catch {
-        showToast("Error releasing player!");
-      }
-    });
-  };
+  const paginatedPlayers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredPlayers.slice(start, start + itemsPerPage);
+  }, [filteredPlayers, currentPage]);
 
-  const releasePreview = useMemo(() => {
-    if (!releaseModal.show || !releaseModal.contractInfo || !activeSeason) return null;
-
-    const contract = releaseModal.contractInfo;
-    const signedValue = Number(contract.signed_value) || 0;
-    const currentSeasonNum = Number(activeSeason.season_number) || 9;
-
-    const parseSeason = (s: string) => {
-      const cleaned = s.replace(/[^\d.]/g, '');
-      return parseFloat(cleaned) || 0.0;
-    };
-
-    const startSeasonNum = parseSeason(contract.start_season || '');
-    const expireSeasonNum = parseSeason(contract.expire_season || '');
-    const releaseSeasonNum = currentSeasonNum + (releaseModal.timing === 'mid' ? 0.5 : 0);
-
-    const totalDuration = expireSeasonNum - startSeasonNum;
-    const remainingDuration = expireSeasonNum - releaseSeasonNum;
-    const elapsedDuration = releaseSeasonNum - startSeasonNum;
-
-    const remainingRatio = totalDuration > 0 
-      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
-      : 1.0;
-
-    const remainingValue = signedValue * remainingRatio;
-    const refundAmount = Math.round(remainingValue * (releaseModal.refundPercentage / 100));
-
-    return {
-      startSeasonNum,
-      expireSeasonNum,
-      releaseSeasonNum,
-      totalDuration,
-      elapsedDuration,
-      remainingDuration,
-      remainingValue,
-      refundAmount
-    };
-  }, [releaseModal.show, releaseModal.contractInfo, releaseModal.timing, releaseModal.refundPercentage, activeSeason]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleSavePlayer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,6 +91,7 @@ export default function PlayersManager() {
           showToast("Player created!");
         }
         setPlayerForm({ id: "", name: "", position: "FW", star: "3-star-standard", value: 80, imagePath: "", isSuspended: false });
+        setPlayerModalShow(false);
         loadData();
       } catch {
         showToast("Error saving player!");
@@ -223,6 +109,35 @@ export default function PlayersManager() {
       imagePath: p.imagePath || '',
       isSuspended: p.isSuspended || false
     });
+    setPlayerModalShow(true);
+  };
+
+  const handleOpenAddPlayerModal = () => {
+    setPlayerForm({
+      id: "",
+      name: "",
+      position: "FW",
+      star: "3-star-standard",
+      value: 80,
+      imagePath: "",
+      isSuspended: false
+    });
+    setPlayerModalShow(true);
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        showToast("Image size must be under 2MB!");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        setPlayerForm(prev => ({ ...prev, imagePath: uploadEvent.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDeletePlayer = (id: number) => {
@@ -238,84 +153,7 @@ export default function PlayersManager() {
     });
   };
 
-  const togglePlayerSuspension = (p: any) => {
-    const nextSuspendedStatus = !p.isSuspended;
-    if (nextSuspendedStatus) {
-      setFineModal({
-        show: true,
-        targetId: p.id.toString(),
-        targetName: p.name,
-        rc: 0,
-        rt: 0,
-        voucher: 0,
-        playerObj: p
-      });
-    } else {
-      // Unsuspend directly
-      startTransition(async () => {
-        try {
-          await updatePlayer({
-            id: p.id,
-            name: p.name,
-            position: p.position,
-            star: p.star,
-            value: p.value,
-            imagePath: p.imagePath,
-            isSuspended: false
-          });
-          showToast(`Player ${p.name} unsuspended!`);
-          loadData();
-        } catch {
-          showToast("Error toggling suspension!");
-        }
-      });
-    }
-  };
 
-  const executeSuspensionWithFine = () => {
-    startTransition(async () => {
-      try {
-        if (fineModal.rc > 0 || fineModal.rt > 0 || fineModal.voucher > 0) {
-          // Fine the manager (clubId is managerId in this system)
-          const managerId = fineModal.playerObj.clubId;
-          if (managerId) {
-            await applyFine(managerId, activeSeason?.id || 6, fineModal.rc, fineModal.rt, fineModal.voucher);
-          }
-        }
-        
-        await updatePlayer({
-          id: fineModal.targetId,
-          name: fineModal.playerObj.name,
-          position: fineModal.playerObj.position,
-          star: fineModal.playerObj.star,
-          value: fineModal.playerObj.value,
-          imagePath: fineModal.playerObj.imagePath,
-          isSuspended: true
-        });
-
-        showToast(`Player ${fineModal.targetName} suspended & fine charged!`);
-        setFineModal({ show: false, targetId: "", targetName: "", rc: 0, rt: 0, voucher: 0, playerObj: null });
-        loadData();
-      } catch {
-        showToast("Error executing suspension!");
-      }
-    });
-  };
-
-  const handleSaveContract = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contractForm.playerId || !contractForm.clubId) return showToast("Select Player and Club!");
-    startTransition(async () => {
-      try {
-        await createPlayerContract(contractForm);
-        showToast("Contract signed successfully!");
-        setContractForm({ playerId: "", clubId: "", signedValue: 80, salary: 20, startSeason: "Season 9", expireSeason: "Season 10" });
-        loadData();
-      } catch {
-        showToast("Error signing contract!");
-      }
-    });
-  };
 
   const getPositionColor = (pos: string) => {
     const colors: Record<string, string> = {
@@ -334,148 +172,198 @@ export default function PlayersManager() {
 
       {toast && <div className="toast-popup"><i className="fa-solid fa-circle-check" />{toast}</div>}
 
-      {fineModal.show && (
-        <div className="fine-modal-backdrop">
-          <div className="fine-modal-content">
-            <h3><i className="fa-solid fa-triangle-exclamation" /> Suspend & Fine Player</h3>
-            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Suspending <strong>{fineModal.targetName}</strong>. Optionally charge a fine to the club&apos;s wallet:
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
-              <div className="admin-form-group">
-                <label><i className="fa-solid fa-coins" style={{ color: "#fbbf24", marginRight: "4px" }} /> Fines (Coins - RC)</label>
-                <input type="number" className="admin-input" value={fineModal.rc} onChange={(e) => setFineModal(prev => ({ ...prev, rc: parseInt(e.target.value) || 0 }))} />
-              </div>
-              <div className="admin-form-group">
-                <label><i className="fa-solid fa-star" style={{ color: "#38bdf8", marginRight: "4px" }} /> Fines (Tokens - RT)</label>
-                <input type="number" className="admin-input" value={fineModal.rt} onChange={(e) => setFineModal(prev => ({ ...prev, rt: parseInt(e.target.value) || 0 }))} />
-              </div>
-              <div className="admin-form-group">
-                <label><i className="fa-solid fa-ticket" style={{ color: "#ec4899", marginRight: "4px" }} /> Fines (Vouchers)</label>
-                <input type="number" className="admin-input" value={fineModal.voucher} onChange={(e) => setFineModal(prev => ({ ...prev, voucher: parseInt(e.target.value) || 0 }))} />
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-              <button className="portal-btn btn-secondary" onClick={() => setFineModal({ show: false, targetId: "", targetName: "", rc: 0, rt: 0, voucher: 0, playerObj: null })}>Cancel</button>
-              <button className="portal-btn btn-danger" onClick={executeSuspensionWithFine} disabled={isPending}>
-                {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Processing...</> : <><i className="fa-solid fa-gavel" /> Confirm & Suspend</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {playerModalShow && (
+        <div className="fine-modal-backdrop" style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div className="fine-modal-content" style={{
+            background: "rgba(18, 18, 18, 0.95)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+            borderRadius: "16px",
+            padding: "2rem",
+            maxWidth: "500px",
+            width: "100%",
+            position: "relative",
+            overflow: "hidden"
+          }}>
+            {/* Ambient Background Glow */}
+            <div style={{
+              position: "absolute",
+              top: "-50px",
+              right: "-50px",
+              width: "150px",
+              height: "150px",
+              background: "radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%)",
+              zIndex: 0,
+              pointerEvents: "none"
+            }} />
 
-      {releaseModal.show && (
-        <div className="fine-modal-backdrop">
-          <div className="fine-modal-content" style={{ maxWidth: "550px" }}>
-            <h3><i className="fa-solid fa-file-contract" style={{ color: "#fbbf24", marginRight: "6px" }} /> Release Player Contract</h3>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Releasing <strong>{releaseModal.playerName}</strong> from <strong>{releaseModal.clubName}</strong>.
-            </p>
-
-            {releaseModal.loadingContract ? (
-              <div style={{ textAlign: "center", padding: "1.5rem" }}>
-                <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "1.5rem", color: "var(--solo-primary)" }} />
-                <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>Loading contract details...</p>
-              </div>
-            ) : !releaseModal.contractInfo ? (
-              <div style={{ textAlign: "center", padding: "1rem", color: "var(--text-secondary)" }}>
-                No active contract record found to calculate duration refund.
-                <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                  <button className="portal-btn btn-secondary" onClick={() => setReleaseModal(prev => ({ ...prev, show: false }))}>Cancel</button>
-                  <button className="portal-btn btn-danger" onClick={handleConfirmRelease}>Confirm Release Anyway</button>
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1.5rem" }}>
+                <div style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "8px",
+                  background: "rgba(56, 189, 248, 0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--solo-primary)"
+                }}>
+                  <i className="fa-solid fa-user-gear" style={{ fontSize: "1.1rem" }} />
                 </div>
+                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "700", color: "#fff", letterSpacing: "-0.025em" }}>
+                  {playerForm.id ? "Edit Player Profile" : "Register Player Card"}
+                </h3>
               </div>
-            ) : (
-              <>
-                {/* Release Timing Option */}
-                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
-                  <label>Release Timing</label>
-                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
-                    <button
-                      type="button"
-                      className={`portal-btn ${releaseModal.timing === 'start' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ flex: 1, padding: "8px" }}
-                      onClick={() => setReleaseModal(prev => ({ ...prev, timing: 'start' }))}
-                    >
-                      Season Start (Season {activeSeason?.season_number})
-                    </button>
-                    <button
-                      type="button"
-                      className={`portal-btn ${releaseModal.timing === 'mid' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ flex: 1, padding: "8px" }}
-                      onClick={() => setReleaseModal(prev => ({ ...prev, timing: 'mid' }))}
-                    >
-                      Mid-Season (Season {activeSeason?.season_number}.5)
-                    </button>
+
+              <form onSubmit={handleSavePlayer}>
+                {/* Photo Upload Card */}
+                <div style={{
+                  background: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                  borderRadius: "12px",
+                  padding: "1rem",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1.25rem"
+                }}>
+                  <div style={{ position: "relative" }}>
+                    <div style={{
+                      width: "70px",
+                      height: "70px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "2px solid rgba(56, 189, 248, 0.4)",
+                      background: "rgba(0,0,0,0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}>
+                      {playerForm.imagePath ? (
+                        <img src={playerForm.imagePath} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
+                      ) : playerForm.id ? (
+                        <img src={`/assets/images/players/${playerForm.id}.png`} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
+                      ) : (
+                        <i className="fa-solid fa-user" style={{ fontSize: "1.8rem", color: "rgba(255,255,255,0.2)" }} />
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#fff" }}>Player Photo</span>
+                    <label className="portal-btn btn-secondary" style={{
+                      padding: "4px 10px",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      margin: 0,
+                      width: "fit-content"
+                    }}>
+                      <i className="fa-solid fa-camera" /> Choose Image
+                      <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
+                    </label>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>PNG or JPG (under 2MB)</span>
                   </div>
                 </div>
 
-                {/* Refund percentage slider */}
-                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
-                  <label style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>Refund Percentage</span>
-                    <strong style={{ color: "var(--solo-primary)" }}>{releaseModal.refundPercentage}%</strong>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
-                    value={releaseModal.refundPercentage}
-                    onChange={(e) => setReleaseModal(prev => ({ ...prev, refundPercentage: parseInt(e.target.value) || 0 }))}
-                  />
-                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", marginBottom: "2rem" }}>
+                  <div className="admin-form-group">
+                    <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Player Name</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                      value={playerForm.name}
+                      onChange={(e) => setPlayerForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. Marcus Rashford"
+                      required
+                    />
+                  </div>
 
-                {/* Calculation preview */}
-                {releasePreview && (
-                  <div style={{
-                    background: "rgba(255, 255, 255, 0.03)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                    borderRadius: "8px",
-                    padding: "0.75rem",
-                    marginBottom: "1.5rem",
-                    fontSize: "0.8rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.4rem"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>Contract Duration:</span>
-                      <span>Season {releasePreview.startSeasonNum} to {releasePreview.expireSeasonNum} ({releasePreview.totalDuration} Season{releasePreview.totalDuration > 1 ? 's' : ''})</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Position</label>
+                      <select
+                        className="admin-select"
+                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                        value={playerForm.position}
+                        onChange={(e) => setPlayerForm(prev => ({ ...prev, position: e.target.value }))}
+                      >
+                        <option value="GK">GK</option>
+                        <option value="CB">CB</option>
+                        <option value="LB">LB</option>
+                        <option value="RB">RB</option>
+                        <option value="CM">CM</option>
+                        <option value="DM">DM</option>
+                        <option value="AM">AM</option>
+                        <option value="RW">RW</option>
+                        <option value="LW">LW</option>
+                        <option value="ST">ST</option>
+                      </select>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>Release Season:</span>
-                      <span>Season {releasePreview.releaseSeasonNum} ({releasePreview.elapsedDuration} Season{releasePreview.elapsedDuration !== 1 ? 's' : ''} Elapsed)</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>Remaining Contract:</span>
-                      <span>{releasePreview.remainingDuration} Season{releasePreview.remainingDuration !== 1 ? 's' : ''} ({Math.round(releasePreview.remainingDuration / releasePreview.totalDuration * 100)}%)</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>Original Value:</span>
-                      <span>{releaseModal.contractInfo.signed_value} Coins</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", paddingTop: "0.4rem", marginTop: "0.2rem" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>Remaining Contract Value:</span>
-                      <span>{Math.round(releasePreview.remainingValue)} Coins</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", fontWeight: "bold" }}>
-                      <span style={{ color: "#fbbf24" }}>Calculated Refund Amount:</span>
-                      <span style={{ color: "#fbbf24" }}>{releasePreview.refundAmount} Coins <span style={{ fontSize: "0.7rem", fontWeight: "normal", color: "var(--text-secondary)" }}>(disabled)</span></span>
+
+                    <div className="admin-form-group">
+                      <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Base Value</label>
+                      <input
+                        type="number"
+                        className="admin-input"
+                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                        value={playerForm.value}
+                        onChange={(e) => setPlayerForm(prev => ({ ...prev, value: parseInt(e.target.value) || 80 }))}
+                      />
                     </div>
                   </div>
-                )}
 
-                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                  <button className="portal-btn btn-secondary" onClick={() => setReleaseModal(prev => ({ ...prev, show: false }))}>Cancel</button>
-                  <button className="portal-btn btn-danger" onClick={handleConfirmRelease} disabled={isPending}>
-                    {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Processing...</> : <><i className="fa-solid fa-file-contract" /> Terminate Contract</>}
+                  <div className="admin-form-group">
+                    <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Card Type (Star Tier)</label>
+                    <select
+                      className="admin-select"
+                      style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                      value={playerForm.star}
+                      onChange={(e) => setPlayerForm(prev => ({ ...prev, star: e.target.value }))}
+                    >
+                      <option value="three-star-standard">3★ Standard</option>
+                      <option value="four-star-standard">4★ Standard</option>
+                      <option value="five-star-standard">5★ Standard</option>
+                      <option value="five-star-legend">5★ Legend</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "1.25rem" }}>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "8px 20px" }}
+                    onClick={() => setPlayerModalShow(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="portal-btn btn-primary"
+                    style={{ padding: "8px 25px" }}
+                    disabled={isPending}
+                  >
+                    {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : (playerForm.id ? <><i className="fa-solid fa-check" /> Update Profile</> : <><i className="fa-solid fa-plus" /> Create Profile</>)}
                   </button>
                 </div>
-              </>
-            )}
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -513,192 +401,137 @@ export default function PlayersManager() {
           </div>
         </div>
 
-        {/* Player Registration Card */}
-        <div className="admin-card">
-          <h2 className="admin-card-title">
-            <i className="fa-solid fa-user-plus" />
-            {playerForm.id ? "Edit Player Profile" : "Register Player Card"}
-          </h2>
 
-          <form onSubmit={handleSavePlayer}>
-            <div className="sub-card">
-              <div className="sub-card-title"><i className="fa-solid fa-id-badge" /> Player Details</div>
-              <div className="admin-form-grid">
-                <div className="admin-form-group">
-                  <label>Player Name</label>
-                  <input type="text" className="admin-input" value={playerForm.name} onChange={(e) => setPlayerForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Marcus Rashford" />
-                </div>
-                <div className="admin-form-group">
-                  <label>Position</label>
-                  <select className="admin-select" value={playerForm.position} onChange={(e) => setPlayerForm(prev => ({ ...prev, position: e.target.value }))}>
-                    <option value="GK">GK</option>
-                    <option value="CB">CB</option>
-                    <option value="LB">LB</option>
-                    <option value="RB">RB</option>
-                    <option value="CM">CM</option>
-                    <option value="DM">DM</option>
-                    <option value="AM">AM</option>
-                    <option value="RW">RW</option>
-                    <option value="LW">LW</option>
-                    <option value="ST">ST</option>
-                  </select>
-                </div>
-                <div className="admin-form-group">
-                  <label>Card Type (Star Tier)</label>
-                  <select className="admin-select" value={playerForm.star} onChange={(e) => setPlayerForm(prev => ({ ...prev, star: e.target.value }))}>
-                    <option value="three-star-standard">3★ Standard</option>
-                    <option value="four-star-standard">4★ Standard</option>
-                    <option value="five-star-standard">5★ Standard</option>
-                    <option value="five-star-legend">5★ Legend</option>
-                  </select>
-                </div>
-                <div className="admin-form-group">
-                  <label>Base Value</label>
-                  <input type="number" className="admin-input" value={playerForm.value} onChange={(e) => setPlayerForm(prev => ({ ...prev, value: parseInt(e.target.value) || 80 }))} />
-                </div>
-              </div>
-            </div>
-
-            <div className="admin-btn-row">
-              <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : (playerForm.id ? <><i className="fa-solid fa-check" /> Update Player Card</> : <><i className="fa-solid fa-plus" /> Add Player Card</>)}
-              </button>
-              {playerForm.id && (
-                <button type="button" className="portal-btn btn-secondary" onClick={() => setPlayerForm({ id: "", name: "", position: "FW", star: "3-star-standard", value: 80, imagePath: "", isSuspended: false })}>
-                  <i className="fa-solid fa-xmark" /> Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Contract Signing Card */}
-        <div className="admin-card">
-          <h2 className="admin-card-title">
-            <i className="fa-solid fa-file-contract" />
-            Sign Player Contract
-          </h2>
-
-          <form onSubmit={handleSaveContract}>
-            <div className="sub-card">
-              <div className="sub-card-title"><i className="fa-solid fa-handshake" /> Contract Terms</div>
-              <div className="admin-form-grid">
-                <div className="admin-form-group">
-                  <label>Select Player</label>
-                  <select className="admin-select" value={contractForm.playerId} onChange={(e) => setContractForm(prev => ({ ...prev, playerId: e.target.value }))}>
-                    <option value="">-- Select Player --</option>
-                    <optgroup label="Free Agents (No Contract)">
-                      {players.filter(p => !p.clubId).map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Active Players (Will overwrite existing contract)">
-                      {players.filter(p => p.clubId).map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.position} - {p.clubName || 'Unknown Club'})</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-                <div className="admin-form-group">
-                  <label>Select Club</label>
-                  <select className="admin-select" value={contractForm.clubId} onChange={(e) => setContractForm(prev => ({ ...prev, clubId: e.target.value }))}>
-                    <option value="">-- Select Club --</option>
-                    {clubs.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="admin-form-group">
-                  <label>Signed Value</label>
-                  <input type="number" className="admin-input" value={contractForm.signedValue} onChange={(e) => setContractForm(prev => ({ ...prev, signedValue: parseInt(e.target.value) || 0 }))} />
-                </div>
-                <div className="admin-form-group">
-                  <label>Salary (Per Appearance)</label>
-                  <input type="number" className="admin-input" value={contractForm.salary} onChange={(e) => setContractForm(prev => ({ ...prev, salary: parseInt(e.target.value) || 0 }))} />
-                </div>
-              </div>
-            </div>
-
-            <div className="admin-btn-row">
-              <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Processing...</> : <><i className="fa-solid fa-file-signature" /> Sign Contract</>}
-              </button>
-            </div>
-          </form>
-        </div>
 
         {/* Player Registry Table */}
         <div className="admin-card">
-          <h2 className="admin-card-title">
-            <i className="fa-solid fa-table-list" />
-            Player Registry
-          </h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+            <h2 className="admin-card-title" style={{ marginBottom: 0 }}>
+              <i className="fa-solid fa-table-list" />
+              Player Registry
+            </h2>
+            <button
+              type="button"
+              className="portal-btn btn-primary"
+              style={{ padding: "6px 15px", fontSize: "0.8rem" }}
+              onClick={handleOpenAddPlayerModal}
+            >
+              <i className="fa-solid fa-user-plus" /> Register Player
+            </button>
+          </div>
 
-          {players.length === 0 ? (
+          {/* Search bar inside the registry card */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "1rem", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="admin-form-group" style={{ flex: 1, minWidth: "250px", marginBottom: 0 }}>
+              <input
+                type="text"
+                className="admin-input"
+                placeholder="Search players by name, position, or club..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+              Showing {filteredPlayers.length} of {players.length} players
+            </div>
+          </div>
+
+          {filteredPlayers.length === 0 ? (
             <div className="admin-empty">
               <i className="fa-solid fa-users-slash" />
-              No players registered yet. Use the form above to add player cards.
+              {players.length === 0 ? "No players registered yet. Use the form above to add player cards." : "No players match your search criteria."}
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="admin-list-table">
-                <thead>
-                  <tr>
-                    <th>Player Card</th>
-                    <th>Position</th>
-                    <th>Card Tier</th>
-                    <th>Assigned Club</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: "right" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map(p => (
-                    <tr key={p.id}>
-                      <td><strong>{p.name}</strong></td>
-                      <td>
-                        <span className="badge-info" style={{ 
-                          background: `${getPositionColor(p.position)}18`, 
-                          color: getPositionColor(p.position), 
-                          borderColor: `${getPositionColor(p.position)}40` 
-                        }}>
-                          {p.position}
-                        </span>
-                      </td>
-                      <td>{p.star.replace("-", " ")}</td>
-                      <td>{p.clubName || <em style={{ color: "rgba(255,255,255,0.3)" }}>Free Agent</em>}</td>
-                      <td>
-                        {p.isSuspended ? <span className="badge-suspended">SUSPENDED</span> : <span className="badge-active">AVAILABLE</span>}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button className="portal-btn btn-secondary" style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleEditPlayer(p)}>
-                          <i className="fa-solid fa-pen" /> Edit
-                        </button>
-                        <button 
-                          className={`portal-btn ${p.isSuspended ? 'btn-primary' : 'btn-danger'}`}
-                          style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} 
-                          onClick={() => togglePlayerSuspension(p)}
-                        >
-                          <i className={`fa-solid ${p.isSuspended ? 'fa-lock-open' : 'fa-ban'}`} /> {p.isSuspended ? 'Lift' : 'Suspend'}
-                        </button>
-                        {p.clubId && (
-                          <button 
-                            className="portal-btn"
-                            style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem", background: "#f59e0b", borderColor: "#d97706", color: "#fff" }} 
-                            onClick={() => handleOpenReleaseModal(p)}
-                          >
-                            <i className="fa-solid fa-file-contract" /> Release
-                          </button>
-                        )}
-                        <button className="portal-btn btn-danger" style={{ padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleDeletePlayer(p.id)}>
-                          <i className="fa-solid fa-trash" /> Delete
-                        </button>
-                      </td>
+            <>
+              <div className="table-responsive">
+                <table className="admin-list-table">
+                  <thead>
+                    <tr>
+                      <th>Player Card</th>
+                      <th>Position</th>
+                      <th>Card Tier</th>
+                      <th>Assigned Club</th>
+                      <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedPlayers.map(p => (
+                      <tr key={p.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "50%",
+                              overflow: "hidden",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              background: "rgba(255,255,255,0.05)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0
+                            }}>
+                              {p.imagePath ? (
+                                <img src={p.imagePath} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
+                              ) : (
+                                <img src={`/assets/images/players/${p.id}.png`} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
+                              )}
+                            </div>
+                            <strong style={{ color: "#fff" }}>{p.name}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="badge-info" style={{ 
+                            background: `${getPositionColor(p.position)}18`, 
+                            color: getPositionColor(p.position), 
+                            borderColor: `${getPositionColor(p.position)}40` 
+                          }}>
+                            {p.position}
+                          </span>
+                        </td>
+                        <td style={{ textTransform: "capitalize" }}>{p.star.replace(/-/g, " ")}</td>
+                        <td>{p.clubName || <em style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>Free Agent</em>}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <button className="portal-btn btn-secondary" style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleEditPlayer(p)}>
+                            <i className="fa-solid fa-pen" /> Edit
+                          </button>
+                          <button className="portal-btn btn-danger" style={{ padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleDeletePlayer(p.id)}>
+                            <i className="fa-solid fa-trash" /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "1.5rem" }}>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  >
+                    <i className="fa-solid fa-angle-left" /> Previous
+                  </button>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                    Page <strong>{currentPage}</strong> of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  >
+                    Next <i className="fa-solid fa-angle-right" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
