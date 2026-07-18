@@ -39,9 +39,19 @@ export default function AuctionManager() {
   const [playerDropdownSearch, setPlayerDropdownSearch] = useState<string>("");
   const [playerPositionFilter, setPlayerPositionFilter] = useState<string>("ALL");
 
-  // Custom club dropdown state
+  // Custom club dropdown state (auction tab)
   const [clubDropdownOpen, setClubDropdownOpen] = useState<boolean>(false);
   const [clubDropdownSearch, setClubDropdownSearch] = useState<string>("");
+
+  // Custom club dropdown state (sell/release/swap tabs)
+  const [sellClubDDOpen, setSellClubDDOpen] = useState(false);
+  const [sellClubDDSearch, setSellClubDDSearch] = useState("");
+  const [releaseClubDDOpen, setReleaseClubDDOpen] = useState(false);
+  const [releaseClubDDSearch, setReleaseClubDDSearch] = useState("");
+  const [swapAClubDDOpen, setSwapAClubDDOpen] = useState(false);
+  const [swapAClubDDSearch, setSwapAClubDDSearch] = useState("");
+  const [swapBClubDDOpen, setSwapBClubDDOpen] = useState(false);
+  const [swapBClubDDSearch, setSwapBClubDDSearch] = useState("");
 
   // Sell state
   const [sellClubId, setSellClubId] = useState<string>("");
@@ -106,15 +116,15 @@ export default function AuctionManager() {
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    // Close player dropdown on outside click
+    // Close all custom dropdowns on outside click
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Element;
-      if (!target.closest("[data-player-dropdown]")) {
-        setPlayerDropdownOpen(false);
-      }
-      if (!target.closest("[data-club-dropdown]")) {
-        setClubDropdownOpen(false);
-      }
+      if (!target.closest("[data-player-dropdown]")) setPlayerDropdownOpen(false);
+      if (!target.closest("[data-club-dropdown]")) setClubDropdownOpen(false);
+      if (!target.closest("[data-sell-club-dd]")) setSellClubDDOpen(false);
+      if (!target.closest("[data-release-club-dd]")) setReleaseClubDDOpen(false);
+      if (!target.closest("[data-swapa-club-dd]")) setSwapAClubDDOpen(false);
+      if (!target.closest("[data-swapb-club-dd]")) setSwapBClubDDOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
 
@@ -168,21 +178,27 @@ export default function AuctionManager() {
 
   // Loading swap club A squad players
   useEffect(() => {
-    if (swapClubAId) {
-      fetchClubPlayers(swapClubAId).then(setSwapClubAPlayers).catch(() => showToast("Error loading Club A players"));
+    if (swapClubAId && activeSeason) {
+      fetchClubPlayersWithContracts(parseInt(swapClubAId), activeSeason.id)
+        .then(setSwapClubAPlayers)
+        .catch(() => showToast("Error loading Club A players"));
+      setSwapPlayerAId("");
     } else {
       setSwapClubAPlayers([]);
     }
-  }, [swapClubAId]);
+  }, [swapClubAId, activeSeason]);
 
   // Loading swap club B squad players
   useEffect(() => {
-    if (swapClubBId) {
-      fetchClubPlayers(swapClubBId).then(setSwapClubBPlayers).catch(() => showToast("Error loading Club B players"));
+    if (swapClubBId && activeSeason) {
+      fetchClubPlayersWithContracts(parseInt(swapClubBId), activeSeason.id)
+        .then(setSwapClubBPlayers)
+        .catch(() => showToast("Error loading Club B players"));
+      setSwapPlayerBId("");
     } else {
       setSwapClubBPlayers([]);
     }
-  }, [swapClubBId]);
+  }, [swapClubBId, activeSeason]);
 
   // Roster filtering via search input (Sell tab)
   const filteredSellPlayers = useMemo(() => {
@@ -520,7 +536,7 @@ export default function AuctionManager() {
         {/* Tab Selector */}
         <div className="tab-menu" style={{ display: "flex", gap: "10px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
           <button className={`portal-btn ${activeTab === 'auction' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('auction')}>
-            <i className="fa-solid fa-gavel" /> WhatsApp Auction
+            <i className="fa-solid fa-gavel" /> Player Auction
           </button>
           <button className={`portal-btn ${activeTab === 'sell' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('sell')}>
             <i className="fa-solid fa-shuffle" /> Transfer Squad Players
@@ -536,7 +552,7 @@ export default function AuctionManager() {
           </button>
         </div>
 
-        {/* Tab 1: WhatsApp Auction */}
+        {/* Tab 1: Player Auction */}
         {activeTab === 'auction' && (
           <div>
             {/* Config Timing Bar */}
@@ -869,9 +885,8 @@ export default function AuctionManager() {
                           <span>Salary (5%): <strong>{(bidAmount * 0.05).toFixed(2)} Coins</strong></span>
                           <span>Contract: <strong>
                             {(() => {
-                              const raw = activeSeason?.name ?? "";
-                              const num = parseFloat(raw.replace(/[^\d.]/g, ""));
-                              if (isNaN(num)) return "2 Seasons";
+                              const num = activeSeason?.season_number;
+                              if (!num) return "2 Seasons";
                               const start = auctionTiming === "mid" ? num + 0.5 : num;
                               const end = start + 2;
                               const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
@@ -959,19 +974,40 @@ export default function AuctionManager() {
 
         {/* Tab 2: Sell */}
         {activeTab === 'sell' && (
-          <div className="admin-card">
+          <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Players</h2>
             <form onSubmit={handleSell}>
               {/* Selling Club Selection */}
-              <div className="admin-form-grid" style={{ marginBottom: "1.5rem" }}>
-                <div className="admin-form-group">
+              <div className="admin-form-grid" style={{ marginBottom: "1.5rem", overflow: "visible" }}>
+                <div className="admin-form-group" style={{ position: "relative" }} data-sell-club-dd="true">
                   <label>Select Selling Club</label>
-                  <select className="admin-select" value={sellClubId} onChange={(e) => setSellClubId(e.target.value)} required>
-                    <option value="">-- Select Club --</option>
-                    {clubs.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                    onClick={() => setSellClubDDOpen(p => !p)}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {sellClubId && (() => { const c = clubs.find(c => c.id.toString() === sellClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                      {sellClubId ? (clubs.find(c => c.id.toString() === sellClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
+                    </span>
+                    <i className={`fa-solid fa-chevron-${sellClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+                  </div>
+                  {sellClubDDOpen && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
+                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                        <input autoFocus type="text" placeholder="Search club..." value={sellClubDDSearch} onChange={e => setSellClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                        {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).map(c => (
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setSellClubId(c.id.toString()); setSellClubDDOpen(false); setSellClubDDSearch(""); }}
+                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                            onMouseEnter={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
+                            {c.name}
+                          </div>
+                        ))}
+                        {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1272,18 +1308,39 @@ export default function AuctionManager() {
 
         {/* Tab 3: Release */}
         {activeTab === 'release' && (
-          <div className="admin-card">
+          <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-file-contract" /> Bulk Release Squad Players</h2>
             <form onSubmit={handleBulkRelease}>
-              <div className="admin-form-grid" style={{ marginBottom: "1.5rem" }}>
-                <div className="admin-form-group">
+              <div className="admin-form-grid" style={{ marginBottom: "1.5rem", overflow: "visible" }}>
+                <div className="admin-form-group" style={{ position: "relative" }} data-release-club-dd="true">
                   <label>Select Club</label>
-                  <select className="admin-select" value={releaseClubId} onChange={(e) => setReleaseClubId(e.target.value)} required>
-                    <option value="">-- Select Club --</option>
-                    {clubs.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: releaseClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                    onClick={() => setReleaseClubDDOpen(p => !p)}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {releaseClubId && (() => { const c = clubs.find(c => c.id.toString() === releaseClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                      {releaseClubId ? (clubs.find(c => c.id.toString() === releaseClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
+                    </span>
+                    <i className={`fa-solid fa-chevron-${releaseClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+                  </div>
+                  {releaseClubDDOpen && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
+                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                        <input autoFocus type="text" placeholder="Search club..." value={releaseClubDDSearch} onChange={e => setReleaseClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                        {clubs.filter(c => releaseClubDDSearch === "" || c.name.toLowerCase().includes(releaseClubDDSearch.toLowerCase())).map(c => (
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setReleaseClubId(c.id.toString()); setReleaseClubDDOpen(false); setReleaseClubDDSearch(""); }}
+                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: releaseClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: releaseClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: releaseClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                            onMouseEnter={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
+                            {c.name}
+                          </div>
+                        ))}
+                        {clubs.filter(c => releaseClubDDSearch === "" || c.name.toLowerCase().includes(releaseClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1476,73 +1533,293 @@ export default function AuctionManager() {
 
         {/* Tab 4: Swap */}
         {activeTab === 'swap' && (
-          <div className="admin-card">
+          <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-rotate" /> Execute Player Swap Deal</h2>
             <form onSubmit={addSwapToQueue}>
-              <div className="sub-card" style={{ marginBottom: "1rem" }}>
+              <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Club A Setup</div>
-                <div className="admin-form-grid">
-                  <div className="admin-form-group">
-                    <label>Club A</label>
-                    <select className="admin-select" value={swapClubAId} onChange={(e) => setSwapClubAId(e.target.value)} required>
-                      <option value="">-- Select Club --</option>
-                      {clubs.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                <div className="admin-form-group" style={{ position: "relative" }} data-swapa-club-dd="true">
+                  <label>Club A</label>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: swapClubAId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                    onClick={() => setSwapAClubDDOpen(p => !p)}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {swapClubAId && (() => { const c = clubs.find(c => c.id.toString() === swapClubAId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                      {swapClubAId ? (clubs.find(c => c.id.toString() === swapClubAId)?.name ?? "-- Select Club --") : "-- Select Club --"}
+                    </span>
+                    <i className={`fa-solid fa-chevron-${swapAClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
                   </div>
-                  <div className="admin-form-group">
-                    <label>Swapped Player (from Club A)</label>
-                    <select className="admin-select" value={swapPlayerAId} onChange={(e) => setSwapPlayerAId(e.target.value)} required>
-                      <option value="">-- Select Player --</option>
-                      {swapClubAPlayers.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
-                      ))}
-                    </select>
-                  </div>
+                  {swapAClubDDOpen && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
+                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                        <input autoFocus type="text" placeholder="Search club..." value={swapAClubDDSearch} onChange={e => setSwapAClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                        {clubs.filter(c => c.id.toString() !== swapClubBId && (swapAClubDDSearch === "" || c.name.toLowerCase().includes(swapAClubDDSearch.toLowerCase()))).map(c => (
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setSwapClubAId(c.id.toString()); setSwapAClubDDOpen(false); setSwapAClubDDSearch(""); }}
+                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: swapClubAId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: swapClubAId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: swapClubAId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                            onMouseEnter={e => { if (swapClubAId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { if (swapClubAId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
+                            {c.name}
+                          </div>
+                        ))}
+                        {clubs.filter(c => c.id.toString() !== swapClubBId && (swapAClubDDSearch === "" || c.name.toLowerCase().includes(swapAClubDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                {swapClubAPlayers.length > 0 && (
+                  <>
+                    {swapPlayerAId ? (
+                      // Selected player chip
+                      (() => {
+                        const p = swapClubAPlayers.find(x => x.id.toString() === swapPlayerAId);
+                        if (!p) return null;
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px", background: "rgba(0,102,255,0.08)", border: "1.5px solid rgba(0,102,255,0.3)", borderRadius: "10px", padding: "10px 14px" }}>
+                            <img src={p.imagePath} alt="" style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                              onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
+                                <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => setSwapPlayerAId("")} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px", color: "rgba(255,255,255,0.7)", fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+                              <i className="fa-solid fa-rotate-left" style={{ marginRight: "4px" }} />Change
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      // Player table / cards
+                      <>
+                        <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "8px", marginTop: "12px" }}>Select Player from Club A</label>
+                        {isMobile ? (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                            {swapClubAPlayers.map(p => (
+                              <div key={p.id} onClick={() => setSwapPlayerAId(p.id.toString())} style={{ background: "rgba(255,255,255,0.03)", border: "1.5px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "10px", cursor: "pointer", transition: "all 0.15s ease" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                                  <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                                  <div>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.85rem" }}>{p.name}</strong>
+                                    <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                              <thead><tr><th>Player</th><th>Pos</th><th>Contract</th><th style={{ textAlign: "right" }}>Value</th></tr></thead>
+                              <tbody>
+                                {swapClubAPlayers.map(p => (
+                                  <tr key={p.id} onClick={() => setSwapPlayerAId(p.id.toString())} style={{ cursor: "pointer", borderLeft: "3px solid transparent", transition: "background 0.12s" }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                    <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
+                                    <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+                {swapClubAId && swapClubAPlayers.length === 0 && (
+                  <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.8rem", padding: "16px" }}>No players found for this club</div>
+                )}
               </div>
 
-              <div className="sub-card" style={{ marginBottom: "1rem" }}>
+              <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Club B Setup</div>
-                <div className="admin-form-grid">
-                  <div className="admin-form-group">
-                    <label>Club B</label>
-                    <select className="admin-select" value={swapClubBId} onChange={(e) => setSwapClubBId(e.target.value)} required>
-                      <option value="">-- Select Club --</option>
-                      {clubs.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                <div className="admin-form-group" style={{ position: "relative" }} data-swapb-club-dd="true">
+                  <label>Club B</label>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: swapClubBId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                    onClick={() => setSwapBClubDDOpen(p => !p)}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {swapClubBId && (() => { const c = clubs.find(c => c.id.toString() === swapClubBId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                      {swapClubBId ? (clubs.find(c => c.id.toString() === swapClubBId)?.name ?? "-- Select Club --") : "-- Select Club --"}
+                    </span>
+                    <i className={`fa-solid fa-chevron-${swapBClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
                   </div>
-                  <div className="admin-form-group">
-                    <label>Swapped Player (from Club B)</label>
-                    <select className="admin-select" value={swapPlayerBId} onChange={(e) => setSwapPlayerBId(e.target.value)} required>
-                      <option value="">-- Select Player --</option>
-                      {swapClubBPlayers.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
-                      ))}
-                    </select>
-                  </div>
+                  {swapBClubDDOpen && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
+                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                        <input autoFocus type="text" placeholder="Search club..." value={swapBClubDDSearch} onChange={e => setSwapBClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                        {clubs.filter(c => c.id.toString() !== swapClubAId && (swapBClubDDSearch === "" || c.name.toLowerCase().includes(swapBClubDDSearch.toLowerCase()))).map(c => (
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setSwapClubBId(c.id.toString()); setSwapBClubDDOpen(false); setSwapBClubDDSearch(""); }}
+                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: swapClubBId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: swapClubBId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: swapClubBId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                            onMouseEnter={e => { if (swapClubBId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { if (swapClubBId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
+                            {c.name}
+                          </div>
+                        ))}
+                        {clubs.filter(c => c.id.toString() !== swapClubAId && (swapBClubDDSearch === "" || c.name.toLowerCase().includes(swapBClubDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                {swapClubBPlayers.length > 0 && (
+                  <>
+                    {swapPlayerBId ? (
+                      // Selected player chip
+                      (() => {
+                        const p = swapClubBPlayers.find(x => x.id.toString() === swapPlayerBId);
+                        if (!p) return null;
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px", background: "rgba(0,102,255,0.08)", border: "1.5px solid rgba(0,102,255,0.3)", borderRadius: "10px", padding: "10px 14px" }}>
+                            <img src={p.imagePath} alt="" style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                              onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
+                                <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
+                              </div>
+                            </div>
+                            <button type="button" onClick={() => setSwapPlayerBId("")} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px", color: "rgba(255,255,255,0.7)", fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+                              <i className="fa-solid fa-rotate-left" style={{ marginRight: "4px" }} />Change
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      // Player table / cards
+                      <>
+                        <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "8px", marginTop: "12px" }}>Select Player from Club B</label>
+                        {isMobile ? (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                            {swapClubBPlayers.map(p => (
+                              <div key={p.id} onClick={() => setSwapPlayerBId(p.id.toString())} style={{ background: "rgba(255,255,255,0.03)", border: "1.5px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "10px", cursor: "pointer", transition: "all 0.15s ease" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                                  <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                                  <div>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.85rem" }}>{p.name}</strong>
+                                    <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                              <thead><tr><th>Player</th><th>Pos</th><th>Contract</th><th style={{ textAlign: "right" }}>Value</th></tr></thead>
+                              <tbody>
+                                {swapClubBPlayers.map(p => (
+                                  <tr key={p.id} onClick={() => setSwapPlayerBId(p.id.toString())} style={{ cursor: "pointer", borderLeft: "3px solid transparent", transition: "background 0.12s" }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                    <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
+                                    <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+                {swapClubBId && swapClubBPlayers.length === 0 && (
+                  <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.8rem", padding: "16px" }}>No players found for this club</div>
+                )}
               </div>
 
               {swapPlayerAId && swapPlayerBId && (() => {
                 const playerAObj = swapClubAPlayers.find(p => p.id.toString() === swapPlayerAId);
                 const playerBObj = swapClubBPlayers.find(p => p.id.toString() === swapPlayerBId);
+                const clubAObj = clubs.find(c => c.id.toString() === swapClubAId);
+                const clubBObj = clubs.find(c => c.id.toString() === swapClubBId);
                 if (!playerAObj || !playerBObj) return null;
                 const valA = Number(playerAObj.signedValue) || 0;
                 const valB = Number(playerBObj.signedValue) || 0;
                 const swapValue = Math.max(valA, valB);
+                const newStart = activeSeason?.season_number ?? "?";
+                const newEnd = typeof newStart === "number" ? newStart + 2 : "?";
+
+                const PlayerRow = ({ player, fromClub, toClub }: { player: any; fromClub: any; toClub: any }) => (
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px", background: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {/* Player */}
+                    <img src={player.imagePath} alt="" style={{ width: "42px", height: "42px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px", flexWrap: "wrap" }}>
+                        <strong style={{ color: "#fff", fontSize: "0.9rem" }}>{player.name}</strong>
+                        <span style={{ background: `${getPositionColor(player.position)}18`, color: getPositionColor(player.position), border: `1px solid ${getPositionColor(player.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{player.position}</span>
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                        <span>Current contract: <strong style={{ color: "#fff" }}>{cleanSeason(player.startSeason)}–{cleanSeason(player.expireSeason)}</strong></span>
+                        <span>Current value: <strong style={{ color: "#f59e0b" }}>{valA === Number(player.signedValue) ? valA : valB}c</strong></span>
+                      </div>
+                    </div>
+                    {/* Arrow + clubs */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.72rem" }}>
+                        {fromClub?.image
+                          ? <img src={fromClub.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
+                          : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }} />}
+                        <span style={{ color: "rgba(255,255,255,0.4)" }}>{fromClub?.name}</span>
+                      </div>
+                      <i className="fa-solid fa-arrow-down" style={{ color: "#0066ff", fontSize: "0.75rem" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.72rem" }}>
+                        {toClub?.image
+                          ? <img src={toClub.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} />
+                          : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }} />}
+                        <span style={{ color: "#fff", fontWeight: 600 }}>{toClub?.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+
                 return (
                   <div className="sub-card" style={{ marginBottom: "1rem" }}>
-                    <div className="sub-card-title">Value & Contract Summary</div>
-                    <div style={{ padding: "10px", background: "rgba(0, 102, 255, 0.05)", border: "1px solid rgba(0, 102, 255, 0.2)", borderRadius: "8px", fontSize: "0.85rem" }}>
-                      <div style={{ color: "var(--text-secondary)", marginBottom: "4px" }}>
-                        Highest value in deal: <strong>{swapValue} Coins</strong> ({valB >= valA ? `${playerBObj.name}: ${valB}` : `${playerAObj.name}: ${valA}`})
-                      </div>
-                      <div style={{ color: "#fff" }}>
-                        Both players' new contract values will be set to: <strong style={{ color: "#22c55e" }}>{swapValue} Coins</strong>
+                    <div className="sub-card-title">Deal Summary</div>
+
+                    {/* Both player movements */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                      <PlayerRow player={playerAObj} fromClub={clubAObj} toClub={clubBObj} />
+                      <PlayerRow player={playerBObj} fromClub={clubBObj} toClub={clubAObj} />
+                    </div>
+
+                    {/* New contract terms banner */}
+                    <div style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: "8px", padding: "10px 14px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>New Terms After Swap</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "18px" }}>
+                        <div style={{ fontSize: "0.85rem" }}>
+                          <span style={{ color: "var(--text-secondary)" }}>New Value: </span>
+                          <strong style={{ color: "#22c55e" }}>{swapValue} Coins</strong>
+                          <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", marginLeft: "6px" }}>
+                            (highest of {valA}c &amp; {valB}c)
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "0.85rem" }}>
+                          <span style={{ color: "var(--text-secondary)" }}>New Contract: </span>
+                          <strong style={{ color: "#22c55e" }}>{newStart}–{newEnd}</strong>
+                          <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", marginLeft: "6px" }}>(2 season reset)</span>
+                        </div>
                       </div>
                     </div>
                   </div>
