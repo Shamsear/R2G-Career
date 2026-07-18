@@ -49,6 +49,7 @@ export default function TransfersManager() {
   const [releaseTiming, setReleaseTiming] = useState<"start" | "mid">("start");
   const [refundPercentage, setRefundPercentage] = useState<number>(75);
   const [loadingReleasePlayers, setLoadingReleasePlayers] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // Swap state
   const [swapClubAId, setSwapClubAId] = useState<string>("");
@@ -60,6 +61,8 @@ export default function TransfersManager() {
   const [swapAdjustmentAtoB, setSwapAdjustmentAtoB] = useState<number>(0);
   const [swapNewValueA, setSwapNewValueA] = useState<number>(80);
   const [swapNewValueB, setSwapNewValueB] = useState<number>(80);
+
+  const cleanSeason = (s: string) => s.replace(/[^\d.]/g, '');
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -87,6 +90,12 @@ export default function TransfersManager() {
 
   useEffect(() => {
     loadData();
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Fetch players for sell tab
@@ -509,101 +518,35 @@ export default function TransfersManager() {
                     <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                       No players found matching your criteria.
                     </div>
-                  ) : (
-                    <>
-                      {/* Desktop Table View */}
-                      <div className="table-responsive release-desktop-table">
-                        <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
-                          <thead>
-                            <tr onClick={(e) => e.stopPropagation()}>
-                              <th style={{ width: "40px", textAlign: "center" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      const allIds = filteredReleasePlayers.map(p => p.id);
-                                      setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
-                                    } else {
-                                      const filteredIds = filteredReleasePlayers.map(p => p.id);
-                                      setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
-                                    }
-                                  }}
-                                />
-                              </th>
-                              <th>Player</th>
-                              <th>Position</th>
-                              <th>Contract Terms</th>
-                              <th style={{ textAlign: "right" }}>Contract Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredReleasePlayers.map(p => {
-                              const isChecked = selectedPlayerIds.includes(p.id);
-                              return (
-                                <tr
-                                  key={p.id}
-                                  style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent", cursor: "pointer" }}
-                                  onClick={() => toggleRowSelection(p.id)}
-                                >
-                                  <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => toggleRowSelection(p.id)}
-                                    />
-                                  </td>
-                                  <td>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                      <img
-                                        src={p.imagePath}
-                                        alt=""
-                                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
-                                        onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                                      />
-                                      <strong>{p.name}</strong>
-                                    </div>
-                                  </td>
-                                  <td>{p.position}</td>
-                                  <td>
-                                    {p.startSeason} to {p.expireSeason} ({p.totalDuration} Season{p.totalDuration !== 1 ? 's' : ''})
-                                  </td>
-                                  <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Mobile Card View */}
-                      <div className="release-mobile-grid">
-                        {filteredReleasePlayers.map(p => {
-                          const isChecked = selectedPlayerIds.includes(p.id);
-                          return (
-                            <div
-                              key={p.id}
-                              style={{
-                                background: isChecked ? "rgba(56, 189, 248, 0.05)" : "rgba(255, 255, 255, 0.02)",
-                                border: isChecked ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
-                                borderRadius: "10px",
-                                padding: "1rem",
-                                cursor: "pointer",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.75rem",
-                                transition: "all 0.2s ease"
-                              }}
-                              onClick={() => toggleRowSelection(p.id)}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => {}} // Handled by container click
-                                  style={{ width: "16px", height: "16px" }}
-                                />
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                  ) : isMobile ? (
+                    /* Mobile Card View */
+                    <div className="release-mobile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+                      {filteredReleasePlayers.map(p => {
+                        const isChecked = selectedPlayerIds.includes(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              background: isChecked ? "rgba(56, 189, 248, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                              border: isChecked ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
+                              borderRadius: "10px",
+                              padding: "1rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.75rem",
+                              transition: "all 0.2s ease"
+                            }}
+                            onClick={() => toggleRowSelection(p.id)}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}} // Handled by container click
+                                style={{ width: "16px", height: "16px" }}
+                              />
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                                   <img
                                     src={p.imagePath}
                                     alt=""
@@ -622,24 +565,88 @@ export default function TransfersManager() {
                                       {p.position}
                                     </span>
                                   </div>
-                                </div>
-                              </div>
-
-                              <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                  <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
-                                  <span>{p.startSeason} to {p.expireSeason} ({p.totalDuration}s)</span>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                  <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
-                                  <span>{p.signedValue} Coins</span>
-                                </div>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
+                                <span>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
+                                <span>{p.signedValue} Coins</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Desktop Table View */
+                    <div className="table-responsive">
+                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr onClick={(e) => e.stopPropagation()}>
+                            <th style={{ width: "40px", textAlign: "center" }}>
+                              <input
+                                type="checkbox"
+                                checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const allIds = filteredReleasePlayers.map(p => p.id);
+                                    setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                  } else {
+                                    const filteredIds = filteredReleasePlayers.map(p => p.id);
+                                    setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Contract Terms</th>
+                            <th style={{ textAlign: "right" }}>Contract Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredReleasePlayers.map(p => {
+                            const isChecked = selectedPlayerIds.includes(p.id);
+                            return (
+                              <tr
+                                key={p.id}
+                                style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent", cursor: "pointer" }}
+                                onClick={() => toggleRowSelection(p.id)}
+                              >
+                                <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => toggleRowSelection(p.id)}
+                                  />
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <img
+                                      src={p.imagePath}
+                                      alt=""
+                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                    />
+                                    <strong>{p.name}</strong>
+                                  </div>
+                                </td>
+                                <td>{p.position}</td>
+                                <td>
+                                  {cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}
+                                </td>
+                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
 
                   {selectedPlayerIds.length > 0 && (
