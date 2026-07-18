@@ -755,7 +755,13 @@ export default function AuctionManager() {
                           }}
                           onClick={() => setClubDropdownOpen(prev => !prev)}
                         >
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "8px" }}>
+                            {winningClubId && (() => {
+                              const c = clubs.find(c => c.id.toString() === winningClubId);
+                              return c?.image
+                                ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} />
+                                : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />;
+                            })()}
                             {winningClubId
                               ? (clubs.find(c => c.id.toString() === winningClubId)?.name ?? "-- Select Winner --")
                               : "-- Select Winner --"}
@@ -831,7 +837,9 @@ export default function AuctionManager() {
                                     onMouseEnter={(e) => { if (winningClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
                                     onMouseLeave={(e) => { if (winningClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                                   >
-                                    <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: winningClubId === c.id.toString() ? "#0066ff" : "rgba(255,255,255,0.3)" }} />
+                                    {c.image
+                                      ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
+                                      : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: winningClubId === c.id.toString() ? "#0066ff" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
                                     {c.name}
                                   </div>
                                 ))}
@@ -859,7 +867,17 @@ export default function AuctionManager() {
                         />
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "6px" }}>
                           <span>Salary (5%): <strong>{(bidAmount * 0.05).toFixed(2)} Coins</strong></span>
-                          <span>Contract: <strong>2 Seasons</strong></span>
+                          <span>Contract: <strong>
+                            {(() => {
+                              const raw = activeSeason?.name ?? "";
+                              const num = parseFloat(raw.replace(/[^\d.]/g, ""));
+                              if (isNaN(num)) return "2 Seasons";
+                              const start = auctionTiming === "mid" ? num + 0.5 : num;
+                              const end = start + 2;
+                              const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
+                              return `${fmt(start)}–${fmt(end)}`;
+                            })()}
+                          </strong></span>
                         </div>
                       </div>
 
