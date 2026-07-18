@@ -1260,3 +1260,15 @@
   .admin-card-title { font-size: 0.88rem; }
   .admin-stats-row { grid-template-columns: 1fr; }
 }
+
+/* ─── Auction Page Mobile Fixes ──────────────────────────────────────────────── */
+
+/* Hide scrollbar on horizontal-scrolling tab row but keep scroll functional */
+.tab-menu::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure table wrappers clip overflowing tables */
+.table-responsive {
+  max-width: 100%;
+}

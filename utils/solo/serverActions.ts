@@ -4739,6 +4739,35 @@ export async function executeBulkSwaps(swaps: {
   }
 }
 
+export async function fetchPlayersToBeReleased(seasonNumber: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        m.name AS player_name,
+        m.position,
+        pc.expire_season,
+        pc.start_season,
+        c.name AS club_name,
+        c.logo_path AS club_logo,
+        CASE
+          WHEN CAST(NULLIF(regexp_replace(pc.expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) = $1 + 0.5
+            THEN 'mid'
+          ELSE 'start'
+        END AS contract_type
+      FROM player_contracts pc
+      JOIN members m ON pc.player_id = m.id
+      LEFT JOIN clubs c ON pc.club_id = c.id
+      WHERE LOWER(pc.status) = 'active'
+        AND CAST(NULLIF(regexp_replace(pc.expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) <= $1 + 0.5
+      ORDER BY c.name, m.position, m.name
+    `, [seasonNumber]);
+    return { success: true, players: rows };
+  } catch (e) {
+    console.error("Error fetching players to be released:", e);
+    throw e;
+  }
+}
+
 export async function releaseExpiredContractsForSeason(seasonNumber: number) {
   try {
     const { rowCount } = await pool.query(`

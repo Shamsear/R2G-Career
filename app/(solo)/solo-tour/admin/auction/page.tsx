@@ -14,8 +14,10 @@ import {
   executeBulkTransfers,
   executeBulkSwaps,
   releaseExpiredContractsForSeason,
+  releaseMidSeasonContracts,
   releasePlayerContract,
-  fetchClubPlayersWithContracts
+  fetchClubPlayersWithContracts,
+  fetchPlayersToBeReleased
 } from "@/utils/solo/serverActions";
 
 export default function AuctionManager() {
@@ -200,7 +202,44 @@ export default function AuctionManager() {
     }
   }, [swapClubBId, activeSeason]);
 
-  // Roster filtering via search input (Sell tab)
+  // Batch release state
+  const [batchPreviewPlayers, setBatchPreviewPlayers] = useState<any[]>([]);
+  const [batchPreviewOpen, setBatchPreviewOpen] = useState(false);
+  const [batchReleasedPlayers, setBatchReleasedPlayers] = useState<any[]>([]);
+  const [batchReleasedOpen, setBatchReleasedOpen] = useState(false);
+  const [batchLoadingPreview, setBatchLoadingPreview] = useState(false);
+
+  const loadBatchPreview = async () => {
+    if (!activeSeason) return;
+    setBatchLoadingPreview(true);
+    try {
+      const res = await fetchPlayersToBeReleased(activeSeason.season_number);
+      setBatchPreviewPlayers(res.players);
+      setBatchPreviewOpen(true);
+      setBatchReleasedPlayers([]);
+      setBatchReleasedOpen(false);
+    } catch {
+      showToast("Error loading preview!");
+    } finally {
+      setBatchLoadingPreview(false);
+    }
+  };
+
+  const copyBatchList = (players: any[], title: string) => {
+    const lines = [`🔴 *${title}*`, ""];
+    let lastClub = "";
+    for (const p of players) {
+      if (p.club_name !== lastClub) {
+        if (lastClub !== "") lines.push("");
+        lines.push(`🏟️ *${p.club_name || "Free Agent"}*`);
+        lastClub = p.club_name;
+      }
+      const typeLabel = p.contract_type === 'mid' ? '[Mid]' : '[Start]';
+      lines.push(`  • ${p.player_name} (${p.position}) ${typeLabel} — Contract: ${cleanSeason(p.start_season)}–${cleanSeason(p.expire_season)}`);
+    }
+    navigator.clipboard.writeText(lines.join("\n"));
+    showToast("Copied to clipboard!");
+  };
   const filteredSellPlayers = useMemo(() => {
     return sellClubPlayers.filter(p =>
       p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) ||
@@ -498,11 +537,19 @@ export default function AuctionManager() {
 
   const triggerSeasonStartReleases = () => {
     if (!activeSeason) return;
-    if (!confirm(`Release all contracts ending at start of Season ${activeSeason.season_number}?`)) return;
+    if (batchPreviewPlayers.length === 0) {
+      showToast("Load the preview list first before releasing.");
+      return;
+    }
+    if (!confirm(`Release ${batchPreviewPlayers.length} players whose contracts expired at Season ${activeSeason.season_number}?`)) return;
     startTransition(async () => {
       try {
         const res = await releaseExpiredContractsForSeason(activeSeason.season_number);
         showToast(`Released ${res.releasedCount} players whose contracts expired.`);
+        setBatchReleasedPlayers(batchPreviewPlayers);
+        setBatchReleasedOpen(true);
+        setBatchPreviewPlayers([]);
+        setBatchPreviewOpen(false);
         loadData();
       } catch {
         showToast("Error triggering releases!");
@@ -511,7 +558,7 @@ export default function AuctionManager() {
   };
 
   return (
-    <div className="portal-root-wrapper">
+    <div className="portal-root-wrapper" style={{ overflowX: "hidden" }}>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
@@ -534,20 +581,20 @@ export default function AuctionManager() {
         </div>
 
         {/* Tab Selector */}
-        <div className="tab-menu" style={{ display: "flex", gap: "10px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-          <button className={`portal-btn ${activeTab === 'auction' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('auction')}>
+        <div className="tab-menu" style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+          <button className={`portal-btn ${activeTab === 'auction' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('auction')}>
             <i className="fa-solid fa-gavel" /> Player Auction
           </button>
-          <button className={`portal-btn ${activeTab === 'sell' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('sell')}>
+          <button className={`portal-btn ${activeTab === 'sell' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('sell')}>
             <i className="fa-solid fa-shuffle" /> Transfer Squad Players
           </button>
-          <button className={`portal-btn ${activeTab === 'release' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('release')}>
-            <i className="fa-solid fa-file-contract" /> Release Squad Players
+          <button className={`portal-btn ${activeTab === 'release' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('release')}>
+            <i className="fa-solid fa-file-contract" /> Bulk Release
           </button>
-          <button className={`portal-btn ${activeTab === 'swap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('swap')}>
+          <button className={`portal-btn ${activeTab === 'swap' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('swap')}>
             <i className="fa-solid fa-rotate" /> Swap Deal
           </button>
-          <button className={`portal-btn ${activeTab === 'window' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('window')}>
+          <button className={`portal-btn ${activeTab === 'window' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('window')}>
             <i className="fa-solid fa-calendar-minus" /> Season Releases
           </button>
         </div>
@@ -557,12 +604,12 @@ export default function AuctionManager() {
           <div>
             {/* Config Timing Bar */}
             <div className="admin-card" style={{ padding: "1.25rem", marginBottom: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
                   <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Active Season: </span>
                   <strong style={{ color: "#fff" }}>Season {activeSeason?.season_number || "9"}</strong>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Auction Window:</span>
                   <div style={{ display: "flex", gap: "4px" }}>
                     <button 
@@ -588,7 +635,7 @@ export default function AuctionManager() {
 
             <div className="financial-layout">
               {/* Left Form: Assign winner */}
-              <div className="financial-sidebar" style={{ minWidth: "340px" }}>
+              <div className="financial-sidebar">
                 <div className="admin-card" style={{ marginTop: 0, padding: "1.5rem" }}>
                   <h2 className="admin-card-title">
                     <i className="fa-solid fa-file-signature" style={{ color: "var(--solo-primary)", marginRight: "8px" }} />
@@ -1899,20 +1946,234 @@ export default function AuctionManager() {
           </div>
         )}
 
-        {/* Tab 4: Season Transition Contract Releases */}
         {activeTab === 'window' && (
           <div className="admin-card">
             <h2 className="admin-card-title"><i className="fa-solid fa-calendar-minus" /> Batch Contract Release Controls</h2>
-            <div className="admin-empty" style={{ padding: "2rem", textAlign: "left", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <div>
-                <h3><i className="fa-solid fa-calendar-day" /> Release Season-End Contracts</h3>
-                <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>
-                  Triggers releases for contracts whose expiration is set to <strong>Season {activeSeason?.season_number || ""}</strong>.
-                </p>
-                <button className="portal-btn btn-danger" style={{ marginTop: "0.75rem" }} onClick={triggerSeasonStartReleases} disabled={isPending}>
-                  Release Season {activeSeason?.season_number || ""} Start Contracts
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+              {/* Load Preview Button */}
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  className="portal-btn btn-secondary"
+                  onClick={loadBatchPreview}
+                  disabled={batchLoadingPreview || isPending}
+                >
+                  {batchLoadingPreview
+                    ? <><i className="fa-solid fa-spinner fa-spin" /> Loading…</>
+                    : <><i className="fa-solid fa-eye" /> Preview All Expiring Contracts</>}
                 </button>
+                {batchPreviewPlayers.length > 0 && (
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                    <strong style={{ color: "#fbbf24" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'start').length}</strong> start &nbsp;·&nbsp;
+                    <strong style={{ color: "#60a5fa" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'mid').length}</strong> mid-season contracts expiring
+                  </span>
+                )}
               </div>
+
+              {/* ── Season Start Sub-section ── */}
+              {(() => {
+                const startPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'start');
+                if (!batchPreviewOpen && !batchReleasedOpen) return null;
+                return (
+                  <div className="sub-card" style={{ overflow: "visible" }}>
+                    <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span><i className="fa-solid fa-calendar-day" /> Season {activeSeason?.season_number} — Start Contracts</span>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#fbbf24" }}>{startPlayers.length} players</span>
+                    </div>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
+                      Contracts expiring at or before Season <strong>{activeSeason?.season_number}</strong>.
+                    </p>
+
+                    {batchPreviewOpen && startPlayers.length > 0 && (
+                      <>
+                        {/* Player list */}
+                        <div style={{ border: "1px solid rgba(255,200,0,0.2)", background: "rgba(255,200,0,0.03)", borderRadius: "10px", overflow: "hidden", marginBottom: "10px" }}>
+                          <div style={{ maxHeight: "280px", overflowY: "auto" }}>
+                            {(() => {
+                              let lastClub = "";
+                              return startPlayers.map((p, i) => {
+                                const showHeader = p.club_name !== lastClub;
+                                lastClub = p.club_name;
+                                return (
+                                  <div key={i}>
+                                    {showHeader && (
+                                      <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                                        {p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}
+                                        <strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong>
+                                      </div>
+                                    )}
+                                    <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                        <span style={{ color: "#fff" }}>{p.player_name}</span>
+                                      </div>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </div>
+                        {/* Actions */}
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <button className="portal-btn btn-danger" onClick={triggerSeasonStartReleases} disabled={isPending}>
+                            <i className="fa-solid fa-circle-xmark" /> Release {startPlayers.length} Players
+                          </button>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(startPlayers, `Season ${activeSeason?.season_number} Start — Players to be Released`)}>
+                            <i className="fa-brands fa-whatsapp" /> Copy List
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Released result */}
+                    {batchReleasedOpen && batchReleasedPlayers.filter(p => p.contract_type === 'start').length > 0 && (
+                      <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'start').length} released</span>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'start'), `Season ${activeSeason?.season_number} Start — Released Players`)}>
+                            <i className="fa-brands fa-whatsapp" /> Copy
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+                          {(() => {
+                            let lastClub = "";
+                            return batchReleasedPlayers.filter(p => p.contract_type === 'start').map((p, i) => {
+                              const showHeader = p.club_name !== lastClub;
+                              lastClub = p.club_name;
+                              return (
+                                <div key={i}>
+                                  {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
+                                  <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {batchPreviewOpen && startPlayers.length === 0 && (
+                      <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>No start-of-season contracts expiring.</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ── Mid-Season Sub-section ── */}
+              {(() => {
+                const midPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'mid');
+                if (!batchPreviewOpen && !batchReleasedOpen) return null;
+                return (
+                  <div className="sub-card" style={{ overflow: "visible" }}>
+                    <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span><i className="fa-solid fa-calendar-half" style={{ fontSize: "0.85em" }} /> Season {activeSeason?.season_number}.5 — Mid-Season Contracts</span>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#60a5fa" }}>{midPlayers.length} players</span>
+                    </div>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
+                      Contracts expiring at mid-Season <strong>{activeSeason?.season_number}.5</strong>.
+                    </p>
+
+                    {batchPreviewOpen && midPlayers.length > 0 && (
+                      <>
+                        <div style={{ border: "1px solid rgba(96,165,250,0.2)", background: "rgba(96,165,250,0.03)", borderRadius: "10px", overflow: "hidden", marginBottom: "10px" }}>
+                          <div style={{ maxHeight: "280px", overflowY: "auto" }}>
+                            {(() => {
+                              let lastClub = "";
+                              return midPlayers.map((p, i) => {
+                                const showHeader = p.club_name !== lastClub;
+                                lastClub = p.club_name;
+                                return (
+                                  <div key={i}>
+                                    {showHeader && (
+                                      <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                                        {p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}
+                                        <strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong>
+                                      </div>
+                                    )}
+                                    <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                        <span style={{ color: "#fff" }}>{p.player_name}</span>
+                                      </div>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <button className="portal-btn btn-danger" onClick={() => {
+                            if (!activeSeason) return;
+                            if (!confirm(`Release ${midPlayers.length} mid-season contracts for Season ${activeSeason.season_number}.5?`)) return;
+                            startTransition(async () => {
+                              try {
+                                const res = await releaseMidSeasonContracts(activeSeason.season_number);
+                                showToast(`Released ${res.releasedCount} mid-season contracts.`);
+                                setBatchReleasedPlayers(prev => [...prev, ...midPlayers]);
+                                setBatchReleasedOpen(true);
+                                setBatchPreviewPlayers(prev => prev.filter(p => p.contract_type !== 'mid'));
+                                loadData();
+                              } catch { showToast("Error releasing mid-season contracts!"); }
+                            });
+                          }} disabled={isPending}>
+                            <i className="fa-solid fa-circle-xmark" /> Release {midPlayers.length} Mid-Season Players
+                          </button>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(midPlayers, `Season ${activeSeason?.season_number}.5 Mid — Players to be Released`)}>
+                            <i className="fa-brands fa-whatsapp" /> Copy List
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Released result */}
+                    {batchReleasedOpen && batchReleasedPlayers.filter(p => p.contract_type === 'mid').length > 0 && (
+                      <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'mid').length} released</span>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'mid'), `Season ${activeSeason?.season_number}.5 Mid — Released Players`)}>
+                            <i className="fa-brands fa-whatsapp" /> Copy
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+                          {(() => {
+                            let lastClub = "";
+                            return batchReleasedPlayers.filter(p => p.contract_type === 'mid').map((p, i) => {
+                              const showHeader = p.club_name !== lastClub;
+                              lastClub = p.club_name;
+                              return (
+                                <div key={i}>
+                                  {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
+                                  <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {batchPreviewOpen && midPlayers.length === 0 && (
+                      <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>No mid-season contracts expiring.</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {!batchPreviewOpen && !batchReleasedOpen && (
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", marginTop: "-0.5rem" }}>Click <strong>Preview All Expiring Contracts</strong> to see start and mid-season contracts before releasing.</p>
+              )}
+
             </div>
           </div>
         )}
