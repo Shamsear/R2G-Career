@@ -1097,6 +1097,13 @@
 }
 
 /* Large desktop */
+.financial-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  width: 100%;
+  gap: 1.5rem;
+}
+
 @media (max-width: 1200px) {
   .admin-hub-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -1267,10 +1274,17 @@
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
+  justify-content: center;
   overflow-x: auto !important;
   width: 100% !important;
   -webkit-overflow-scrolling: touch !important;
   scrollbar-width: none !important;
+}
+
+@media (max-width: 1024px) {
+  .tab-menu {
+    justify-content: flex-start !important;
+  }
 }
 
 .tab-menu::-webkit-scrollbar {

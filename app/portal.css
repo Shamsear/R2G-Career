@@ -78,8 +78,8 @@
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
   /* Max Widths */
-  --max-content: 1280px;
-  --max-narrow:  900px;
+  --max-content: 1600px;
+  --max-narrow:  1100px;
 }
 
 /* ─── Base Reset ─────────────────────────────────────────────────────────────── */
