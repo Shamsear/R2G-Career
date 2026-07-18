@@ -112,6 +112,8 @@ export async function fetchManagers() {
                 clean_sheets: m.clean_sheets || 0,
                 is_banned: m.is_banned || false,
                 is_active: m.is_active !== false,
+                mob_no: m.mob_no || '',
+                place: m.place || '',
                 club_total_value: Math.floor(m.club_total_value / 1000000) || 0,
                 trophies,
                 awards: awardsCount,
@@ -4690,6 +4692,45 @@ export async function releasePlayerContract(
     await pool.query('ROLLBACK');
     console.error("Error releasing contract:", e);
     throw e;
+  }
+}
+
+export async function fetchAdminPlayersList() {
+  try {
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+
+    const { rows } = await pool.query(`
+      SELECT 
+        p.id, 
+        p.name, 
+        p.position, 
+        p.card_type as star, 
+        p.base_value as value, 
+        p.image_path as imagepath, 
+        p.is_suspended,
+        pc.current_club_id as club_id,
+        c.name as club_name
+      FROM players p
+      LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active' AND pc.season_id = $1
+      LEFT JOIN clubs c ON pc.current_club_id = c.id
+      ORDER BY p.name ASC
+    `, [seasonId]);
+
+    return rows.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      position: p.position || '',
+      value: p.value || 80,
+      star: p.star || '3-star-standard',
+      imagePath: p.imagepath || '',
+      isSuspended: p.is_suspended || false,
+      clubId: p.club_id,
+      clubName: p.club_name || null
+    }));
+  } catch (e) {
+    console.error("Error fetching admin players list:", e);
+    return [];
   }
 }
 

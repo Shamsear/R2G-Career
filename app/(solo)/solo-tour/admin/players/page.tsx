@@ -16,7 +16,8 @@ import {
   fetchClubPlayers,
   fetchFreeAgents,
   fetchActivePlayerContract,
-  releasePlayerContract
+  releasePlayerContract,
+  fetchAdminPlayersList
 } from "@/utils/solo/serverActions";
 
 export default function PlayersManager() {
@@ -80,12 +81,8 @@ export default function PlayersManager() {
       const clubsData = await fetchRegisteredClubs();
       setClubs(clubsData || []);
 
-      const allPlayers: any[] = [];
-      for (const club of (clubsData || [])) {
-        const cPlayers = await fetchClubPlayers(club.id);
-        allPlayers.push(...cPlayers.map(p => ({ ...p, clubName: club.name, clubId: club.id })));
-      }
-      setPlayers(allPlayers);
+      const allPlayers = await fetchAdminPlayersList();
+      setPlayers(allPlayers || []);
 
       const agents = await fetchFreeAgents();
       setFreeAgents(agents || []);
@@ -591,12 +588,12 @@ export default function PlayersManager() {
                   <select className="admin-select" value={contractForm.playerId} onChange={(e) => setContractForm(prev => ({ ...prev, playerId: e.target.value }))}>
                     <option value="">-- Select Player --</option>
                     <optgroup label="Free Agents (No Contract)">
-                      {freeAgents.map(p => (
+                      {players.filter(p => !p.clubId).map(p => (
                         <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
                       ))}
                     </optgroup>
                     <optgroup label="Active Players (Will overwrite existing contract)">
-                      {players.map(p => (
+                      {players.filter(p => p.clubId).map(p => (
                         <option key={p.id} value={p.id}>{p.name} ({p.position} - {p.clubName || 'Unknown Club'})</option>
                       ))}
                     </optgroup>
