@@ -125,12 +125,12 @@ export default function Home() {
           </div>
           <div className="stat-divider" />
           <Link
-            href="/player"
+            href="/members"
             className="stat-pill clickable-pill"
             style={{ textDecoration: "none" }}
           >
             <i className="fa-solid fa-users" style={{ color: "#c084fc" }} />
-            <span style={{ color: "#c084fc", fontWeight: 600 }}>28 Players Directory</span>
+            <span style={{ color: "#c084fc", fontWeight: 600 }}>28 Members Directory</span>
           </Link>
           <div className="stat-divider" />
           <div className="stat-pill">

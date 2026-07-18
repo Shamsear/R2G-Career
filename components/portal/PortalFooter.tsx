@@ -9,7 +9,7 @@ export default function PortalFooter() {
   // Hide the footer entirely on the root portal page
   if (pathname === "/") return null;
 
-  const isPlayerPage = pathname.startsWith("/player");
+  const isPlayerPage = pathname.startsWith("/members");
 
   return (
     <footer className="tech-footer">
@@ -17,7 +17,7 @@ export default function PortalFooter() {
         <div className="tech-footer-brand">
           <span className="brand-status-dot online"></span>
           <span className="brand-text">
-            SYS.R2G.PLAYER // v7.0.2
+            SYS.R2G.MEMBER // v7.0.2
           </span>
         </div>
         
@@ -25,7 +25,7 @@ export default function PortalFooter() {
           <nav className="tech-footer-links">
             <Link href="/">[ PORTAL ]</Link>
             <span className="sep">//</span>
-            <Link href="/player">[ DIRECTORY ]</Link>
+            <Link href="/members">[ DIRECTORY ]</Link>
           </nav>
         )}
 

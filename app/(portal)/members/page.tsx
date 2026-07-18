@@ -7,7 +7,7 @@ import PortalNavbar from "@/components/portal/PortalNavbar";
 import PortalFooter from "@/components/portal/PortalFooter";
 import "../../portal.css";
 
-export default function PlayersDirectoryPage() {
+export default function MembersDirectoryPage() {
   const [players, setPlayers] = useState<any[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,7 +22,7 @@ export default function PlayersDirectoryPage() {
         setFilteredPlayers(data || []);
       } catch (err: any) {
         console.error(err);
-        setError("Failed to load players directory");
+        setError("Failed to load members directory");
       } finally {
         setLoading(false);
       }
@@ -52,7 +52,7 @@ export default function PlayersDirectoryPage() {
         <main style={{ position: 'relative', zIndex: 2, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#c084fc", borderRightColor: "#a855f7", animation: "spin 1s linear infinite", margin: "0 auto 1.5rem" }} />
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>Synchronizing Players Directory...</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>Synchronizing Members Directory...</p>
           </div>
           <style>{`
             @keyframes spin {
@@ -223,7 +223,7 @@ export default function PlayersDirectoryPage() {
               <i className="fa-solid fa-users" /> R2G Community
             </div>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 800, color: "#fff", margin: "0 0 0.25rem", letterSpacing: "2px", textTransform: "uppercase", background: "linear-gradient(135deg, #ffffff 0%, #c084fc 50%, #a855f7 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              PLAYERS DIRECTORY
+              MEMBERS DIRECTORY
             </h1>
             <p style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.5)", maxWidth: "550px", margin: "0 auto", lineHeight: 1.4 }}>
               Search and view complete multiversal stats and career details of all R2G tacticians.
@@ -249,7 +249,7 @@ export default function PlayersDirectoryPage() {
             {filteredPlayers.length === 0 ? (
               <div className="no-players-placeholder">
                 <i className="fa-solid fa-user-slash" style={{ fontSize: "2rem", opacity: 0.3, marginBottom: "1rem", display: "block" }} />
-                <h3 style={{ color: "#fff", fontSize: "1.1rem", marginBottom: "0.5rem" }}>No players matched</h3>
+                <h3 style={{ color: "#fff", fontSize: "1.1rem", marginBottom: "0.5rem" }}>No members matched</h3>
                 <p style={{ fontSize: "0.82rem", margin: 0 }}>Try clearing your search term.</p>
               </div>
             ) : (
@@ -261,7 +261,7 @@ export default function PlayersDirectoryPage() {
                 return (
                   <Link
                     key={player.id}
-                    href={`/player/${encodeURIComponent(player.r2g_id || player.id)}`}
+                    href={`/members/${encodeURIComponent(player.r2g_id || player.id)}`}
                     className="player-dir-card"
                   >
                     <div 

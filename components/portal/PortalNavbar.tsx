@@ -14,7 +14,7 @@ export default function PortalNavbar() {
   // Hide the navbar entirely on the root portal page
   if (pathname === "/") return null;
 
-  const isPlayerPage = pathname.startsWith("/player");
+  const isPlayerPage = pathname.startsWith("/members");
 
   // Extract player id if we are on a profile page
   let playerId = "";
@@ -27,8 +27,8 @@ export default function PortalNavbar() {
 
   const navLinks = isPlayerPage
     ? [
-        { href: "/player", label: "01//DIRECTORY" },
-        ...(playerId ? [{ href: `/player/${playerId}`, label: "02//PROFILE" }] : [])
+        { href: "/members", label: "01//DIRECTORY" },
+        ...(playerId ? [{ href: `/members/${playerId}`, label: "02//PROFILE" }] : [])
       ]
     : [];
 
@@ -46,13 +46,13 @@ export default function PortalNavbar() {
               height={26} 
               className="logo-img" 
             />
-            <span className="logo-text">R2G.PLAYER</span>
+            <span className="logo-text">R2G.MEMBER</span>
           </Link>
 
           {/* Desktop Navigation Links (Monospace, Tech Style) */}
           <nav className="tech-nav">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href || (link.href !== "/player" && pathname.startsWith(link.href));
+              const isActive = pathname === link.href || (link.href !== "/members" && pathname.startsWith(link.href));
               return (
                 <Link 
                   key={link.href} 
@@ -65,26 +65,9 @@ export default function PortalNavbar() {
             })}
           </nav>
 
-          {/* Right Action Section */}
-          <div className="tech-controls">
-            {/* Return Button */}
-            <Link href="/" className="tech-portal-btn" title="Back to Portal">
-              <span>[ ESC_PORTAL ]</span>
-            </Link>
-
-            {/* Mobile Hamburger Trigger */}
-            {navLinks.length > 0 && (
-              <button 
-                className={`tech-hamburger ${isMenuOpen ? "open" : ""}`} 
-                aria-label="Toggle menu" 
-                onClick={toggleMenu}
-              >
-                <span></span>
-                <span></span>
-              </button>
-            )}
-          </div>
-
+          <button className="tech-menu-btn" onClick={toggleMenu} aria-label="Open menu">
+            [ MENU ]
+          </button>
         </div>
       </header>
 
@@ -103,7 +86,7 @@ export default function PortalNavbar() {
 
           <div className="tech-mobile-links">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href || (link.href !== "/player" && pathname.startsWith(link.href));
+              const isActive = pathname === link.href || (link.href !== "/members" && pathname.startsWith(link.href));
               return (
                 <Link 
                   key={link.href} 
