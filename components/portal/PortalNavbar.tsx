@@ -65,9 +65,16 @@ export default function PortalNavbar() {
             })}
           </nav>
 
-          <button className="tech-menu-btn" onClick={toggleMenu} aria-label="Open menu">
-            [ MENU ]
-          </button>
+          {/* Right Action Section */}
+          <div className="tech-controls">
+            <Link href="/" className="tech-portal-btn" title="Back to Portal">
+              <span>[ ESC_PORTAL ]</span>
+            </Link>
+
+            <button className="tech-menu-btn" onClick={toggleMenu} aria-label="Open menu">
+              [ MENU ]
+            </button>
+          </div>
         </div>
       </header>
 
