@@ -5001,22 +5001,19 @@ export async function releaseMidSeasonContracts(seasonNumber: number) {
 export async function fetchPlayerCombinedStats(identifier: string | number) {
   try {
     let queryParam: any = identifier;
-    let queryField = 'm.id';
+    let whereClause = 'm.id = $1';
     
     // Check if it is a number or numeric string
-    const isNumeric = !isNaN(Number(identifier.toString().trim()));
+    const cleanId = identifier.toString().trim();
+    const isNumeric = !isNaN(Number(cleanId)) && cleanId !== '';
+    
     if (isNumeric) {
-      queryParam = parseInt(identifier.toString(), 10);
-      queryField = 'm.id';
-    } else if (identifier.toString().trim().toUpperCase().startsWith('R2GP')) {
-      queryParam = identifier.toString().trim().toUpperCase();
-      queryField = 'm.r2g_id';
+      queryParam = parseInt(cleanId, 10);
+      whereClause = 'm.id = $1';
     } else {
-      queryParam = identifier.toString().trim();
-      queryField = 'LOWER(m.name)';
+      queryParam = cleanId;
+      whereClause = 'LOWER(m.r2g_id) = LOWER($1) OR LOWER(m.name) = LOWER($1)';
     }
-
-    const valuePlaceholder = queryField === 'LOWER(m.name)' ? 'LOWER($1)' : '$1';
 
     // 1. Fetch manager details
     const { rows: managerRows } = await pool.query(`
@@ -5027,7 +5024,7 @@ export async function fetchPlayerCombinedStats(identifier: string | number) {
       FROM managers m
       LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
       LEFT JOIN clubs c ON mw.current_club_id = c.id
-      WHERE ${queryField} = ${valuePlaceholder}
+      WHERE ${whereClause}
       LIMIT 1
     `, [queryParam]);
 

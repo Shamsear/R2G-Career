@@ -519,37 +519,7 @@ export default function PlayerProfilePage() {
                 </div>
               </div>
 
-              {/* Wallet Details (if career wallet is active) */}
-              {manager.overall_rating !== undefined && (
-                <div>
-                  <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-                    <i className="fa-solid fa-wallet" style={{ color: "#c084fc", marginRight: "8px" }} /> Career Wallet Status
-                  </h3>
-                  <div className="wallet-grid">
-                    <div className="wallet-pill">
-                      <div className="wallet-icon" style={{ color: "#fbbf24" }}><i className="fas fa-coins" /></div>
-                      <div>
-                        <div className="wallet-pill-label">R2G Coins</div>
-                        <div className="wallet-pill-val">{manager.r2g_coin_balance || 0}</div>
-                      </div>
-                    </div>
-                    <div className="wallet-pill">
-                      <div className="wallet-icon" style={{ color: "#38bdf8" }}><i className="fas fa-gem" /></div>
-                      <div>
-                        <div className="wallet-pill-label">R2G Tokens</div>
-                        <div className="wallet-pill-val">{manager.r2g_token_balance || 0}</div>
-                      </div>
-                    </div>
-                    <div className="wallet-pill">
-                      <div className="wallet-icon" style={{ color: "#c084fc" }}><i className="fas fa-ticket-simple" /></div>
-                      <div>
-                        <div className="wallet-pill-label">R2G Vouchers</div>
-                        <div className="wallet-pill-val">{manager.r2g_voucher_balance || 0}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
             </div>
 
