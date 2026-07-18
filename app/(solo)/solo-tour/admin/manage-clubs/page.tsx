@@ -41,6 +41,7 @@ export default function ManageClubs() {
   };
 
   useEffect(() => {
+    document.title = "Clubs Database - Admin Hub";
     loadData();
   }, []);
 

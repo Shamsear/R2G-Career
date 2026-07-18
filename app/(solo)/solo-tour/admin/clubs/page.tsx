@@ -114,6 +114,7 @@ export default function ClubsManager() {
   };
 
   useEffect(() => {
+    document.title = "Managers & Wallets - Admin Hub";
     loadData();
   }, []);
 
