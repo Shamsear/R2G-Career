@@ -260,6 +260,23 @@ export default function TransfersManager() {
     });
   };
 
+  const toggleRowSelection = (playerId: number) => {
+    setSelectedPlayerIds(prev =>
+      prev.includes(playerId)
+        ? prev.filter(id => id !== playerId)
+        : [...prev, playerId]
+    );
+  };
+
+  const getPositionColor = (pos: string) => {
+    const colors: Record<string, string> = {
+      GK: "#eab308", CB: "#3b82f6", LB: "#3b82f6", RB: "#3b82f6",
+      CM: "#10b981", DM: "#14b8a6", AM: "#a855f7",
+      RW: "#f97316", LW: "#f97316", ST: "#ef4444", FW: "#ef4444"
+    };
+    return colors[pos] || "#6b7280";
+  };
+
   const handleSwap = (e: React.FormEvent) => {
     e.preventDefault();
     if (!swapClubAId || !swapClubBId || !swapPlayerAId || !swapPlayerBId) {
@@ -466,36 +483,12 @@ export default function TransfersManager() {
                     ))}
                   </select>
                 </div>
-
-                <div className="admin-form-group">
-                  <label>Release Timing</label>
-                  <select className="admin-select" value={releaseTiming} onChange={(e) => setReleaseTiming(e.target.value as 'start' | 'mid')} required>
-                    <option value="start">Season Start (Season {activeSeason?.season_number})</option>
-                    <option value="mid">Mid-Season (Season {activeSeason?.season_number}.5)</option>
-                  </select>
-                </div>
-
-                <div className="admin-form-group">
-                  <label style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>Refund Percentage</span>
-                    <strong style={{ color: "var(--solo-primary)" }}>{refundPercentage}%</strong>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
-                    value={refundPercentage}
-                    onChange={(e) => setRefundPercentage(parseInt(e.target.value) || 0)}
-                  />
-                </div>
               </div>
 
               {releaseClubId && (
                 <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players & Refunds</h3>
+                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players</h3>
                     
                     {/* Search bar inside release tab */}
                     <input
@@ -517,75 +510,136 @@ export default function TransfersManager() {
                       No players found matching your criteria.
                     </div>
                   ) : (
-                    <div className="table-responsive">
-                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: "40px", textAlign: "center" }}>
-                              <input
-                                type="checkbox"
-                                checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    const allIds = filteredReleasePlayers.map(p => p.id);
-                                    setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
-                                  } else {
-                                    const filteredIds = filteredReleasePlayers.map(p => p.id);
-                                    setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
-                                  }
-                                }}
-                              />
-                            </th>
-                            <th>Player</th>
-                            <th>Position</th>
-                            <th>Contract Terms</th>
-                            <th style={{ textAlign: "right" }}>Contract Value</th>
-                            <th style={{ textAlign: "right", color: "#fbbf24" }}>Refund (Disabled)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredReleasePlayers.map(p => {
-                            const isChecked = selectedPlayerIds.includes(p.id);
-                            return (
-                              <tr key={p.id} style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent" }}>
-                                <td style={{ textAlign: "center" }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedPlayerIds(prev => [...prev, p.id]);
-                                      } else {
-                                        setSelectedPlayerIds(prev => prev.filter(id => id !== p.id));
-                                      }
-                                    }}
-                                  />
-                                </td>
-                                <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <img
-                                      src={p.imagePath}
-                                      alt=""
-                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
-                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="table-responsive release-desktop-table">
+                        <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                          <thead>
+                            <tr onClick={(e) => e.stopPropagation()}>
+                              <th style={{ width: "40px", textAlign: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const allIds = filteredReleasePlayers.map(p => p.id);
+                                      setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                    } else {
+                                      const filteredIds = filteredReleasePlayers.map(p => p.id);
+                                      setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                                    }
+                                  }}
+                                />
+                              </th>
+                              <th>Player</th>
+                              <th>Position</th>
+                              <th>Contract Terms</th>
+                              <th style={{ textAlign: "right" }}>Contract Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredReleasePlayers.map(p => {
+                              const isChecked = selectedPlayerIds.includes(p.id);
+                              return (
+                                <tr
+                                  key={p.id}
+                                  style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent", cursor: "pointer" }}
+                                  onClick={() => toggleRowSelection(p.id)}
+                                >
+                                  <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleRowSelection(p.id)}
                                     />
-                                    <strong>{p.name}</strong>
+                                  </td>
+                                  <td>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                      <img
+                                        src={p.imagePath}
+                                        alt=""
+                                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+                                        onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                      />
+                                      <strong>{p.name}</strong>
+                                    </div>
+                                  </td>
+                                  <td>{p.position}</td>
+                                  <td>
+                                    {p.startSeason} to {p.expireSeason} ({p.totalDuration} Season{p.totalDuration !== 1 ? 's' : ''})
+                                  </td>
+                                  <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile Card View */}
+                      <div className="release-mobile-grid">
+                        {filteredReleasePlayers.map(p => {
+                          const isChecked = selectedPlayerIds.includes(p.id);
+                          return (
+                            <div
+                              key={p.id}
+                              style={{
+                                background: isChecked ? "rgba(56, 189, 248, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                                border: isChecked ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
+                                borderRadius: "10px",
+                                padding: "1rem",
+                                cursor: "pointer",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.75rem",
+                                transition: "all 0.2s ease"
+                              }}
+                              onClick={() => toggleRowSelection(p.id)}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {}} // Handled by container click
+                                  style={{ width: "16px", height: "16px" }}
+                                />
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                                  <img
+                                    src={p.imagePath}
+                                    alt=""
+                                    style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
+                                    onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                  />
+                                  <div>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
+                                    <span className="badge-info" style={{ 
+                                      background: `${getPositionColor(p.position)}18`, 
+                                      color: getPositionColor(p.position), 
+                                      borderColor: `${getPositionColor(p.position)}40`,
+                                      fontSize: "0.7rem",
+                                      padding: "1px 6px"
+                                    }}>
+                                      {p.position}
+                                    </span>
                                   </div>
-                                </td>
-                                <td>{p.position}</td>
-                                <td>
-                                  {p.startSeason} to {p.expireSeason} ({p.totalDuration} Season{p.totalDuration !== 1 ? 's' : ''})
-                                </td>
-                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
-                                <td style={{ textAlign: "right", color: "#fbbf24", fontWeight: "600" }}>
-                                  {p.refundAmount} Coins
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
+                                  <span>{p.startSeason} to {p.expireSeason} ({p.totalDuration}s)</span>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
+                                  <span>{p.signedValue} Coins</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
 
                   {selectedPlayerIds.length > 0 && (
