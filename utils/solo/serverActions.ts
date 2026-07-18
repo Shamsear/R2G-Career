@@ -4426,6 +4426,107 @@ export async function executeTransferSale(clubId: number, playerId: number, pric
   }
 }
 
+export async function executeBulkTransfers(transfers: { sellingClubId: number; playerId: number; price: number; buyingClubId: number }[]) {
+  try {
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+    const seasonNumber = activeSeason ? activeSeason.season_number : 9;
+
+    await pool.query('BEGIN');
+
+    for (const t of transfers) {
+      const { sellingClubId, playerId, price, buyingClubId } = t;
+
+      // 1. Verify buying club exists and has enough coins
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_coin_balance FROM manager_wallets
+        WHERE manager_id = $1 AND season_id = $2
+      `, [buyingClubId, seasonId]);
+
+      if (walletRows.length === 0) {
+        throw new Error(`Buying club does not have a wallet for this season.`);
+      }
+
+      const buyingBalance = Number(walletRows[0].r2g_coin_balance) || 0;
+      if (buyingBalance < price) {
+        throw new Error(`Buying club has insufficient balance.`);
+      }
+
+      // 2. Fetch player and club names for transactions logging
+      const { rows: pRows } = await pool.query('SELECT name FROM players WHERE id = $1', [playerId]);
+      const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
+
+      const { rows: clubRows } = await pool.query('SELECT id, name FROM clubs WHERE id IN ($1, $2)', [sellingClubId, buyingClubId]);
+      const clubMap = Object.fromEntries(clubRows.map((r: any) => [r.id, r.name]));
+      const sellingClubName = clubMap[sellingClubId] || `Club #${sellingClubId}`;
+      const buyingClubName = clubMap[buyingClubId] || `Club #${buyingClubId}`;
+
+      // 3. Deactivate old contract and retrieve the expire_season & signed_value first to validate price
+      const currentSeasonStr = seasonNumber.toString();
+      const { rows: oldContractRows } = await pool.query(`
+        UPDATE player_contracts 
+        SET status = 'inactive', expire_season = $1
+        WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
+        RETURNING expire_season, signed_value
+      `, [currentSeasonStr, playerId, sellingClubId, seasonId]);
+
+      if (oldContractRows.length === 0) {
+        throw new Error(`Active contract for ${pName} not found at selling club.`);
+      }
+      const expireSeason = oldContractRows[0].expire_season;
+      const prevSignedValue = Number(oldContractRows[0].signed_value) || 0;
+
+      // Validation 1: No odd numbers allowed
+      if (price % 2 !== 0) {
+        throw new Error(`Transfer price for ${pName} must be an even number. Odd values like ${price} are not allowed.`);
+      }
+
+      // Validation 2: Price must be between 50% and 200% of current contract value
+      const minPrice = 0.5 * prevSignedValue;
+      const maxPrice = 2.0 * prevSignedValue;
+      if (price < minPrice || price > maxPrice) {
+        throw new Error(`Transfer price for ${pName} must be between 50% (${minPrice}) and 200% (${maxPrice}) of current value (${prevSignedValue}).`);
+      }
+
+      // Calculate new signed contract value (highest of current contract value and sale price)
+      const newSignedValue = Math.max(prevSignedValue, price);
+
+      // 4. Deduct coins from buying club
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_coin_balance = r2g_coin_balance - $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [price, buyingClubId, seasonId]);
+
+      // 5. Add coins to selling club
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_coin_balance = r2g_coin_balance + $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [price, sellingClubId, seasonId]);
+
+      // 6. Log transactions
+      await logTransaction(sellingClubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sell: sold ${pName} to ${buyingClubName} for ${price} Coins`);
+      await logTransaction(buyingClubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: bought ${pName} from ${sellingClubName} for ${price} Coins`);
+
+      // 7. Insert new active contract for buying club carrying over expire_season and using newSignedValue
+      const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
+      const salary = Number(newSignedValue) * 0.05;
+      await pool.query(`
+        INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      `, [playerId, seasonId, buyingClubId, newSignedValue, salary, currentSeasonStr, cleanExpire]);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error executing bulk transfers:", e);
+    throw e;
+  }
+}
+
 export async function executeTransferSwap(
   clubAId: number,
   playerAId: number,
@@ -4522,6 +4623,110 @@ export async function executeTransferSwap(
   } catch (e) {
     await pool.query('ROLLBACK');
     console.error("Error executing swap transfer:", e);
+    throw e;
+  }
+}
+
+export async function executeBulkSwaps(swaps: {
+  clubAId: number;
+  playerAId: number;
+  clubBId: number;
+  playerBId: number;
+  cashAdjustmentAtoB: number;
+  newValueA: number;
+  newValueB: number;
+}[]) {
+  try {
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+    const currentSeasonStr = (activeSeason?.season_number || 9).toString();
+
+    await pool.query('BEGIN');
+
+    for (const s of swaps) {
+      const { clubAId, playerAId, clubBId, playerBId, cashAdjustmentAtoB, newValueA, newValueB } = s;
+
+      const { rows: nameRows } = await pool.query('SELECT id, name FROM players WHERE id IN ($1, $2)', [playerAId, playerBId]);
+      const nameMap = Object.fromEntries(nameRows.map((r: any) => [r.id, r.name]));
+      const playerAName = nameMap[playerAId] || `Player #${playerAId}`;
+      const playerBName = nameMap[playerBId] || `Player #${playerBId}`;
+
+      const { rows: clubRows } = await pool.query('SELECT id, name FROM clubs WHERE id IN ($1, $2)', [clubAId, clubBId]);
+      const clubMap = Object.fromEntries(clubRows.map((r: any) => [r.id, r.name]));
+      const clubAName = clubMap[clubAId] || `Club #${clubAId}`;
+      const clubBName = clubMap[clubBId] || `Club #${clubBId}`;
+
+      if (cashAdjustmentAtoB !== 0) {
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_coin_balance = r2g_coin_balance - $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [cashAdjustmentAtoB, clubAId, seasonId]);
+
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_coin_balance = r2g_coin_balance + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [cashAdjustmentAtoB, clubBId, seasonId]);
+
+        await logTransaction(clubAId, seasonId, 'coin', -cashAdjustmentAtoB, 'swap_adjustment', `Paid swap cash adjustment to ${clubBName}`);
+        await logTransaction(clubBId, seasonId, 'coin', cashAdjustmentAtoB, 'swap_adjustment', `Received swap cash adjustment from ${clubAName}`);
+      }
+
+      // Fetch active contract for Player A at Club A
+      const { rows: contractARows } = await pool.query(`
+        SELECT * FROM player_contracts 
+        WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+      `, [playerAId, clubAId, seasonId]);
+
+      // Fetch active contract for Player B at Club B
+      const { rows: contractBRows } = await pool.query(`
+        SELECT * FROM player_contracts 
+        WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+      `, [playerBId, clubBId, seasonId]);
+
+      if (contractARows.length === 0 || contractBRows.length === 0) {
+        throw new Error("One or both players do not have an active contract in this club.");
+      }
+
+      const contractA = contractARows[0];
+      const contractB = contractBRows[0];
+
+      // Terminate old contracts and set expire_season to swap moment
+      await pool.query(`
+        UPDATE player_contracts
+        SET status = 'inactive', expire_season = $1
+        WHERE id = $2
+      `, [currentSeasonStr, contractA.id]);
+
+      await pool.query(`
+        UPDATE player_contracts
+        SET status = 'inactive', expire_season = $1
+        WHERE id = $2
+      `, [currentSeasonStr, contractB.id]);
+
+      // Create new contracts at swapped clubs
+      const salaryA = Number(newValueA) * 0.05;
+      await pool.query(`
+        INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      `, [playerAId, seasonId, clubBId, newValueA, salaryA, currentSeasonStr, contractA.expire_season]);
+
+      const salaryB = Number(newValueB) * 0.05;
+      await pool.query(`
+        INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      `, [playerBId, seasonId, clubAId, newValueB, salaryB, currentSeasonStr, contractB.expire_season]);
+
+      await logTransaction(clubAId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerAName} and received ${playerBName}`);
+      await logTransaction(clubBId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerBName} and received ${playerAName}`);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error executing bulk swaps:", e);
     throw e;
   }
 }
@@ -4732,15 +4937,14 @@ export async function fetchActivePlayerContract(playerId: number, seasonId: numb
 export async function releasePlayerContract(
   playerId: number,
   seasonId: number,
-  releaseTiming: 'start' | 'mid',
-  refundPercentage: number
+  releaseTiming: 'start' | 'mid'
 ) {
   try {
     await pool.query('BEGIN');
 
     // 1. Fetch active contract for player in current season
     const { rows: contractRows } = await pool.query(`
-      SELECT pc.*, p.name as player_name 
+      SELECT pc.*, p.name as player_name, p.base_value 
       FROM player_contracts pc
       JOIN players p ON pc.player_id = p.id
       WHERE pc.player_id = $1 
@@ -4755,7 +4959,7 @@ export async function releasePlayerContract(
     const contract = contractRows[0];
     const clubId = contract.current_club_id;
     const pName = contract.player_name;
-    const signedValue = Number(contract.signed_value) || 0;
+    const baseValue = Number(contract.base_value) || 0;
 
     // 2. Fetch season number
     const { rows: seasonRows } = await pool.query(`
@@ -4776,31 +4980,26 @@ export async function releasePlayerContract(
     const expireSeasonNum = parseSeason(contract.expire_season || '');
     const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
 
-    // 3. Compute remaining contract duration ratio
-    const totalDuration = expireSeasonNum - startSeasonNum;
+    // 3. Compute remaining contract duration
     const remainingDuration = expireSeasonNum - releaseSeasonNum;
-    
-    const remainingRatio = totalDuration > 0 
-      ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
-      : 1.0;
 
-    const remainingValue = signedValue * remainingRatio;
-    const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
+    let refundAmount = 0;
+    if (remainingDuration >= 1.0) {
+      refundAmount = Math.round(baseValue * 0.5);
+    } else {
+      refundAmount = 0;
+    }
 
-    // 4. Update manager wallet (refund) - COMMENTED OUT/DISABLED BY USER REQUEST
-    /*
+    // 4. Update manager wallet (refund)
     await pool.query(`
       UPDATE manager_wallets
       SET r2g_coin_balance = r2g_coin_balance + $1
       WHERE manager_id = $2 AND season_id = $3
     `, [refundAmount, clubId, seasonId]);
-    */
 
-    // 5. Log transaction - COMMENTED OUT/DISABLED BY USER REQUEST
-    /*
-    const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins (${refundPercentage}% of remaining contract)`;
+    // 5. Log transaction
+    const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`;
     await logTransaction(clubId, seasonId, 'coin', refundAmount, 'player_release', desc);
-    */
 
     const releaseSeasonStr = releaseSeasonNum.toString();
 

@@ -12,7 +12,9 @@ import {
   fetchClubPlayers,
   executeTransferBuy,
   executeTransferSale,
+  executeBulkTransfers,
   executeTransferSwap,
+  executeBulkSwaps,
   releaseExpiredContractsForSeason,
   releaseMidSeasonContracts,
   fetchActivePlayerContract,
@@ -37,9 +39,8 @@ export default function TransfersManager() {
   // Sell state
   const [sellClubId, setSellClubId] = useState<string>("");
   const [sellClubPlayers, setSellClubPlayers] = useState<any[]>([]);
-  const [sellPlayerId, setSellPlayerId] = useState<string>("");
-  const [sellPrice, setSellPrice] = useState<number>(40);
-  const [sellBuyingClubId, setSellBuyingClubId] = useState<string>("");
+  const [selectedSellPlayerIds, setSelectedSellPlayerIds] = useState<number[]>([]);
+  const [transferTargets, setTransferTargets] = useState<Record<number, { buyingClubId: string; price: number }>>({});
   const [sellSearchTerm, setSellSearchTerm] = useState<string>("");
   const [loadingSellPlayers, setLoadingSellPlayers] = useState<boolean>(false);
 
@@ -63,6 +64,7 @@ export default function TransfersManager() {
   const [swapAdjustmentAtoB, setSwapAdjustmentAtoB] = useState<number>(0);
   const [swapNewValueA, setSwapNewValueA] = useState<number>(80);
   const [swapNewValueB, setSwapNewValueB] = useState<number>(80);
+  const [bulkSwaps, setBulkSwaps] = useState<any[]>([]);
 
   const cleanSeason = (s: string) => s.replace(/[^\d.]/g, '');
 
@@ -107,7 +109,8 @@ export default function TransfersManager() {
       fetchClubPlayersWithContracts(parseInt(sellClubId), activeSeason.id)
         .then((data) => {
           setSellClubPlayers(data || []);
-          setSellPlayerId("");
+          setSelectedSellPlayerIds([]);
+          setTransferTargets({});
           setLoadingSellPlayers(false);
         })
         .catch(() => {
@@ -116,7 +119,8 @@ export default function TransfersManager() {
         });
     } else {
       setSellClubPlayers([]);
-      setSellPlayerId("");
+      setSelectedSellPlayerIds([]);
+      setTransferTargets({});
     }
   }, [sellClubId, activeSeason]);
 
@@ -161,6 +165,7 @@ export default function TransfersManager() {
 
     return releaseClubPlayers.map(p => {
       const signedValue = Number(p.signedValue) || 0;
+      const baseValue = Number(p.value) || 0;
       const startSeasonNum = parseSeason(p.startSeason || '');
       const expireSeasonNum = parseSeason(p.expireSeason || '');
 
@@ -168,23 +173,23 @@ export default function TransfersManager() {
       const remainingDuration = expireSeasonNum - releaseSeasonNum;
       const elapsedDuration = releaseSeasonNum - startSeasonNum;
 
-      const remainingRatio = totalDuration > 0 
-        ? Math.max(0, Math.min(1, remainingDuration / totalDuration))
-        : 1.0;
-
-      const remainingValue = signedValue * remainingRatio;
-      const refundAmount = Math.round(remainingValue * (refundPercentage / 100));
+      let refundAmount = 0;
+      if (remainingDuration >= 1.0) {
+        refundAmount = Math.round(baseValue * 0.5);
+      } else {
+        refundAmount = 0;
+      }
 
       return {
         ...p,
         totalDuration,
         elapsedDuration,
         remainingDuration,
-        remainingValue,
+        remainingValue: baseValue,
         refundAmount
       };
     });
-  }, [releaseClubPlayers, releaseTiming, refundPercentage, activeSeason]);
+  }, [releaseClubPlayers, releaseTiming, activeSeason]);
 
   // Roster filtering via search input
   const filteredReleasePlayers = useMemo(() => {
@@ -235,28 +240,66 @@ export default function TransfersManager() {
 
   const handleSell = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellClubId || !sellPlayerId || !sellBuyingClubId) {
-      return showToast("Please select selling club, player, and buying club!");
+    if (!sellClubId || selectedSellPlayerIds.length === 0) {
+      return showToast("Please select selling club and at least one player to transfer!");
     }
-    if (sellPrice < 0) return showToast("Price cannot be negative!");
-    if (sellClubId === sellBuyingClubId) {
-      return showToast("Selling club and buying club cannot be the same!");
-    }
-    startTransition(async () => {
-      try {
-        await executeTransferSale(
-          parseInt(sellClubId),
-          parseInt(sellPlayerId),
-          sellPrice,
-          parseInt(sellBuyingClubId)
-        );
-        showToast("Player transferred successfully!");
-        setSellPlayerId("");
-        loadData();
-      } catch (err: any) {
-        showToast(`Operation failed: ${err.message || "Failed to execute"}`);
+    
+    try {
+      const transfersList = selectedSellPlayerIds.map(playerId => {
+        const target = transferTargets[playerId];
+        const playerObj = sellClubPlayers.find(p => p.id === playerId);
+        const pName = playerObj ? playerObj.name : `#${playerId}`;
+
+        if (!target || !target.buyingClubId) {
+          throw new Error(`Please specify buying club for ${pName}`);
+        }
+        if (target.price < 0) {
+          throw new Error(`Transfer price for ${pName} cannot be negative!`);
+        }
+        if (target.buyingClubId === sellClubId) {
+          throw new Error(`Buying club for ${pName} cannot be the same as the selling club!`);
+        }
+
+        const prevValue = playerObj ? Number(playerObj.signedValue) || 0 : 0;
+
+        // Validation 1: No odd numbers allowed
+        if (target.price % 2 !== 0) {
+          throw new Error(`Transfer price for ${pName} must be an even number. Odd values like ${target.price} are not allowed.`);
+        }
+
+        // Validation 2: Price must be between 50% and 200% of current contract value
+        const minPrice = 0.5 * prevValue;
+        const maxPrice = 2.0 * prevValue;
+        if (target.price < minPrice || target.price > maxPrice) {
+          throw new Error(`Transfer price for ${pName} must be between 50% (${minPrice}) and 200% (${maxPrice}) of current value (${prevValue}).`);
+        }
+
+        return {
+          sellingClubId: parseInt(sellClubId),
+          playerId,
+          price: target.price,
+          buyingClubId: parseInt(target.buyingClubId)
+        };
+      });
+
+      if (!confirm(`Are you sure you want to execute transfers for ${selectedSellPlayerIds.length} player(s)?`)) {
+        return;
       }
-    });
+
+      startTransition(async () => {
+        try {
+          await executeBulkTransfers(transfersList);
+          showToast("Transfers executed successfully!");
+          setSelectedSellPlayerIds([]);
+          setTransferTargets({});
+          loadData();
+        } catch (err: any) {
+          showToast(`Operation failed: ${err.message || "Failed to execute"}`);
+        }
+      });
+    } catch (err: any) {
+      showToast(err.message || "Invalid transfer settings");
+    }
   };
 
   const handleBulkRelease = (e: React.FormEvent) => {
@@ -274,8 +317,7 @@ export default function TransfersManager() {
           await releasePlayerContract(
             playerId,
             activeSeason.id,
-            releaseTiming,
-            refundPercentage
+            releaseTiming
           );
           count++;
         }
@@ -301,6 +343,29 @@ export default function TransfersManager() {
     );
   };
 
+  const toggleSellRowSelection = (playerId: number) => {
+    setSelectedSellPlayerIds(prev => {
+      const isSelected = prev.includes(playerId);
+      if (isSelected) {
+        const updated = prev.filter(id => id !== playerId);
+        setTransferTargets(prevTargets => {
+          const updatedTargets = { ...prevTargets };
+          delete updatedTargets[playerId];
+          return updatedTargets;
+        });
+        return updated;
+      } else {
+        const playerObj = sellClubPlayers.find(p => p.id === playerId);
+        const defaultValue = playerObj ? Number(playerObj.signedValue) || 40 : 40;
+        setTransferTargets(prevTargets => ({
+          ...prevTargets,
+          [playerId]: { buyingClubId: "", price: defaultValue }
+        }));
+        return [...prev, playerId];
+      }
+    });
+  };
+
   const getPositionColor = (pos: string) => {
     const colors: Record<string, string> = {
       GK: "#eab308", CB: "#3b82f6", LB: "#3b82f6", RB: "#3b82f6",
@@ -310,7 +375,7 @@ export default function TransfersManager() {
     return colors[pos] || "#6b7280";
   };
 
-  const handleSwap = (e: React.FormEvent) => {
+  const addSwapToQueue = (e: React.FormEvent) => {
     e.preventDefault();
     if (!swapClubAId || !swapClubBId || !swapPlayerAId || !swapPlayerBId) {
       return showToast("Please select all clubs and players for swap!");
@@ -318,23 +383,70 @@ export default function TransfersManager() {
     if (swapClubAId === swapClubBId) {
       return showToast("Cannot swap players within the same club!");
     }
+
+    const clubAObj = clubs.find(c => c.id.toString() === swapClubAId);
+    const clubBObj = clubs.find(c => c.id.toString() === swapClubBId);
+    const playerAObj = swapClubAPlayers.find(p => p.id.toString() === swapPlayerAId);
+    const playerBObj = swapClubBPlayers.find(p => p.id.toString() === swapPlayerBId);
+
+    const newDeal = {
+      clubAId: parseInt(swapClubAId),
+      clubBId: parseInt(swapClubBId),
+      playerAId: parseInt(swapPlayerAId),
+      playerBId: parseInt(swapPlayerBId),
+      clubAName: clubAObj ? clubAObj.name : `Club #${swapClubAId}`,
+      clubBName: clubBObj ? clubBObj.name : `Club #${swapClubBId}`,
+      playerAName: playerAObj ? playerAObj.name : `Player #${swapPlayerAId}`,
+      playerBName: playerBObj ? playerBObj.name : `Player #${swapPlayerBId}`,
+      cashAdjustmentAtoB: swapAdjustmentAtoB,
+      newValueA: swapNewValueA,
+      newValueB: swapNewValueB
+    };
+
+    const isPlayerADuplicated = bulkSwaps.some(s => s.playerAId === newDeal.playerAId || s.playerBId === newDeal.playerAId || s.playerAId === newDeal.playerBId || s.playerBId === newDeal.playerBId);
+    const isPlayerBDuplicated = bulkSwaps.some(s => s.playerAId === newDeal.playerBId || s.playerBId === newDeal.playerBId || s.playerAId === newDeal.playerAId || s.playerBId === newDeal.playerAId);
+    if (isPlayerADuplicated || isPlayerBDuplicated) {
+      return showToast("One or both players are already included in a queued swap deal!");
+    }
+
+    setBulkSwaps(prev => [...prev, newDeal]);
+    showToast("Swap deal added to queue!");
+
+    setSwapPlayerAId("");
+    setSwapPlayerBId("");
+    setSwapAdjustmentAtoB(0);
+    setSwapNewValueA(80);
+    setSwapNewValueB(80);
+  };
+
+  const handleExecuteBulkSwaps = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bulkSwaps.length === 0) {
+      return showToast("No swap deals in queue!");
+    }
+
+    if (!confirm(`Are you sure you want to execute all ${bulkSwaps.length} queued swap deal(s)?`)) {
+      return;
+    }
+
     startTransition(async () => {
       try {
-        await executeTransferSwap(
-          parseInt(swapClubAId),
-          parseInt(swapPlayerAId),
-          parseInt(swapClubBId),
-          parseInt(swapPlayerBId),
-          swapAdjustmentAtoB,
-          swapNewValueA,
-          swapNewValueB
-        );
-        showToast("Swap transfer completed successfully!");
-        setSwapPlayerAId("");
-        setSwapPlayerBId("");
+        const payload = bulkSwaps.map(s => ({
+          clubAId: s.clubAId,
+          playerAId: s.playerAId,
+          clubBId: s.clubBId,
+          playerBId: s.playerBId,
+          cashAdjustmentAtoB: s.cashAdjustmentAtoB,
+          newValueA: s.newValueA,
+          newValueB: s.newValueB
+        }));
+
+        await executeBulkSwaps(payload);
+        showToast("All swap deals executed successfully!");
+        setBulkSwaps([]);
         loadData();
       } catch (err: any) {
-        showToast(`Swap failed: ${err.message || "Verify parameters or balances"}`);
+        showToast(`Bulk swap failed: ${err.message || "Verify parameters or balances"}`);
       }
     });
   };
@@ -464,7 +576,7 @@ export default function TransfersManager() {
         {/* Tab 2: Sell */}
         {activeTab === 'sell' && (
           <div className="admin-card">
-            <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Player</h2>
+            <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Players</h2>
             <form onSubmit={handleSell}>
               {/* Selling Club Selection */}
               <div className="admin-form-grid" style={{ marginBottom: "1.5rem" }}>
@@ -483,7 +595,7 @@ export default function TransfersManager() {
               {sellClubId && (
                 <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players (Select One to Transfer)</h3>
+                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players</h3>
                     
                     {/* Search bar inside transfer tab */}
                     <input
@@ -508,13 +620,13 @@ export default function TransfersManager() {
                     /* Mobile Card View */
                     <div className="release-mobile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
                       {filteredSellPlayers.map(p => {
-                        const isSelected = sellPlayerId === p.id.toString();
+                        const isChecked = selectedSellPlayerIds.includes(p.id);
                         return (
                           <div
                             key={p.id}
                             style={{
-                              background: isSelected ? "rgba(0, 102, 255, 0.15)" : "rgba(255, 255, 255, 0.02)",
-                              border: isSelected ? "2px solid rgba(0, 102, 255, 0.8)" : "1px solid rgba(255, 255, 255, 0.06)",
+                              background: isChecked ? "rgba(0, 102, 255, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                              border: isChecked ? "1px solid rgba(0, 102, 255, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
                               borderRadius: "10px",
                               padding: "1rem",
                               cursor: "pointer",
@@ -523,12 +635,12 @@ export default function TransfersManager() {
                               gap: "0.75rem",
                               transition: "all 0.2s ease"
                             }}
-                            onClick={() => setSellPlayerId(p.id.toString())}
+                            onClick={() => toggleSellRowSelection(p.id)}
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                               <input
-                                type="radio"
-                                checked={isSelected}
+                                type="checkbox"
+                                checked={isChecked}
                                 onChange={() => {}} // Handled by container click
                                 style={{ width: "16px", height: "16px" }}
                               />
@@ -574,7 +686,37 @@ export default function TransfersManager() {
                       <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
                         <thead>
                           <tr onClick={(e) => e.stopPropagation()}>
-                            <th style={{ width: "40px", textAlign: "center" }}>Select</th>
+                            <th style={{ width: "40px", textAlign: "center" }}>
+                              <input
+                                type="checkbox"
+                                checked={filteredSellPlayers.length > 0 && filteredSellPlayers.every(p => selectedSellPlayerIds.includes(p.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const allIds = filteredSellPlayers.map(p => p.id);
+                                    setSelectedSellPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                    setTransferTargets(prev => {
+                                      const updated = { ...prev };
+                                      filteredSellPlayers.forEach(p => {
+                                        if (!updated[p.id]) {
+                                          updated[p.id] = { buyingClubId: "", price: Number(p.signedValue) || 40 };
+                                        }
+                                      });
+                                      return updated;
+                                    });
+                                  } else {
+                                    const filteredIds = filteredSellPlayers.map(p => p.id);
+                                    setSelectedSellPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                                    setTransferTargets(prev => {
+                                      const updated = { ...prev };
+                                      filteredIds.forEach(id => {
+                                        delete updated[id];
+                                      });
+                                      return updated;
+                                    });
+                                  }
+                                }}
+                              />
+                            </th>
                             <th>Player</th>
                             <th>Position</th>
                             <th>Contract Terms</th>
@@ -583,18 +725,18 @@ export default function TransfersManager() {
                         </thead>
                         <tbody>
                           {filteredSellPlayers.map(p => {
-                            const isSelected = sellPlayerId === p.id.toString();
+                            const isChecked = selectedSellPlayerIds.includes(p.id);
                             return (
                               <tr
                                 key={p.id}
-                                style={{ background: isSelected ? "rgba(0, 102, 255, 0.15)" : "transparent", cursor: "pointer" }}
-                                onClick={() => setSellPlayerId(p.id.toString())}
+                                style={{ background: isChecked ? "rgba(0, 102, 255, 0.05)" : "transparent", cursor: "pointer" }}
+                                onClick={() => toggleSellRowSelection(p.id)}
                               >
                                 <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                                   <input
-                                    type="radio"
-                                    checked={isSelected}
-                                    onChange={() => setSellPlayerId(p.id.toString())}
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => toggleSellRowSelection(p.id)}
                                   />
                                 </td>
                                 <td>
@@ -623,127 +765,123 @@ export default function TransfersManager() {
                 </div>
               )}
 
-              {/* Player Card Display and Destination Form */}
-              {sellClubId && sellPlayerId && (() => {
-                const selectedPlayer = sellClubPlayers.find(p => p.id.toString() === sellPlayerId);
-                if (!selectedPlayer) return null;
-                return (
-                  <div>
-                    {/* Visual Player Card Details */}
-                    <div style={{
-                      background: "linear-gradient(135deg, rgba(0, 102, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                      border: "1px solid rgba(0, 102, 255, 0.2)",
-                      borderRadius: "12px",
-                      padding: "1.5rem",
-                      marginBottom: "1.5rem",
-                      display: "flex",
-                      gap: "20px",
-                      alignItems: "center",
-                      boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)"
-                    }}>
-                      <div style={{ position: "relative" }}>
-                        <img
-                          src={selectedPlayer.imagePath}
-                          alt={selectedPlayer.name}
+              {/* Bulk Transfer Setup List */}
+              {sellClubId && selectedSellPlayerIds.length > 0 && (
+                <div style={{ marginTop: "2rem" }}>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fff", marginBottom: "1.25rem" }}>
+                    Configure Transfers ({selectedSellPlayerIds.length} player(s) selected)
+                  </h3>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                    {selectedSellPlayerIds.map(playerId => {
+                      const player = sellClubPlayers.find(p => p.id === playerId);
+                      if (!player) return null;
+
+                      const target = transferTargets[playerId] || { buyingClubId: "", price: 40 };
+
+                      return (
+                        <div
+                          key={playerId}
                           style={{
-                            width: "80px",
-                            height: "80px",
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            border: "2px solid #0066ff",
-                            boxShadow: "0 0 15px rgba(0, 102, 255, 0.3)"
+                            background: "linear-gradient(135deg, rgba(0, 102, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                            border: "1px solid rgba(0, 102, 255, 0.2)",
+                            borderRadius: "12px",
+                            padding: "1.25rem",
+                            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)"
                           }}
-                          onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                        />
-                        {selectedPlayer.isSuspended && (
-                          <span style={{
-                            position: "absolute",
-                            bottom: 0,
-                            right: 0,
-                            background: "#ef4444",
-                            color: "#fff",
-                            borderRadius: "50%",
-                            width: "20px",
-                            height: "20px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "0.7rem",
-                            fontWeight: "bold"
-                          }}>S</span>
-                        )}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                          <h3 style={{ fontSize: "1.2rem", fontWeight: "700", color: "#fff", margin: 0 }}>{selectedPlayer.name}</h3>
-                          <span className="badge-info" style={{
-                            background: `${getPositionColor(selectedPlayer.position)}18`,
-                            color: getPositionColor(selectedPlayer.position),
-                            borderColor: `${getPositionColor(selectedPlayer.position)}40`,
-                            fontSize: "0.75rem",
-                            padding: "2px 8px"
-                          }}>
-                            {selectedPlayer.position}
-                          </span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "0.85rem", marginTop: "10px" }}>
-                          <div>
-                            <span style={{ color: "var(--text-secondary)", display: "block" }}>Contract Expiry</span>
-                            <strong style={{ color: "#fff" }}>
-                              {selectedPlayer.expireSeason ? `Season ${cleanSeason(selectedPlayer.expireSeason)}` : 'N/A'}
-                            </strong>
+                        >
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center" }}>
+                            {/* Left: Player info card */}
+                            <div style={{ display: "flex", gap: "12px", alignItems: "center", minWidth: "250px", flex: "1 1 300px" }}>
+                              <img
+                                src={player.imagePath}
+                                alt={player.name}
+                                style={{
+                                  width: "60px",
+                                  height: "60px",
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                  border: "2px solid #0066ff"
+                                }}
+                                onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                              />
+                              <div>
+                                <h4 style={{ fontSize: "1rem", fontWeight: "700", color: "#fff", margin: "0 0 4px 0" }}>{player.name}</h4>
+                                <span className="badge-info" style={{
+                                  background: `${getPositionColor(player.position)}18`,
+                                  color: getPositionColor(player.position),
+                                  borderColor: `${getPositionColor(player.position)}40`,
+                                  fontSize: "0.7rem",
+                                  padding: "1px 6px",
+                                  marginRight: "8px"
+                                }}>
+                                  {player.position}
+                                </span>
+                                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                  Val: <strong>{player.signedValue} Coins</strong> | Exp: <strong>Season {cleanSeason(player.expireSeason)}</strong>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Middle: Flow arrow */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <i className="fa-solid fa-arrow-right-long" style={{ color: "#0066ff", fontSize: "1.5rem" }} />
+                            </div>
+
+                            {/* Right: Destination options */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", flex: "2 1 400px", alignItems: "center" }}>
+                              <div className="admin-form-group" style={{ margin: 0, flex: 1, minWidth: "180px" }}>
+                                <label style={{ fontSize: "0.8rem", marginBottom: "4px" }}>Buying Club</label>
+                                <select
+                                  className="admin-select"
+                                  style={{ padding: "6px 12px", fontSize: "0.85rem" }}
+                                  value={target.buyingClubId}
+                                  onChange={(e) => setTransferTargets(prev => ({
+                                    ...prev,
+                                    [playerId]: { ...target, buyingClubId: e.target.value }
+                                  }))}
+                                  required
+                                >
+                                  <option value="">-- Select Buying Club --</option>
+                                  {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="admin-form-group" style={{ margin: 0, width: "120px" }}>
+                                <label style={{ fontSize: "0.8rem", marginBottom: "4px" }}>Price (Coins)</label>
+                                <input
+                                  type="number"
+                                  className="admin-input"
+                                  style={{ padding: "6px 12px", fontSize: "0.85rem" }}
+                                  value={target.price}
+                                  onChange={(e) => setTransferTargets(prev => ({
+                                    ...prev,
+                                    [playerId]: { ...target, price: parseInt(e.target.value) || 0 }
+                                  }))}
+                                  required
+                                />
+                              </div>
+
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", minWidth: "150px" }}>
+                                <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", marginRight: "4px" }} />
+                                Contract carried over (Season {cleanSeason(player.expireSeason)})
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span style={{ color: "var(--text-secondary)", display: "block" }}>Current Value</span>
-                            <strong style={{ color: "#22c55e" }}>{selectedPlayer.signedValue} Coins</strong>
-                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Flow arrow indication --> Transfer details */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "1rem 0" }}>
-                      <div style={{ height: "1px", background: "rgba(255,255,255,0.1)", flex: 1 }}></div>
-                      <div style={{ background: "rgba(0,102,255,0.1)", border: "1px solid rgba(0,102,255,0.3)", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <i className="fa-solid fa-arrow-down" style={{ color: "#0066ff" }}></i>
-                      </div>
-                      <div style={{ height: "1px", background: "rgba(255,255,255,0.1)", flex: 1 }}></div>
-                    </div>
-
-                    {/* Transfer Target Form Details */}
-                    <div className="admin-form-grid">
-                      <div className="admin-form-group">
-                        <label>Select Buying Club</label>
-                        <select className="admin-select" value={sellBuyingClubId} onChange={(e) => setSellBuyingClubId(e.target.value)} required>
-                          <option value="">-- Select Club --</option>
-                          {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="admin-form-group">
-                        <label>Transfer Price (Coins)</label>
-                        <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
-                      </div>
-
-                      <div className="admin-form-group">
-                        <label>Contract Status</label>
-                        <div style={{ padding: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                          <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", marginRight: "6px" }} />
-                          Contract duration will carry over (Season {cleanSeason(selectedPlayer.expireSeason)})
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="admin-btn-row" style={{ marginTop: "1.5rem" }}>
-                      <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                        Confirm Transfer
-                      </button>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })()}
+
+                  <div className="admin-btn-row" style={{ marginTop: "2rem" }}>
+                    <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
+                      Confirm Bulk Transfer
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         )}
@@ -845,8 +983,12 @@ export default function TransfersManager() {
                                 <span>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
-                                <span>{p.signedValue} Coins</span>
+                                <span style={{ color: "var(--text-secondary)" }}>Base Value:</span>
+                                <span>{p.value} Coins</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "var(--text-secondary)" }}>Est. Refund:</span>
+                                <span style={{ color: "#22c55e", fontWeight: "bold" }}>{p.refundAmount} Coins</span>
                               </div>
                             </div>
                           </div>
@@ -877,7 +1019,8 @@ export default function TransfersManager() {
                             <th>Player</th>
                             <th>Position</th>
                             <th>Contract Terms</th>
-                            <th style={{ textAlign: "right" }}>Contract Value</th>
+                            <th style={{ textAlign: "right" }}>Base Value</th>
+                            <th style={{ textAlign: "right" }}>Est. Refund</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -911,7 +1054,8 @@ export default function TransfersManager() {
                                 <td>
                                   {cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}
                                 </td>
-                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
+                                <td style={{ textAlign: "right" }}>{p.value} Coins</td>
+                                <td style={{ textAlign: "right", color: "#22c55e", fontWeight: "bold" }}>{p.refundAmount} Coins</td>
                               </tr>
                             );
                           })}
@@ -950,7 +1094,7 @@ export default function TransfersManager() {
         {activeTab === 'swap' && (
           <div className="admin-card">
             <h2 className="admin-card-title"><i className="fa-solid fa-rotate" /> Execute Player Swap Deal</h2>
-            <form onSubmit={handleSwap}>
+            <form onSubmit={addSwapToQueue}>
               <div className="sub-card" style={{ marginBottom: "1rem" }}>
                 <div className="sub-card-title">Club A Setup</div>
                 <div className="admin-form-grid">
@@ -1018,11 +1162,65 @@ export default function TransfersManager() {
               </div>
 
               <div className="admin-btn-row">
-                <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                  Execute Swap Deal
+                <button type="submit" className="portal-btn btn-primary">
+                  <i className="fa-solid fa-plus" /> Add Swap Deal to Queue
                 </button>
               </div>
             </form>
+
+            {bulkSwaps.length > 0 && (
+              <div style={{ marginTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fff", marginBottom: "1.25rem" }}>
+                  Queued Swap Deals ({bulkSwaps.length})
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
+                  {bulkSwaps.map((deal, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.06)",
+                        borderRadius: "10px",
+                        padding: "1rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "15px"
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.9rem" }}>
+                          <strong>{deal.clubAName}</strong> ({deal.playerAName})
+                          <i className="fa-solid fa-right-left" style={{ color: "#0066ff" }} />
+                          <strong>{deal.clubBName}</strong> ({deal.playerBName})
+                        </div>
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "6px" }}>
+                          Val A: <strong>{deal.newValueA} Coins</strong> | Val B: <strong>{deal.newValueB} Coins</strong>
+                          {deal.cashAdjustmentAtoB !== 0 && (
+                            <>
+                              {" | "}Cash Adjustment: <strong>{deal.cashAdjustmentAtoB > 0 ? `${deal.clubAName} pays ${deal.clubBName} ${deal.cashAdjustmentAtoB} Coins` : `${deal.clubBName} pays ${deal.clubAName} ${Math.abs(deal.cashAdjustmentAtoB)} Coins`}</strong>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "4px 10px", fontSize: "0.8rem", color: "#ef4444", borderColor: "#ef4444" }}
+                        onClick={() => setBulkSwaps(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <i className="fa-solid fa-trash" /> Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="admin-btn-row">
+                  <button type="button" className="portal-btn btn-primary" onClick={handleExecuteBulkSwaps} disabled={isPending}>
+                    Execute All Swap Deals
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
