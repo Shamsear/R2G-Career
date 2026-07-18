@@ -414,31 +414,8 @@ export default function TransfersManager() {
         {/* Tab 2: Sell */}
         {activeTab === 'sell' && (
           <div className="admin-card">
-            <h2 className="admin-card-title"><i className="fa-solid fa-hand-holding-dollar" /> Sell/Release Squad Player</h2>
+            <h2 className="admin-card-title"><i className="fa-solid fa-hand-holding-dollar" /> Sell Squad Player</h2>
             <form onSubmit={handleSell}>
-              {/* Operation Selector */}
-              <div className="admin-form-group" style={{ marginBottom: "1.5rem" }}>
-                <label>Operation Type</label>
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
-                  <button
-                    type="button"
-                    className={`portal-btn ${sellOpType === 'sell' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, padding: "8px" }}
-                    onClick={() => setSellOpType('sell')}
-                  >
-                    <i className="fa-solid fa-hand-holding-dollar" /> Sell (Receive Custom Price)
-                  </button>
-                  <button
-                    type="button"
-                    className={`portal-btn ${sellOpType === 'release' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ flex: 1, padding: "8px" }}
-                    onClick={() => setSellOpType('release')}
-                  >
-                    <i className="fa-solid fa-file-contract" /> Release (Cut Contract)
-                  </button>
-                </div>
-              </div>
-
               <div className="admin-form-grid">
                 <div className="admin-form-group">
                   <label>Select Selling Club</label>
@@ -450,7 +427,7 @@ export default function TransfersManager() {
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label>Select Player to Sell/Release</label>
+                  <label>Select Player to Sell</label>
                   <select className="admin-select" value={sellPlayerId} onChange={(e) => setSellPlayerId(e.target.value)} required>
                     <option value="">-- Select Player --</option>
                     {sellClubPlayers.map(p => (
@@ -459,100 +436,178 @@ export default function TransfersManager() {
                   </select>
                 </div>
 
-                {sellOpType === 'sell' ? (
-                  <div className="admin-form-group">
-                    <label>Selling Price / Compensation (Coins)</label>
-                    <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
-                  </div>
-                ) : (
-                  <>
-                    <div className="admin-form-group">
-                      <label>Release Timing</label>
-                      <select className="admin-select" value={releaseTiming} onChange={(e) => setReleaseTiming(e.target.value as 'start' | 'mid')} required>
-                        <option value="start">Season Start (Season {activeSeason?.season_number})</option>
-                        <option value="mid">Mid-Season (Season {activeSeason?.season_number}.5)</option>
-                      </select>
-                    </div>
-
-                    <div className="admin-form-group">
-                      <label style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span>Refund Percentage</span>
-                        <strong style={{ color: "var(--solo-primary)" }}>{refundPercentage}%</strong>
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="5"
-                        style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
-                        value={refundPercentage}
-                        onChange={(e) => setRefundPercentage(parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="admin-form-group">
+                  <label>Selling Price / Compensation (Coins)</label>
+                  <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
+                </div>
               </div>
 
-              {/* Release Preview Card */}
-              {sellOpType === 'release' && (
-                <div style={{ marginTop: "1.5rem" }}>
-                  {loadingContract ? (
-                    <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-secondary)" }}>
-                      <i className="fa-solid fa-spinner fa-spin" style={{ color: "var(--solo-primary)" }} /> Loading contract details...
+              <div className="admin-btn-row" style={{ marginTop: "1rem" }}>
+                <button type="submit" className="portal-btn btn-danger" disabled={isPending}>
+                  Confirm Sale & Terminate Contract
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Tab 2.5: Release */}
+        {activeTab === 'release' && (
+          <div className="admin-card">
+            <h2 className="admin-card-title"><i className="fa-solid fa-file-contract" /> Bulk Release Squad Players</h2>
+            <form onSubmit={handleBulkRelease}>
+              <div className="admin-form-grid" style={{ marginBottom: "1.5rem" }}>
+                <div className="admin-form-group">
+                  <label>Select Club</label>
+                  <select className="admin-select" value={releaseClubId} onChange={(e) => setReleaseClubId(e.target.value)} required>
+                    <option value="">-- Select Club --</option>
+                    {clubs.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Release Timing</label>
+                  <select className="admin-select" value={releaseTiming} onChange={(e) => setReleaseTiming(e.target.value as 'start' | 'mid')} required>
+                    <option value="start">Season Start (Season {activeSeason?.season_number})</option>
+                    <option value="mid">Mid-Season (Season {activeSeason?.season_number}.5)</option>
+                  </select>
+                </div>
+
+                <div className="admin-form-group">
+                  <label style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Refund Percentage</span>
+                    <strong style={{ color: "var(--solo-primary)" }}>{refundPercentage}%</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    style={{ width: "100%", accentColor: "var(--solo-primary)", marginTop: "4px" }}
+                    value={refundPercentage}
+                    onChange={(e) => setRefundPercentage(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              {releaseClubId && (
+                <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players & Refunds</h3>
+                    
+                    {/* Search bar inside release tab */}
+                    <input
+                      type="text"
+                      className="admin-input"
+                      style={{ maxWidth: "250px", fontSize: "0.8rem", padding: "6px 12px" }}
+                      placeholder="Search player name/position..."
+                      value={releaseSearchTerm}
+                      onChange={(e) => setReleaseSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  {loadingReleasePlayers ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                      <i className="fa-solid fa-spinner fa-spin" /> Loading squad players...
                     </div>
-                  ) : activeContract ? (
-                    <div style={{
-                      background: "rgba(255, 255, 255, 0.03)",
-                      border: "1px solid rgba(255, 255, 255, 0.06)",
-                      borderRadius: "8px",
-                      padding: "1rem",
-                      fontSize: "0.85rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                      maxWidth: "500px"
-                    }}>
-                      <h4 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <i className="fa-solid fa-calculator" style={{ color: "#fbbf24" }} /> Contract Cut Calculation
-                      </h4>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "var(--text-secondary)" }}>Contract Duration:</span>
-                        <span>Season {releasePreview?.startSeasonNum} to {releasePreview?.expireSeasonNum} ({releasePreview?.totalDuration} Season{releasePreview?.totalDuration !== 1 ? 's' : ''})</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "var(--text-secondary)" }}>Release Timing:</span>
-                        <span>Season {releasePreview?.releaseSeasonNum} ({releasePreview?.elapsedDuration} Season{releasePreview?.elapsedDuration !== 1 ? 's' : ''} Elapsed)</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "var(--text-secondary)" }}>Remaining Contract:</span>
-                        <span>{releasePreview?.remainingDuration} Season{releasePreview?.remainingDuration !== 1 ? 's' : ''} ({Math.round((releasePreview?.remainingDuration || 0) / (releasePreview?.totalDuration || 1) * 100)}%)</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "var(--text-secondary)" }}>Original Value:</span>
-                        <span>{activeContract.signed_value} Coins</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", paddingTop: "0.5rem", marginTop: "0.3rem" }}>
-                        <span style={{ color: "var(--text-secondary)" }}>Remaining Contract Value:</span>
-                        <span>{Math.round(releasePreview?.remainingValue || 0)} Coins</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem", fontWeight: "bold" }}>
-                        <span style={{ color: "#fbbf24" }}>Calculated Refund Amount:</span>
-                        <span style={{ color: "#fbbf24" }}>{releasePreview?.refundAmount || 0} Coins <span style={{ fontSize: "0.75rem", fontWeight: "normal", color: "var(--text-secondary)" }}>(disabled)</span></span>
-                      </div>
+                  ) : filteredReleasePlayers.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                      No players found matching your criteria.
                     </div>
                   ) : (
-                    sellPlayerId && (
-                      <div style={{ padding: "0.5rem", color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>
-                        No active contract details found to compute refund calculations.
-                      </div>
-                    )
+                    <div className="table-responsive">
+                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: "40px", textAlign: "center" }}>
+                              <input
+                                type="checkbox"
+                                checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const allIds = filteredReleasePlayers.map(p => p.id);
+                                    setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                  } else {
+                                    const filteredIds = filteredReleasePlayers.map(p => p.id);
+                                    setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Contract Terms</th>
+                            <th style={{ textAlign: "right" }}>Contract Value</th>
+                            <th style={{ textAlign: "right", color: "#fbbf24" }}>Refund (Disabled)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredReleasePlayers.map(p => {
+                            const isChecked = selectedPlayerIds.includes(p.id);
+                            return (
+                              <tr key={p.id} style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent" }}>
+                                <td style={{ textAlign: "center" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedPlayerIds(prev => [...prev, p.id]);
+                                      } else {
+                                        setSelectedPlayerIds(prev => prev.filter(id => id !== p.id));
+                                      }
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <img
+                                      src={p.imagePath}
+                                      alt=""
+                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                    />
+                                    <strong>{p.name}</strong>
+                                  </div>
+                                </td>
+                                <td>{p.position}</td>
+                                <td>
+                                  {p.startSeason} to {p.expireSeason} ({p.totalDuration} Season{p.totalDuration !== 1 ? 's' : ''})
+                                </td>
+                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
+                                <td style={{ textAlign: "right", color: "#fbbf24", fontWeight: "600" }}>
+                                  {p.refundAmount} Coins
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {selectedPlayerIds.length > 0 && (
+                    <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      Selected <strong>{selectedPlayerIds.length}</strong> player(s) for release.
+                    </div>
                   )}
                 </div>
               )}
 
-              <div className="admin-btn-row" style={{ marginTop: "1rem" }}>
-                <button type="submit" className="portal-btn btn-danger" disabled={isPending}>
-                  {sellOpType === 'sell' ? 'Confirm Sale & Terminate Contract' : 'Confirm Release & Cut Contract'}
+              <div className="admin-btn-row">
+                <button
+                  type="submit"
+                  className="portal-btn btn-danger"
+                  disabled={isPending || selectedPlayerIds.length === 0}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  {isPending ? (
+                    <><i className="fa-solid fa-spinner fa-spin" /> Releasing...</>
+                  ) : (
+                    <><i className="fa-solid fa-user-minus" /> Release Selected Player(s) ({selectedPlayerIds.length})</>
+                  )}
                 </button>
               </div>
             </form>
