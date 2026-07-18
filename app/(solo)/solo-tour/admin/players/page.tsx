@@ -184,7 +184,8 @@ export default function PlayersManager() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          zIndex: 1000
+          zIndex: 9999,
+          overflowY: "auto"
         }}>
           <div className="fine-modal-content" style={{
             background: "rgba(18, 18, 18, 0.95)",
@@ -195,7 +196,9 @@ export default function PlayersManager() {
             maxWidth: "500px",
             width: "100%",
             position: "relative",
-            overflow: "hidden"
+            overflow: "hidden",
+            margin: "2rem auto",
+            zIndex: 10000
           }}>
             {/* Ambient Background Glow */}
             <div style={{
@@ -329,17 +332,15 @@ export default function PlayersManager() {
                   </div>
 
                   <div className="admin-form-group">
-                    <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Card Type (Star Tier)</label>
+                    <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Card Type</label>
                     <select
                       className="admin-select"
                       style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
                       value={playerForm.star}
                       onChange={(e) => setPlayerForm(prev => ({ ...prev, star: e.target.value }))}
                     >
-                      <option value="three-star-standard">3★ Standard</option>
-                      <option value="four-star-standard">4★ Standard</option>
-                      <option value="five-star-standard">5★ Standard</option>
-                      <option value="five-star-legend">5★ Legend</option>
+                      <option value="3-star-standard">Standard</option>
+                      <option value="5-star-legend">Legend</option>
                     </select>
                   </div>
                 </div>
