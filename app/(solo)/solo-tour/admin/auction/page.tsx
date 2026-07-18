@@ -236,12 +236,12 @@ export default function AuctionManager() {
   };
 
   const copyBatchList = (players: any[], title: string) => {
-    const lines = [`ðŸ”´ *${title}*`, ""];
+    const lines = [`*${title}*`, ""];
     let lastClub = "";
     for (const p of players) {
       if (p.club_name !== lastClub) {
         if (lastClub !== "") lines.push("");
-        lines.push(`ðŸŸï¸ *${p.club_name || "Free Agent"}*`);
+        lines.push(`*${p.club_name || "Free Agent"}*`);
         lastClub = p.club_name;
       }
       const typeLabel = p.contract_type === 'mid' ? '[Mid]' : '[Start]';
@@ -250,6 +250,7 @@ export default function AuctionManager() {
     navigator.clipboard.writeText(lines.join("\n"));
     showToast("Copied to clipboard!");
   };
+
   const filteredSellPlayers = useMemo(() => {
     return sellClubPlayers.filter(p =>
       p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) ||
@@ -352,7 +353,7 @@ export default function AuctionManager() {
       price: sellPrice,
       expireSeason: sellSelectedPlayer.expireSeason,
     }]);
-    showToast(`${sellSelectedPlayer.name} â†’ ${buyingClub?.name} added to queue!`);
+    showToast(`${sellSelectedPlayer.name} â-- ${buyingClub?.name} added to queue!`);
     // Reset player + buying club but keep selling club so user can add another from same club
     setSellSelectedPlayer(null);
     setSellBuyingClubId("");
@@ -1150,7 +1151,7 @@ export default function AuctionManager() {
           <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Players</h2>
 
-            {/* â”€â”€ Selling Club â”€â”€ */}
+            {/* â-€â-€ Selling Club â-€â-€ */}
             <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
               <div className="sub-card-title">Selling Club</div>
               <div className="admin-form-group" style={{ position: "relative" }} data-sell-club-dd="true">
@@ -1256,7 +1257,7 @@ export default function AuctionManager() {
               )}
             </div>
 
-            {/* â”€â”€ Deal Builder (shows only when player is selected) â”€â”€ */}
+            {/* â-€â-€ Deal Builder (shows only when player is selected) â-€â-€ */}
             {sellSelectedPlayer && (
               <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Buying Club &amp; Price</div>
@@ -1330,7 +1331,7 @@ export default function AuctionManager() {
                         <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>{sellPrice} Coins</span>
                       </div>
                       <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px" }}>
-                        Contract carried over Â· expires Season {cleanSeason(sellSelectedPlayer.expireSeason)}
+                        Contract carried over  expires Season {cleanSeason(sellSelectedPlayer.expireSeason)}
                       </div>
                     </div>
                   );
@@ -1344,7 +1345,7 @@ export default function AuctionManager() {
               </div>
             )}
 
-            {/* â”€â”€ Transfer Queue â”€â”€ */}
+            {/* â-€â-€ Transfer Queue â-€â-€ */}
             {bulkTransfers.length > 0 && (
               <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
                 <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", marginBottom: "1.25rem" }}>
@@ -1372,7 +1373,7 @@ export default function AuctionManager() {
                         </div>
                         <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
                           Price: <strong style={{ color: "#22c55e" }}>{t.price} Coins</strong>
-                          <span style={{ marginLeft: "10px" }}>Â·</span>
+                          <span style={{ marginLeft: "10px" }}></span>
                           <span style={{ marginLeft: "10px" }}>Contract expires Season {cleanSeason(t.expireSeason)}</span>
                         </div>
                       </div>
@@ -1477,7 +1478,7 @@ export default function AuctionManager() {
                                   </div>
                                 </div>
                                 <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "2px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span></div>
                                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                                 </div>
                               </div>
@@ -1521,7 +1522,7 @@ export default function AuctionManager() {
                                     </td>
                                     <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                     <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</td>
                                     <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                   </tr>
                                 );
@@ -1572,7 +1573,7 @@ export default function AuctionManager() {
                         </div>
                         <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
                           Est. Refund: <strong style={{ color: "#ef4444" }}>{r.refundAmount} Coins</strong>
-                          <span style={{ marginLeft: "10px" }}>·</span>
+                          <span style={{ marginLeft: "10px" }}></span>
                           <span style={{ marginLeft: "10px" }}>Contract expires Season {cleanSeason(r.expireSeason)}</span>
                         </div>
                       </div>
@@ -1980,13 +1981,13 @@ export default function AuctionManager() {
                 </button>
                 {batchPreviewPlayers.length > 0 && (
                   <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                    <strong style={{ color: "#fbbf24" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'start').length}</strong> start &nbsp;Â·&nbsp;
+                    <strong style={{ color: "#fbbf24" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'start').length}</strong> start &nbsp;·&nbsp;
                     <strong style={{ color: "#60a5fa" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'mid').length}</strong> mid-season contracts expiring
                   </span>
                 )}
               </div>
 
-              {/* â”€â”€ Season Start Sub-section â”€â”€ */}
+              {/* Season Start Sub-section */}
               {(() => {
                 const startPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'start');
                 if (!batchPreviewOpen && !batchReleasedOpen) return null;
@@ -2080,7 +2081,7 @@ export default function AuctionManager() {
                 );
               })()}
 
-              {/* â”€â”€ Mid-Season Sub-section â”€â”€ */}
+              {/* Mid-Season Sub-section */}
               {(() => {
                 const midPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'mid');
                 if (!batchPreviewOpen && !batchReleasedOpen) return null;
