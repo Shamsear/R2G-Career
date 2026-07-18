@@ -25,6 +25,11 @@ export default function ClubsManager() {
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const [selectedCountryCode, setSelectedCountryCode] = useState("+91");
+  const [localMobileNo, setLocalMobileNo] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [countrySearchQuery, setCountrySearchQuery] = useState("");
+
   const [clubForm, setClubForm] = useState({
     id: "",
     clubId: "",
@@ -92,13 +97,23 @@ export default function ClubsManager() {
       isBanned: false,
       isActive: true
     });
+    setSelectedCountryCode("+91");
+    setLocalMobileNo("");
+  };
+
+  const getFormForSubmission = () => {
+    const combinedMobNo = localMobileNo.trim() ? `${selectedCountryCode}${localMobileNo.trim()}` : "";
+    return {
+      ...clubForm,
+      mobNo: combinedMobNo
+    };
   };
 
   const handleUpdateManagerProfile = () => {
     if (!clubForm.managerName) return showToast("Manager name is required!");
     startTransition(async () => {
       try {
-        await updateManagerProfileOnly(clubForm);
+        await updateManagerProfileOnly(getFormForSubmission());
         showToast("Manager profile updated successfully!");
         loadData();
       } catch (err) {
@@ -111,7 +126,7 @@ export default function ClubsManager() {
   const handleUpdateManagerClub = () => {
     startTransition(async () => {
       try {
-        await updateManagerClubOnly(clubForm);
+        await updateManagerClubOnly(getFormForSubmission());
         showToast("Club & franchise updated successfully!");
         loadData();
       } catch (err) {
@@ -124,7 +139,7 @@ export default function ClubsManager() {
   const handleUpdateManagerWalletAndStats = () => {
     startTransition(async () => {
       try {
-        await updateManagerWalletAndStatsOnly(clubForm);
+        await updateManagerWalletAndStatsOnly(getFormForSubmission());
         showToast("Wallet & performance stats updated successfully!");
         loadData();
       } catch (err) {
@@ -139,11 +154,12 @@ export default function ClubsManager() {
     if (!clubForm.managerName) return showToast("Manager name is required!");
     startTransition(async () => {
       try {
+        const submissionData = getFormForSubmission();
         if (clubForm.id) {
-          await updateManagerDetails(clubForm);
+          await updateManagerDetails(submissionData);
           showToast("Club & Manager details updated!");
         } else {
-          await createClubAndManager(clubForm);
+          await createClubAndManager(submissionData);
           showToast("Club & Manager registered successfully!");
         }
         clearForm();
@@ -181,6 +197,23 @@ export default function ClubsManager() {
   };
 
   const handleEditManager = (m: any) => {
+    const countryCodes = ["+91", "+971", "+966", "+974", "+965", "+968", "+973", "+1", "+44", "+92", "+880", "+60", "+65", "+61"];
+    let matchedCode = "+91";
+    let localNum = m.mob_no || "";
+    
+    if (localNum.startsWith("+")) {
+      for (const code of countryCodes) {
+        if (localNum.startsWith(code)) {
+          matchedCode = code;
+          localNum = localNum.slice(code.length).trim();
+          break;
+        }
+      }
+    }
+    
+    setSelectedCountryCode(matchedCode);
+    setLocalMobileNo(localNum);
+
     setClubForm({
       id: m.id.toString(),
       clubId: m.club_id ? m.club_id.toString() : "",
@@ -504,7 +537,37 @@ export default function ClubsManager() {
                   <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
                     <div className="admin-form-group">
                       <label>Mobile Number</label>
-                      <input type="text" className="admin-input" value={clubForm.mobNo} onChange={(e) => setClubForm(prev => ({ ...prev, mobNo: e.target.value }))} placeholder="e.g. +123456789" />
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <select 
+                          className="admin-select" 
+                          style={{ width: "110px", flexShrink: 0 }}
+                          value={selectedCountryCode}
+                          onChange={(e) => setSelectedCountryCode(e.target.value)}
+                        >
+                          <option value="+91">IN (+91)</option>
+                          <option value="+971">UAE (+971)</option>
+                          <option value="+966">KSA (+966)</option>
+                          <option value="+974">QA (+974)</option>
+                          <option value="+965">KW (+965)</option>
+                          <option value="+968">OM (+968)</option>
+                          <option value="+973">BH (+973)</option>
+                          <option value="+1">US (+1)</option>
+                          <option value="+44">UK (+44)</option>
+                          <option value="+92">PK (+92)</option>
+                          <option value="+880">BD (+880)</option>
+                          <option value="+60">MY (+60)</option>
+                          <option value="+65">SG (+65)</option>
+                          <option value="+61">AU (+61)</option>
+                        </select>
+                        <input 
+                          type="text" 
+                          className="admin-input" 
+                          value={localMobileNo} 
+                          onChange={(e) => setLocalMobileNo(e.target.value.replace(/\D/g, ""))}
+                          placeholder="e.g. 9876543210" 
+                          style={{ flex: 1 }}
+                        />
+                      </div>
                     </div>
                     <div className="admin-form-group">
                       <label>Place</label>

@@ -1310,9 +1310,9 @@ export async function updateManagerProfileOnly(data: any) {
     
     await pool.query(`
       UPDATE managers 
-      SET name = $1, avatar_path = $2, is_active = $3, mob_no = $4, place = $5, r2g_id = $1
-      WHERE id = $6
-    `, [managerName, avatarPath, data.isActive !== false, mobNo, place, managerId]);
+      SET name = $1, avatar_path = $2, is_active = $3, mob_no = $4, place = $5, r2g_id = $6
+      WHERE id = $7
+    `, [managerName, avatarPath, data.isActive !== false, mobNo, place, managerName, managerId]);
     return { success: true };
   } catch (e) {
     console.error("Error updating manager profile:", e);
