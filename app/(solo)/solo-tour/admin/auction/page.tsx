@@ -73,10 +73,11 @@ export default function AuctionManager() {
   // Release state
   const [releaseClubId, setReleaseClubId] = useState<string>("");
   const [releaseClubPlayers, setReleaseClubPlayers] = useState<any[]>([]);
+  const [releaseSelectedIds, setReleaseSelectedIds] = useState<number[]>([]);
   const [releaseSearchTerm, setReleaseSearchTerm] = useState<string>("");
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [releaseTiming, setReleaseTiming] = useState<"start" | "mid">("start");
   const [loadingReleasePlayers, setLoadingReleasePlayers] = useState<boolean>(false);
+  const [bulkReleases, setBulkReleases] = useState<any[]>([]);
 
   // Swap state
   const [swapClubAId, setSwapClubAId] = useState<string>("");
@@ -174,7 +175,7 @@ export default function AuctionManager() {
       fetchClubPlayersWithContracts(parseInt(releaseClubId), activeSeason.id)
         .then((data) => {
           setReleaseClubPlayers(data || []);
-          setSelectedPlayerIds([]);
+          setReleaseSelectedIds([]);
           setLoadingReleasePlayers(false);
         })
         .catch(() => {
@@ -183,7 +184,7 @@ export default function AuctionManager() {
         });
     } else {
       setReleaseClubPlayers([]);
-      setSelectedPlayerIds([]);
+      setReleaseSelectedIds([]);
     }
   }, [releaseClubId, activeSeason]);
 
@@ -479,32 +480,91 @@ export default function AuctionManager() {
     }
   };
 
-  // Bulk Release Handler
-  const handleBulkRelease = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!releaseClubId || selectedPlayerIds.length === 0) {
-      return showToast("Please select at least one player to release!");
+  // Release queue: add multiple checked players from the selected team
+  const handleAddRelease = () => {
+    if (!releaseClubId) return showToast("Select a club!");
+    if (releaseSelectedIds.length === 0) return showToast("Select at least one player!");
+
+    const club = clubs.find(c => c.id.toString() === releaseClubId);
+    let addedCount = 0;
+
+    const parseSeason = (s: string) => {
+      const cleaned = s.replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0.0;
+    };
+
+    setBulkReleases(prev => {
+      const nextQueue = [...prev];
+      for (const playerId of releaseSelectedIds) {
+        const player = releaseClubPlayers.find(p => p.id === playerId);
+        if (!player) continue;
+        
+        const alreadyQueued = nextQueue.some(r => r.playerId === playerId);
+        if (alreadyQueued) continue;
+
+        // Calculate refund
+        const signedValue = Number(player.signedValue) || 0;
+        const baseValue = Number(player.value) || 0;
+        const startSeasonNum = parseSeason(player.startSeason || '');
+        const expireSeasonNum = parseSeason(player.expireSeason || '');
+        const totalDuration = expireSeasonNum - startSeasonNum;
+        
+        let refund = 0;
+        if (totalDuration > 0 && activeSeason) {
+          const currentSeasonNum = Number(activeSeason.season_number) || 9;
+          const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
+          const remainingDuration = expireSeasonNum - releaseSeasonNum;
+          if (remainingDuration > 0) {
+            const valueRatio = signedValue / baseValue;
+            const refundFactor = valueRatio > 1.25 ? 0.5 : 0.75;
+            const baseRefund = (remainingDuration / totalDuration) * baseValue;
+            refund = Math.round(baseRefund * refundFactor);
+          }
+        }
+
+        nextQueue.push({
+          clubId: parseInt(releaseClubId),
+          clubName: club?.name || "",
+          clubLogo: club?.image || "",
+          playerId: player.id,
+          playerName: player.name,
+          playerPosition: player.position,
+          playerImage: player.imagePath,
+          expireSeason: player.expireSeason,
+          refundAmount: refund,
+        });
+        addedCount++;
+      }
+      return nextQueue;
+    });
+
+    if (addedCount > 0) {
+      showToast(`Added ${addedCount} player(s) to release queue!`);
+    } else {
+      showToast("All selected players were already in the queue!");
     }
-    
-    if (!confirm(`Are you sure you want to release the ${selectedPlayerIds.length} selected player(s)?`)) return;
+    setReleaseSelectedIds([]);
+  };
+
+  const handleExecuteBulkReleases = () => {
+    if (bulkReleases.length === 0) return showToast("No releases queued!");
+    if (!confirm(`Are you sure you want to release all ${bulkReleases.length} queued player(s)?`)) return;
 
     startTransition(async () => {
       try {
         let count = 0;
-        for (const playerId of selectedPlayerIds) {
+        for (const item of bulkReleases) {
           await releasePlayerContract(
-            playerId,
+            item.playerId,
             activeSeason.id,
             releaseTiming
           );
           count++;
         }
         showToast(`Successfully released ${count} player(s)!`);
-        setSelectedPlayerIds([]);
-        if (releaseClubId && activeSeason) {
-          const data = await fetchClubPlayersWithContracts(parseInt(releaseClubId), activeSeason.id);
-          setReleaseClubPlayers(data || []);
-        }
+        setBulkReleases([]);
+        setReleaseSelectedIds([]);
+        setReleaseClubId("");
         loadData();
       } catch (err: any) {
         showToast(`Operation failed: ${err.message || "Failed to execute"}`);
@@ -1337,10 +1397,26 @@ export default function AuctionManager() {
         {activeTab === 'release' && (
           <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-file-contract" /> Bulk Release Squad Players</h2>
-            <form onSubmit={handleBulkRelease}>
-              <div className="admin-form-grid" style={{ marginBottom: "1.5rem", overflow: "visible" }}>
-                <div className="admin-form-group" style={{ position: "relative" }} data-release-club-dd="true">
-                  <label>Select Club</label>
+
+            {/* Timing & Club Selector */}
+            <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
+              <div className="sub-card-title">Release Setup</div>
+              
+              <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+                <div style={{ flex: 1, minWidth: "220px" }}>
+                  <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Release Timing</label>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button type="button" className={`portal-btn ${releaseTiming === 'start' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReleaseTiming('start')} style={{ flex: 1, height: "36px" }}>
+                      Season Start
+                    </button>
+                    <button type="button" className={`portal-btn ${releaseTiming === 'mid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReleaseTiming('mid')} style={{ flex: 1, height: "36px" }}>
+                      Mid-Season
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1.5, minWidth: "220px", position: "relative" }} data-release-club-dd="true">
+                  <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Select Club</label>
                   <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: releaseClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
                     onClick={() => setReleaseClubDDOpen(p => !p)}>
                     <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1354,9 +1430,9 @@ export default function AuctionManager() {
                       <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                         <input autoFocus type="text" placeholder="Search club..." value={releaseClubDDSearch} onChange={e => setReleaseClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
                       </div>
-                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                      <div style={{ maxHeight: "200px", overflowY: "auto" }}>
                         {clubs.filter(c => releaseClubDDSearch === "" || c.name.toLowerCase().includes(releaseClubDDSearch.toLowerCase())).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setReleaseClubId(c.id.toString()); setReleaseClubDDOpen(false); setReleaseClubDDSearch(""); }}
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setReleaseClubId(c.id.toString()); setReleaseClubDDOpen(false); setReleaseClubDDSearch(""); setReleaseSelectedPlayer(null); }}
                             style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: releaseClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: releaseClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: releaseClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
                             onMouseEnter={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
                             onMouseLeave={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
@@ -1371,190 +1447,149 @@ export default function AuctionManager() {
                 </div>
               </div>
 
+              {/* Roster selection display */}
               {releaseClubId && (
-                <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players</h3>
-                    
-                    {/* Search bar inside release tab */}
-                    <input
-                      type="text"
-                      className="admin-input"
-                      style={{ maxWidth: "250px", fontSize: "0.8rem", padding: "6px 12px" }}
-                      placeholder="Search player name/position..."
-                      value={releaseSearchTerm}
-                      onChange={(e) => setReleaseSearchTerm(e.target.value)}
-                    />
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "12px", marginBottom: "8px", flexWrap: "wrap" }}>
+                    <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>Select Players to Release</label>
+                    <input type="text" className="admin-input" style={{ maxWidth: "220px", fontSize: "0.78rem", padding: "5px 10px" }} placeholder="Search name / position..." value={releaseSearchTerm} onChange={e => setReleaseSearchTerm(e.target.value)} />
                   </div>
 
                   {loadingReleasePlayers ? (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
-                      <i className="fa-solid fa-spinner fa-spin" /> Loading squad players...
-                    </div>
-                  ) : filteredReleasePlayers.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                      No players found matching your criteria.
-                    </div>
-                  ) : isMobile ? (
-                    /* Mobile Card View */
-                    <div className="release-mobile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-                      {filteredReleasePlayers.map(p => {
-                        const isChecked = selectedPlayerIds.includes(p.id);
-                        return (
-                          <div
-                            key={p.id}
-                            style={{
-                              background: isChecked ? "rgba(56, 189, 248, 0.05)" : "rgba(255, 255, 255, 0.02)",
-                              border: isChecked ? "1px solid rgba(56, 189, 248, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
-                              borderRadius: "10px",
-                              padding: "1rem",
-                              cursor: "pointer",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "0.75rem",
-                              transition: "all 0.2s ease"
-                            }}
-                            onClick={() => toggleRowSelection(p.id)}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {}} // Handled by container click
-                                style={{ width: "16px", height: "16px" }}
-                              />
-                              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                                  <img
-                                    src={p.imagePath}
-                                    alt=""
-                                    style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
-                                    onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                                  />
-                                  <div>
-                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
-                                    <span className="badge-info" style={{ 
-                                      background: `${getPositionColor(p.position)}18`, 
-                                      color: getPositionColor(p.position), 
-                                      borderColor: `${getPositionColor(p.position)}40`,
-                                      fontSize: "0.7rem",
-                                      padding: "1px 6px"
-                                    }}>
-                                      {p.position}
-                                    </span>
-                                  </div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
-                                <span>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>Base Value:</span>
-                                <span>{p.value} Coins</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>Est. Refund:</span>
-                                <span style={{ color: "#22c55e", fontWeight: "bold" }}>{p.refundAmount} Coins</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-secondary)" }}><i className="fa-solid fa-spinner fa-spin" /> Loading...</div>
                   ) : (
-                    /* Desktop Table View */
-                    <div className="table-responsive">
-                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
-                        <thead>
-                          <tr onClick={(e) => e.stopPropagation()}>
-                            <th style={{ width: "40px", textAlign: "center" }}>
-                              <input
-                                type="checkbox"
-                                checked={filteredReleasePlayers.length > 0 && filteredReleasePlayers.every(p => selectedPlayerIds.includes(p.id))}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    const allIds = filteredReleasePlayers.map(p => p.id);
-                                    setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
-                                  } else {
-                                    const filteredIds = filteredReleasePlayers.map(p => p.id);
-                                    setSelectedPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
-                                  }
-                                }}
-                              />
-                            </th>
-                            <th>Player</th>
-                            <th>Position</th>
-                            <th>Contract Terms</th>
-                            <th style={{ textAlign: "right" }}>Base Value</th>
-                            <th style={{ textAlign: "right" }}>Est. Refund</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredReleasePlayers.map(p => {
-                            const isChecked = selectedPlayerIds.includes(p.id);
+                    <>
+                      {isMobile ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          {releaseClubPlayers.filter(p => releaseSearchTerm === "" || p.name.toLowerCase().includes(releaseSearchTerm.toLowerCase()) || p.position.toLowerCase().includes(releaseSearchTerm.toLowerCase())).map(p => {
+                            const isChecked = releaseSelectedIds.includes(p.id);
                             return (
-                              <tr
-                                key={p.id}
-                                style={{ background: isChecked ? "rgba(56, 189, 248, 0.03)" : "transparent", cursor: "pointer" }}
-                                onClick={() => toggleRowSelection(p.id)}
-                              >
-                                <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => toggleRowSelection(p.id)}
-                                  />
-                                </td>
-                                <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <img
-                                      src={p.imagePath}
-                                      alt=""
-                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
-                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                                    />
-                                    <strong>{p.name}</strong>
+                              <div key={p.id} onClick={() => {
+                                setReleaseSelectedIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                              }}
+                                style={{ background: isChecked ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.03)", border: isChecked ? "1.5px solid rgba(239,68,68,0.3)" : "1.5px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "10px", cursor: "pointer", transition: "all 0.15s ease" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                                  <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ pointerEvents: "none" }} />
+                                  <img src={p.imagePath} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                                  <div style={{ minWidth: 0 }}>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.82rem", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{p.name}</strong>
+                                    <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.6rem", padding: "0 4px", fontWeight: 700 }}>{p.position}</span>
                                   </div>
-                                </td>
-                                <td>{p.position}</td>
-                                <td>
-                                  {cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}
-                                </td>
-                                <td style={{ textAlign: "right" }}>{p.value} Coins</td>
-                                <td style={{ textAlign: "right", color: "#22c55e", fontWeight: "bold" }}>{p.refundAmount} Coins</td>
-                              </tr>
+                                </div>
+                                <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
+                                </div>
+                              </div>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        </div>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: "40px", textAlign: "center" }}>
+                                  <input type="checkbox" checked={releaseClubPlayers.length > 0 && releaseClubPlayers.every(p => releaseSelectedIds.includes(p.id))}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setReleaseSelectedIds(releaseClubPlayers.map(p => p.id));
+                                      } else {
+                                        setReleaseSelectedIds([]);
+                                      }
+                                    }}
+                                  />
+                                </th>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Contract</th>
+                                <th style={{ textAlign: "right" }}>Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {releaseClubPlayers.filter(p => releaseSearchTerm === "" || p.name.toLowerCase().includes(releaseSearchTerm.toLowerCase()) || p.position.toLowerCase().includes(releaseSearchTerm.toLowerCase())).map(p => {
+                                const isChecked = releaseSelectedIds.includes(p.id);
+                                return (
+                                  <tr key={p.id} onClick={() => {
+                                    setReleaseSelectedIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                                  }} style={{ cursor: "pointer", background: isChecked ? "rgba(239,68,68,0.04)" : "transparent", borderLeft: isChecked ? "3px solid #ef4444" : "3px solid transparent", transition: "background 0.12s" }}
+                                    onMouseEnter={e => { if(!isChecked) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }} onMouseLeave={e => { if(!isChecked) e.currentTarget.style.background = "transparent"; }}>
+                                    <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                                      <input type="checkbox" checked={isChecked} onChange={() => {
+                                        setReleaseSelectedIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                                      }} />
+                                    </td>
+                                    <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
+                                    <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
 
-                  {selectedPlayerIds.length > 0 && (
-                    <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Selected <strong>{selectedPlayerIds.length}</strong> player(s) for release.
-                    </div>
+                      {/* Add button block */}
+                      {releaseSelectedIds.length > 0 && (
+                        <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                          <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                            Selected <strong>{releaseSelectedIds.length}</strong> player(s) to release.
+                          </span>
+                          <button type="button" className="portal-btn btn-danger" onClick={handleAddRelease} disabled={isPending}>
+                            <i className="fa-solid fa-plus" /> Add Selected to Queue
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
-                </div>
+                  {releaseClubPlayers.length === 0 && !loadingReleasePlayers && <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.8rem", padding: "16px" }}>No players found for this club</div>}
+                </>
               )}
+            </div>
 
-              <div className="admin-btn-row">
-                <button
-                  type="submit"
-                  className="portal-btn btn-danger"
-                  disabled={isPending || selectedPlayerIds.length === 0}
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                >
-                  {isPending ? (
-                    <><i className="fa-solid fa-spinner fa-spin" /> Releasing...</>
-                  ) : (
-                    <><i className="fa-solid fa-user-minus" /> Release Selected Player(s) ({selectedPlayerIds.length})</>
-                  )}
-                </button>
+            {/* Staged Release Queue */}
+            {bulkReleases.length > 0 && (
+              <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", marginBottom: "1.25rem" }}>
+                  Queued Releases ({bulkReleases.length})
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
+                  {bulkReleases.map((r, idx) => (
+                    <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.9rem", marginBottom: "5px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {r.clubLogo ? <img src={r.clubLogo} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }} />}
+                            <strong>{r.clubName}</strong>
+                          </div>
+                          <i className="fa-solid fa-user-minus" style={{ color: "#ef4444", fontSize: "0.85rem" }} />
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ background: `${getPositionColor(r.playerPosition)}18`, color: getPositionColor(r.playerPosition), border: `1px solid ${getPositionColor(r.playerPosition)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{r.playerPosition}</span>
+                            <strong style={{ color: "#fff" }}>{r.playerName}</strong>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                          Est. Refund: <strong style={{ color: "#ef4444" }}>{r.refundAmount} Coins</strong>
+                          <span style={{ marginLeft: "10px" }}>·</span>
+                          <span style={{ marginLeft: "10px" }}>Contract expires Season {cleanSeason(r.expireSeason)}</span>
+                        </div>
+                      </div>
+                      <button type="button" className="portal-btn btn-secondary" style={{ padding: "4px 10px", fontSize: "0.8rem", color: "#ef4444", borderColor: "#ef4444", flexShrink: 0 }}
+                        onClick={() => setBulkReleases(prev => prev.filter((_, i) => i !== idx))}>
+                        <i className="fa-solid fa-trash" /> Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="admin-btn-row">
+                  <button type="button" className="portal-btn btn-danger" onClick={handleExecuteBulkReleases} disabled={isPending}>
+                    <i className="fa-solid fa-user-minus" /> Execute All {bulkReleases.length} Release{bulkReleases.length > 1 ? "s" : ""}
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         )}
 

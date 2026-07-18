@@ -1,11 +1,11 @@
 /* =============================================================================
-   ADMIN COMMAND CENTER — Premium Design System
+   ADMIN COMMAND CENTER â€” Premium Design System
    Theme: Dark Glassmorphism | Module-Specific Accent Colors | Fully Responsive
    ============================================================================= */
 
-/* ─── Module Accent Color System ─────────────────────────────────────────────── */
+/* â”€â”€â”€ Module Accent Color System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
-  /* Module Colors — each admin module gets a unique accent */
+  /* Module Colors â€” each admin module gets a unique accent */
   --mod-financial:    #6366f1;  /* Indigo */
   --mod-clubs:        #10b981;  /* Emerald */
   --mod-tournaments:  #a855f7;  /* Purple */
@@ -43,7 +43,7 @@
 [data-module="awards"]          { --admin-accent: var(--mod-awards); --admin-accent-dim: rgba(234,179,8,.10); --admin-accent-border: rgba(234,179,8,.25); --admin-accent-glow: rgba(234,179,8,.35); }
 [data-module="financial-ops"]   { --admin-accent: var(--mod-finops); --admin-accent-dim: rgba(20,184,166,.10); --admin-accent-border: rgba(20,184,166,.25); --admin-accent-glow: rgba(20,184,166,.35); }
 
-/* ─── Entrance Animations ────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Entrance Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes adminFadeUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -84,7 +84,7 @@
   to { transform: rotate(360deg); }
 }
 
-/* ─── Admin Wrapper ──────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Admin Wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-wrapper {
   display: flex;
   flex-direction: column;
@@ -93,7 +93,7 @@
   animation: adminFadeUp 0.5s var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both;
 }
 
-/* ─── Admin Card (Primary Container) ─────────────────────────────────────────── */
+/* â”€â”€â”€ Admin Card (Primary Container) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-card {
   position: relative;
   width: 100%;
@@ -156,7 +156,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Sub Cards (Nested Sections) ────────────────────────────────────────────── */
+/* â”€â”€â”€ Sub Cards (Nested Sections) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sub-card {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -187,7 +187,7 @@
   font-size: 0.85rem;
 }
 
-/* ─── Form System ────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Form System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -280,7 +280,7 @@
 .currency-icon.rt      { color: #38bdf8; }
 .currency-icon.voucher { color: #ec4899; }
 
-/* ─── Button Row ─────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Button Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-btn-row {
   display: flex;
   gap: 0.75rem;
@@ -304,7 +304,7 @@
   box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
 }
 
-/* ─── Tab Navigation ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Tab Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-nav-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -348,7 +348,7 @@
   font-size: 0.78rem;
 }
 
-/* ─── Data Tables ────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Data Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .table-responsive {
   width: 100%;
   overflow-x: auto;
@@ -447,7 +447,7 @@
   box-shadow: 0 0 0 2px var(--admin-accent-dim);
 }
 
-/* ─── Badges ─────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .badge-banned {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
@@ -497,7 +497,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Two-Column Financial Layout ────────────────────────────────────────────── */
+/* â”€â”€â”€ Two-Column Financial Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .financial-layout {
   display: grid;
   grid-template-columns: 360px 1fr;
@@ -521,7 +521,7 @@
   gap: 1.25rem;
 }
 
-/* ─── Card-Select Pattern (Sidebar Lists) ────────────────────────────────────── */
+/* â”€â”€â”€ Card-Select Pattern (Sidebar Lists) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .rules-list-container,
 .clubs-scroll-container {
   display: flex;
@@ -700,7 +700,7 @@
   color: var(--text-secondary, #9ba3b8);
 }
 
-/* ─── Toast Notifications ────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Toast Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toast-popup {
   position: fixed;
   bottom: 2rem;
@@ -727,7 +727,7 @@
   font-size: 1rem;
 }
 
-/* ─── Fine / Ban Modal ───────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Fine / Ban Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .fine-modal-backdrop {
   position: fixed;
   top: 0;
@@ -786,7 +786,7 @@
   color: #f87171;
 }
 
-/* ─── Admin Hub Module Cards ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Admin Hub Module Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-hub-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -959,7 +959,7 @@
 .admin-module-card[data-accent="finops"]      { --card-accent: #14b8a6; --card-accent-dim: rgba(20,184,166,.08);  --card-accent-border: rgba(20,184,166,.20); }
 .admin-module-card[data-accent="seasons"]     { --card-accent: #ec4899; --card-accent-dim: rgba(236,72,153,.08);  --card-accent-border: rgba(236,72,153,.20); }
 
-/* ─── Stats Row ──────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Stats Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1015,7 +1015,7 @@
   letter-spacing: -0.02em;
 }
 
-/* ─── Loading State ──────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Loading State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-loading {
   text-align: center;
   padding: 3rem;
@@ -1030,7 +1030,7 @@
   color: var(--admin-accent);
 }
 
-/* ─── Empty State ────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-empty {
   text-align: center;
   padding: 3rem 1.5rem;
@@ -1046,7 +1046,7 @@
   color: var(--admin-accent);
 }
 
-/* ─── Scrollbar Customization ────────────────────────────────────────────────── */
+/* â”€â”€â”€ Scrollbar Customization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .table-responsive::-webkit-scrollbar,
 .rules-list-container::-webkit-scrollbar,
 .clubs-scroll-container::-webkit-scrollbar {
@@ -1075,12 +1075,12 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* ─── Financial Sidebar (narrow table override) ──────────────────────────────── */
+/* â”€â”€â”€ Financial Sidebar (narrow table override) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .financial-sidebar .admin-list-table {
   min-width: 100%;
 }
 
-/* ─── Responsive Breakpoints ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Responsive Breakpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Ultrawide */
 @media (min-width: 1600px) {
@@ -1258,14 +1258,25 @@
   .module-content h3 { font-size: 0.82rem; }
   .admin-card { padding: 0.85rem; }
   .admin-card-title { font-size: 0.88rem; }
-  .admin-stats-row { grid-template-columns: 1fr; }
 }
 
 /* ─── Auction Page Mobile Fixes ──────────────────────────────────────────────── */
 
 /* Hide scrollbar on horizontal-scrolling tab row but keep scroll functional */
+.tab-menu {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  width: 100% !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+}
+
 .tab-menu::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* Ensure table wrappers clip overflowing tables */
