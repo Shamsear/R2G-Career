@@ -24,7 +24,7 @@ export default function TransfersManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [clubs, setClubs] = useState<any[]>([]);
   const [freeAgents, setFreeAgents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"buy" | "sell" | "swap" | "window">("buy");
+  const [activeTab, setActiveTab] = useState<"buy" | "sell" | "release" | "swap" | "window">("buy");
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -209,26 +209,50 @@ export default function TransfersManager() {
     if (!sellClubId || !sellPlayerId) {
       return showToast("Please select a club and a player!");
     }
+    if (sellPrice < 0) return showToast("Price cannot be negative!");
     startTransition(async () => {
       try {
-        if (sellOpType === "sell") {
-          if (sellPrice < 0) return showToast("Price cannot be negative!");
-          await executeTransferSale(
-            parseInt(sellClubId),
-            parseInt(sellPlayerId),
-            sellPrice
-          );
-          showToast("Player sold successfully!");
-        } else {
+        await executeTransferSale(
+          parseInt(sellClubId),
+          parseInt(sellPlayerId),
+          sellPrice
+        );
+        showToast("Player sold successfully!");
+        setSellPlayerId("");
+        loadData();
+      } catch (err: any) {
+        showToast(`Operation failed: ${err.message || "Failed to execute"}`);
+      }
+    });
+  };
+
+  const handleBulkRelease = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!releaseClubId || selectedPlayerIds.length === 0) {
+      return showToast("Please select at least one player to release!");
+    }
+    
+    if (!confirm(`Are you sure you want to release the ${selectedPlayerIds.length} selected player(s)?`)) return;
+
+    startTransition(async () => {
+      try {
+        let count = 0;
+        for (const playerId of selectedPlayerIds) {
           await releasePlayerContract(
-            parseInt(sellPlayerId),
+            playerId,
             activeSeason.id,
             releaseTiming,
             refundPercentage
           );
-          showToast("Player contract terminated!");
+          count++;
         }
-        setSellPlayerId("");
+        showToast(`Successfully released ${count} player(s)!`);
+        setSelectedPlayerIds([]);
+        // Re-load data
+        if (releaseClubId && activeSeason) {
+          const data = await fetchClubPlayersWithContracts(parseInt(releaseClubId), activeSeason.id);
+          setReleaseClubPlayers(data || []);
+        }
         loadData();
       } catch (err: any) {
         showToast(`Operation failed: ${err.message || "Failed to execute"}`);
