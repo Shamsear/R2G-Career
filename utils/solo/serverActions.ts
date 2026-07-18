@@ -302,6 +302,14 @@ export async function fetchPlayerById(id: string | number) {
 
         const p = playerResult[0];
 
+        const { rows: activeSeasonResult } = await pool.query(`
+            SELECT season_number, is_mid_season
+            FROM seasons
+            ORDER BY season_number DESC
+            LIMIT 1
+        `);
+        const activeSeason = activeSeasonResult[0] || { season_number: 9, is_mid_season: false };
+
         // Fallback stats history using current contract value or base value
         const stats = p.club_name ? [
             {
@@ -326,7 +334,9 @@ export async function fetchPlayerById(id: string | number) {
             expireSeason: p.expire_season || '',
             contractStatus: p.contract_status || '',
             validUntil: p.valid_until || '',
-            stats: stats
+            stats: stats,
+            activeSeasonNumber: Number(activeSeason.season_number) || 9,
+            activeSeasonIsMid: !!activeSeason.is_mid_season
         };
     } catch (error) {
         console.error("Error fetching player by ID:", error);
@@ -3392,22 +3402,90 @@ export async function createSoloSeason(
     }
 
     // 2. Fetch previously active season (before inserting new one) to carry over from
-    const { rows: activeRows } = await pool.query('SELECT id FROM seasons WHERE is_active = true LIMIT 1');
+    const { rows: activeRows } = await pool.query('SELECT id, season_number FROM seasons WHERE is_active = true LIMIT 1');
     const oldSeasonId = activeRows.length > 0 ? activeRows[0].id : null;
+    const oldSeasonNumber = activeRows.length > 0 ? activeRows[0].season_number : null;
+
+    // 2.5 AUTO-RELEASE EXPIRED CONTRACTS from old season before creating new one
+    let releasedCount = 0;
+    const releasedPlayers: any[] = [];
+    
+    if (oldSeasonId && oldSeasonNumber) {
+      console.log(`🔄 Auto-releasing expired contracts for new season ${seasonNumber}...`);
+      
+      // Determine if this is a mid-season point (e.g., 10.5)
+      const isMidSeason = seasonNumber % 1 !== 0;
+      
+      // Fetch all active contracts from old season that have expired
+      const { rows: expiredContracts } = await pool.query(`
+        SELECT 
+          pc.id as contract_id,
+          pc.player_id,
+          pc.current_club_id,
+          pc.expire_season,
+          p.name as player_name,
+          p.base_value,
+          c.name as club_name
+        FROM player_contracts pc
+        JOIN players p ON pc.player_id = p.id
+        LEFT JOIN clubs c ON pc.current_club_id = c.id
+        WHERE pc.season_id = $1 
+          AND LOWER(pc.status) = 'active'
+          AND CAST(NULLIF(regexp_replace(pc.expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) <= $2
+      `, [oldSeasonId, seasonNumber]);
+
+      if (expiredContracts.length > 0) {
+        console.log(`📋 Found ${expiredContracts.length} expired contracts to release`);
+        
+        // Mark all expired contracts as inactive
+        const contractIds = expiredContracts.map(c => c.contract_id);
+        await pool.query(`
+          UPDATE player_contracts
+          SET status = 'inactive'
+          WHERE id = ANY($1::int[])
+        `, [contractIds]);
+
+        // Log each release for tracking
+        for (const contract of expiredContracts) {
+          releasedPlayers.push({
+            playerId: contract.player_id,
+            playerName: contract.player_name,
+            clubName: contract.club_name || 'Unknown Club',
+            expireSeason: contract.expire_season
+          });
+
+          // Log transaction for the club
+          const desc = `Auto-released ${contract.player_name} - Contract expired at Season ${contract.expire_season}`;
+          await logTransaction(
+            contract.current_club_id, 
+            oldSeasonId, 
+            'coin', 
+            0, 
+            'contract_expiry', 
+            desc
+          );
+        }
+
+        releasedCount = expiredContracts.length;
+        console.log(`✅ Auto-released ${releasedCount} players whose contracts expired`);
+      } else {
+        console.log(`✅ No expired contracts found for season ${seasonNumber}`);
+      }
+    }
 
     // 3. Deactivate current active season(s) if we are making this one active
     if (makeActive) {
       await pool.query('UPDATE seasons SET is_active = FALSE');
     }
 
-    // 4. Insert new season
+    // 4. Insert new season (always starts at beginning, not mid-season)
     const { rows: newSeasonRows } = await pool.query(`
       INSERT INTO seasons (
-        season_number, is_active, has_rws, rws_year,
+        season_number, is_active, has_rws, rws_year, is_mid_season,
         start_bonus_rc, start_bonus_rt, start_bonus_voucher,
         finale_bonus_rc, finale_bonus_rt, finale_bonus_voucher
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, season_number, is_active, has_rws, rws_year
+      ) VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8, $9, $10)
+      RETURNING id, season_number, is_active, has_rws, rws_year, is_mid_season
     `, [seasonNumber, makeActive, hasRws, hasRws ? rwsYear : null, startRc, startRt, startVoucher, finaleRc, finaleRt, finaleVoucher]);
     const newSeason = newSeasonRows[0];
     const newSeasonId = newSeason.id;
@@ -3439,13 +3517,16 @@ export async function createSoloSeason(
         WHERE season_id = $2
       `, [newSeasonId, oldSeasonId]);
       
-      // Carry over active player contracts if they exist
+      // Carry over active player contracts if they exist (only those not expired)
+      // Note: Expired contracts were already released above, so only active ones remain
       await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         SELECT player_id, $1, current_club_id, signed_value, salary, start_season, expire_season, status
         FROM player_contracts
-        WHERE season_id = $2 AND LOWER(status) = 'active'
-      `, [newSeasonId, oldSeasonId]);
+        WHERE season_id = $2 
+          AND LOWER(status) = 'active'
+          AND CAST(NULLIF(regexp_replace(expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) > $3
+      `, [newSeasonId, oldSeasonId, seasonNumber]);
 
       // --- Division Carryover & Team Re-assignment ---
       const { rows: oldDivisions } = await pool.query(`
@@ -3551,10 +3632,129 @@ export async function createSoloSeason(
     }
 
     await pool.query('COMMIT');
-    return { success: true, season: newSeason };
+    
+    // Return success with auto-release summary
+    return { 
+      success: true, 
+      season: newSeason,
+      autoRelease: {
+        count: releasedCount,
+        players: releasedPlayers
+      }
+    };
   } catch (error: any) {
     await pool.query('ROLLBACK');
     console.error("Error creating solo season:", error);
+    throw error;
+  }
+}
+
+export async function startMidSeason() {
+  try {
+    await pool.query('BEGIN');
+
+    // 1. Get active season
+    const { rows: activeSeasonRows } = await pool.query(`
+      SELECT id, season_number, is_mid_season 
+      FROM seasons 
+      WHERE is_active = true 
+      LIMIT 1
+    `);
+
+    if (activeSeasonRows.length === 0) {
+      throw new Error("No active season found.");
+    }
+
+    const activeSeason = activeSeasonRows[0];
+    
+    if (activeSeason.is_mid_season) {
+      throw new Error("Season is already in mid-season phase.");
+    }
+
+    const seasonId = activeSeason.id;
+    const seasonNumber = Number(activeSeason.season_number);
+    const midSeasonNumber = seasonNumber + 0.5; // e.g., 10 → 10.5
+
+    console.log(`🔄 Starting mid-season for Season ${seasonNumber}...`);
+
+    // 2. AUTO-RELEASE contracts expiring at mid-season (e.g., 10.5)
+    const { rows: expiredContracts } = await pool.query(`
+      SELECT 
+        pc.id as contract_id,
+        pc.player_id,
+        pc.current_club_id,
+        pc.expire_season,
+        p.name as player_name,
+        p.base_value,
+        c.name as club_name
+      FROM player_contracts pc
+      JOIN players p ON pc.player_id = p.id
+      LEFT JOIN clubs c ON pc.current_club_id = c.id
+      WHERE pc.season_id = $1 
+        AND LOWER(pc.status) = 'active'
+        AND CAST(NULLIF(regexp_replace(pc.expire_season, '[^0-9.]', '', 'g'), '') AS NUMERIC) = $2
+    `, [seasonId, midSeasonNumber]);
+
+    const releasedPlayers: any[] = [];
+    let releasedCount = 0;
+
+    if (expiredContracts.length > 0) {
+      console.log(`📋 Found ${expiredContracts.length} contracts expiring at mid-season`);
+      
+      // Mark all mid-season expired contracts as inactive
+      const contractIds = expiredContracts.map(c => c.contract_id);
+      await pool.query(`
+        UPDATE player_contracts
+        SET status = 'inactive'
+        WHERE id = ANY($1::int[])
+      `, [contractIds]);
+
+      // Log each release
+      for (const contract of expiredContracts) {
+        releasedPlayers.push({
+          playerId: contract.player_id,
+          playerName: contract.player_name,
+          clubName: contract.club_name || 'Unknown Club',
+          expireSeason: contract.expire_season
+        });
+
+        // Log transaction
+        const desc = `Mid-season auto-release: ${contract.player_name} - Contract expired at Season ${contract.expire_season}`;
+        await logTransaction(
+          contract.current_club_id, 
+          seasonId, 
+          'coin', 
+          0, 
+          'contract_expiry_midseason', 
+          desc
+        );
+      }
+
+      releasedCount = expiredContracts.length;
+      console.log(`✅ Auto-released ${releasedCount} players at mid-season`);
+    } else {
+      console.log(`✅ No contracts expiring at mid-season ${midSeasonNumber}`);
+    }
+
+    // 3. Mark season as mid-season
+    await pool.query(`
+      UPDATE seasons 
+      SET is_mid_season = true 
+      WHERE id = $1
+    `, [seasonId]);
+
+    await pool.query('COMMIT');
+    
+    return { 
+      success: true, 
+      seasonNumber,
+      midSeasonNumber,
+      releasedCount,
+      releasedPlayers
+    };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error starting mid-season:", error);
     throw error;
   }
 }

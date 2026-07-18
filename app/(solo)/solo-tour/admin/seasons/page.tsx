@@ -10,7 +10,8 @@ import {
   createSoloSeason,
   toggleSoloSeasonActive,
   deleteSoloSeason,
-  updateSoloSeasonDetails
+  updateSoloSeasonDetails,
+  startMidSeason
 } from "@/utils/solo/serverActions";
 
 export default function SeasonsManager() {
@@ -97,7 +98,14 @@ export default function SeasonsManager() {
             finaleVoucher
           );
           if (res.success) {
-            showToast(`✅ Created Season ${newSeasonNumber} successfully!`);
+            let message = `✅ Created Season ${newSeasonNumber} successfully!`;
+            
+            // Show auto-release summary if any contracts were released
+            if (res.autoRelease && res.autoRelease.count > 0) {
+              message += ` | 🔓 Auto-released ${res.autoRelease.count} expired contracts`;
+            }
+            
+            showToast(message);
             clearForm();
             await loadSeasons();
           }
@@ -120,6 +128,30 @@ export default function SeasonsManager() {
     setFinaleRt(season.finale_bonus_rt || 0);
     setFinaleVoucher(season.finale_bonus_voucher || 0);
     setDeleteConfirmId(null);
+  };
+
+  const handleStartMidSeason = async () => {
+    if (!confirm("Start mid-season? This will automatically release all players with contracts expiring at the mid-season point.")) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await startMidSeason();
+        if (res.success) {
+          let message = `✅ Mid-season started for Season ${res.seasonNumber}`;
+          if (res.releasedCount > 0) {
+            message += ` | 🔓 Auto-released ${res.releasedCount} contracts expiring at ${res.midSeasonNumber}`;
+          } else {
+            message += ` | No contracts expiring at ${res.midSeasonNumber}`;
+          }
+          showToast(message);
+          await loadSeasons();
+        }
+      } catch (err: any) {
+        showToast(`❌ Failed to start mid-season: ${err.message}`);
+      }
+    });
   };
 
   const clearForm = () => {
@@ -497,9 +529,17 @@ export default function SeasonsManager() {
                             </span>
                             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               {season.is_active ? (
-                                <span className="badge-active" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px" }}>
-                                  ACTIVE
-                                </span>
+                                <>
+                                  <span className="badge-active" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px" }}>
+                                    ACTIVE
+                                  </span>
+                                  {season.is_mid_season && (
+                                    <span className="badge-active" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px" }}>
+                                      <i className="fa-solid fa-calendar-check" style={{ marginRight: "4px" }} />
+                                      MID-SEASON
+                                    </span>
+                                  )}
+                                </>
                               ) : (
                                 <span className="badge-banned" style={{ background: "rgba(148,163,184,0.1)", color: "#94a3b8", border: "1px solid rgba(148,163,184,0.2)", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "4px" }}>
                                   COMPLETED
@@ -546,6 +586,45 @@ export default function SeasonsManager() {
                             <i className="fa-solid fa-pen-to-square" style={{ marginRight: "4px" }} />
                             Edit
                           </button>
+
+                          {season.is_active && !season.is_mid_season && (
+                            <button
+                              onClick={handleStartMidSeason}
+                              disabled={isPending}
+                              className="portal-btn btn-primary"
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "0.75rem",
+                                height: "32px",
+                                background: "#f59e0b",
+                                color: "#fff"
+                              }}
+                              title="Release players with contracts expiring at mid-season"
+                            >
+                              <i className="fa-solid fa-calendar-check" style={{ marginRight: "4px" }} />
+                              Start Mid-Season
+                            </button>
+                          )}
+
+                          {season.is_active && season.is_mid_season && (
+                            <button
+                              disabled
+                              className="portal-btn btn-secondary"
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "0.75rem",
+                                height: "32px",
+                                background: "rgba(255,255,255,0.04)",
+                                color: "#64748b",
+                                cursor: "not-allowed",
+                                opacity: 0.6
+                              }}
+                              title="Mid-season already started"
+                            >
+                              <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }} />
+                              Mid-Season Started
+                            </button>
+                          )}
 
                           <button
                             onClick={() => handleToggleActive(season.id, season.is_active)}

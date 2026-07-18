@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   PLAYER PROFILE — Premium Showcase
+   PLAYER PROFILE — Premium Showcase Revamp
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Entrance Animations ── */
@@ -43,83 +43,64 @@
   50%      { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
 }
 
-/* ── Back Button ── */
-.profile-back-btn {
-  position: fixed;
-  top: 5.5rem;
-  left: 1.5rem;
-  z-index: 100;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.2rem;
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50px;
-  color: #ffffff;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+/* ── Breadcrumb & Inline Back Button ── */
+.portal-breadcrumb {
+  margin-bottom: 1.5rem;
   animation: slideInLeft 0.5s ease-out both;
 }
 
-.profile-back-btn:hover {
-  background: rgba(45, 212, 191, 0.15);
-  border-color: var(--solo-primary, #ec4899);
-  transform: translateX(-3px);
-  box-shadow: 0 4px 20px rgba(45, 212, 191, 0.2);
+.back-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.profile-back-btn i {
-  font-size: 0.75rem;
+.back-link-btn i {
+  font-size: 0.8rem;
   transition: transform 0.3s ease;
 }
 
-.profile-back-btn:hover i {
+.back-link-btn:hover i {
   transform: translateX(-3px);
 }
 
-/* ── Hero Section ── */
-.profile-hero {
-  position: relative;
+/* ── Layout Grid ── */
+.profile-grid-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
   width: 100%;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .profile-grid-layout {
+    grid-template-columns: 350px 1fr;
+    align-items: start;
+    gap: 3rem;
+  }
+}
+
+/* ── Left Column Elements ── */
+.profile-left-col {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+}
+
+.profile-hero-card {
+  position: relative;
+  width: 100%;
+  display: flex;
   justify-content: center;
-  padding: 1.5rem 1.5rem 1rem;
-  overflow: hidden;
-  margin-top: -0.5rem;
-}
-
-.profile-hero::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.08) 0%, transparent 65%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.profile-hero::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: linear-gradient(to bottom, transparent, rgba(8, 11, 17, 0.95));
-  pointer-events: none;
-  z-index: 1;
+  padding: 1rem 0;
 }
 
 .hero-card-showcase {
@@ -144,8 +125,8 @@
 }
 
 .hero-card-showcase .large-card {
-  --card-width: 240px;
-  --card-height: 350px;
+  --card-width: 260px;
+  --card-height: 380px;
   filter: drop-shadow(0 15px 40px rgba(45, 212, 191, 0.2)) drop-shadow(0 6px 15px rgba(0, 0, 0, 0.5));
   transition: filter 0.4s ease, transform 0.4s ease;
 }
@@ -162,10 +143,10 @@
 }
 
 .hero-player-identity {
-  position: relative;
-  z-index: 2;
+  width: 100%;
   text-align: center;
-  margin-top: 0.75rem;
+  margin-top: 1rem;
+  padding-bottom: 1.25rem;
   animation: fadeUp 0.6s ease-out both;
   animation-delay: 0.3s;
 }
@@ -177,7 +158,7 @@
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.5px;
-  line-height: 1.1;
+  line-height: 1.2;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
@@ -186,19 +167,19 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  margin-top: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .hero-club-logo {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
 }
 
 .hero-club-name {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--solo-primary, #ec4899);
   text-transform: uppercase;
@@ -206,109 +187,104 @@
   margin: 0;
 }
 
-/* ── Stats Ribbon ── */
-.stats-ribbon {
+/* ── Player Stats Panel (Vertical list) ── */
+.player-stats-panel {
   display: flex;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 0 1.5rem;
-  margin-top: 0.25rem;
-  position: relative;
-  z-index: 5;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.5rem;
   animation: fadeUp 0.6s ease-out both;
   animation-delay: 0.45s;
 }
 
-.stat-chip {
+.panel-stat-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: var(--bg-elevated);
+  gap: 1rem;
+  padding: 0.8rem 1.2rem;
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  min-width: 120px;
 }
 
-.stat-chip:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+.panel-stat-item:hover {
+  transform: translateX(6px);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
-.stat-chip-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+.panel-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
-.stat-chip-icon.icon-position {
-  background: var(--rose-dim);
+.panel-stat-icon.icon-position {
+  background: rgba(59, 130, 246, 0.12);
   color: #60a5fa;
-  border: 1px solid rgba(45, 212, 191, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.stat-chip-icon.icon-value {
+.panel-stat-icon.icon-value {
   background: rgba(16, 185, 129, 0.12);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.stat-chip-icon.icon-salary {
+.panel-stat-icon.icon-salary {
   background: rgba(245, 158, 11, 0.12);
   color: var(--gold);
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-.stat-chip-icon.icon-card {
-  background: var(--rose-dim);
+.panel-stat-icon.icon-card {
+  background: rgba(236, 72, 153, 0.12);
   color: #f472b6;
-  border: 1px solid rgba(45, 212, 191, 0.2);
+  border: 1px solid rgba(236, 72, 153, 0.2);
 }
 
-.stat-chip-icon.icon-tier {
-  background: rgba(99, 102, 241, 0.12);
+.panel-stat-icon.icon-tier {
+  background: rgba(168, 85, 247, 0.12);
   color: #c084fc;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
-.stat-chip-text {
+.panel-stat-info {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
 }
 
-.stat-chip-label {
-  font-size: 0.65rem;
+.panel-stat-label {
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-secondary, #94a3b8);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.stat-chip-value {
+.panel-stat-value {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 1.05rem;
   font-weight: 700;
   color: #ffffff;
 }
 
-/* ── Content Wrapper ── */
-.profile-content {
-  max-width: 900px;
-  margin: 1.5rem auto 0;
-  padding: 0 1.5rem 2rem;
+/* ── Right Column Elements ── */
+.profile-right-col {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
+  width: 100%;
 }
 
 /* ── Contract Section ── */
@@ -318,10 +294,10 @@
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 1.5rem;
-  overflow: hidden;
+  padding: 1.75rem;
+  overflow: visible;
   animation: fadeUp 0.6s ease-out both;
-  animation-delay: 0.55s;
+  animation-delay: 0.5s;
 }
 
 .contract-section::before {
@@ -336,27 +312,27 @@
 }
 
 .contract-section:hover {
-  border-color: rgba(45, 212, 191, 0.15);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1.25rem;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .section-header-icon {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
-  background: rgba(45, 212, 191, 0.1);
-  border: 1px solid rgba(45, 212, 191, 0.2);
+  background: rgba(236, 72, 153, 0.1);
+  border: 1px solid rgba(236, 72, 153, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--solo-primary, #ec4899);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 .section-header-text {
@@ -367,7 +343,7 @@
 
 .section-header-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -382,14 +358,14 @@
 .contract-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .contract-item {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 1rem;
+  gap: 0.35rem;
+  padding: 1.1rem 1.25rem;
   background: rgba(8, 11, 17, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
@@ -412,26 +388,28 @@
 
 .contract-item-value {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #ffffff;
 }
 
 .contract-item-value.status-active {
   color: #34d399;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
 }
 
 .contract-item-value.status-expired {
   color: #f87171;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
 }
 
 /* Season Range Visual */
 .season-range-visual {
-  margin-top: 1rem;
-  padding: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
   background: rgba(8, 11, 17, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .season-range-labels {
@@ -456,7 +434,7 @@
 
 .season-range-point-value {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #ffffff;
 }
@@ -467,17 +445,17 @@
 
 .season-range-bar {
   width: 100%;
-  height: 6px;
+  height: 8px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  overflow: hidden;
+  border-radius: 4px;
+  overflow: visible;
   position: relative;
 }
 
 .season-range-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--solo-primary, #ec4899), #a855f7);
-  border-radius: 3px;
+  border-radius: 4px;
   position: relative;
   transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -488,18 +466,42 @@
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   background: #ffffff;
   border-radius: 50%;
-  border: 2px solid var(--solo-primary, #ec4899);
-  box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
+  border: 3px solid var(--solo-primary, #ec4899);
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+/* ── Progress Tooltip ── */
+.progress-tooltip {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 11, 17, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--solo-primary, #ec4899);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #ffffff;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  animation: fadeUp 0.2s ease-out both;
 }
 
 /* ── Market History Timeline ── */
 .history-section {
   animation: fadeUp 0.6s ease-out both;
-  animation-delay: 0.65s;
+  animation-delay: 0.6s;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .timeline {
@@ -515,27 +517,27 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(to bottom, var(--solo-primary, #ec4899), rgba(99, 102, 241, 0.3), transparent);
+  background: linear-gradient(to bottom, var(--solo-primary, #ec4899), rgba(168, 85, 247, 0.3), transparent);
   border-radius: 1px;
 }
 
 .timeline-entry {
   position: relative;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   animation: slideInRight 0.5s ease-out both;
 }
 
-.timeline-entry:nth-child(1) { animation-delay: 0.7s; }
-.timeline-entry:nth-child(2) { animation-delay: 0.85s; }
-.timeline-entry:nth-child(3) { animation-delay: 1s; }
-.timeline-entry:nth-child(4) { animation-delay: 1.15s; }
-.timeline-entry:nth-child(5) { animation-delay: 1.3s; }
+.timeline-entry:nth-child(1) { animation-delay: 0.65s; }
+.timeline-entry:nth-child(2) { animation-delay: 0.75s; }
+.timeline-entry:nth-child(3) { animation-delay: 0.85s; }
+.timeline-entry:nth-child(4) { animation-delay: 0.95s; }
+.timeline-entry:nth-child(5) { animation-delay: 1.05s; }
 
 .timeline-entry::before {
   content: '';
   position: absolute;
   left: -1.65rem;
-  top: 1.4rem;
+  top: 1.35rem;
   width: 12px;
   height: 12px;
   background: var(--solo-primary, #ec4899);
@@ -546,7 +548,7 @@
 }
 
 .timeline-entry:not(:first-child)::before {
-  background: rgba(99, 102, 241, 0.6);
+  background: rgba(168, 85, 247, 0.6);
   animation: none;
 }
 
@@ -554,8 +556,8 @@
   background: var(--bg-card);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 1.1rem 1.25rem;
+  border-radius: 16px;
+  padding: 1.2rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -564,8 +566,9 @@
 }
 
 .timeline-card:hover {
-  transform: translateX(6px);
-  border-color: rgba(45, 212, 191, 0.2);
+  transform: translateX(8px);
+  border-color: rgba(236, 72, 153, 0.2);
+  background: rgba(255, 255, 255, 0.02);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
@@ -577,7 +580,7 @@
 
 .timeline-season {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--solo-primary, #ec4899);
   text-transform: uppercase;
@@ -586,20 +589,20 @@
 
 .timeline-team {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #ffffff;
 }
 
 .timeline-value {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  color: #ffffff;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.2);
-  padding: 0.4rem 0.85rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.95rem;
+  border-radius: 10px;
   white-space: nowrap;
 }
 
@@ -609,7 +612,7 @@
   font-size: 0.95rem;
   font-style: italic;
   margin: 0;
-  padding: 2rem;
+  padding: 2.5rem;
   background: rgba(8, 11, 17, 0.25);
   border: 1px dashed rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -644,65 +647,42 @@
   margin: 0 0 1rem 0;
 }
 
-/* ── Responsive ── */
+/* ── Responsive styling overrides ── */
+@media (max-width: 1023px) {
+  .profile-left-col {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .profile-hero-card {
+    padding: 0.5rem 0;
+  }
+  .hero-player-identity {
+    padding-bottom: 0.75rem;
+    margin-top: 0.5rem;
+  }
+}
+
 @media (max-width: 768px) {
-  .profile-back-btn {
-    top: 4.5rem;
-    left: 1rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
+  .profile-hero-card {
+    padding: 0.25rem 0;
+  }
+  .hero-player-identity {
+    padding-bottom: 0.5rem;
+    margin-top: 0.25rem;
   }
 
-  .profile-hero {
-    min-height: 440px;
-    padding: 2.5rem 1rem 1.5rem;
+  .hero-player-name {
+    font-size: 1.8rem;
+  }
+
+  .hero-club-name {
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
   }
 
   .hero-card-showcase .large-card {
     --card-width: 220px;
-    --card-height: 321px;
-  }
-
-  .hero-player-name {
-    font-size: 2rem;
-  }
-
-  .hero-club-name {
-    font-size: 0.85rem;
-    letter-spacing: 1.5px;
-  }
-
-  .stats-ribbon {
-    gap: 0.6rem;
-    padding: 0 1rem;
-    margin-top: -1rem;
-  }
-
-  .stat-chip {
-    padding: 0.7rem 1rem;
-    min-width: 120px;
-    flex: 1 1 calc(50% - 0.6rem);
-  }
-
-  .stat-chip-icon {
-    width: 30px;
-    height: 30px;
-    font-size: 0.75rem;
-    border-radius: 8px;
-  }
-
-  .stat-chip-value {
-    font-size: 0.9rem;
-  }
-
-  .profile-content {
-    padding: 0 1rem 2rem;
-    gap: 2rem;
-    margin-top: 2rem;
-  }
-
-  .contract-section {
-    padding: 1.5rem;
+    --card-height: 322px;
   }
 
   .contract-grid {
@@ -717,49 +697,33 @@
   }
 
   .timeline-value {
-    font-size: 1.15rem;
     align-self: flex-start;
   }
 }
 
 @media (max-width: 480px) {
-  .hero-card-showcase .large-card {
-    --card-width: 190px;
-    --card-height: 277px;
-  }
-
   .hero-player-name {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
   }
 
-  .stats-ribbon {
-    gap: 0.5rem;
+  .hero-card-showcase .large-card {
+    --card-width: 180px;
+    --card-height: 263px;
   }
 
-  .stat-chip {
-    padding: 0.6rem 0.8rem;
-    min-width: 0;
-    gap: 0.5rem;
-    border-radius: 10px;
+  .panel-stat-item {
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
   }
 
-  .stat-chip-label {
-    font-size: 0.6rem;
+  .panel-stat-value {
+    font-size: 0.95rem;
   }
+}
 
-  .stat-chip-value {
-    font-size: 0.8rem;
-  }
-
-  .section-header-title {
-    font-size: 1.1rem;
-  }
-
-  .contract-item {
-    padding: 1rem;
-  }
-
-  .contract-item-value {
-    font-size: 1.05rem;
+@media (max-width: 360px) {
+  .hero-card-showcase .large-card {
+    --card-width: 150px;
+    --card-height: 220px;
   }
 }

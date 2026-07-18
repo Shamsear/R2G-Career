@@ -47,7 +47,7 @@ function sanitizeName(name) {
     return name.replace(/[/\\?%*:|"<>]/g, '-').trim();
 }
 
-const MAX_CONCURRENCY = 4; // Number of parallel browser tabs
+const MAX_CONCURRENCY = 2; // Reduced to avoid rate limiting
 
 const unmatchedPlayers = [];
 
@@ -74,21 +74,55 @@ async function scrapePlayers() {
     args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox', 
-        '--window-size=1280,800',
-        '--disable-blink-features=AutomationControlled'
+        '--window-size=1920,1080',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-web-security'
     ],
-    ignoreDefaultArgs: ['--enable-automation']
+    ignoreDefaultArgs: ['--enable-automation'],
+    defaultViewport: null
   });
 
   let currentIndex = 0;
 
   async function worker(workerId) {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
+    
+    // Enhanced anti-detection measures
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Override navigator properties
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+      window.chrome = { runtime: {} };
+    });
 
     console.log(`[Worker ${workerId}] Navigating to futbin.com to clear initial checks...`);
-    await page.goto('https://www.futbin.com/', { waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
-    await new Promise(r => setTimeout(r, 4000));
+    
+    try {
+      await page.goto('https://www.futbin.com/', { waitUntil: 'networkidle2', timeout: 60000 });
+      console.log(`[Worker ${workerId}] Waiting for Cloudflare check to complete...`);
+      await new Promise(r => setTimeout(r, 8000)); // Longer wait for Cloudflare
+      
+      // Check if we're past Cloudflare
+      const isCloudflareBlocking = await page.evaluate(() => {
+        return document.title.includes('Just a moment') || 
+               document.body.innerText.includes('Checking your browser') ||
+               document.querySelector('#challenge-running');
+      });
+      
+      if (isCloudflareBlocking) {
+        console.log(`[Worker ${workerId}] ⚠️  Cloudflare challenge detected, waiting longer...`);
+        await new Promise(r => setTimeout(r, 15000)); // Wait for manual solving if needed
+      } else {
+        console.log(`[Worker ${workerId}] ✓ Successfully bypassed Cloudflare`);
+      }
+    } catch (err) {
+      console.log(`[Worker ${workerId}] Initial navigation error: ${err.message}`);
+    }
 
     while (currentIndex < players.length) {
       const player = players[currentIndex++];
@@ -121,8 +155,23 @@ async function scrapePlayers() {
       try {
         // Use Futbin's native version filter to automatically exclude promos/legends!
         const searchUrl = `https://www.futbin.com/26/players?search=${encodeURIComponent(player.name)}&version=gold%2Csilver%2Cbronze`;
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 15000 }).catch(() => {});
+        console.log(`[Worker ${workerId}]   -> Searching: ${searchUrl}`);
+        
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        
+        // Check for Cloudflare again
+        const isBlocked = await page.evaluate(() => {
+          return document.title.includes('Just a moment') || 
+                 document.body.innerText.includes('Checking your browser');
+        });
+        
+        if (isBlocked) {
+          console.log(`[Worker ${workerId}]   -> ⚠️  Cloudflare blocking detected, waiting...`);
+          await new Promise(r => setTimeout(r, 10000));
+        }
+        
+        await page.waitForSelector('a.player-row-playercard, a.table-player-name, td.table-name a, .no-results', { timeout: 20000 }).catch(() => {});
+        await new Promise(r => setTimeout(r, 2000)); // Extra wait for dynamic content
         
         const profileUrls = await page.evaluate((playerPos, playerName) => {
           const rows = document.querySelectorAll('tr');
@@ -171,8 +220,9 @@ async function scrapePlayers() {
 
         for (let i = 0; i < profileUrls.length; i++) {
           const profileUrl = profileUrls[i];
-          await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-          await new Promise(r => setTimeout(r, 2000));
+          console.log(`[Worker ${workerId}]      -> Loading profile ${i+1}/${profileUrls.length}...`);
+          await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await new Promise(r => setTimeout(r, 3000)); // Increased delay
 
           const imageUrl = await page.evaluate(() => {
               const pic = document.getElementById('player_pic');
@@ -196,7 +246,7 @@ async function scrapePlayers() {
               console.log(`[Worker ${workerId}]      -> No face image found on profile variant ${i+1}`);
           }
 
-          await new Promise(r => setTimeout(r, 1500));
+          await new Promise(r => setTimeout(r, 2500)); // Increased delay between variants
         }
         
         console.log(`[Worker ${workerId}]   -> Saved all matching variants to folder /${safePlayerName}/`);
@@ -205,7 +255,7 @@ async function scrapePlayers() {
         console.log(`[Worker ${workerId}]   -> Error scraping ${player.name}: ${error.message}`);
       }
 
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 3000)); // Increased delay between players
     }
 
     await page.close();
