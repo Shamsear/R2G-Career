@@ -346,7 +346,10 @@ export default function TransfersManager() {
             <i className="fa-solid fa-cart-shopping" /> Buy Free Agent
           </button>
           <button className={`portal-btn ${activeTab === 'sell' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('sell')}>
-            <i className="fa-solid fa-hand-holding-dollar" /> Sell/Release Player
+            <i className="fa-solid fa-hand-holding-dollar" /> Sell Squad Player
+          </button>
+          <button className={`portal-btn ${activeTab === 'release' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('release')}>
+            <i className="fa-solid fa-file-contract" /> Release Squad Player
           </button>
           <button className={`portal-btn ${activeTab === 'swap' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab('swap')}>
             <i className="fa-solid fa-rotate" /> Swap Deal
