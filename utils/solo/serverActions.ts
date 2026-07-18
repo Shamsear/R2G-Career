@@ -35,7 +35,7 @@ export async function fetchManagers() {
     try {
         const { rows: managersResult } = await pool.query(`
             SELECT DISTINCT ON (m.id)
-                m.id, m.name, m.avatar_path as photo, m.r2g_id,
+                m.id, m.name, m.avatar_path as photo, m.r2g_id, m.mob_no, m.place,
                 c.name as club_name,
                 c.logo_path as club_logo,
                 ms.manager_rank as age,
@@ -1146,12 +1146,17 @@ export async function createClubAndManager(data: any) {
     
     const { rows: maxIdRows } = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM managers');
     const nextId = maxIdRows[0].next_id;
-    const r2gId = data.r2gId ? data.r2gId.trim() : ('R2GP' + nextId.toString().padStart(4, '0'));
+    
+    const managerName = data.managerName || data.name;
+    const avatarPath = data.avatarPath || data.photo || '';
+    const mobNo = data.mobNo || data.mob_no || '';
+    const place = data.place || '';
+    const r2gId = managerName;
     
     await pool.query(`
-      INSERT INTO managers (id, r2g_id, name, avatar_path, is_active)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [nextId, r2gId, data.managerName, data.avatarPath || '', data.isActive !== false]);
+      INSERT INTO managers (id, r2g_id, name, avatar_path, is_active, mob_no, place)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [nextId, r2gId, managerName, avatarPath, data.isActive !== false, mobNo, place]);
     
     if (data.clubName) {
       await pool.query(`
@@ -1201,8 +1206,6 @@ export async function updateManagerDetails(data: any) {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
     
-    // Determine the club ID. If data.clubId is provided, we use it (reassignment).
-    // Otherwise, we fetch the current club ID from the wallet.
     let clubId = data.clubId ? parseInt(data.clubId) : null;
     
     if (!clubId) {
@@ -1213,12 +1216,18 @@ export async function updateManagerDetails(data: any) {
       clubId = walletRows.length > 0 ? walletRows[0].current_club_id : data.id;
     }
     
-    // Update the manager's basic info
-    await pool.query(`
-      UPDATE managers SET name = $1, avatar_path = $2, is_banned = $3, is_active = $4 WHERE id = $5
-    `, [data.name, data.photo || '', data.isBanned || false, data.isActive !== false, data.id]);
+    const managerName = data.managerName || data.name;
+    const avatarPath = data.avatarPath || data.photo || '';
+    const mobNo = data.mobNo || data.mob_no || '';
+    const place = data.place || '';
+    const r2gId = managerName;
     
-    // Update the club details (name and logo) for this club
+    await pool.query(`
+      UPDATE managers 
+      SET name = $1, avatar_path = $2, is_banned = $3, is_active = $4, mob_no = $5, place = $6, r2g_id = $7 
+      WHERE id = $8
+    `, [managerName, avatarPath, data.isBanned || false, data.isActive !== false, mobNo, place, r2gId, data.id]);
+    
     await pool.query(`
       UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3
     `, [data.clubName, data.logoPath || '', clubId]);
@@ -1266,7 +1275,6 @@ export async function updateManagerDetails(data: any) {
         await logTransaction(data.id, activeSeason.id, 'voucher', diffVouchers, 'custom_adjustment', 'Admin wallet balance override');
       }
       
-      // Update manager seasons
       const { rowCount: sCount } = await pool.query(`
         UPDATE manager_seasons SET
           club_id = $1,
@@ -4312,7 +4320,7 @@ export async function fetchPlayerCombinedStats(identifier: string | number) {
 
     // 1. Fetch manager details
     const { rows: managerRows } = await pool.query(`
-      SELECT m.id, m.name, m.avatar_path, m.r2g_id, m.is_active,
+      SELECT m.id, m.name, m.avatar_path, m.r2g_id, m.is_active, m.mob_no, m.place,
              c.name as club_name, c.logo_path as club_logo, c.id as club_id,
              mw.overall_rating, mw.star_rating,
              mw.r2g_coin_balance, mw.r2g_token_balance, mw.r2g_voucher_balance

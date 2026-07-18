@@ -29,6 +29,8 @@ export default function ClubsManager() {
     logoPath: "",
     managerName: "",
     avatarPath: "",
+    mobNo: "",
+    place: "",
     coinBalance: 1500,
     tokenBalance: 100,
     voucherBalance: 0,
@@ -68,7 +70,8 @@ export default function ClubsManager() {
         setManagers(mgrs);
       }
       setAllClubs(registeredClubs || []);
-    } catch {
+    } catch (error) {
+      console.error(error);
       showToast("Error loading managers!");
     }
   };
@@ -80,6 +83,7 @@ export default function ClubsManager() {
   const clearForm = () => {
     setClubForm({
       id: "", clubId: "", clubName: "", logoPath: "", managerName: "", avatarPath: "",
+      mobNo: "", place: "",
       coinBalance: 1500, tokenBalance: 100, voucherBalance: 0, rating: 80, starRating: 3,
       wins: 0, draws: 0, losses: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
       isBanned: false,
@@ -141,6 +145,8 @@ export default function ClubsManager() {
       logoPath: m.club_logo || '',
       managerName: m.name,
       avatarPath: m.photo || '',
+      mobNo: m.mob_no || '',
+      place: m.place || '',
       coinBalance: parseInt(m.r2g_coin_balance) || 0,
       tokenBalance: parseInt(m.r2g_token_balance) || 0,
       voucherBalance: parseInt(m.r2g_voucher_balance) || 0,
@@ -453,6 +459,16 @@ export default function ClubsManager() {
                     <div className="admin-form-group">
                       <label>Manager Name</label>
                       <input type="text" className="admin-input" value={clubForm.managerName} onChange={(e) => setClubForm(prev => ({ ...prev, managerName: e.target.value }))} placeholder="e.g. John Doe" />
+                    </div>
+                  </div>
+                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
+                    <div className="admin-form-group">
+                      <label>Mobile Number</label>
+                      <input type="text" className="admin-input" value={clubForm.mobNo} onChange={(e) => setClubForm(prev => ({ ...prev, mobNo: e.target.value }))} placeholder="e.g. +123456789" />
+                    </div>
+                    <div className="admin-form-group">
+                      <label>Place</label>
+                      <input type="text" className="admin-input" value={clubForm.place} onChange={(e) => setClubForm(prev => ({ ...prev, place: e.target.value }))} placeholder="e.g. London, UK" />
                     </div>
                   </div>
                   <div className="admin-form-grid" style={{ marginTop: "1rem" }}>

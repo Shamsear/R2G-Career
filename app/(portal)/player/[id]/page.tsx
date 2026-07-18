@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { fetchPlayerCombinedStats } from "@/utils/solo/serverActions";
-import PortalNavbar from "@/components/portal/PortalNavbar";
-import PortalFooter from "@/components/portal/PortalFooter";
+import SoloNavbar from "@/components/solo/SoloNavbar";
+import SoloFooter from "@/components/solo/SoloFooter";
 import "../../../portal.css";
 
 function generateStarRating(rating: any) {
@@ -119,11 +119,11 @@ export default function PlayerProfilePage() {
     : `/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, "-")}.webp`;
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <PortalNavbar />
+    <div className="app-container">
+      <SoloNavbar />
 
-      <main style={{ position: 'relative', zIndex: 2, flex: 1, paddingTop: "20px", paddingBottom: "60px" }}>
-        <div className="portal-container" style={{ maxWidth: "1200px", padding: "0.5rem 1rem" }}>
+      <main className="main-content">
+        <div className="portal-container" style={{ maxWidth: "1200px", padding: "1.5rem 1.5rem" }}>
           
           {/* Navigation Breadcrumb */}
           <div className="portal-breadcrumb" style={{ marginBottom: "0.75rem" }}>
@@ -368,6 +368,18 @@ export default function PlayerProfilePage() {
                   <span className="sidebar-stat-label">Active Club</span>
                   <span className="sidebar-stat-value">{manager.club_name || "FREE AGENT"}</span>
                 </div>
+                {manager.mob_no && (
+                  <div className="sidebar-stat-row">
+                    <span className="sidebar-stat-label">Mobile No</span>
+                    <span className="sidebar-stat-value">{manager.mob_no}</span>
+                  </div>
+                )}
+                {manager.place && (
+                  <div className="sidebar-stat-row">
+                    <span className="sidebar-stat-label">Place</span>
+                    <span className="sidebar-stat-value">{manager.place}</span>
+                  </div>
+                )}
                 <div className="sidebar-stat-row">
                   <span className="sidebar-stat-label">Status</span>
                   <span className="sidebar-stat-value" style={{ color: manager.is_active !== false ? "#22c55e" : "#ef4444" }}>
@@ -546,7 +558,7 @@ export default function PlayerProfilePage() {
         </div>
       </main>
 
-      <PortalFooter />
+      <SoloFooter />
     </div>
   );
 }
