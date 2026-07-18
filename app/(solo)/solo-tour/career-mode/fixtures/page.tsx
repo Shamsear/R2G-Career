@@ -47,8 +47,13 @@ export default function FixturesPage() {
         if ((tourneysData as any).error) throw new Error((tourneysData as any).error);
         if ((fixturesData as any).error) throw new Error((fixturesData as any).error);
 
-        setTournaments(tourneysData);
-        setFixtures(fixturesData);
+        // Filter for solo tournaments only
+        const soloTourneys = tourneysData.filter((t: any) => t.tournament_type === "solo" || !t.tournament_type);
+        const soloTourneyIds = new Set(soloTourneys.map((t: any) => t.id));
+        const soloFixtures = fixturesData.filter((f: any) => soloTourneyIds.has(f.tournamentId));
+
+        setTournaments(soloTourneys);
+        setFixtures(soloFixtures);
       } catch (err: any) {
         console.error("Error loading fixtures data:", err);
         setError(err.message || "Failed to load fixtures.");
