@@ -54,14 +54,21 @@ export default function AuctionManager() {
   const [swapAClubDDSearch, setSwapAClubDDSearch] = useState("");
   const [swapBClubDDOpen, setSwapBClubDDOpen] = useState(false);
   const [swapBClubDDSearch, setSwapBClubDDSearch] = useState("");
+  // sell buying-club dropdown
+  const [sellBuyingDDOpen, setSellBuyingDDOpen] = useState(false);
+  const [sellBuyingDDSearch, setSellBuyingDDSearch] = useState("");
 
   // Sell state
   const [sellClubId, setSellClubId] = useState<string>("");
   const [sellClubPlayers, setSellClubPlayers] = useState<any[]>([]);
-  const [selectedSellPlayerIds, setSelectedSellPlayerIds] = useState<number[]>([]);
-  const [transferTargets, setTransferTargets] = useState<Record<number, { buyingClubId: string; price: number }>>({});
+  const [sellSelectedPlayer, setSellSelectedPlayer] = useState<any>(null);
+  const [sellBuyingClubId, setSellBuyingClubId] = useState<string>("");
+  const [sellBuyingClubDDOpen, setSellBuyingClubDDOpen] = useState(false);
+  const [sellBuyingClubDDSearch, setSellBuyingClubDDSearch] = useState("");
+  const [sellPrice, setSellPrice] = useState<number>(80);
   const [sellSearchTerm, setSellSearchTerm] = useState<string>("");
   const [loadingSellPlayers, setLoadingSellPlayers] = useState<boolean>(false);
+  const [bulkTransfers, setBulkTransfers] = useState<any[]>([]);
 
   // Release state
   const [releaseClubId, setReleaseClubId] = useState<string>("");
@@ -143,8 +150,9 @@ export default function AuctionManager() {
       fetchClubPlayersWithContracts(parseInt(sellClubId), activeSeason.id)
         .then((data) => {
           setSellClubPlayers(data || []);
-          setSelectedSellPlayerIds([]);
-          setTransferTargets({});
+          setSellSelectedPlayer(null);
+          setSellBuyingClubId("");
+          setSellPrice(80);
           setLoadingSellPlayers(false);
         })
         .catch(() => {
@@ -153,8 +161,9 @@ export default function AuctionManager() {
         });
     } else {
       setSellClubPlayers([]);
-      setSelectedSellPlayerIds([]);
-      setTransferTargets({});
+      setSellSelectedPlayer(null);
+      setSellBuyingClubId("");
+      setSellPrice(80);
     }
   }, [sellClubId, activeSeason]);
 
@@ -226,16 +235,16 @@ export default function AuctionManager() {
   };
 
   const copyBatchList = (players: any[], title: string) => {
-    const lines = [`🔴 *${title}*`, ""];
+    const lines = [`ðŸ”´ *${title}*`, ""];
     let lastClub = "";
     for (const p of players) {
       if (p.club_name !== lastClub) {
         if (lastClub !== "") lines.push("");
-        lines.push(`🏟️ *${p.club_name || "Free Agent"}*`);
+        lines.push(`ðŸŸï¸ *${p.club_name || "Free Agent"}*`);
         lastClub = p.club_name;
       }
       const typeLabel = p.contract_type === 'mid' ? '[Mid]' : '[Start]';
-      lines.push(`  • ${p.player_name} (${p.position}) ${typeLabel} — Contract: ${cleanSeason(p.start_season)}–${cleanSeason(p.expire_season)}`);
+      lines.push(`  â€¢ ${p.player_name} (${p.position}) ${typeLabel} â€” Contract: ${cleanSeason(p.start_season)}â€“${cleanSeason(p.expire_season)}`);
     }
     navigator.clipboard.writeText(lines.join("\n"));
     showToast("Copied to clipboard!");
@@ -309,25 +318,69 @@ export default function AuctionManager() {
     );
   };
 
-  const toggleSellRowSelection = (playerId: number) => {
-    setSelectedSellPlayerIds(prev => {
-      const isSelected = prev.includes(playerId);
-      if (isSelected) {
-        const updated = prev.filter(id => id !== playerId);
-        setTransferTargets(prevTargets => {
-          const updatedTargets = { ...prevTargets };
-          delete updatedTargets[playerId];
-          return updatedTargets;
-        });
-        return updated;
-      } else {
-        const playerObj = sellClubPlayers.find(p => p.id === playerId);
-        const defaultValue = playerObj ? Number(playerObj.signedValue) || 80 : 80;
-        setTransferTargets(prevTargets => ({
-          ...prevTargets,
-          [playerId]: { buyingClubId: "", price: defaultValue }
+  // Transfer queue: add one deal at a time
+  const handleAddTransfer = () => {
+    if (!sellClubId) return showToast("Select a selling club!");
+    if (!sellSelectedPlayer) return showToast("Select a player!");
+    if (!sellBuyingClubId) return showToast("Select a buying club!");
+    if (sellPrice <= 0) return showToast("Enter a valid transfer price!");
+    if (sellBuyingClubId === sellClubId) return showToast("Buying club cannot be the same as selling club!");
+    if (sellPrice % 2 !== 0) return showToast(`Price must be an even number!`);
+    const prevValue = Number(sellSelectedPlayer.signedValue) || 0;
+    const minPrice = 0.5 * prevValue;
+    const maxPrice = 2.0 * prevValue;
+    if (prevValue > 0 && (sellPrice < minPrice || sellPrice > maxPrice)) {
+      return showToast(`Price must be between ${minPrice} and ${maxPrice} Coins (50%â€“200% of ${prevValue})`);
+    }
+    const alreadyQueued = bulkTransfers.some(t => t.playerId === sellSelectedPlayer.id);
+    if (alreadyQueued) return showToast(`${sellSelectedPlayer.name} is already in the queue!`);
+    const sellingClub = clubs.find(c => c.id.toString() === sellClubId);
+    const buyingClub = clubs.find(c => c.id.toString() === sellBuyingClubId);
+    setBulkTransfers(prev => [...prev, {
+      sellingClubId: parseInt(sellClubId),
+      sellingClubName: sellingClub?.name || "",
+      sellingClubLogo: sellingClub?.image || "",
+      playerId: sellSelectedPlayer.id,
+      playerName: sellSelectedPlayer.name,
+      playerPosition: sellSelectedPlayer.position,
+      playerImage: sellSelectedPlayer.imagePath,
+      playerValue: prevValue,
+      buyingClubId: parseInt(sellBuyingClubId),
+      buyingClubName: buyingClub?.name || "",
+      buyingClubLogo: buyingClub?.image || "",
+      price: sellPrice,
+      expireSeason: sellSelectedPlayer.expireSeason,
+    }]);
+    showToast(`${sellSelectedPlayer.name} â†’ ${buyingClub?.name} added to queue!`);
+    // Reset player + buying club but keep selling club so user can add another from same club
+    setSellSelectedPlayer(null);
+    setSellBuyingClubId("");
+    setSellPrice(80);
+    setSellBuyingDDOpen(false);
+    setSellBuyingDDSearch("");
+  };
+
+  const handleExecuteBulkTransfers = () => {
+    if (bulkTransfers.length === 0) return showToast("No transfers queued!");
+    if (!confirm(`Execute ${bulkTransfers.length} transfer(s)?`)) return;
+    startTransition(async () => {
+      try {
+        const payload = bulkTransfers.map(t => ({
+          sellingClubId: t.sellingClubId,
+          playerId: t.playerId,
+          price: t.price,
+          buyingClubId: t.buyingClubId,
         }));
-        return [...prev, playerId];
+        await executeBulkTransfers(payload);
+        showToast("All transfers executed successfully!");
+        setBulkTransfers([]);
+        setSellSelectedPlayer(null);
+        setSellClubId("");
+        setSellBuyingClubId("");
+        setSellPrice(80);
+        loadData();
+      } catch (err: any) {
+        showToast(`Transfer failed: ${err.message || "Check balances or parameters"}`);
       }
     });
   };
@@ -581,7 +634,7 @@ export default function AuctionManager() {
         </div>
 
         {/* Tab Selector */}
-        <div className="tab-menu" style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+        <div className="tab-menu" style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "8px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
           <button className={`portal-btn ${activeTab === 'auction' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('auction')}>
             <i className="fa-solid fa-gavel" /> Player Auction
           </button>
@@ -937,7 +990,7 @@ export default function AuctionManager() {
                               const start = auctionTiming === "mid" ? num + 0.5 : num;
                               const end = start + 2;
                               const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
-                              return `${fmt(start)}–${fmt(end)}`;
+                              return `${fmt(start)}â€“${fmt(end)}`;
                             })()}
                           </strong></span>
                         </div>
@@ -956,65 +1009,78 @@ export default function AuctionManager() {
                 </div>
               </div>
 
-              {/* Right List: Free agent directory */}
-              <div className="financial-main">
-                <div className="admin-card" style={{ marginTop: 0, padding: "1.5rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "10px" }}>
-                    <h2 className="admin-card-title" style={{ margin: 0 }}>
-                      <i className="fa-solid fa-users" style={{ color: "var(--solo-primary)", marginRight: "8px" }} />
-                      Free Agents ({filteredFreeAgents.length})
-                    </h2>
-                    <input 
-                      type="text" 
-                      className="admin-input" 
-                      placeholder="Search player or position..." 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ maxWidth: "220px", height: "32px", fontSize: "0.8rem" }}
-                    />
-                  </div>
+              {/* Right List: Free agent directory (Hides when player is selected) */}
+              {!selectedPlayerId && (
+                <div className="financial-main">
+                  <div className="admin-card" style={{ marginTop: 0, padding: "1.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "10px" }}>
+                      <h2 className="admin-card-title" style={{ margin: 0 }}>
+                        <i className="fa-solid fa-users" style={{ color: "var(--solo-primary)", marginRight: "8px" }} />
+                        Free Agents ({filteredFreeAgents.length})
+                      </h2>
+                      <input 
+                        type="text" 
+                        className="admin-input" 
+                        placeholder="Search player or position..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ maxWidth: "220px", height: "32px", fontSize: "0.8rem" }}
+                      />
+                    </div>
 
-                  <div className="table-responsive" style={{ maxHeight: "480px", overflowY: "auto" }}>
-                    <table className="admin-list-table">
-                      <thead>
-                        <tr>
-                          <th>Player Card</th>
-                          <th>Position</th>
-                          <th>Tier</th>
-                          <th>Base Value</th>
-                          <th style={{ textAlign: "right" }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredFreeAgents.map(p => (
-                          <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => setSelectedPlayerId(p.id.toString())}>
-                            <td>
-                              <strong style={{ color: selectedPlayerId === p.id.toString() ? "var(--solo-primary)" : "#fff" }}>
-                                {p.name}
-                              </strong>
-                            </td>
-                            <td>{p.position}</td>
-                            <td>{p.star.replace("-", " ")}</td>
-                            <td>{p.value} Coins</td>
-                            <td style={{ textAlign: "right" }}>
-                              <button 
-                                className={`portal-btn ${selectedPlayerId === p.id.toString() ? 'btn-primary' : 'btn-secondary'}`}
-                                style={{ padding: "3px 10px", fontSize: "0.75rem" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedPlayerId(p.id.toString());
-                                }}
-                              >
-                                Select
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "1rem", maxHeight: "550px", overflowY: "auto", paddingRight: "4px" }}>
+                      {filteredFreeAgents.map(p => {
+                        const isSelected = selectedPlayerId === p.id.toString();
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              background: isSelected ? "rgba(0, 102, 255, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                              border: isSelected ? "1.5px solid rgba(0, 102, 255, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                              borderRadius: "12px",
+                              padding: "1rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.75rem",
+                              transition: "all 0.15s ease",
+                              boxShadow: isSelected ? "0 4px 20px rgba(0,102,255,0.15)" : "none"
+                            }}
+                            onClick={() => setSelectedPlayerId(p.id.toString())}
+                            onMouseEnter={e => { if(!isSelected) e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
+                            onMouseLeave={e => { if(!isSelected) e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <img
+                                src={p.imagePath || '/assets/images/players/default.png'}
+                                alt=""
+                                style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.1)" }}
+                                onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{p.name}</strong>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "3px" }}>
+                                  <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "capitalize" }}>{p.star.replace("-", " ")}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px", marginTop: "2px" }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Base Value:</span>
+                              <strong style={{ fontSize: "0.85rem", color: "#f59e0b" }}>{p.value} Coins</strong>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filteredFreeAgents.length === 0 && (
+                        <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "2.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                          No free agents found matching your query.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -1023,333 +1089,247 @@ export default function AuctionManager() {
         {activeTab === 'sell' && (
           <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Players</h2>
-            <form onSubmit={handleSell}>
-              {/* Selling Club Selection */}
-              <div className="admin-form-grid" style={{ marginBottom: "1.5rem", overflow: "visible" }}>
-                <div className="admin-form-group" style={{ position: "relative" }} data-sell-club-dd="true">
-                  <label>Select Selling Club</label>
-                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                    onClick={() => setSellClubDDOpen(p => !p)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {sellClubId && (() => { const c = clubs.find(c => c.id.toString() === sellClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                      {sellClubId ? (clubs.find(c => c.id.toString() === sellClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
-                    </span>
-                    <i className={`fa-solid fa-chevron-${sellClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+
+            {/* â”€â”€ Selling Club â”€â”€ */}
+            <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
+              <div className="sub-card-title">Selling Club</div>
+              <div className="admin-form-group" style={{ position: "relative" }} data-sell-club-dd="true">
+                <label>Select Club to Sell From</label>
+                <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                  onClick={() => setSellClubDDOpen(p => !p)}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {sellClubId && (() => { const c = clubs.find(c => c.id.toString() === sellClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                    {sellClubId ? (clubs.find(c => c.id.toString() === sellClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
+                  </span>
+                  <i className={`fa-solid fa-chevron-${sellClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+                </div>
+                {sellClubDDOpen && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
+                    <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                      <input autoFocus type="text" placeholder="Search club..." value={sellClubDDSearch} onChange={e => setSellClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                    </div>
+                    <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                      {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).map(c => (
+                        <div key={c.id} onClick={e => { e.stopPropagation(); setSellClubId(c.id.toString()); setSellClubDDOpen(false); setSellClubDDSearch(""); setSellSelectedPlayer(null); setSellBuyingClubId(""); }}
+                          style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                          onMouseEnter={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                          {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
+                          {c.name}
+                        </div>
+                      ))}
+                      {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                    </div>
                   </div>
-                  {sellClubDDOpen && (
+                )}
+              </div>
+
+              {/* Player table â€” appears after club selected */}
+              {sellClubId && (
+                sellSelectedPlayer ? (
+                  // Selected player chip
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px", background: "rgba(0,102,255,0.08)", border: "1.5px solid rgba(0,102,255,0.3)", borderRadius: "10px", padding: "10px 14px" }}>
+                    <img src={sellSelectedPlayer.imagePath} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{sellSelectedPlayer.name}</strong>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
+                        <span style={{ background: `${getPositionColor(sellSelectedPlayer.position)}18`, color: getPositionColor(sellSelectedPlayer.position), border: `1px solid ${getPositionColor(sellSelectedPlayer.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{sellSelectedPlayer.position}</span>
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(sellSelectedPlayer.startSeason)}â€“{cleanSeason(sellSelectedPlayer.expireSeason)}</span>
+                        <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{sellSelectedPlayer.signedValue}c</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setSellSelectedPlayer(null)} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px", color: "rgba(255,255,255,0.7)", fontSize: "0.75rem", padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+                      <i className="fa-solid fa-rotate-left" style={{ marginRight: "4px" }} />Change
+                    </button>
+                  </div>
+                ) : (
+                  // Player table
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "12px", marginBottom: "8px", flexWrap: "wrap" }}>
+                      <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>Select Player to Transfer</label>
+                      <input type="text" className="admin-input" style={{ maxWidth: "220px", fontSize: "0.78rem", padding: "5px 10px" }} placeholder="Search name / position..." value={sellSearchTerm} onChange={e => setSellSearchTerm(e.target.value)} />
+                    </div>
+                    {loadingSellPlayers ? (
+                      <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--text-secondary)" }}><i className="fa-solid fa-spinner fa-spin" /> Loading...</div>
+                    ) : (
+                      isMobile ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          {sellClubPlayers.filter(p => sellSearchTerm === "" || p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) || p.position.toLowerCase().includes(sellSearchTerm.toLowerCase())).map(p => (
+                            <div key={p.id} onClick={() => { setSellSelectedPlayer(p); setSellPrice(Number(p.signedValue) || 80); setSellSearchTerm(""); }}
+                              style={{ background: "rgba(255,255,255,0.03)", border: "1.5px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "10px", cursor: "pointer", transition: "all 0.15s ease" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                                <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                                <div>
+                                  <strong style={{ color: "#fff", display: "block", fontSize: "0.85rem" }}>{p.name}</strong>
+                                  <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
+                                </div>
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                            <thead><tr><th>Player</th><th>Pos</th><th>Contract</th><th style={{ textAlign: "right" }}>Value</th></tr></thead>
+                            <tbody>
+                              {sellClubPlayers.filter(p => sellSearchTerm === "" || p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) || p.position.toLowerCase().includes(sellSearchTerm.toLowerCase())).map(p => (
+                                <tr key={p.id} onClick={() => { setSellSelectedPlayer(p); setSellPrice(Number(p.signedValue) || 80); setSellSearchTerm(""); }} style={{ cursor: "pointer", borderLeft: "3px solid transparent", transition: "background 0.12s" }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                                  <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
+                                  <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
+                                  <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
+                                  <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    )}
+                    {sellClubPlayers.length === 0 && !loadingSellPlayers && <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.8rem", padding: "16px" }}>No players found for this club</div>}
+                  </>
+                )
+              )}
+            </div>
+
+            {/* â”€â”€ Deal Builder (shows only when player is selected) â”€â”€ */}
+            {sellSelectedPlayer && (
+              <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
+                <div className="sub-card-title">Buying Club &amp; Price</div>
+
+                {/* Buying Club Dropdown */}
+                <div className="admin-form-group" style={{ position: "relative", marginBottom: "1rem" }} data-sell-buying-dd="true">
+                  <label>Buying Club</label>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellBuyingClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
+                    onClick={() => setSellBuyingDDOpen(p => !p)}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {sellBuyingClubId && (() => { const c = clubs.find(c => c.id.toString() === sellBuyingClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
+                      {sellBuyingClubId ? (clubs.find(c => c.id.toString() === sellBuyingClubId)?.name ?? "-- Select Buying Club --") : "-- Select Buying Club --"}
+                    </span>
+                    <i className={`fa-solid fa-chevron-${sellBuyingDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+                  </div>
+                  {sellBuyingDDOpen && (
                     <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
                       <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                        <input autoFocus type="text" placeholder="Search club..." value={sellClubDDSearch} onChange={e => setSellClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                        <input autoFocus type="text" placeholder="Search club..." value={sellBuyingDDSearch} onChange={e => setSellBuyingDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
                       </div>
-                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                        {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setSellClubId(c.id.toString()); setSellClubDDOpen(false); setSellClubDDSearch(""); }}
-                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                            onMouseEnter={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                            onMouseLeave={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                      <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                        {clubs.filter(c => c.id.toString() !== sellClubId && (sellBuyingDDSearch === "" || c.name.toLowerCase().includes(sellBuyingDDSearch.toLowerCase()))).map(c => (
+                          <div key={c.id} onClick={e => { e.stopPropagation(); setSellBuyingClubId(c.id.toString()); setSellBuyingDDOpen(false); setSellBuyingDDSearch(""); }}
+                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellBuyingClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellBuyingClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellBuyingClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
+                            onMouseEnter={e => { if (sellBuyingClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { if (sellBuyingClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
                             {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
                             {c.name}
                           </div>
                         ))}
-                        {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
+                        {clubs.filter(c => c.id.toString() !== sellClubId && (sellBuyingDDSearch === "" || c.name.toLowerCase().includes(sellBuyingDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Squad Players Table/List (only if selling club is selected) */}
-              {sellClubId && (
-                <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players</h3>
-                    
-                    {/* Search bar inside transfer tab */}
-                    <input
-                      type="text"
-                      className="admin-input"
-                      style={{ maxWidth: "250px", fontSize: "0.8rem", padding: "6px 12px" }}
-                      placeholder="Search player name/position..."
-                      value={sellSearchTerm}
-                      onChange={(e) => setSellSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  {loadingSellPlayers ? (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
-                      <i className="fa-solid fa-spinner fa-spin" /> Loading squad players...
-                    </div>
-                  ) : filteredSellPlayers.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                      No players found matching your criteria.
-                    </div>
-                  ) : isMobile ? (
-                    /* Mobile Card View */
-                    <div className="release-mobile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-                      {filteredSellPlayers.map(p => {
-                        const isChecked = selectedSellPlayerIds.includes(p.id);
-                        return (
-                          <div
-                            key={p.id}
-                            style={{
-                              background: isChecked ? "rgba(0, 102, 255, 0.05)" : "rgba(255, 255, 255, 0.02)",
-                              border: isChecked ? "1px solid rgba(0, 102, 255, 0.3)" : "1px solid rgba(255, 255, 255, 0.06)",
-                              borderRadius: "10px",
-                              padding: "1rem",
-                              cursor: "pointer",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "0.75rem",
-                              transition: "all 0.2s ease"
-                            }}
-                            onClick={() => toggleSellRowSelection(p.id)}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {}} // Handled by container click
-                                style={{ width: "16px", height: "16px" }}
-                              />
-                              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                                  <img
-                                    src={p.imagePath}
-                                    alt=""
-                                    style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
-                                    onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                                  />
-                                  <div>
-                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
-                                    <span className="badge-info" style={{ 
-                                      background: `${getPositionColor(p.position)}18`, 
-                                      color: getPositionColor(p.position), 
-                                      borderColor: `${getPositionColor(p.position)}40`,
-                                      fontSize: "0.7rem",
-                                      padding: "1px 6px"
-                                    }}>
-                                      {p.position}
-                                    </span>
-                                  </div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                  <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
-                                  <span>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                  <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
-                                  <span>{p.signedValue} Coins</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* Desktop Table View */
-                    <div className="table-responsive">
-                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
-                        <thead>
-                          <tr onClick={(e) => e.stopPropagation()}>
-                            <th style={{ width: "40px", textAlign: "center" }}>
-                              <input
-                                type="checkbox"
-                                checked={filteredSellPlayers.length > 0 && filteredSellPlayers.every(p => selectedSellPlayerIds.includes(p.id))}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    const allIds = filteredSellPlayers.map(p => p.id);
-                                    setSelectedSellPlayerIds(prev => Array.from(new Set([...prev, ...allIds])));
-                                    setTransferTargets(prev => {
-                                      const updated = { ...prev };
-                                      filteredSellPlayers.forEach(p => {
-                                        if (!updated[p.id]) {
-                                          updated[p.id] = { buyingClubId: "", price: Number(p.signedValue) || 80 };
-                                        }
-                                      });
-                                      return updated;
-                                    });
-                                  } else {
-                                    const filteredIds = filteredSellPlayers.map(p => p.id);
-                                    setSelectedSellPlayerIds(prev => prev.filter(id => !filteredIds.includes(id)));
-                                    setTransferTargets(prev => {
-                                      const updated = { ...prev };
-                                      filteredIds.forEach(id => {
-                                        delete updated[id];
-                                      });
-                                      return updated;
-                                    });
-                                  }
-                                }}
-                              />
-                            </th>
-                            <th>Player</th>
-                            <th>Position</th>
-                            <th>Contract Terms</th>
-                            <th style={{ textAlign: "right" }}>Contract Value</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredSellPlayers.map(p => {
-                            const isChecked = selectedSellPlayerIds.includes(p.id);
-                            return (
-                              <tr
-                                key={p.id}
-                                style={{ background: isChecked ? "rgba(0, 102, 255, 0.05)" : "transparent", cursor: "pointer" }}
-                                onClick={() => toggleSellRowSelection(p.id)}
-                              >
-                                <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => toggleSellRowSelection(p.id)}
-                                  />
-                                </td>
-                                <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <img
-                                      src={p.imagePath}
-                                      alt=""
-                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
-                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                                    />
-                                    <strong>{p.name}</strong>
-                                  </div>
-                                </td>
-                                <td>{p.position}</td>
-                                <td>
-                                  {cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}
-                                </td>
-                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                {/* Price */}
+                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                  <label>Transfer Price (Coins)</label>
+                  <input type="number" className="admin-input" value={sellPrice} onChange={e => setSellPrice(parseInt(e.target.value) || 0)} />
+                  {sellSelectedPlayer && (() => {
+                    const v = Number(sellSelectedPlayer.signedValue) || 0;
+                    return v > 0 ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "5px" }}>
+                        <span>Range: <strong style={{ color: "#fff" }}>{v * 0.5}â€“{v * 2} Coins</strong></span>
+                        <span>Current value: <strong style={{ color: "#f59e0b" }}>{v}c</strong></span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
-              )}
 
-              {/* Bulk Transfer Setup List */}
-              {sellClubId && selectedSellPlayerIds.length > 0 && (
-                <div style={{ marginTop: "2rem" }}>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fff", marginBottom: "1.25rem" }}>
-                    Configure Transfers ({selectedSellPlayerIds.length} player(s) selected)
-                  </h3>
+                {/* Deal summary */}
+                {sellBuyingClubId && (() => {
+                  const sellingClub = clubs.find(c => c.id.toString() === sellClubId);
+                  const buyingClub = clubs.find(c => c.id.toString() === sellBuyingClubId);
+                  return (
+                    <div style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: "8px", padding: "10px 14px", marginBottom: "1rem" }}>
+                      <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>Deal Summary</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.88rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {sellingClub?.image ? <img src={sellingClub.image} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)" }} />}
+                          <strong>{sellingClub?.name}</strong>
+                        </div>
+                        <i className="fa-solid fa-arrow-right" style={{ color: "#0066ff" }} />
+                        <strong style={{ color: "#fff" }}>{sellSelectedPlayer.name}</strong>
+                        <i className="fa-solid fa-arrow-right" style={{ color: "#0066ff" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {buyingClub?.image ? <img src={buyingClub.image} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)" }} />}
+                          <strong>{buyingClub?.name}</strong>
+                        </div>
+                        <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>{sellPrice} Coins</span>
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px" }}>
+                        Contract carried over Â· expires Season {cleanSeason(sellSelectedPlayer.expireSeason)}
+                      </div>
+                    </div>
+                  );
+                })()}
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                    {selectedSellPlayerIds.map(playerId => {
-                      const player = sellClubPlayers.find(p => p.id === playerId);
-                      if (!player) return null;
+                <div className="admin-btn-row">
+                  <button type="button" className="portal-btn btn-primary" onClick={handleAddTransfer} disabled={isPending}>
+                    <i className="fa-solid fa-plus" /> Add Transfer to Queue
+                  </button>
+                </div>
+              </div>
+            )}
 
-                      const target = transferTargets[playerId] || { buyingClubId: "", price: 80 };
-
-                      return (
-                        <div
-                          key={playerId}
-                          style={{
-                            background: "linear-gradient(135deg, rgba(0, 102, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                            border: "1px solid rgba(0, 102, 255, 0.2)",
-                            borderRadius: "12px",
-                            padding: "1.25rem",
-                            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)"
-                          }}
-                        >
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center" }}>
-                            {/* Left: Player info card */}
-                            <div style={{ display: "flex", gap: "12px", alignItems: "center", minWidth: "250px", flex: "1 1 300px" }}>
-                              <img
-                                src={player.imagePath}
-                                alt={player.name}
-                                style={{
-                                  width: "60px",
-                                  height: "60px",
-                                  borderRadius: "50%",
-                                  objectFit: "cover",
-                                  border: "2px solid #0066ff"
-                                }}
-                                onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
-                              />
-                              <div>
-                                <h4 style={{ fontSize: "1rem", fontWeight: "700", color: "#fff", margin: "0 0 4px 0" }}>{player.name}</h4>
-                                <span className="badge-info" style={{
-                                  background: `${getPositionColor(player.position)}18`,
-                                  color: getPositionColor(player.position),
-                                  borderColor: `${getPositionColor(player.position)}40`,
-                                  fontSize: "0.7rem",
-                                  padding: "1px 6px",
-                                  marginRight: "8px"
-                                }}>
-                                  {player.position}
-                                </span>
-                                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                                  Val: <strong>{player.signedValue} Coins</strong> | Exp: <strong>Season {cleanSeason(player.expireSeason)}</strong>
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Middle: Flow arrow */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <i className="fa-solid fa-arrow-right-long" style={{ color: "#0066ff", fontSize: "1.5rem" }} />
-                            </div>
-
-                            {/* Right: Destination options */}
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", flex: "2 1 400px", alignItems: "center" }}>
-                              <div className="admin-form-group" style={{ margin: 0, flex: 1, minWidth: "180px" }}>
-                                <label style={{ fontSize: "0.8rem", marginBottom: "4px" }}>Buying Club</label>
-                                <select
-                                  className="admin-select"
-                                  style={{ padding: "6px 12px", fontSize: "0.85rem" }}
-                                  value={target.buyingClubId}
-                                  onChange={(e) => setTransferTargets(prev => ({
-                                    ...prev,
-                                    [playerId]: { ...target, buyingClubId: e.target.value }
-                                  }))}
-                                  required
-                                >
-                                  <option value="">-- Select Buying Club --</option>
-                                  {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="admin-form-group" style={{ margin: 0, width: "120px" }}>
-                                <label style={{ fontSize: "0.8rem", marginBottom: "4px" }}>Price (Coins)</label>
-                                <input
-                                  type="number"
-                                  className="admin-input"
-                                  style={{ padding: "6px 12px", fontSize: "0.85rem" }}
-                                  value={target.price}
-                                  onChange={(e) => setTransferTargets(prev => ({
-                                    ...prev,
-                                    [playerId]: { ...target, price: parseInt(e.target.value) || 0 }
-                                  }))}
-                                  required
-                                />
-                              </div>
-
-                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", minWidth: "150px" }}>
-                                <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", marginRight: "4px" }} />
-                                Contract carried over (Season {cleanSeason(player.expireSeason)})
-                              </div>
-                            </div>
+            {/* â”€â”€ Transfer Queue â”€â”€ */}
+            {bulkTransfers.length > 0 && (
+              <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", marginBottom: "1.25rem" }}>
+                  Queued Transfers ({bulkTransfers.length})
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
+                  {bulkTransfers.map((t, idx) => (
+                    <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.9rem", marginBottom: "5px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {t.sellingClubLogo ? <img src={t.sellingClubLogo} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }} />}
+                            <strong>{t.sellingClubName}</strong>
+                          </div>
+                          <i className="fa-solid fa-arrow-right" style={{ color: "#0066ff", fontSize: "0.85rem" }} />
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ background: `${getPositionColor(t.playerPosition)}18`, color: getPositionColor(t.playerPosition), border: `1px solid ${getPositionColor(t.playerPosition)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{t.playerPosition}</span>
+                            <strong style={{ color: "#fff" }}>{t.playerName}</strong>
+                          </div>
+                          <i className="fa-solid fa-arrow-right" style={{ color: "#0066ff", fontSize: "0.85rem" }} />
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {t.buyingClubLogo ? <img src={t.buyingClubLogo} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }} />}
+                            <strong>{t.buyingClubName}</strong>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="admin-btn-row" style={{ marginTop: "2rem" }}>
-                    <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                      Confirm Bulk Transfer
-                    </button>
-                  </div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                          Price: <strong style={{ color: "#22c55e" }}>{t.price} Coins</strong>
+                          <span style={{ marginLeft: "10px" }}>Â·</span>
+                          <span style={{ marginLeft: "10px" }}>Contract expires Season {cleanSeason(t.expireSeason)}</span>
+                        </div>
+                      </div>
+                      <button type="button" className="portal-btn btn-secondary" style={{ padding: "4px 10px", fontSize: "0.8rem", color: "#ef4444", borderColor: "#ef4444", flexShrink: 0 }}
+                        onClick={() => setBulkTransfers(prev => prev.filter((_, i) => i !== idx))}>
+                        <i className="fa-solid fa-trash" /> Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </form>
+                <div className="admin-btn-row">
+                  <button type="button" className="portal-btn btn-primary" onClick={handleExecuteBulkTransfers} disabled={isPending}>
+                    <i className="fa-solid fa-check" /> Execute All {bulkTransfers.length} Transfer{bulkTransfers.length > 1 ? "s" : ""}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1630,7 +1610,7 @@ export default function AuctionManager() {
                               <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
                               <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                                 <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
-                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span>
                                 <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
                               </div>
                             </div>
@@ -1656,7 +1636,7 @@ export default function AuctionManager() {
                                   </div>
                                 </div>
                                 <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
                                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                                 </div>
                               </div>
@@ -1672,7 +1652,7 @@ export default function AuctionManager() {
                                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                                     <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                     <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
                                     <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                   </tr>
                                 ))}
@@ -1736,7 +1716,7 @@ export default function AuctionManager() {
                               <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
                               <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                                 <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
-                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span>
                                 <span style={{ fontSize: "0.72rem", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span>
                               </div>
                             </div>
@@ -1762,7 +1742,7 @@ export default function AuctionManager() {
                                   </div>
                                 </div>
                                 <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</span></div>
+                                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract:</span><span style={{ color: "#fff" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</span></div>
                                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Value:</span><span style={{ color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</span></div>
                                 </div>
                               </div>
@@ -1778,7 +1758,7 @@ export default function AuctionManager() {
                                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                                     <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
                                     <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
-                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}–{cleanSeason(p.expireSeason)}</td>
+                                    <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}â€“{cleanSeason(p.expireSeason)}</td>
                                     <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
                                   </tr>
                                 ))}
@@ -1818,7 +1798,7 @@ export default function AuctionManager() {
                         <span style={{ background: `${getPositionColor(player.position)}18`, color: getPositionColor(player.position), border: `1px solid ${getPositionColor(player.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{player.position}</span>
                       </div>
                       <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                        <span>Current contract: <strong style={{ color: "#fff" }}>{cleanSeason(player.startSeason)}–{cleanSeason(player.expireSeason)}</strong></span>
+                        <span>Current contract: <strong style={{ color: "#fff" }}>{cleanSeason(player.startSeason)}â€“{cleanSeason(player.expireSeason)}</strong></span>
                         <span>Current value: <strong style={{ color: "#f59e0b" }}>{valA === Number(player.signedValue) ? valA : valB}c</strong></span>
                       </div>
                     </div>
@@ -1864,7 +1844,7 @@ export default function AuctionManager() {
                         </div>
                         <div style={{ fontSize: "0.85rem" }}>
                           <span style={{ color: "var(--text-secondary)" }}>New Contract: </span>
-                          <strong style={{ color: "#22c55e" }}>{newStart}–{newEnd}</strong>
+                          <strong style={{ color: "#22c55e" }}>{newStart}â€“{newEnd}</strong>
                           <span style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", marginLeft: "6px" }}>(2 season reset)</span>
                         </div>
                       </div>
@@ -1960,25 +1940,25 @@ export default function AuctionManager() {
                   disabled={batchLoadingPreview || isPending}
                 >
                   {batchLoadingPreview
-                    ? <><i className="fa-solid fa-spinner fa-spin" /> Loading…</>
+                    ? <><i className="fa-solid fa-spinner fa-spin" /> Loadingâ€¦</>
                     : <><i className="fa-solid fa-eye" /> Preview All Expiring Contracts</>}
                 </button>
                 {batchPreviewPlayers.length > 0 && (
                   <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                    <strong style={{ color: "#fbbf24" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'start').length}</strong> start &nbsp;·&nbsp;
+                    <strong style={{ color: "#fbbf24" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'start').length}</strong> start &nbsp;Â·&nbsp;
                     <strong style={{ color: "#60a5fa" }}>{batchPreviewPlayers.filter(p => p.contract_type === 'mid').length}</strong> mid-season contracts expiring
                   </span>
                 )}
               </div>
 
-              {/* ── Season Start Sub-section ── */}
+              {/* â”€â”€ Season Start Sub-section â”€â”€ */}
               {(() => {
                 const startPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'start');
                 if (!batchPreviewOpen && !batchReleasedOpen) return null;
                 return (
                   <div className="sub-card" style={{ overflow: "visible" }}>
                     <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span><i className="fa-solid fa-calendar-day" /> Season {activeSeason?.season_number} — Start Contracts</span>
+                      <span><i className="fa-solid fa-calendar-day" /> Season {activeSeason?.season_number} â€” Start Contracts</span>
                       <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#fbbf24" }}>{startPlayers.length} players</span>
                     </div>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
@@ -2008,7 +1988,7 @@ export default function AuctionManager() {
                                         <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
                                         <span style={{ color: "#fff" }}>{p.player_name}</span>
                                       </div>
-                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
                                     </div>
                                   </div>
                                 );
@@ -2021,7 +2001,7 @@ export default function AuctionManager() {
                           <button className="portal-btn btn-danger" onClick={triggerSeasonStartReleases} disabled={isPending}>
                             <i className="fa-solid fa-circle-xmark" /> Release {startPlayers.length} Players
                           </button>
-                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(startPlayers, `Season ${activeSeason?.season_number} Start — Players to be Released`)}>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(startPlayers, `Season ${activeSeason?.season_number} Start â€” Players to be Released`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy List
                           </button>
                         </div>
@@ -2033,7 +2013,7 @@ export default function AuctionManager() {
                       <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
                         <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'start').length} released</span>
-                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'start'), `Season ${activeSeason?.season_number} Start — Released Players`)}>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'start'), `Season ${activeSeason?.season_number} Start â€” Released Players`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy
                           </button>
                         </div>
@@ -2048,7 +2028,7 @@ export default function AuctionManager() {
                                   {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
                                   <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
-                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
                                   </div>
                                 </div>
                               );
@@ -2065,14 +2045,14 @@ export default function AuctionManager() {
                 );
               })()}
 
-              {/* ── Mid-Season Sub-section ── */}
+              {/* â”€â”€ Mid-Season Sub-section â”€â”€ */}
               {(() => {
                 const midPlayers = batchPreviewPlayers.filter(p => p.contract_type === 'mid');
                 if (!batchPreviewOpen && !batchReleasedOpen) return null;
                 return (
                   <div className="sub-card" style={{ overflow: "visible" }}>
                     <div className="sub-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span><i className="fa-solid fa-calendar-half" style={{ fontSize: "0.85em" }} /> Season {activeSeason?.season_number}.5 — Mid-Season Contracts</span>
+                      <span><i className="fa-solid fa-calendar-half" style={{ fontSize: "0.85em" }} /> Season {activeSeason?.season_number}.5 â€” Mid-Season Contracts</span>
                       <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#60a5fa" }}>{midPlayers.length} players</span>
                     </div>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "1rem" }}>
@@ -2101,7 +2081,7 @@ export default function AuctionManager() {
                                         <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
                                         <span style={{ color: "#fff" }}>{p.player_name}</span>
                                       </div>
-                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
                                     </div>
                                   </div>
                                 );
@@ -2126,7 +2106,7 @@ export default function AuctionManager() {
                           }} disabled={isPending}>
                             <i className="fa-solid fa-circle-xmark" /> Release {midPlayers.length} Mid-Season Players
                           </button>
-                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(midPlayers, `Season ${activeSeason?.season_number}.5 Mid — Players to be Released`)}>
+                          <button className="portal-btn btn-secondary" onClick={() => copyBatchList(midPlayers, `Season ${activeSeason?.season_number}.5 Mid â€” Players to be Released`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy List
                           </button>
                         </div>
@@ -2138,7 +2118,7 @@ export default function AuctionManager() {
                       <div style={{ border: "1px solid rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.04)", borderRadius: "10px", overflow: "hidden" }}>
                         <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(34,197,94,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#22c55e" }}><i className="fa-solid fa-circle-check" style={{ marginRight: "5px" }} />{batchReleasedPlayers.filter(p => p.contract_type === 'mid').length} released</span>
-                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'mid'), `Season ${activeSeason?.season_number}.5 Mid — Released Players`)}>
+                          <button className="portal-btn btn-secondary" style={{ fontSize: "0.72rem", padding: "3px 9px" }} onClick={() => copyBatchList(batchReleasedPlayers.filter(p => p.contract_type === 'mid'), `Season ${activeSeason?.season_number}.5 Mid â€” Released Players`)}>
                             <i className="fa-brands fa-whatsapp" /> Copy
                           </button>
                         </div>
@@ -2153,7 +2133,7 @@ export default function AuctionManager() {
                                   {showHeader && <div style={{ padding: "7px 14px", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: "8px", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>{p.club_logo ? <img src={p.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)" }} />}<strong style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)" }}>{p.club_name || "Free Agent"}</strong></div>}
                                   <div style={{ padding: "6px 14px 6px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.62rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span><span style={{ color: "#fff" }}>{p.player_name}</span></div>
-                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}–{cleanSeason(p.expire_season)}</span>
+                                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{cleanSeason(p.start_season)}â€“{cleanSeason(p.expire_season)}</span>
                                   </div>
                                 </div>
                               );
