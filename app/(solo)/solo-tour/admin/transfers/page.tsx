@@ -40,7 +40,8 @@ export default function TransfersManager() {
   const [sellPlayerId, setSellPlayerId] = useState<string>("");
   const [sellPrice, setSellPrice] = useState<number>(40);
   const [sellBuyingClubId, setSellBuyingClubId] = useState<string>("");
-  const [sellExpireSeason, setSellExpireSeason] = useState<string>("");
+  const [sellSearchTerm, setSellSearchTerm] = useState<string>("");
+  const [loadingSellPlayers, setLoadingSellPlayers] = useState<boolean>(false);
 
   // Release state
   const [releaseClubId, setReleaseClubId] = useState<string>("");
@@ -83,7 +84,6 @@ export default function TransfersManager() {
 
       if (season) {
         setBuyExpireSeason((season.season_number + 1).toString());
-        setSellExpireSeason((season.season_number + 1).toString());
       }
     } catch {
       showToast("Error loading transfers data!");
@@ -102,12 +102,30 @@ export default function TransfersManager() {
 
   // Fetch players for sell tab
   useEffect(() => {
-    if (sellClubId) {
-      fetchClubPlayers(sellClubId).then(setSellClubPlayers).catch(() => showToast("Error loading club players"));
+    if (sellClubId && activeSeason) {
+      setLoadingSellPlayers(true);
+      fetchClubPlayersWithContracts(parseInt(sellClubId), activeSeason.id)
+        .then((data) => {
+          setSellClubPlayers(data || []);
+          setSellPlayerId("");
+          setLoadingSellPlayers(false);
+        })
+        .catch(() => {
+          showToast("Error loading club players");
+          setLoadingSellPlayers(false);
+        });
     } else {
       setSellClubPlayers([]);
+      setSellPlayerId("");
     }
-  }, [sellClubId]);
+  }, [sellClubId, activeSeason]);
+
+  const filteredSellPlayers = useMemo(() => {
+    return sellClubPlayers.filter(p => 
+      p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) ||
+      p.position.toLowerCase().includes(sellSearchTerm.toLowerCase())
+    );
+  }, [sellClubPlayers, sellSearchTerm]);
 
   // Fetch players with contracts for release tab
   useEffect(() => {
@@ -217,8 +235,8 @@ export default function TransfersManager() {
 
   const handleSell = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sellClubId || !sellPlayerId || !sellBuyingClubId || !sellExpireSeason) {
-      return showToast("Please select selling club, player, buying club, and contract expiration season!");
+    if (!sellClubId || !sellPlayerId || !sellBuyingClubId) {
+      return showToast("Please select selling club, player, and buying club!");
     }
     if (sellPrice < 0) return showToast("Price cannot be negative!");
     if (sellClubId === sellBuyingClubId) {
@@ -230,8 +248,7 @@ export default function TransfersManager() {
           parseInt(sellClubId),
           parseInt(sellPlayerId),
           sellPrice,
-          parseInt(sellBuyingClubId),
-          sellExpireSeason
+          parseInt(sellBuyingClubId)
         );
         showToast("Player transferred successfully!");
         setSellPlayerId("");
@@ -449,7 +466,8 @@ export default function TransfersManager() {
           <div className="admin-card">
             <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Player</h2>
             <form onSubmit={handleSell}>
-              <div className="admin-form-grid">
+              {/* Selling Club Selection */}
+              <div className="admin-form-grid" style={{ marginBottom: "1.5rem" }}>
                 <div className="admin-form-group">
                   <label>Select Selling Club</label>
                   <select className="admin-select" value={sellClubId} onChange={(e) => setSellClubId(e.target.value)} required>
@@ -459,52 +477,273 @@ export default function TransfersManager() {
                     ))}
                   </select>
                 </div>
-                <div className="admin-form-group">
-                  <label>Select Player to Transfer</label>
-                  <select className="admin-select" value={sellPlayerId} onChange={(e) => setSellPlayerId(e.target.value)} required>
-                    <option value="">-- Select Player --</option>
-                    {sellClubPlayers.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.position})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="admin-form-group">
-                  <label>Select Buying Club</label>
-                  <select className="admin-select" value={sellBuyingClubId} onChange={(e) => setSellBuyingClubId(e.target.value)} required>
-                    <option value="">-- Select Club --</option>
-                    {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="admin-form-group">
-                  <label>Transfer Price (Coins)</label>
-                  <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
-                </div>
-
-                <div className="admin-form-group">
-                  <label>Contract Expiration Season</label>
-                  <select className="admin-select" value={sellExpireSeason} onChange={(e) => setSellExpireSeason(e.target.value)} required>
-                    {activeSeason && (
-                      <>
-                        <option value={activeSeason.season_number.toString()}>Start of Season {activeSeason.season_number}</option>
-                        <option value={(activeSeason.season_number + 0.5).toString()}>Mid of Season {activeSeason.season_number}</option>
-                        <option value={(activeSeason.season_number + 1).toString()}>Start of Season {activeSeason.season_number + 1}</option>
-                        <option value={(activeSeason.season_number + 1.5).toString()}>Mid of Season {activeSeason.season_number + 1}</option>
-                        <option value={(activeSeason.season_number + 2).toString()}>Start of Season {activeSeason.season_number + 2}</option>
-                      </>
-                    )}
-                  </select>
-                </div>
               </div>
 
-              <div className="admin-btn-row" style={{ marginTop: "1rem" }}>
-                <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                  Confirm Transfer
-                </button>
-              </div>
+              {/* Squad Players Table/List (only if selling club is selected) */}
+              {sellClubId && (
+                <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+                    <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#fff", margin: 0 }}>Squad Players (Select One to Transfer)</h3>
+                    
+                    {/* Search bar inside transfer tab */}
+                    <input
+                      type="text"
+                      className="admin-input"
+                      style={{ maxWidth: "250px", fontSize: "0.8rem", padding: "6px 12px" }}
+                      placeholder="Search player name/position..."
+                      value={sellSearchTerm}
+                      onChange={(e) => setSellSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  {loadingSellPlayers ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                      <i className="fa-solid fa-spinner fa-spin" /> Loading squad players...
+                    </div>
+                  ) : filteredSellPlayers.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                      No players found matching your criteria.
+                    </div>
+                  ) : isMobile ? (
+                    /* Mobile Card View */
+                    <div className="release-mobile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+                      {filteredSellPlayers.map(p => {
+                        const isSelected = sellPlayerId === p.id.toString();
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              background: isSelected ? "rgba(0, 102, 255, 0.15)" : "rgba(255, 255, 255, 0.02)",
+                              border: isSelected ? "2px solid rgba(0, 102, 255, 0.8)" : "1px solid rgba(255, 255, 255, 0.06)",
+                              borderRadius: "10px",
+                              padding: "1rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.75rem",
+                              transition: "all 0.2s ease"
+                            }}
+                            onClick={() => setSellPlayerId(p.id.toString())}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <input
+                                type="radio"
+                                checked={isSelected}
+                                onChange={() => {}} // Handled by container click
+                                style={{ width: "16px", height: "16px" }}
+                              />
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                                  <img
+                                    src={p.imagePath}
+                                    alt=""
+                                    style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
+                                    onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                  />
+                                  <div>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{p.name}</strong>
+                                    <span className="badge-info" style={{ 
+                                      background: `${getPositionColor(p.position)}18`, 
+                                      color: getPositionColor(p.position), 
+                                      borderColor: `${getPositionColor(p.position)}40`,
+                                      fontSize: "0.7rem",
+                                      padding: "1px 6px"
+                                    }}>
+                                      {p.position}
+                                    </span>
+                                  </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.8rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.5rem" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ color: "var(--text-secondary)" }}>Contract Terms:</span>
+                                  <span>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <span style={{ color: "var(--text-secondary)" }}>Contract Value:</span>
+                                  <span>{p.signedValue} Coins</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Desktop Table View */
+                    <div className="table-responsive">
+                      <table className="admin-list-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr onClick={(e) => e.stopPropagation()}>
+                            <th style={{ width: "40px", textAlign: "center" }}>Select</th>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Contract Terms</th>
+                            <th style={{ textAlign: "right" }}>Contract Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredSellPlayers.map(p => {
+                            const isSelected = sellPlayerId === p.id.toString();
+                            return (
+                              <tr
+                                key={p.id}
+                                style={{ background: isSelected ? "rgba(0, 102, 255, 0.15)" : "transparent", cursor: "pointer" }}
+                                onClick={() => setSellPlayerId(p.id.toString())}
+                              >
+                                <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="radio"
+                                    checked={isSelected}
+                                    onChange={() => setSellPlayerId(p.id.toString())}
+                                  />
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <img
+                                      src={p.imagePath}
+                                      alt=""
+                                      style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+                                      onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                                    />
+                                    <strong>{p.name}</strong>
+                                  </div>
+                                </td>
+                                <td>{p.position}</td>
+                                <td>
+                                  {cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}
+                                </td>
+                                <td style={{ textAlign: "right" }}>{p.signedValue} Coins</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Player Card Display and Destination Form */}
+              {sellClubId && sellPlayerId && (() => {
+                const selectedPlayer = sellClubPlayers.find(p => p.id.toString() === sellPlayerId);
+                if (!selectedPlayer) return null;
+                return (
+                  <div>
+                    {/* Visual Player Card Details */}
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(0, 102, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                      border: "1px solid rgba(0, 102, 255, 0.2)",
+                      borderRadius: "12px",
+                      padding: "1.5rem",
+                      marginBottom: "1.5rem",
+                      display: "flex",
+                      gap: "20px",
+                      alignItems: "center",
+                      boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)"
+                    }}>
+                      <div style={{ position: "relative" }}>
+                        <img
+                          src={selectedPlayer.imagePath}
+                          alt={selectedPlayer.name}
+                          style={{
+                            width: "80px",
+                            height: "80px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            border: "2px solid #0066ff",
+                            boxShadow: "0 0 15px rgba(0, 102, 255, 0.3)"
+                          }}
+                          onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }}
+                        />
+                        {selectedPlayer.isSuspended && (
+                          <span style={{
+                            position: "absolute",
+                            bottom: 0,
+                            right: 0,
+                            background: "#ef4444",
+                            color: "#fff",
+                            borderRadius: "50%",
+                            width: "20px",
+                            height: "20px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "0.7rem",
+                            fontWeight: "bold"
+                          }}>S</span>
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                          <h3 style={{ fontSize: "1.2rem", fontWeight: "700", color: "#fff", margin: 0 }}>{selectedPlayer.name}</h3>
+                          <span className="badge-info" style={{
+                            background: `${getPositionColor(selectedPlayer.position)}18`,
+                            color: getPositionColor(selectedPlayer.position),
+                            borderColor: `${getPositionColor(selectedPlayer.position)}40`,
+                            fontSize: "0.75rem",
+                            padding: "2px 8px"
+                          }}>
+                            {selectedPlayer.position}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "0.85rem", marginTop: "10px" }}>
+                          <div>
+                            <span style={{ color: "var(--text-secondary)", display: "block" }}>Contract Expiry</span>
+                            <strong style={{ color: "#fff" }}>
+                              {selectedPlayer.expireSeason ? `Season ${cleanSeason(selectedPlayer.expireSeason)}` : 'N/A'}
+                            </strong>
+                          </div>
+                          <div>
+                            <span style={{ color: "var(--text-secondary)", display: "block" }}>Current Value</span>
+                            <strong style={{ color: "#22c55e" }}>{selectedPlayer.signedValue} Coins</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Flow arrow indication --> Transfer details */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "1rem 0" }}>
+                      <div style={{ height: "1px", background: "rgba(255,255,255,0.1)", flex: 1 }}></div>
+                      <div style={{ background: "rgba(0,102,255,0.1)", border: "1px solid rgba(0,102,255,0.3)", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <i className="fa-solid fa-arrow-down" style={{ color: "#0066ff" }}></i>
+                      </div>
+                      <div style={{ height: "1px", background: "rgba(255,255,255,0.1)", flex: 1 }}></div>
+                    </div>
+
+                    {/* Transfer Target Form Details */}
+                    <div className="admin-form-grid">
+                      <div className="admin-form-group">
+                        <label>Select Buying Club</label>
+                        <select className="admin-select" value={sellBuyingClubId} onChange={(e) => setSellBuyingClubId(e.target.value)} required>
+                          <option value="">-- Select Club --</option>
+                          {clubs.filter(c => c.id.toString() !== sellClubId).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label>Transfer Price (Coins)</label>
+                        <input type="number" className="admin-input" value={sellPrice} onChange={(e) => setSellPrice(parseInt(e.target.value) || 0)} required />
+                      </div>
+
+                      <div className="admin-form-group">
+                        <label>Contract Status</label>
+                        <div style={{ padding: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                          <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", marginRight: "6px" }} />
+                          Contract duration will carry over (Season {cleanSeason(selectedPlayer.expireSeason)})
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="admin-btn-row" style={{ marginTop: "1.5rem" }}>
+                      <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
+                        Confirm Transfer
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </form>
           </div>
         )}

@@ -4345,7 +4345,7 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
   }
 }
 
-export async function executeTransferSale(clubId: number, playerId: number, price: number, buyingClubId: number, expireSeason: string) {
+export async function executeTransferSale(clubId: number, playerId: number, price: number, buyingClubId: number) {
   try {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
@@ -4395,15 +4395,21 @@ export async function executeTransferSale(clubId: number, playerId: number, pric
     await logTransaction(clubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sell: sold ${pName} to ${buyingClubName} for ${price} Coins`);
     await logTransaction(buyingClubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: bought ${pName} from ${sellingClubName} for ${price} Coins`);
 
-    // 6. Deactivate old contract
+    // 6. Deactivate old contract and retrieve the expire_season
     const currentSeasonStr = seasonNumber.toString();
-    await pool.query(`
+    const { rows: oldContractRows } = await pool.query(`
       UPDATE player_contracts 
       SET status = 'inactive', expire_season = $1
       WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
+      RETURNING expire_season
     `, [currentSeasonStr, playerId, clubId, seasonId]);
 
-    // 7. Insert new active contract for buying club
+    if (oldContractRows.length === 0) {
+      throw new Error("Active contract for the player not found.");
+    }
+    const expireSeason = oldContractRows[0].expire_season;
+
+    // 7. Insert new active contract for buying club carrying over expire_season
     const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
     const salary = Number(price) * 0.05;
     await pool.query(`
@@ -4894,6 +4900,51 @@ export async function fetchClubPlayersWithContracts(clubId: string | number, sea
   } catch (e) {
     console.error("Error fetching club players with contracts:", e);
     return [];
+  }
+}
+
+export async function fetchAllClubs() {
+  try {
+    const { rows } = await pool.query('SELECT id, name, logo_path FROM clubs ORDER BY name ASC');
+    return rows;
+  } catch (e) {
+    console.error("Error fetching all clubs:", e);
+    return [];
+  }
+}
+
+export async function updateClubDetails(clubId: number, name: string, logoPath: string) {
+  try {
+    await pool.query('UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3', [name, logoPath || '', clubId]);
+    return { success: true };
+  } catch (e) {
+    console.error("Error updating club details:", e);
+    throw e;
+  }
+}
+
+export async function createClub(name: string, logoPath: string) {
+  try {
+    const { rows: maxIdRows } = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM clubs');
+    const nextId = maxIdRows[0].next_id;
+    await pool.query(`
+      INSERT INTO clubs (id, name, logo_path)
+      VALUES ($1, $2, $3)
+    `, [nextId, name, logoPath || '']);
+    return { success: true, id: nextId };
+  } catch (e) {
+    console.error("Error creating club:", e);
+    throw e;
+  }
+}
+
+export async function deleteClub(id: number) {
+  try {
+    await pool.query('DELETE FROM clubs WHERE id = $1', [id]);
+    return { success: true };
+  } catch (e) {
+    console.error("Error deleting club:", e);
+    throw e;
   }
 }
 

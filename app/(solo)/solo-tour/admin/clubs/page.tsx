@@ -404,15 +404,15 @@ export default function ClubsManager() {
         </div>
 
         <div className="portal-header">
-          <div className="portal-page-badge"><i className="fa-solid fa-shield-halved" /> Clubs & Managers</div>
-          <h1 className="portal-title">CLUBS & MANAGERS</h1>
-          <p className="portal-subtitle">Register new franchises, override wallets, edit season records, and administer season bans.</p>
+          <div className="portal-page-badge"><i className="fa-solid fa-shield-halved" /> Managers & Wallets</div>
+          <h1 className="portal-title">MANAGERS & WALLETS</h1>
+          <p className="portal-subtitle">Register new managers, assign clubs, override wallets, edit season records, and administer season bans.</p>
         </div>
 
         {/* Summary Stats Row */}
         <div className="admin-stats-row">
           <div className="admin-stat-card">
-            <div className="stat-label">Total Clubs</div>
+            <div className="stat-label">Total Managers</div>
             <div className="stat-value">{managers.length}</div>
           </div>
           <div className="admin-stat-card">
@@ -435,7 +435,7 @@ export default function ClubsManager() {
           {/* Left Column: Clubs list cards */}
           <div className="financial-sidebar">
             <button className="portal-btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={clearForm}>
-              <i className="fa-solid fa-circle-plus" /> Register New Club / Manager
+              <i className="fa-solid fa-circle-plus" /> Register New Manager
             </button>
             
             {/* Search Bar */}
@@ -793,64 +793,40 @@ export default function ClubsManager() {
                   )}
                 </div>
 
-                {/* 2. Club & Franchise Card */}
+                {/* 2. Club Association */}
                 {clubForm.isActive && (
                   <div className="sub-card">
                     <div className="sub-card-title">
-                      <i className="fa-solid fa-shield-halved" /> 2. Club & Franchise Association
+                      <i className="fa-solid fa-shield-halved" /> 2. Club Association
                     </div>
                     
-                    {clubForm.id && (
-                      <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
-                        <label>Reassign Club Association (Link to another registered club)</label>
-                        <select 
-                          className="admin-select"
-                          value={clubForm.clubId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const selected = allClubs.find(c => c.id.toString() === val);
-                            setClubForm(prev => ({
-                              ...prev,
-                              clubId: val,
-                              clubName: selected ? selected.name : prev.clubName,
-                              logoPath: selected ? selected.logo_path : prev.logoPath
-                            }));
-                          }}
-                        >
-                          <option value="">-- Keep Current / Custom Club --</option>
-                          {allClubs.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="admin-form-grid">
-                      <div className="admin-form-group">
-                        <label>Club Name</label>
-                        <input type="text" className="admin-input" value={clubForm.clubName} onChange={(e) => setClubForm(prev => ({ ...prev, clubName: e.target.value }))} placeholder="e.g. London FC (leave blank if no club)" />
-                      </div>
-                      <div className="admin-form-group">
-                        <label>Club Logo Path</label>
-                        <input type="text" className="admin-input" value={clubForm.logoPath} onChange={(e) => setClubForm(prev => ({ ...prev, logoPath: e.target.value }))} placeholder="/assets/images/clubs/logo.png" />
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          id="club-logo-file-upload"
-                          style={{ display: "none" }}
-                          onChange={(e) => handleFileUpload(e, 'logo')}
-                          disabled={uploadingField !== null}
-                        />
-                        <label htmlFor="club-logo-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingField !== null ? "none" : "auto" }}>
-                          {uploadingField === 'logo' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Logo</>}
-                        </label>
-                      </div>
+                    <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                      <label>Select Associated Club</label>
+                      <select 
+                        className="admin-select"
+                        value={clubForm.clubId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const selected = allClubs.find(c => c.id.toString() === val);
+                          setClubForm(prev => ({
+                            ...prev,
+                            clubId: val,
+                            clubName: selected ? selected.name : "",
+                            logoPath: selected ? selected.logo_path : ""
+                          }));
+                        }}
+                      >
+                        <option value="">-- No Associated Club --</option>
+                        {allClubs.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {clubForm.id && (
                       <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end", borderTop: "1px dashed rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
                         <button type="button" className="portal-btn btn-primary" onClick={handleUpdateManagerClub} disabled={isPending}>
-                          {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-building-circle-check" /> Update Club Info Only</>}
+                          {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-building-circle-check" /> Update Association Only</>}
                         </button>
                       </div>
                     )}

@@ -17,10 +17,17 @@ const ADMIN_MODULES = [
   },
   {
     href: "/solo-tour/admin/clubs",
-    icon: "fa-solid fa-shield-halved",
+    icon: "fa-solid fa-user-gear",
     accent: "clubs",
-    title: "Clubs & Managers",
-    desc: "Register clubs, edit wallets, ratings, season records, and apply bans with fines.",
+    title: "Managers & Wallets",
+    desc: "Register managers, edit wallet balances, squad ratings, stats, and apply ban fines.",
+  },
+  {
+    href: "/solo-tour/admin/manage-clubs",
+    icon: "fa-solid fa-shield-halved",
+    accent: "tournaments",
+    title: "Clubs Database",
+    desc: "Create and edit club franchises, customize club names, and upload club logos.",
   },
   {
     href: "/solo-tour/admin/tournaments",
