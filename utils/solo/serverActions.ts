@@ -4307,7 +4307,7 @@ export async function completeAuction(auctionId: number, clubId: number, winning
   }
 }
 
-export async function executeTransferBuy(clubId: number, playerId: number, price: number, expireSeason: string) {
+export async function executeTransferBuy(clubId: number, playerId: number, price: number, timing: 'start' | 'mid') {
   try {
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
@@ -4329,12 +4329,14 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
       UPDATE player_contracts SET status = 'inactive' WHERE player_id = $1 AND season_id = $2
     `, [playerId, seasonId]);
 
-    const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
+    const startSeasonValue = timing === 'mid' ? Number(seasonNumber) + 0.5 : Number(seasonNumber);
+    const expireSeasonValue = startSeasonValue + 2.0;
     const salary = Number(price) * 0.05;
+
     await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [playerId, seasonId, clubId, price, salary, seasonNumber.toString(), cleanExpire]);
+    `, [playerId, seasonId, clubId, price, salary, startSeasonValue.toString(), expireSeasonValue.toString()]);
 
     await pool.query('COMMIT');
     return { success: true };
@@ -4532,9 +4534,7 @@ export async function executeTransferSwap(
   playerAId: number,
   clubBId: number,
   playerBId: number,
-  cashAdjustmentAtoB: number,
-  newValueA: number,
-  newValueB: number
+  cashAdjustmentAtoB: number
 ) {
   try {
     const activeSeason = await fetchActiveSeason();
@@ -4589,6 +4589,11 @@ export async function executeTransferSwap(
     const contractB = contractBRows[0];
     const currentSeasonStr = (activeSeason?.season_number || 9).toString();
 
+    // Auto swap value = max of the two values
+    const valA = Number(contractA.signed_value) || 0;
+    const valB = Number(contractB.signed_value) || 0;
+    const swapValue = Math.max(valA, valB);
+
     // Terminate old contracts and set expire_season to swap moment
     await pool.query(`
       UPDATE player_contracts
@@ -4603,17 +4608,17 @@ export async function executeTransferSwap(
     `, [currentSeasonStr, contractB.id]);
 
     // Create new contracts at swapped clubs
-    const salaryA = Number(newValueA) * 0.05;
+    const salaryA = Number(swapValue) * 0.05;
     await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [playerAId, seasonId, clubBId, newValueA, salaryA, currentSeasonStr, contractA.expire_season]);
+    `, [playerAId, seasonId, clubBId, swapValue, salaryA, currentSeasonStr, contractA.expire_season]);
 
-    const salaryB = Number(newValueB) * 0.05;
+    const salaryB = Number(swapValue) * 0.05;
     await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [playerBId, seasonId, clubAId, newValueB, salaryB, currentSeasonStr, contractB.expire_season]);
+    `, [playerBId, seasonId, clubAId, swapValue, salaryB, currentSeasonStr, contractB.expire_season]);
 
     await logTransaction(clubAId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerAName} and received ${playerBName}`);
     await logTransaction(clubBId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerBName} and received ${playerAName}`);
@@ -4633,8 +4638,6 @@ export async function executeBulkSwaps(swaps: {
   clubBId: number;
   playerBId: number;
   cashAdjustmentAtoB: number;
-  newValueA: number;
-  newValueB: number;
 }[]) {
   try {
     const activeSeason = await fetchActiveSeason();
@@ -4644,7 +4647,7 @@ export async function executeBulkSwaps(swaps: {
     await pool.query('BEGIN');
 
     for (const s of swaps) {
-      const { clubAId, playerAId, clubBId, playerBId, cashAdjustmentAtoB, newValueA, newValueB } = s;
+      const { clubAId, playerAId, clubBId, playerBId, cashAdjustmentAtoB } = s;
 
       const { rows: nameRows } = await pool.query('SELECT id, name FROM players WHERE id IN ($1, $2)', [playerAId, playerBId]);
       const nameMap = Object.fromEntries(nameRows.map((r: any) => [r.id, r.name]));
@@ -4692,6 +4695,11 @@ export async function executeBulkSwaps(swaps: {
       const contractA = contractARows[0];
       const contractB = contractBRows[0];
 
+      // Auto swap value = max of the two values
+      const valA = Number(contractA.signed_value) || 0;
+      const valB = Number(contractB.signed_value) || 0;
+      const swapValue = Math.max(valA, valB);
+
       // Terminate old contracts and set expire_season to swap moment
       await pool.query(`
         UPDATE player_contracts
@@ -4706,17 +4714,17 @@ export async function executeBulkSwaps(swaps: {
       `, [currentSeasonStr, contractB.id]);
 
       // Create new contracts at swapped clubs
-      const salaryA = Number(newValueA) * 0.05;
+      const salaryA = Number(swapValue) * 0.05;
       await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-      `, [playerAId, seasonId, clubBId, newValueA, salaryA, currentSeasonStr, contractA.expire_season]);
+      `, [playerAId, seasonId, clubBId, swapValue, salaryA, currentSeasonStr, contractA.expire_season]);
 
-      const salaryB = Number(newValueB) * 0.05;
+      const salaryB = Number(swapValue) * 0.05;
       await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-      `, [playerBId, seasonId, clubAId, newValueB, salaryB, currentSeasonStr, contractB.expire_season]);
+      `, [playerBId, seasonId, clubAId, swapValue, salaryB, currentSeasonStr, contractB.expire_season]);
 
       await logTransaction(clubAId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerAName} and received ${playerBName}`);
       await logTransaction(clubBId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerBName} and received ${playerAName}`);

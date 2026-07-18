@@ -54,15 +54,8 @@ const ADMIN_MODULES = [
     href: "/solo-tour/admin/auction",
     icon: "fa-solid fa-gavel",
     accent: "nominees",
-    title: "Player Auctions",
-    desc: "Auction off free agents at start & mid-season, auto-calculate salary and deduct wallet balances.",
-  },
-  {
-    href: "/solo-tour/admin/transfers",
-    icon: "fa-solid fa-arrow-right-arrow-left",
-    accent: "financial",
-    title: "Transfer Window",
-    desc: "Execute player buys, sales, and swaps between squads with automatic balance updates.",
+    title: "Player Auctions & Transfers",
+    desc: "Auction free agents, execute transfers, swaps, releases — all squad management in one hub.",
   },
   {
     href: "/solo-tour/admin/nominees",
