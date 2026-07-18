@@ -57,7 +57,7 @@ export default function PlayerProfilePage() {
   if (loading) {
     return (
       <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <PortalNavbar />
+        <SoloNavbar />
         <main style={{ position: 'relative', zIndex: 2, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#c084fc", borderRightColor: "#a855f7", animation: "spin 1s linear infinite", margin: "0 auto 1.5rem" }} />
@@ -69,7 +69,7 @@ export default function PlayerProfilePage() {
             }
           `}</style>
         </main>
-        <PortalFooter />
+        <SoloFooter />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export default function PlayerProfilePage() {
   if (error || !data) {
     return (
       <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <PortalNavbar />
+        <SoloNavbar />
         <main style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
           <div style={{ maxWidth: "600px", textAlign: "center" }}>
             <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -90,7 +90,7 @@ export default function PlayerProfilePage() {
             </div>
           </div>
         </main>
-        <PortalFooter />
+        <SoloFooter />
       </div>
     );
   }
