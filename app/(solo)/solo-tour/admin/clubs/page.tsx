@@ -10,6 +10,9 @@ import {
   fetchManagers,
   createClubAndManager,
   updateManagerDetails,
+  updateManagerProfileOnly,
+  updateManagerClubOnly,
+  updateManagerWalletAndStatsOnly,
   deleteClubAndManager,
   applyFine,
   fetchRegisteredClubs
@@ -88,6 +91,46 @@ export default function ClubsManager() {
       wins: 0, draws: 0, losses: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
       isBanned: false,
       isActive: true
+    });
+  };
+
+  const handleUpdateManagerProfile = () => {
+    if (!clubForm.managerName) return showToast("Manager name is required!");
+    startTransition(async () => {
+      try {
+        await updateManagerProfileOnly(clubForm);
+        showToast("Manager profile updated successfully!");
+        loadData();
+      } catch (err) {
+        console.error(err);
+        showToast("Error updating manager profile!");
+      }
+    });
+  };
+
+  const handleUpdateManagerClub = () => {
+    startTransition(async () => {
+      try {
+        await updateManagerClubOnly(clubForm);
+        showToast("Club & franchise updated successfully!");
+        loadData();
+      } catch (err) {
+        console.error(err);
+        showToast("Error updating club details!");
+      }
+    });
+  };
+
+  const handleUpdateManagerWalletAndStats = () => {
+    startTransition(async () => {
+      try {
+        await updateManagerWalletAndStatsOnly(clubForm);
+        showToast("Wallet & performance stats updated successfully!");
+        loadData();
+      } catch (err) {
+        console.error(err);
+        showToast("Error updating wallet & stats!");
+      }
     });
   };
 
@@ -420,15 +463,88 @@ export default function ClubsManager() {
                 {clubForm.id ? `Editing Manager: ${clubForm.managerName}` : "Register New Franchise"}
               </h2>
 
+              {clubForm.id && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+                  <button type="button" className="portal-btn btn-secondary" onClick={clearForm}>
+                    <i className="fa-solid fa-xmark" /> Cancel Edit & Return to List
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleSaveClub}>
                 
-                {/* General Profile Card */}
+                {/* 1. Manager Info Card */}
                 <div className="sub-card">
-                  <div className="sub-card-title"><i className="fa-solid fa-id-card" /> General Profile</div>
+                  <div className="sub-card-title">
+                    <i className="fa-solid fa-user-gear" /> 1. Manager Profile Info
+                  </div>
+                  
+                  <div className="admin-form-grid">
+                    <div className="admin-form-group">
+                      <label>Manager Name</label>
+                      <input type="text" className="admin-input" value={clubForm.managerName} onChange={(e) => setClubForm(prev => ({ ...prev, managerName: e.target.value }))} placeholder="e.g. John Doe" />
+                    </div>
+                    <div className="admin-form-group">
+                      <label>Manager Avatar Path</label>
+                      <input type="text" className="admin-input" value={clubForm.avatarPath} onChange={(e) => setClubForm(prev => ({ ...prev, avatarPath: e.target.value }))} placeholder="/assets/images/managers/avatar.png" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        id="mgr-avatar-file-upload"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleFileUpload(e, 'avatar')}
+                        disabled={uploadingField !== null}
+                      />
+                      <label htmlFor="mgr-avatar-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingField !== null ? "none" : "auto" }}>
+                        {uploadingField === 'avatar' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Avatar</>}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
+                    <div className="admin-form-group">
+                      <label>Mobile Number</label>
+                      <input type="text" className="admin-input" value={clubForm.mobNo} onChange={(e) => setClubForm(prev => ({ ...prev, mobNo: e.target.value }))} placeholder="e.g. +123456789" />
+                    </div>
+                    <div className="admin-form-group">
+                      <label>Place</label>
+                      <input type="text" className="admin-input" value={clubForm.place} onChange={(e) => setClubForm(prev => ({ ...prev, place: e.target.value }))} placeholder="e.g. London, UK" />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>
+                      <input 
+                        type="checkbox" 
+                        checked={clubForm.isActive} 
+                        onChange={(e) => setClubForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                        style={{ width: "16px", height: "16px", accentColor: "#3b82f6", cursor: "pointer" }}
+                      />
+                      <span>Active in Career Universe</span>
+                    </label>
+                    <p style={{ margin: "4px 0 0 1.5rem", fontSize: "0.75rem", color: "#9ca3af", lineHeight: "1.3" }}>
+                      Uncheck for guest/relegated teams. Inactive teams are hidden from public rankings and directories, but all historical standings and fixture scores remain preserved.
+                    </p>
+                  </div>
+
+                  {clubForm.id && (
+                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end", borderTop: "1px dashed rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
+                      <button type="button" className="portal-btn btn-primary" onClick={handleUpdateManagerProfile} disabled={isPending}>
+                        {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-user-pen" /> Update Manager Profile Only</>}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Club & Franchise Card */}
+                <div className="sub-card">
+                  <div className="sub-card-title">
+                    <i className="fa-solid fa-shield-halved" /> 2. Club & Franchise Association
+                  </div>
                   
                   {clubForm.id && (
                     <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
-                      <label>Club Association (Assign to an existing club)</label>
+                      <label>Reassign Club Association (Link to another registered club)</label>
                       <select 
                         className="admin-select"
                         value={clubForm.clubId}
@@ -457,22 +573,6 @@ export default function ClubsManager() {
                       <input type="text" className="admin-input" value={clubForm.clubName} onChange={(e) => setClubForm(prev => ({ ...prev, clubName: e.target.value }))} placeholder="e.g. London FC (leave blank if no club)" />
                     </div>
                     <div className="admin-form-group">
-                      <label>Manager Name</label>
-                      <input type="text" className="admin-input" value={clubForm.managerName} onChange={(e) => setClubForm(prev => ({ ...prev, managerName: e.target.value }))} placeholder="e.g. John Doe" />
-                    </div>
-                  </div>
-                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
-                    <div className="admin-form-group">
-                      <label>Mobile Number</label>
-                      <input type="text" className="admin-input" value={clubForm.mobNo} onChange={(e) => setClubForm(prev => ({ ...prev, mobNo: e.target.value }))} placeholder="e.g. +123456789" />
-                    </div>
-                    <div className="admin-form-group">
-                      <label>Place</label>
-                      <input type="text" className="admin-input" value={clubForm.place} onChange={(e) => setClubForm(prev => ({ ...prev, place: e.target.value }))} placeholder="e.g. London, UK" />
-                    </div>
-                  </div>
-                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
-                    <div className="admin-form-group">
                       <label>Club Logo Path</label>
                       <input type="text" className="admin-input" value={clubForm.logoPath} onChange={(e) => setClubForm(prev => ({ ...prev, logoPath: e.target.value }))} placeholder="/assets/images/clubs/logo.png" />
                       <input 
@@ -487,27 +587,23 @@ export default function ClubsManager() {
                         {uploadingField === 'logo' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Logo</>}
                       </label>
                     </div>
-                    <div className="admin-form-group">
-                      <label>Manager Avatar Path</label>
-                      <input type="text" className="admin-input" value={clubForm.avatarPath} onChange={(e) => setClubForm(prev => ({ ...prev, avatarPath: e.target.value }))} placeholder="/assets/images/managers/avatar.png" />
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        id="mgr-avatar-file-upload"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleFileUpload(e, 'avatar')}
-                        disabled={uploadingField !== null}
-                      />
-                      <label htmlFor="mgr-avatar-file-upload" className="portal-btn btn-secondary" style={{ display: "inline-flex", padding: "4px 8px", fontSize: "0.75rem", cursor: "pointer", marginTop: "4px", width: "fit-content", pointerEvents: uploadingField !== null ? "none" : "auto" }}>
-                        {uploadingField === 'avatar' ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</> : <><i className="fa-solid fa-cloud-arrow-up" /> Upload Avatar</>}
-                      </label>
-                    </div>
                   </div>
+
+                  {clubForm.id && (
+                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end", borderTop: "1px dashed rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
+                      <button type="button" className="portal-btn btn-primary" onClick={handleUpdateManagerClub} disabled={isPending}>
+                        {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-building-circle-check" /> Update Club Info Only</>}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Wallet Balance Card */}
+                {/* 3. Wallet & Performance Card */}
                 <div className="sub-card">
-                  <div className="sub-card-title"><i className="fa-solid fa-wallet" /> Wallet Balance Overrides</div>
+                  <div className="sub-card-title">
+                    <i className="fa-solid fa-wallet" /> 3. Wallet & Performance Override
+                  </div>
+                  
                   <div className="currency-input-container">
                     <div className="admin-form-group">
                       <label style={{ fontSize: "0.75rem", color: "#fbbf24", fontWeight: 700 }}>Coins Balance (RC)</label>
@@ -531,12 +627,8 @@ export default function ClubsManager() {
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Rating & Rankings */}
-                <div className="sub-card">
-                  <div className="sub-card-title"><i className="fa-solid fa-arrow-up-right-dots" /> Rating & Star Level</div>
-                  <div className="admin-form-grid">
+                  <div className="admin-form-grid" style={{ marginTop: "1rem" }}>
                     <div className="admin-form-group">
                       <label>Overall Squad Rating (OVR)</label>
                       <input type="number" className="admin-input" min={0} max={99} value={clubForm.rating} onChange={(e) => setClubForm(prev => ({ ...prev, rating: parseInt(e.target.value) || 80 }))} />
@@ -546,58 +638,47 @@ export default function ClubsManager() {
                       <input type="number" className="admin-input" min={1} max={5} value={clubForm.starRating} onChange={(e) => setClubForm(prev => ({ ...prev, starRating: parseInt(e.target.value) || 3 }))} />
                     </div>
                   </div>
-                  
-                  <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: "0.85rem" }}>
-                      <input 
-                        type="checkbox" 
-                        checked={clubForm.isActive} 
-                        onChange={(e) => setClubForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                        style={{ width: "16px", height: "16px", accentColor: "#3b82f6", cursor: "pointer" }}
-                      />
-                      <span>Active in Career Universe</span>
-                    </label>
-                    <p style={{ margin: "4px 0 0 1.5rem", fontSize: "0.75rem", color: "#9ca3af", lineHeight: "1.3" }}>
-                      Uncheck for guest/relegated teams. Inactive teams are hidden from public rankings and directories, but all historical standings and fixture scores remain preserved.
-                    </p>
-                  </div>
-                </div>
 
-                {/* Matches & stats (Edit Mode only) */}
-                {clubForm.id && (
-                  <div className="sub-card">
-                    <div className="sub-card-title"><i className="fa-solid fa-chart-simple" /> Season Record Overrides</div>
-                    <div className="admin-form-grid">
-                      <div className="admin-form-group">
-                        <label>Matches Played</label>
-                        <input type="number" className="admin-input" value={clubForm.matchesPlayed} onChange={(e) => setClubForm(prev => ({ ...prev, matchesPlayed: parseInt(e.target.value) || 0 }))} />
-                      </div>
-                      <div className="admin-form-group">
-                        <label>Wins</label>
-                        <input type="number" className="admin-input" value={clubForm.wins} onChange={(e) => setClubForm(prev => ({ ...prev, wins: parseInt(e.target.value) || 0 }))} />
-                      </div>
-                      <div className="admin-form-group">
-                        <label>Draws</label>
-                        <input type="number" className="admin-input" value={clubForm.draws} onChange={(e) => setClubForm(prev => ({ ...prev, draws: parseInt(e.target.value) || 0 }))} />
-                      </div>
-                      <div className="admin-form-group">
-                        <label>Losses</label>
-                        <input type="number" className="admin-input" value={clubForm.losses} onChange={(e) => setClubForm(prev => ({ ...prev, losses: parseInt(e.target.value) || 0 }))} />
+                  {/* Matches & stats (Edit Mode only) */}
+                  {clubForm.id && (
+                    <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px dashed rgba(255, 255, 255, 0.08)" }}>
+                      <div className="admin-form-grid">
+                        <div className="admin-form-group">
+                          <label>Matches Played</label>
+                          <input type="number" className="admin-input" value={clubForm.matchesPlayed} onChange={(e) => setClubForm(prev => ({ ...prev, matchesPlayed: parseInt(e.target.value) || 0 }))} />
+                        </div>
+                        <div className="admin-form-group">
+                          <label>Wins</label>
+                          <input type="number" className="admin-input" value={clubForm.wins} onChange={(e) => setClubForm(prev => ({ ...prev, wins: parseInt(e.target.value) || 0 }))} />
+                        </div>
+                        <div className="admin-form-group">
+                          <label>Draws</label>
+                          <input type="number" className="admin-input" value={clubForm.draws} onChange={(e) => setClubForm(prev => ({ ...prev, draws: parseInt(e.target.value) || 0 }))} />
+                        </div>
+                        <div className="admin-form-group">
+                          <label>Losses</label>
+                          <input type="number" className="admin-input" value={clubForm.losses} onChange={(e) => setClubForm(prev => ({ ...prev, losses: parseInt(e.target.value) || 0 }))} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="admin-btn-row">
-                  <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
-                    {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : (clubForm.id ? <><i className="fa-solid fa-check" /> Update Club Settings</> : <><i className="fa-solid fa-plus" /> Save New Club</>)}
-                  </button>
                   {clubForm.id && (
-                    <button type="button" className="portal-btn btn-secondary" onClick={clearForm}>
-                      <i className="fa-solid fa-xmark" /> Cancel Edit
-                    </button>
+                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end", borderTop: "1px dashed rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
+                      <button type="button" className="portal-btn btn-primary" onClick={handleUpdateManagerWalletAndStats} disabled={isPending}>
+                        {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-wallet" /> Update Wallet & Stats Only</>}
+                      </button>
+                    </div>
                   )}
                 </div>
+
+                {!clubForm.id && (
+                  <div className="admin-btn-row">
+                    <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
+                      {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Registering...</> : <><i className="fa-solid fa-plus" /> Save New Club & Franchise</>}
+                    </button>
+                  </div>
+                )}
 
               </form>
             </div>

@@ -1295,7 +1295,131 @@ export async function updateManagerDetails(data: any) {
     return { success: true };
   } catch (e) {
     await pool.query('ROLLBACK');
-    console.error("Error updating manager:", e);
+    console.error("Error updating manager details:", e);
+    throw e;
+  }
+}
+
+export async function updateManagerProfileOnly(data: any) {
+  try {
+    const managerName = data.managerName || data.name;
+    const avatarPath = data.avatarPath || data.photo || '';
+    const mobNo = data.mobNo || data.mob_no || '';
+    const place = data.place || '';
+    
+    await pool.query(`
+      UPDATE managers 
+      SET name = $1, avatar_path = $2, is_active = $3, mob_no = $4, place = $5, r2g_id = $1
+      WHERE id = $6
+    `, [managerName, avatarPath, data.isActive !== false, mobNo, place, data.id]);
+    return { success: true };
+  } catch (e) {
+    console.error("Error updating manager profile:", e);
+    throw e;
+  }
+}
+
+export async function updateManagerClubOnly(data: any) {
+  try {
+    await pool.query('BEGIN');
+    
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+    
+    let clubId = data.clubId ? parseInt(data.clubId) : null;
+    
+    if (!clubId) {
+      const { rows: walletRows } = await pool.query(`
+        SELECT current_club_id FROM manager_wallets 
+        WHERE manager_id = $1 AND season_id = $2
+      `, [data.id, seasonId]);
+      clubId = walletRows.length > 0 ? walletRows[0].current_club_id : null;
+    }
+
+    if (!clubId) {
+      const { rows: maxIdRows } = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM clubs');
+      clubId = maxIdRows[0].next_id;
+      await pool.query(`
+        INSERT INTO clubs (id, name, logo_path)
+        VALUES ($1, $2, $3)
+      `, [clubId, data.clubName, data.logoPath || '']);
+      
+      await pool.query(`
+        UPDATE manager_wallets SET current_club_id = $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [clubId, data.id, seasonId]);
+    } else {
+      await pool.query(`
+        UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3
+      `, [data.clubName, data.logoPath || '', clubId]);
+      
+      await pool.query(`
+        UPDATE manager_wallets SET current_club_id = $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [clubId, data.id, seasonId]);
+    }
+    
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error updating manager club details:", e);
+    throw e;
+  }
+}
+
+export async function updateManagerWalletAndStatsOnly(data: any) {
+  try {
+    await pool.query('BEGIN');
+    
+    const activeSeason = await fetchActiveSeason();
+    if (!activeSeason) throw new Error("No active season found");
+    
+    const { rows: oldWalletRows } = await pool.query(`
+      SELECT r2g_coin_balance, r2g_token_balance, r2g_voucher_balance 
+      FROM manager_wallets 
+      WHERE manager_id = $1 AND season_id = $2
+    `, [data.id, activeSeason.id]);
+
+    const oldCoins = oldWalletRows.length > 0 ? parseInt(oldWalletRows[0].r2g_coin_balance) || 0 : 0;
+    const oldTokens = oldWalletRows.length > 0 ? parseInt(oldWalletRows[0].r2g_token_balance) || 0 : 0;
+    const oldVouchers = oldWalletRows.length > 0 ? parseInt(oldWalletRows[0].r2g_voucher_balance) || 0 : 0;
+
+    await pool.query(`
+      UPDATE manager_wallets SET
+        r2g_coin_balance = $1,
+        r2g_token_balance = $2,
+        r2g_voucher_balance = $3,
+        overall_rating = $4,
+        star_rating = $5
+      WHERE manager_id = $6 AND season_id = $7
+    `, [data.coinBalance || 0, data.tokenBalance || 0, data.voucherBalance || 0, data.rating || 80, data.starRating || 3, data.id, activeSeason.id]);
+
+    const coinDiff = (data.coinBalance || 0) - oldCoins;
+    if (coinDiff !== 0) {
+      await logTransaction(data.id, activeSeason.id, 'coin', Math.abs(coinDiff), coinDiff > 0 ? 'admin_credit' : 'admin_debit', 'Admin wallet balance override');
+    }
+    const tokenDiff = (data.tokenBalance || 0) - oldTokens;
+    if (tokenDiff !== 0) {
+      await logTransaction(data.id, activeSeason.id, 'token', Math.abs(tokenDiff), tokenDiff > 0 ? 'admin_credit' : 'admin_debit', 'Admin wallet balance override');
+    }
+    const voucherDiff = (data.voucherBalance || 0) - oldVouchers;
+    if (voucherDiff !== 0) {
+      await logTransaction(data.id, activeSeason.id, 'voucher', Math.abs(voucherDiff), voucherDiff > 0 ? 'admin_credit' : 'admin_debit', 'Admin wallet balance override');
+    }
+
+    await pool.query(`
+      UPDATE manager_seasons SET
+        wins = $1, draws = $2, losses = $3, matches_played = $4,
+        goals_scored = $5, goals_conceded = $6, clean_sheets = $7
+      WHERE manager_id = $8 AND season_id = $9
+    `, [data.wins || 0, data.draws || 0, data.losses || 0, data.matchesPlayed || 0, data.goalsFor || 0, data.goalsAgainst || 0, data.cleanSheets || 0, data.id, activeSeason.id]);
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error updating manager wallet and stats:", e);
     throw e;
   }
 }
