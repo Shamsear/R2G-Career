@@ -186,7 +186,7 @@ export default function RwsYearSelectedCandidates() {
                 ? candidate.customLogoPath 
                 : (candidate.logoPath || "/assets/images/default-club-logo.png");
               return (
-                <Link key={candidate.id} href={`/player/${encodeURIComponent(candidate.r2g_id || candidate.id)}`} className="rws-team-card" style={{ textDecoration: "none" }}>
+                <Link key={candidate.id} href={`/members/${encodeURIComponent(candidate.r2g_id || candidate.id)}`} className="rws-team-card" style={{ textDecoration: "none" }}>
                   <div className="rws-team-logo-wrap">
                     <img 
                       src={teamLogo} 

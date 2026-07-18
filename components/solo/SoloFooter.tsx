@@ -10,7 +10,7 @@ export default function Footer() {
   if (pathname === "/") return null;
 
   const isTeamTour = pathname.startsWith("/team-tour");
-  const isPlayerPage = pathname.startsWith("/player");
+  const isPlayerPage = pathname.startsWith("/members");
   const prefix = isTeamTour ? "/team-tour" : "/solo-tour";
 
   return (
@@ -19,7 +19,7 @@ export default function Footer() {
         <div className="tech-footer-brand">
           <span className="brand-status-dot online"></span>
           <span className="brand-text">
-            {isPlayerPage ? "SYS.R2G.PLAYER" : isTeamTour ? "SYS.R2G.TEAM" : "SYS.R2G.SOLO"} // v7.0.2
+            {isPlayerPage ? "SYS.R2G.MEMBER" : isTeamTour ? "SYS.R2G.TEAM" : "SYS.R2G.SOLO"} // v7.0.2
           </span>
         </div>
         

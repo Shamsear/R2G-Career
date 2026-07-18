@@ -4,24 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import "../portal.css";
-import { fetchActiveSeason } from "@/utils/solo/serverActions";
+import { fetchActiveSeason, fetchAllPlayersDirectory } from "@/utils/solo/serverActions";
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [seasonNum, setSeasonNum] = useState<number>(7);
+  const [memberCount, setMemberCount] = useState<number>(0);
 
   useEffect(() => {
-    async function loadSeason() {
+    async function loadData() {
       try {
-        const season = await fetchActiveSeason();
+        const [season, members] = await Promise.all([
+          fetchActiveSeason(),
+          fetchAllPlayersDirectory()
+        ]);
         if (season && season.season_number) {
           setSeasonNum(season.season_number);
         }
+        if (members) {
+          setMemberCount(members.length);
+        }
       } catch (e) {
-        console.error("Failed to load active season:", e);
+        console.error("Failed to load active portal stats:", e);
       }
     }
-    loadSeason();
+    loadData();
   }, []);
 
   // Mouse parallax on cards
@@ -130,7 +137,7 @@ export default function Home() {
             style={{ textDecoration: "none" }}
           >
             <i className="fa-solid fa-users" style={{ color: "#c084fc" }} />
-            <span style={{ color: "#c084fc", fontWeight: 600 }}>28 Members Directory</span>
+            <span style={{ color: "#c084fc", fontWeight: 600 }}>{memberCount > 0 ? `${memberCount} Members Directory` : "Members Directory"}</span>
           </Link>
           <div className="stat-divider" />
           <div className="stat-pill">

@@ -13,7 +13,7 @@ export default function Navbar() {
 
   // Determine which tour we are currently in
   const isTeamTour = pathname.startsWith("/team-tour");
-  const isPlayerPage = pathname.startsWith("/player");
+  const isPlayerPage = pathname.startsWith("/members");
   const prefix = isTeamTour ? "/team-tour" : "/solo-tour";
   const isAdmin = pathname.startsWith("/solo-tour/admin");
   const activePrefix = isAdmin ? "/solo-tour/admin" : prefix;
@@ -32,17 +32,17 @@ export default function Navbar() {
 
   const navLinks = isPlayerPage
     ? [
-        { href: "/player", label: "01//DIRECTORY" },
-        ...(playerId ? [{ href: `/player/${playerId}`, label: "02//PROFILE" }] : [])
+        { href: "/members", label: "01//DIRECTORY" },
+        ...(playerId ? [{ href: `/members/${playerId}`, label: "02//PROFILE" }] : [])
       ]
     : isAdmin
     ? [
         { href: "/solo-tour/admin", label: "01//HUB" },
         { href: "/solo-tour/admin/clubs", label: "02//CLUBS" },
-        { href: "/solo-tour/admin/tournaments", label: "03//TOURNEYS" },
-        { href: "/solo-tour/admin/fixtures", label: "04//FIXTURES" },
-        { href: "/solo-tour/admin/players", label: "05//PLAYERS" },
-        { href: "/solo-tour/admin/financial-ops", label: "06//FINANCES" },
+        { href: "/solo-tour/admin/managers", label: "03//MANAGERS" },
+        { href: "/solo-tour/admin/tournaments", label: "04//TOURNEYS" },
+        { href: "/solo-tour/admin/fixtures", label: "05//FIXTURES" },
+        { href: "/solo-tour/admin/players", label: "06//PLAYERS" },
       ]
     : [
         { href: prefix, label: "01//HUB" },
@@ -70,7 +70,7 @@ export default function Navbar() {
               className="logo-img" 
             />
              <span className="logo-text">
-              {isPlayerPage ? "R2G.PLAYER" : isTeamTour ? "SYS.TEAM" : (isAdmin ? "R2G.ADMIN" : "R2G.CAREER")}
+              {isPlayerPage ? "R2G.MEMBER" : isTeamTour ? "SYS.TEAM" : (isAdmin ? "R2G.ADMIN" : "R2G.CAREER")}
             </span>
           </Link>
 
