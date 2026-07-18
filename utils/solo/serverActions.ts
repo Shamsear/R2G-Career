@@ -2134,11 +2134,14 @@ export async function createPlayerContract(data: any) {
       UPDATE player_contracts SET status = 'inactive' WHERE player_id = $1 AND season_id = $2
     `, [data.playerId, seasonId]);
 
+    const cleanStart = (data.startSeason || '').replace(/[^\d.]/g, '');
+    const cleanExpire = (data.expireSeason || '').replace(/[^\d.]/g, '');
+
     const { rows } = await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
       RETURNING *
-    `, [data.playerId, seasonId, data.clubId, data.signedValue || 0, data.salary || 0, data.startSeason || '', data.expireSeason || '']);
+    `, [data.playerId, seasonId, data.clubId, data.signedValue || 0, data.salary || 0, cleanStart, cleanExpire]);
     return rows[0];
   } catch (e) {
     console.error("Error creating contract:", e);
@@ -4282,11 +4285,12 @@ export async function completeAuction(auctionId: number, clubId: number, winning
       UPDATE player_contracts SET status = 'inactive' WHERE player_id = $1 AND season_id = $2
     `, [playerId, seasonId]);
 
+    const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
     const salary = Number(winningBid) * 0.05;
     await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [playerId, seasonId, clubId, winningBid, salary, seasonNumber.toString(), expireSeason]);
+    `, [playerId, seasonId, clubId, winningBid, salary, seasonNumber.toString(), cleanExpire]);
 
     await pool.query(`
       UPDATE auctions
@@ -4325,11 +4329,12 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
       UPDATE player_contracts SET status = 'inactive' WHERE player_id = $1 AND season_id = $2
     `, [playerId, seasonId]);
 
+    const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
     const salary = Number(price) * 0.05;
     await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [playerId, seasonId, clubId, price, salary, seasonNumber.toString(), expireSeason]);
+    `, [playerId, seasonId, clubId, price, salary, seasonNumber.toString(), cleanExpire]);
 
     await pool.query('COMMIT');
     return { success: true };
@@ -4357,11 +4362,12 @@ export async function executeTransferSale(clubId: number, playerId: number, pric
     const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
     await logTransaction(clubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sale: sold ${pName} for ${price} Coins`);
 
+    const currentSeasonStr = (activeSeason?.season_number || 9).toString();
     await pool.query(`
       UPDATE player_contracts 
-      SET status = 'inactive' 
-      WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
-    `, [playerId, clubId, seasonId]);
+      SET status = 'inactive', expire_season = $1
+      WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
+    `, [currentSeasonStr, playerId, clubId, seasonId]);
 
     await pool.query('COMMIT');
     return { success: true };
@@ -4414,19 +4420,51 @@ export async function executeTransferSwap(
       await logTransaction(clubBId, seasonId, 'coin', cashAdjustmentAtoB, 'swap_adjustment', `Received swap cash adjustment from ${clubAName}`);
     }
 
-    const salaryA = Number(newValueA) * 0.05;
+    // Fetch active contract for Player A at Club A
+    const { rows: contractARows } = await pool.query(`
+      SELECT * FROM player_contracts 
+      WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+    `, [playerAId, clubAId, seasonId]);
+
+    // Fetch active contract for Player B at Club B
+    const { rows: contractBRows } = await pool.query(`
+      SELECT * FROM player_contracts 
+      WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+    `, [playerBId, clubBId, seasonId]);
+
+    if (contractARows.length === 0 || contractBRows.length === 0) {
+      throw new Error("One or both players do not have an active contract in this club.");
+    }
+
+    const contractA = contractARows[0];
+    const contractB = contractBRows[0];
+    const currentSeasonStr = (activeSeason?.season_number || 9).toString();
+
+    // Terminate old contracts and set expire_season to swap moment
     await pool.query(`
       UPDATE player_contracts
-      SET current_club_id = $1, signed_value = $2, salary = $3
-      WHERE player_id = $4 AND current_club_id = $5 AND LOWER(status) = 'active' AND season_id = $6
-    `, [clubBId, newValueA, salaryA, playerAId, clubAId, seasonId]);
+      SET status = 'inactive', expire_season = $1
+      WHERE id = $2
+    `, [currentSeasonStr, contractA.id]);
+
+    await pool.query(`
+      UPDATE player_contracts
+      SET status = 'inactive', expire_season = $1
+      WHERE id = $2
+    `, [currentSeasonStr, contractB.id]);
+
+    // Create new contracts at swapped clubs
+    const salaryA = Number(newValueA) * 0.05;
+    await pool.query(`
+      INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+    `, [playerAId, seasonId, clubBId, newValueA, salaryA, currentSeasonStr, contractA.expire_season]);
 
     const salaryB = Number(newValueB) * 0.05;
     await pool.query(`
-      UPDATE player_contracts
-      SET current_club_id = $1, signed_value = $2, salary = $3
-      WHERE player_id = $4 AND current_club_id = $5 AND LOWER(status) = 'active' AND season_id = $6
-    `, [clubAId, newValueB, salaryB, playerBId, clubBId, seasonId]);
+      INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+    `, [playerBId, seasonId, clubAId, newValueB, salaryB, currentSeasonStr, contractB.expire_season]);
 
     await logTransaction(clubAId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerAName} and received ${playerBName}`);
     await logTransaction(clubBId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerBName} and received ${playerAName}`);
@@ -4716,12 +4754,14 @@ export async function releasePlayerContract(
     await logTransaction(clubId, seasonId, 'coin', refundAmount, 'player_release', desc);
     */
 
+    const releaseSeasonStr = releaseSeasonNum.toString();
+
     // 6. Terminate contract (make inactive)
     await pool.query(`
       UPDATE player_contracts
-      SET status = 'inactive'
-      WHERE id = $1
-    `, [contract.id]);
+      SET status = 'inactive', expire_season = $1
+      WHERE id = $2
+    `, [releaseSeasonStr, contract.id]);
 
     await pool.query('COMMIT');
     return {
