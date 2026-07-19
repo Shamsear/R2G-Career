@@ -24,6 +24,17 @@ const ROMAN_NUMERALS: Record<number, string> = {
   5: 'V'
 };
 
+function calculateLevelProgress(exp: number) {
+  if (exp <= 0) return { level: 1, nextLevelExp: 100, progressPercent: 0 };
+  const level = Math.floor(Math.sqrt(exp / 100)) + 1;
+  const currentLevelBase = Math.pow(level - 1, 2) * 100;
+  const nextLevelBase = Math.pow(level, 2) * 100;
+  const needed = nextLevelBase - currentLevelBase;
+  const earnedInCurrent = Math.max(0, exp - currentLevelBase);
+  const progressPercent = Math.max(0, Math.min(100, Math.round((earnedInCurrent / needed) * 100)));
+  return { level, nextLevelExp: nextLevelBase, progressPercent };
+}
+
 export default function MemberProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -115,7 +126,9 @@ export default function MemberProfilePage() {
     awardsCount: { goldenBoot: 0, goldenGlove: 0, goldenBall: 0, bestDefender: 0 }
   };
 
-  const progressPercent = medalInfo.progressPercent || 0;
+  const levelDetails = calculateLevelProgress(medalInfo.totalExp || 0);
+  const progressPercent = medalInfo.progressPercent !== undefined ? medalInfo.progressPercent : levelDetails.progressPercent;
+  const currentLevel = medalInfo.level || levelDetails.level;
 
   // Filter top claimed medals for showcase
   const topClaimedMedals = (medalInfo.medals || [])
@@ -403,7 +416,7 @@ export default function MemberProfilePage() {
                 </div>
                 <div className="sidebar-stat-row">
                   <span className="sidebar-stat-label">Member Level</span>
-                  <span className="sidebar-stat-value" style={{ fontWeight: 800, color: '#c084fc' }}>Lvl {medalInfo.level}</span>
+                  <span className="sidebar-stat-value" style={{ fontWeight: 800, color: '#c084fc' }}>Lvl {currentLevel}</span>
                 </div>
                 <div className="sidebar-stat-row">
                   <span className="sidebar-stat-label">League Tier</span>
@@ -416,7 +429,7 @@ export default function MemberProfilePage() {
                 <div style={{ marginTop: '0.75rem', textAlign: 'left' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>
                     <span>Next Level Progress</span>
-                    <span>{progressPercent}%</span>
+                    <span style={{ color: '#c084fc', fontWeight: 800 }}>{progressPercent}%</span>
                   </div>
                   <div className="level-progress-wrap">
                     <div className="level-progress-bar" style={{ width: `${progressPercent}%` }} />
@@ -548,44 +561,6 @@ export default function MemberProfilePage() {
                         </div>
                       ))
                     )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Levels & EXP Breakdown */}
-              <div style={{ background: 'rgba(13, 18, 24, 0.45)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(20px)' }}>
-                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-                  <i className="fa-solid fa-trophy" style={{ color: "#c084fc", marginRight: "8px" }} /> Level & Experience (EXP) Breakdown
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-                  <div>
-                    <h4 style={{ fontSize: '0.85rem', color: '#fff', marginBottom: '0.5rem', fontWeight: 700 }}>EXP SUMMARY</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>Normal Gameplay EXP</span>
-                        <span style={{ color: '#fff', fontWeight: 600 }}>+{medalInfo.normalExp} EXP</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
-                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>Medal Achievements EXP</span>
-                        <span style={{ color: '#fff', fontWeight: 600 }}>+{medalInfo.medalExp} EXP</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', paddingTop: '4px' }}>
-                        <span style={{ color: '#c084fc', fontWeight: 700 }}>Total Career EXP</span>
-                        <span style={{ color: '#c084fc', fontWeight: 800 }}>{medalInfo.totalExp} EXP</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 style={{ fontSize: '0.85rem', color: '#fff', marginBottom: '0.5rem', fontWeight: 700 }}>NORMAL EXP FORMULA</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
-                      <div>Matches: <span style={{ color: '#fff' }}>{combined.matches_played} &times; 25</span></div>
-                      <div>Wins: <span style={{ color: '#fff' }}>{combined.wins} &times; 40</span></div>
-                      <div>Draws: <span style={{ color: '#fff' }}>{combined.draws} &times; 20</span></div>
-                      <div>Losses: <span style={{ color: '#fff' }}>{combined.losses} &times; 10</span></div>
-                      <div>Goals: <span style={{ color: '#fff' }}>{combined.goals_scored} &times; 5</span></div>
-                      <div>Clean Sheets: <span style={{ color: '#fff' }}>{combined.clean_sheets} &times; 10</span></div>
-                    </div>
                   </div>
                 </div>
               </div>

@@ -433,12 +433,20 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   const level = calculateLevelFromExp(totalExp);
   const league = getLeagueName(level);
 
+  const currentLevelBase = Math.pow(level - 1, 2) * 100;
+  const nextLevelBase = Math.pow(level, 2) * 100;
+  const needed = nextLevelBase - currentLevelBase;
+  const earnedInCurrent = Math.max(0, totalExp - currentLevelBase);
+  const progressPercent = Math.max(0, Math.min(100, Math.round((earnedInCurrent / needed) * 100)));
+
   return {
     normalExp,
     calculatedNormalExp,
     medalExp: totalMedalExp,
     totalExp,
     level,
+    nextLevelExp: nextLevelBase,
+    progressPercent,
     league,
     medals: computedMedals,
     trophiesList,
