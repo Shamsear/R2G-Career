@@ -272,17 +272,17 @@ export default function MembersDirectoryPage() {
                     />
                     <div className="player-dir-info">
                       <h4 className="player-dir-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {player.name}
+                        {player.r2g_id || player.name}
                         <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'linear-gradient(135deg, #a855f7, #6b21a8)', color: '#fff' }}>
                           Lvl {player.level || 1} • {player.league || "Amateur"}
                         </span>
                       </h4>
-                      <div className="player-dir-badge-row" style={{ marginTop: "0.25rem", display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {player.r2g_id && (
-                          <span className="player-dir-badge">
-                            {player.r2g_id}
-                          </span>
-                        )}
+                      {player.r2g_id && (
+                        <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', margin: '0 0 0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {player.name}
+                        </p>
+                      )}
+                      <div className="player-dir-badge-row" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         {player.highestMedal && (
                           <span style={{ 
                             fontSize: '0.65rem', 
