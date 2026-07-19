@@ -24,7 +24,8 @@ import {
   autoAssignGroups,
   clearAllGroups,
   autoGenerateFixtures,
-  fetchTournamentStandings
+  fetchTournamentStandings,
+  recalculateTournamentStandings
 } from "@/utils/solo/serverActions";
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -99,6 +100,22 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  const handleRecalcStandings = async () => {
+    setIsRecalculating(true);
+    try {
+      await recalculateTournamentStandings(tournamentId);
+      // Reload standings
+      const fresh = await fetchTournamentStandings(tournamentId);
+      setStandings(fresh || []);
+      showToast("✅ Standings recalculated successfully!");
+    } catch (e: any) {
+      showToast("❌ Error recalculating standings: " + e.message);
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   // Edit states
   const [isEditing, setIsEditing] = useState(false);
@@ -1640,6 +1657,27 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         {/* Tab 4: Table */}
         {activeTab === "table" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
+
+            {/* Recalculate Standings Action Bar */}
+            <div className="admin-card" style={{ marginTop: 0, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-secondary)", fontSize: "0.82rem" }}>
+                <i className="fa-solid fa-circle-info" style={{ color: "#fbbf24" }} />
+                Standings are auto-updated when results are entered. Use this to fix any historical inconsistencies.
+              </div>
+              <button
+                type="button"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 14px", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "6px" }}
+                onClick={handleRecalcStandings}
+                disabled={isRecalculating}
+              >
+                {isRecalculating
+                  ? <><i className="fa-solid fa-spinner fa-spin" /> Recalculating...</>
+                  : <><i className="fa-solid fa-rotate" /> Recalculate Standings</>
+                }
+              </button>
+            </div>
+
             {standings.length === 0 ? (
               <div className="admin-card" style={{ marginTop: 0, padding: "2rem", textAlign: "center", color: "var(--text-secondary)" }}>
                 No standings data available. Add teams and play matches to see standings.
@@ -2073,11 +2111,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     {Array.from({ length: tournament.num_groups }, (_, i) => String.fromCharCode(65 + i)).map(groupLetter => {
                       const rows = standings.filter(row => row.group_name === groupLetter);
                       return (
-                        <div key={groupLetter} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
+                        <div key={groupLetter} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "auto", WebkitOverflowScrolling: "touch" as any }}>
                           <div style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>
                             Group {groupLetter}
                           </div>
-                          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+                          <table style={{ width: "100%", minWidth: "400px", borderCollapse: "collapse", color: "#fff" }}>
                             <thead>
                               <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                                 <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
@@ -2112,8 +2150,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     })}
                   </div>
                 ) : (
-                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "auto", WebkitOverflowScrolling: "touch" as any }}>
+                    <table style={{ width: "100%", minWidth: "400px", borderCollapse: "collapse", color: "#fff" }}>
                       <thead>
                         <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                           <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>

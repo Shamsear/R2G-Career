@@ -344,7 +344,7 @@ export default function FinancialOperations() {
 
             {selectedDisburseTourneyId && tourneyPreviewList.length > 0 && (
               <div style={{ overflowX: "auto", background: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", padding: "10px", marginTop: "1rem" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
                       <th style={{ padding: "8px" }}>Rank</th>
@@ -424,7 +424,7 @@ export default function FinancialOperations() {
 
             {seasonPreviewList.length > 0 && (
               <div style={{ overflowX: "auto", background: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", padding: "10px", marginTop: "1rem" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
                       <th style={{ padding: "8px" }}>Rank</th>

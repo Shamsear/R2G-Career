@@ -110,6 +110,8 @@ body {
   flex-direction: column;
   align-items: center;
   overflow-x: hidden;
+  /* Prevent any child from blowing out the page width */
+  contain: paint;
 }
 
 /* ─── Background System ──────────────────────────────────────────────────────── */
@@ -221,6 +223,9 @@ body {
   align-items: center;
   gap: 3rem;
   flex: 1;
+  /* Prevent tables/grids inside from causing page-level horizontal overflow */
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* ─── Entrance Animations ────────────────────────────────────────────────────── */
@@ -1975,6 +1980,8 @@ body {
   min-height: 100dvh;
   background: var(--bg-deep);
   color: var(--text-primary);
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .main-content {
@@ -1982,6 +1989,8 @@ body {
   position: relative;
   z-index: 1;
   width: 100%;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* ─── Technical Edge Header (Navbar) ─────────────────────────────────────────── */

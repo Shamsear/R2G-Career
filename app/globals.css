@@ -43,6 +43,13 @@
   scrollbar-color: rgba(244, 63, 94, 0.18) transparent;
 }
 
+/* ─── Box Sizing Reset ────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* ─── Prevent Zooming on Taps and Focus ───────────────────────────────────── */
 html,
 body,
@@ -60,5 +67,39 @@ textarea,
   select,
   textarea {
     font-size: 16px !important;
+  }
+}
+
+/* ─── Global Mobile Overflow Safety ──────────────────────────────────────── */
+/* Prevents any single element from blowing out the page width on small screens */
+img,
+video,
+svg,
+canvas,
+iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Utility class: make any block scrollable horizontally */
+.overflow-x-scroll {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Ensure all admin table wrappers never cause body overflow */
+@media (max-width: 768px) {
+  .admin-card,
+  .sub-card {
+    overflow-x: hidden;
+  }
+
+  /* Any raw table not wrapped in .table-responsive gets its own scroll container */
+  .admin-card > table,
+  .sub-card > table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 }

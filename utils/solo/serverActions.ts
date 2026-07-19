@@ -2084,6 +2084,14 @@ export async function updateFixture(
     }
     } // end !skipFinancial (step 4)
 
+    // 5. Recompute tournament_standings from all played fixtures (runs for ALL tournament types)
+    await recalculateTournamentStandingsInTransaction(pool, tournamentId);
+
+    // 6. For solo-type tournaments, also recompute manager_seasons stats
+    if (tournamentType === 'solo') {
+      await recalculateManagerSeasonStatsInTransaction(pool, tournamentId, seasonId);
+    }
+
     await pool.query('COMMIT');
     return updatedFixture;
   } catch (e) {
@@ -2092,6 +2100,179 @@ export async function updateFixture(
     throw e;
   }
 }
+
+/**
+ * Recomputes tournament_standings (points, matches_played, goals) from scratch
+ * by aggregating all played/walkover fixtures for the given tournament.
+ * Called inside updateFixture's transaction so it is always consistent.
+ */
+async function recalculateTournamentStandingsInTransaction(
+  db: typeof pool,
+  tournamentId: number
+) {
+  // Fetch all clubs registered in the standings
+  const { rows: clubRows } = await db.query(
+    `SELECT club_id FROM tournament_standings WHERE tournament_id = $1`,
+    [tournamentId]
+  );
+  if (clubRows.length === 0) return;
+
+  // Fetch all scored/walkover fixtures for this tournament
+  const { rows: fixtureRows } = await db.query(`
+    SELECT home_club_id, away_club_id, home_score, away_score, match_status
+    FROM fixtures
+    WHERE tournament_id = $1
+      AND home_score IS NOT NULL
+      AND away_score IS NOT NULL
+      AND match_status != 'void'
+  `, [tournamentId]);
+
+  // Build a map: clubId -> { mp, pts, gf, ga, gd }
+  const statsMap: Record<number, { mp: number; pts: number; gf: number; ga: number }> = {};
+  for (const { club_id } of clubRows) {
+    statsMap[club_id] = { mp: 0, pts: 0, gf: 0, ga: 0 };
+  }
+
+  for (const f of fixtureRows) {
+    const home = f.home_club_id;
+    const away = f.away_club_id;
+    const hs = Number(f.home_score);
+    const as_ = Number(f.away_score);
+
+    if (statsMap[home] !== undefined) {
+      statsMap[home].mp += 1;
+      statsMap[home].gf += hs;
+      statsMap[home].ga += as_;
+      if (hs > as_) statsMap[home].pts += 3;
+      else if (hs === as_) statsMap[home].pts += 1;
+    }
+    if (statsMap[away] !== undefined) {
+      statsMap[away].mp += 1;
+      statsMap[away].gf += as_;
+      statsMap[away].ga += hs;
+      if (as_ > hs) statsMap[away].pts += 3;
+      else if (as_ === hs) statsMap[away].pts += 1;
+    }
+  }
+
+  // Write back to tournament_standings
+  for (const [clubIdStr, s] of Object.entries(statsMap)) {
+    const gd = s.gf - s.ga;
+    await db.query(`
+      UPDATE tournament_standings
+      SET matches_played = $1, points = $2, goals_scored = $3, goals_against = $4, goal_difference = $5
+      WHERE tournament_id = $6 AND club_id = $7
+    `, [s.mp, s.pts, s.gf, s.ga, gd, tournamentId, parseInt(clubIdStr)]);
+  }
+}
+
+/**
+ * Recomputes manager_seasons (wins, draws, losses, matches_played, goals_scored, goals_conceded, clean_sheets)
+ * for all managers in a SOLO-type tournament, by reading all scored fixtures.
+ * Called inside updateFixture's transaction.
+ */
+async function recalculateManagerSeasonStatsInTransaction(
+  db: typeof pool,
+  tournamentId: number,
+  seasonId: number
+) {
+  // Get all managers (via clubs) in this tournament
+  const { rows: clubRows } = await db.query(`
+    SELECT ts.club_id, c.manager_id
+    FROM tournament_standings ts
+    JOIN clubs c ON ts.club_id = c.id
+    WHERE ts.tournament_id = $1
+  `, [tournamentId]);
+
+  if (clubRows.length === 0) return;
+
+  // Get all played fixtures for this tournament
+  const { rows: fixtureRows } = await db.query(`
+    SELECT home_club_id, away_club_id, home_score, away_score
+    FROM fixtures
+    WHERE tournament_id = $1
+      AND home_score IS NOT NULL
+      AND away_score IS NOT NULL
+      AND match_status != 'void'
+  `, [tournamentId]);
+
+  // Build stats per club
+  const statsMap: Record<number, { mp: number; w: number; d: number; l: number; gf: number; ga: number; cs: number }> = {};
+  for (const { club_id } of clubRows) {
+    statsMap[club_id] = { mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0 };
+  }
+
+  for (const f of fixtureRows) {
+    const home = f.home_club_id;
+    const away = f.away_club_id;
+    const hs = Number(f.home_score);
+    const as_ = Number(f.away_score);
+
+    if (statsMap[home] !== undefined) {
+      statsMap[home].mp += 1;
+      statsMap[home].gf += hs;
+      statsMap[home].ga += as_;
+      if (hs > as_) statsMap[home].w += 1;
+      else if (hs === as_) statsMap[home].d += 1;
+      else statsMap[home].l += 1;
+      if (as_ === 0) statsMap[home].cs += 1;
+    }
+    if (statsMap[away] !== undefined) {
+      statsMap[away].mp += 1;
+      statsMap[away].gf += as_;
+      statsMap[away].ga += hs;
+      if (as_ > hs) statsMap[away].w += 1;
+      else if (as_ === hs) statsMap[away].d += 1;
+      else statsMap[away].l += 1;
+      if (hs === 0) statsMap[away].cs += 1;
+    }
+  }
+
+  // For each club, find manager and update manager_seasons
+  for (const { club_id, manager_id } of clubRows) {
+    if (!manager_id) continue;
+    const s = statsMap[club_id];
+    if (!s) continue;
+
+    const { rowCount } = await db.query(`
+      UPDATE manager_seasons
+      SET matches_played = $1, wins = $2, draws = $3, losses = $4,
+          goals_scored = $5, goals_conceded = $6, clean_sheets = $7
+      WHERE manager_id = $8 AND season_id = $9
+    `, [s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs, manager_id, seasonId]);
+
+    if (rowCount === 0) {
+      // Insert if no record yet
+      await db.query(`
+        INSERT INTO manager_seasons (manager_id, season_id, club_id, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, team_income, team_expense, team_profit)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 0, 0)
+        ON CONFLICT (manager_id, season_id) DO UPDATE
+        SET matches_played = EXCLUDED.matches_played,
+            wins = EXCLUDED.wins, draws = EXCLUDED.draws, losses = EXCLUDED.losses,
+            goals_scored = EXCLUDED.goals_scored, goals_conceded = EXCLUDED.goals_conceded,
+            clean_sheets = EXCLUDED.clean_sheets
+      `, [manager_id, seasonId, club_id, s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs]);
+    }
+  }
+}
+
+/**
+ * Public export: manually trigger a full standings recalculation for a tournament.
+ * Useful for the admin "Recalculate" button.
+ */
+export async function recalculateTournamentStandings(tournamentId: number) {
+  try {
+    await pool.query('BEGIN');
+    await recalculateTournamentStandingsInTransaction(pool, tournamentId);
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error recalculating standings:", e);
+    throw e;
+  }
+}
+
 
 export async function deleteFixture(id: number) {
   try {
