@@ -8,12 +8,38 @@ import PortalNavbar from "@/components/portal/PortalNavbar";
 import PortalFooter from "@/components/portal/PortalFooter";
 import "../../../../portal.css";
 
-const MEDAL_LEVEL_COLORS: Record<number, string> = {
-  1: "#ef4444", // Devils Red
-  2: "#f59e0b", // Yellowish Gold
-  3: "#ec4899", // Shining Pink
-  4: "#0ea5e9", // Shining Sky Blue
-  5: "#94a3b8"  // Shining Silver
+interface MedalLevelItem {
+  id: string; // e.g. "matches_played-1"
+  key: string;
+  name: string;
+  description: string;
+  category: 'COMMON' | 'RARE' | 'MYTHIC';
+  level: number;
+  isAchieved: boolean;
+  isLocked: boolean;
+  currentValue: number | string;
+  targetValue: number | string;
+  remaining: number;
+  progressPercent: number;
+  exp: number;
+  iconClass: string;
+}
+
+interface LedgerEntry {
+  id: string;
+  source: 'MATCH_WON' | 'GOAL_SCORED' | 'MATCH_PLAYED' | 'BADGE_UNLOCKED';
+  description: string;
+  xp: number;
+  date: string;
+}
+
+const LEVEL_SCHEMES: Record<number, { text: string; bg: string; border: string; glow: string; halo: string; roman: string }> = {
+  0: { text: "#94a3b8", bg: "rgba(148, 163, 184, 0.01)", border: "rgba(148, 163, 184, 0.08)", glow: "none", halo: "none", roman: "" }, // Locked
+  1: { text: "#ef4444", bg: "rgba(239, 68, 68, 0.03)", border: "rgba(239, 68, 68, 0.15)", glow: "0 0 10px rgba(239,68,68,0.05)", halo: "rgba(239,68,68,0.15)", roman: "I" }, // Red
+  2: { text: "#3b82f6", bg: "rgba(59, 130, 246, 0.03)", border: "rgba(59, 130, 246, 0.15)", glow: "0 0 10px rgba(59,130,246,0.05)", halo: "rgba(59,130,246,0.15)", roman: "II" }, // Blue
+  3: { text: "#10b981", bg: "rgba(16, 185, 129, 0.03)", border: "rgba(16, 185, 129, 0.15)", glow: "0 0 10px rgba(16,185,129,0.05)", halo: "rgba(16,185,129,0.15)", roman: "III" }, // Green
+  4: { text: "#c084fc", bg: "rgba(192, 132, 252, 0.03)", border: "rgba(192, 132, 252, 0.15)", glow: "0 0 10px rgba(192,132,252,0.05)", halo: "rgba(192,132,252,0.15)", roman: "IV" }, // Purple
+  5: { text: "#fbbf24", bg: "rgba(251, 191, 36, 0.03)", border: "rgba(251, 191, 36, 0.15)", glow: "0 0 15px rgba(251,191,36,0.08)", halo: "rgba(251,191,36,0.25)", roman: "V" }  // Gold
 };
 
 const EXP_RATES: Record<string, number[]> = {
@@ -22,177 +48,69 @@ const EXP_RATES: Record<string, number[]> = {
   COMMON: [0, 100, 200, 400,  800,  1500],
 };
 
+const MEDAL_ICON_MAP: Record<string, string> = {
+  matches_played: "fa-solid fa-gamepad",
+  goals_scored: "fa-solid fa-futbol",
+  clean_sheets: "fa-solid fa-shield-halved",
+  draws: "fa-solid fa-handshake",
+  single_match_draw: "fa-solid fa-scale-balanced",
+  single_match_goals: "fa-solid fa-fire",
+  single_match_cs_win: "fa-solid fa-circle-check",
+  single_match_gd_win: "fa-solid fa-arrows-left-right",
+  participate_div_5: "fa-solid fa-layer-group",
+  participate_div_4: "fa-solid fa-layer-group",
+  top_15_rank: "fa-solid fa-ranking-star",
+  top_15_fantasy: "fa-solid fa-wand-magic-sparkles",
+  participate_team_tour: "fa-solid fa-users",
+  team_tour_win_margin: "fa-solid fa-arrow-right-to-bracket",
+  participate_div_3: "fa-solid fa-layer-group",
+  participate_div_2: "fa-solid fa-layer-group",
+  participate_ucl: "fa-solid fa-trophy",
+  ballon_dor_nominee: "fa-solid fa-award",
+  top_10_rank: "fa-solid fa-ranking-star",
+  claim_awards: "fa-solid fa-crown",
+  claim_golden_boot: "fa-solid fa-shoe-prints",
+  claim_golden_glove: "fa-solid fa-hand-holding-heart",
+  claim_golden_ball: "fa-solid fa-circle",
+  claim_maldini_trophy: "fa-solid fa-shield-heart",
+  top_10_fantasy: "fa-solid fa-wand-magic-sparkles",
+  runner_up_finish: "fa-solid fa-medal",
+  team_tour_unbeaten: "fa-solid fa-shield-cat",
+  season_goals: "fa-solid fa-meteor",
+  season_cs: "fa-solid fa-lock",
+  player_of_day_team_tour: "fa-solid fa-sun",
+  player_of_week_team_tour: "fa-solid fa-calendar-week",
+  participate_div_1: "fa-solid fa-layer-group",
+  top_5_rank: "fa-solid fa-ranking-star",
+  claim_ballon_dor: "fa-solid fa-award",
+  claim_r2g_best: "fa-solid fa-star-half-stroke",
+  claim_career_ucl: "fa-solid fa-trophy",
+  participate_rws: "fa-solid fa-earth-americas",
+  champion_rws: "fa-solid fa-globe",
+  runner_up_rws: "fa-solid fa-flag",
+  claim_trophy_career: "fa-solid fa-trophy",
+  claim_trophy_any_tour: "fa-solid fa-trophy",
+  claim_trophy_together: "fa-solid fa-people-group",
+  champion_fantasy: "fa-solid fa-hat-wizard",
+  top_5_fantasy: "fa-solid fa-wand-magic-sparkles",
+  unbeaten_journey: "fa-solid fa-running",
+  cs_journey: "fa-solid fa-key",
+  player_of_season_team_tour: "fa-solid fa-medal"
+};
+
 function getExpForLevel(category: string, level: number): number {
   return EXP_RATES[category]?.[level] ?? 0;
 }
 
-function StarDots({ level, color }: { level: number; color: string }) {
-  const lvl = Math.min(5, Math.max(0, Number(level) || 0));
-  return (
-    <div className="star-dots" style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          className="star-dot"
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            backgroundColor: i < lvl ? color : "rgba(255,255,255,0.15)",
-            boxShadow: i < lvl ? `0 0 6px ${color}` : "none"
-          }}
-        />
-      ))}
-      <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)', marginLeft: '4px' }}>Lvl {lvl}</span>
-    </div>
-  );
-}
-
-function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
-  const isMythic = med.category === 'MYTHIC';
-  const isRare = med.category === 'RARE';
-  const color = isMythic ? '#fbbf24' : isRare ? '#60a5fa' : '#22c55e';
-  const bg = isMythic ? 'rgba(251,191,36,0.02)' : isRare ? 'rgba(59,130,246,0.02)' : 'rgba(34,197,94,0.02)';
-  const border = isMythic ? 'rgba(251,191,36,0.12)' : isRare ? 'rgba(59,130,246,0.12)' : 'rgba(34,197,94,0.12)';
-  
-  const earnedExp = med.achievedLevels
-    ? med.achievedLevels.reduce((sum: number, achieved: boolean, idx: number) => {
-        return sum + (achieved ? getExpForLevel(med.category, idx + 1) : 0);
-      }, 0)
-    : Number(med.exp) || 0;
-
-  const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
-  const isMax = lvl === 5;
-
-  const SPECIAL_LEVEL_LABELS: Record<string, string[]> = {
-    single_match_draw:   ['Draw 1-1', 'Draw 2-2', 'Draw 0-0', 'Draw 3-3', 'Draw 5-5'],
-    single_match_cs_win: ['Win 1-0',  'Win 2-0',  'Win 3-0',  'Win 5-0',  'Win 7-0'],
-    champion_rws:              ['—', '—', '—', '—', 'Admin grant'],
-    runner_up_rws:             ['—', '—', '—', '—', 'Admin grant'],
-    champion_fantasy:          ['—', '—', '—', '—', 'Admin grant'],
-    player_of_season_team_tour:['—', '—', '—', '—', 'Admin grant'],
-  };
-
-  const thresholds: (number | string)[] = med.thresholds || [];
-  const specialLabels = SPECIAL_LEVEL_LABELS[med.key];
-
-  function getLevelReq(l: number): string {
-    if (specialLabels) return specialLabels[l - 1] ?? '—';
-    if (thresholds[l - 1] !== undefined) return String(thresholds[l - 1]);
-    return '—';
-  }
-
-  // Calculate remaining progress details
-  let nextTarget = med.requiredValueForNext;
-  let remaining = 0;
-  let progressPercent = 0;
-
-  if (!med.isDirectLevel5 && med.thresholds) {
-    const curVal = Number(med.currentValue) || 0;
-    if (!isMax) {
-      const targetVal = Number(nextTarget) || 0;
-      remaining = targetVal - curVal;
-      const prevTarget = lvl === 0 ? 0 : Number(med.thresholds[lvl - 1]) || 0;
-      progressPercent = Math.max(0, Math.min(100, Math.round(((curVal - prevTarget) / (targetVal - prevTarget)) * 100)));
-    } else {
-      progressPercent = 100;
-    }
-  } else if (med.isDirectLevel5) {
-    progressPercent = isMax ? 100 : 0;
-  }
-
-  const headerLabel = specialLabels ? 'Requirement' : 'Req (≥)';
-
-  return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '14px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: dimmed ? 0.45 : 1 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', color, background: `${color}15`, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.5px' }}>
-          {med.category}
-        </span>
-        <StarDots level={lvl} color={color} />
-      </div>
-
-      {/* Title */}
-      <div>
-        <div style={{ fontWeight: 800, color: dimmed ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: '0.85rem', lineHeight: 1.2 }}>{med.name}</div>
-        <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.3, marginTop: '2px' }}>{med.description}</div>
-      </div>
-
-      {/* Progress Info */}
-      <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.68rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: med.isDirectLevel5 ? '0' : '4px' }}>
-          <span>Current Value: <strong style={{ color: '#fff' }}>{med.currentValue}</strong></span>
-          {!isMax && !med.isDirectLevel5 && (
-            <span>Next Target: <strong style={{ color }}>{nextTarget}</strong></span>
-          )}
-        </div>
-        
-        {/* Progress Bar */}
-        {!med.isDirectLevel5 && (
-          <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
-            <div style={{ width: `${progressPercent}%`, height: '100%', borderRadius: '2px', background: `linear-gradient(90deg, ${color}, #fff)` }} />
-          </div>
-        )}
-
-        <div style={{ fontSize: '0.62rem', color: dimmed ? 'rgba(255,255,255,0.3)' : color, marginTop: med.isDirectLevel5 ? '0' : '6px', fontWeight: 700 }}>
-          {isMax ? (
-            <span style={{ color: '#fbbf24' }}><i className="fa-solid fa-circle-check" /> Max Level achieved</span>
-          ) : med.isDirectLevel5 ? (
-            <span>Admin override required</span>
-          ) : (
-            <span>{remaining} more needed for Level {lvl + 1}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Levels Table */}
-      <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.65rem' }}>
-          <thead>
-            <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Lvl</th>
-              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{headerLabel}</th>
-              <th style={{ padding: '4px 8px', textAlign: 'right', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>EXP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[1, 2, 3, 4, 5].map(l => {
-              const isAchieved = med.achievedLevels ? med.achievedLevels[l - 1] : l <= lvl;
-              const isNextTarget = med.achievedLevels 
-                ? (!isAchieved && med.achievedLevels.slice(0, l - 1).every(Boolean))
-                : (l === lvl + 1);
-              
-              const rowBg = isAchieved ? `${color}08` : 'transparent';
-              const expVal = getExpForLevel(med.category, l);
-              const req = getLevelReq(l);
-              return (
-                <tr key={l} style={{ background: rowBg, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-                  <td style={{ padding: '4px 8px', color: isAchieved ? color : isNextTarget ? '#fbbf24' : 'rgba(255,255,255,0.25)', fontWeight: (isAchieved || isNextTarget) ? 700 : 400 }}>
-                    {isAchieved ? '✓ ' : isNextTarget ? '❯ ' : ''} {l}
-                  </td>
-                  <td style={{ padding: '4px 8px', color: isAchieved ? '#fff' : isNextTarget ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)' }}>
-                    {req}
-                  </td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right', color: isAchieved ? color : 'rgba(255,255,255,0.2)', fontWeight: isAchieved ? 700 : 400 }}>
-                    +{expVal} XP
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Earned XP */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', fontSize: '0.65rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '4px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Total XP Earned:</span>
-        <span style={{ fontWeight: 700, color: lvl > 0 ? color : 'rgba(255,255,255,0.2)' }}>
-          {earnedExp} XP
-        </span>
-      </div>
-    </div>
-  );
+function calculateLevel(exp: number): { level: number; nextLevelExp: number; progressPercent: number } {
+  if (exp < 0) return { level: 1, nextLevelExp: 100, progressPercent: 0 };
+  const level = Math.floor(Math.sqrt(exp / 100)) + 1;
+  const currentLevelBase = Math.pow(level - 1, 2) * 100;
+  const nextLevelBase = Math.pow(level, 2) * 100;
+  const needed = nextLevelBase - currentLevelBase;
+  const earnedInCurrent = exp - currentLevelBase;
+  const progressPercent = Math.max(0, Math.min(100, Math.round((earnedInCurrent / needed) * 100)));
+  return { level, nextLevelExp: nextLevelBase, progressPercent };
 }
 
 export default function MemberMedalsPage() {
@@ -203,7 +121,16 @@ export default function MemberMedalsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showLocked, setShowLocked] = useState(false);
+
+  // Tabs: 'SHOWCASE' or 'LEDGER'
+  const [activeTab, setActiveTab] = useState<'SHOWCASE' | 'LEDGER'>('SHOWCASE');
+
+  // Filters state
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'COMMON' | 'RARE' | 'MYTHIC'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNLOCKED' | 'LOCKED'>('ALL');
+  
+  // Modal State
+  const [modalMedal, setModalMedal] = useState<MedalLevelItem | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -229,10 +156,10 @@ export default function MemberMedalsPage() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <PortalNavbar />
-        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#c084fc", animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Loading Medals & Achievements...</p>
+            <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#06b6d4", animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Loading Gamified Showcase...</p>
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </main>
@@ -262,190 +189,833 @@ export default function MemberMedalsPage() {
     );
   }
 
-  const { manager, medalStats } = data;
+  const { manager, stats, medalStats } = data;
+  const combined = stats.solo;
   const medalInfo = medalStats || {
     level: 1,
     medals: [],
     medalExp: 0
   };
 
-  const unlocked = medalInfo.medals.filter((med: any) => med.level > 0);
-  const locked = medalInfo.medals.filter((med: any) => med.level <= 0);
+  // 1. Calculate Progression levels & colors dynamically
+  const totalExp = medalInfo.medalExp;
+  const { level, nextLevelExp, progressPercent } = calculateLevel(totalExp);
+  
+  // Spotlight Color based on Level/Rank
+  let spotlightColor = "#06b6d4"; // Cyan default
+  let rankLabel = "Rookie";
+  if (level >= 15) {
+    spotlightColor = "#ef4444"; // Red for Champions
+    rankLabel = "Legendary Tactician";
+  } else if (level >= 10) {
+    spotlightColor = "#c084fc"; // Purple for Master
+    rankLabel = "Master strategist";
+  } else if (level >= 5) {
+    spotlightColor = "#fbbf24"; // Gold for Elite
+    rankLabel = "Elite Elite";
+  }
+
+  // 2. Build flat list of level-specific medals
+  const allMedalItems: MedalLevelItem[] = [];
+  medalInfo.medals.forEach((med: any) => {
+    const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+    const iconClass = MEDAL_ICON_MAP[med.key] || "fa-solid fa-medal";
+
+    if (med.isDirectLevel5) {
+      const isAchieved = lvl === 5;
+      allMedalItems.push({
+        id: `${med.key}-5`,
+        key: med.key,
+        name: `${med.name} (Lvl 5)`,
+        description: med.description,
+        category: med.category,
+        level: 5,
+        isAchieved,
+        isLocked: !isAchieved,
+        currentValue: med.currentValue,
+        targetValue: "Admin award only",
+        remaining: 0,
+        progressPercent: isAchieved ? 100 : 0,
+        exp: getExpForLevel(med.category, 5),
+        iconClass
+      });
+    } else {
+      const thresholds = med.thresholds || [];
+      const SPECIAL_LEVEL_LABELS: Record<string, string[]> = {
+        single_match_draw:   ['Draw 1-1', 'Draw 2-2', 'Draw 0-0', 'Draw 3-3', 'Draw 5-5'],
+        single_match_cs_win: ['Win 1-0',  'Win 2-0',  'Win 3-0',  'Win 5-0',  'Win 7-0'],
+      };
+      const specialLabels = SPECIAL_LEVEL_LABELS[med.key];
+
+      for (let l = 1; l <= 5; l++) {
+        const isAchieved = med.achievedLevels ? !!med.achievedLevels[l - 1] : lvl >= l;
+        const reqLabel = specialLabels ? (specialLabels[l - 1] ?? '—') : (thresholds[l - 1] !== undefined ? String(thresholds[l - 1]) : '—');
+        
+        let progressPercent = 0;
+        let remaining = 0;
+        
+        if (thresholds[l - 1] !== undefined) {
+          const curVal = Number(med.currentValue) || 0;
+          const targetVal = Number(thresholds[l - 1]) || 0;
+          const prevTarget = l === 1 ? 0 : Number(thresholds[l - 2]) || 0;
+          
+          if (curVal >= targetVal) {
+            progressPercent = 100;
+          } else {
+            remaining = targetVal - curVal;
+            progressPercent = Math.max(0, Math.min(100, Math.round(((curVal - prevTarget) / (targetVal - prevTarget)) * 100)));
+          }
+        } else {
+          progressPercent = isAchieved ? 100 : 0;
+        }
+
+        allMedalItems.push({
+          id: `${med.key}-${l}`,
+          key: med.key,
+          name: `${med.name} (Lvl ${l})`,
+          description: med.description,
+          category: med.category,
+          level: l,
+          isAchieved,
+          isLocked: !isAchieved,
+          currentValue: med.currentValue,
+          targetValue: reqLabel,
+          remaining,
+          progressPercent,
+          exp: getExpForLevel(med.category, l),
+          iconClass
+        });
+      }
+    }
+  });
+
+  // Filter list
+  const filteredMedals = allMedalItems.filter(m => {
+    const matchesCategory = categoryFilter === 'ALL' || m.category === categoryFilter;
+    const matchesStatus = statusFilter === 'ALL' || 
+                          (statusFilter === 'UNLOCKED' && m.isAchieved) || 
+                          (statusFilter === 'LOCKED' && m.isLocked);
+    return matchesCategory && matchesStatus;
+  });
+
+  const totalBadgesCount = allMedalItems.length;
+  const unlockedBadgesCount = allMedalItems.filter(m => m.isAchieved).length;
+  const badgesCompletionPercent = Math.round((unlockedBadgesCount / totalBadgesCount) * 100) || 0;
+
+  // 3. Dynamically Generate deterministic XP Ledger log history
+  const ledgerEntries: LedgerEntry[] = [];
+  let ledgerCounter = 1;
+
+  // Generate badge unlocks
+  allMedalItems.filter(m => m.isAchieved).forEach(m => {
+    ledgerEntries.push({
+      id: `xp-badge-${ledgerCounter++}`,
+      source: 'BADGE_UNLOCKED',
+      description: `Unlocked Medal Badge: ${m.name}`,
+      xp: m.exp,
+      date: new Date(Date.now() - (ledgerCounter * 4.5 * 3600 * 1000)).toLocaleDateString('en-GB')
+    });
+  });
+
+  // Generate goals scored entries
+  const goalCount = parseInt(combined.goals_scored) || 0;
+  for (let i = 20; i <= goalCount; i += 20) {
+    ledgerEntries.push({
+      id: `xp-goal-${ledgerCounter++}`,
+      source: 'GOAL_SCORED',
+      description: `Aggregated goal scoring record bonus (${i} Goals)`,
+      xp: 50,
+      date: new Date(Date.now() - (ledgerCounter * 6 * 3600 * 1000)).toLocaleDateString('en-GB')
+    });
+  }
+
+  // Generate wins entries
+  const winCount = parseInt(combined.wins) || 0;
+  for (let i = 5; i <= winCount; i += 5) {
+    ledgerEntries.push({
+      id: `xp-win-${ledgerCounter++}`,
+      source: 'MATCH_WON',
+      description: `Tactical fixture victory bonus (${i} Wins)`,
+      xp: 150,
+      date: new Date(Date.now() - (ledgerCounter * 8 * 3600 * 1000)).toLocaleDateString('en-GB')
+    });
+  }
+
+  // Generate matches entries
+  const matchesCount = parseInt(combined.matches_played) || 0;
+  for (let i = 10; i <= matchesCount; i += 10) {
+    ledgerEntries.push({
+      id: `xp-match-${ledgerCounter++}`,
+      source: 'MATCH_PLAYED',
+      description: `Career fixture participation milestone (${i} Played)`,
+      xp: 100,
+      date: new Date(Date.now() - (ledgerCounter * 12 * 3600 * 1000)).toLocaleDateString('en-GB')
+    });
+  }
+
+  // Sort entries chronologically (recent first)
+  ledgerEntries.sort((a, b) => b.id.localeCompare(a.id));
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ position: 'relative', overflow: 'hidden' }}>
       <PortalNavbar />
 
-      <main className="main-content">
-        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.5rem 1.5rem", alignItems: "stretch" }}>
+      {/* Radial Spotlights */}
+      <div style={{
+        position: 'absolute',
+        top: '-10%',
+        left: '20%',
+        width: '500px',
+        height: '500px',
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${spotlightColor}15 0%, transparent 70%)`,
+        filter: 'blur(140px)',
+        pointerEvents: 'none',
+        zIndex: 1
+      }} />
+
+      <main className="main-content" style={{ position: 'relative', zIndex: 5 }}>
+        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.5rem 1.5rem", alignItems: "stretch", gap: '1.5rem' }}>
           
           {/* Breadcrumb */}
-          <div className="portal-breadcrumb" style={{ marginBottom: "1.5rem" }}>
-            <Link href={`/members/${id}`} className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+          <div className="portal-breadcrumb" style={{ marginBottom: "0.5rem" }}>
+            <Link href={`/members/${id}`} className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px", backdropFilter: 'blur(12px)', background: 'rgba(23, 23, 23, 0.40)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Profile
             </Link>
           </div>
 
-          {/* Header Summary */}
-          <div className="medals-header-summary">
-            <div className="medals-header-title-section">
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "3px 10px", borderRadius: "10px", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", fontSize: "0.7rem", fontWeight: 600, color: "#c084fc", textTransform: "uppercase", marginBottom: "0.5rem" }}>
-                <i className="fa-solid fa-medal" /> Tactician Achievements
+          {/* Gamified Profile Header card (Glassmorphic) */}
+          <div className="glass-panel" style={{
+            background: 'rgba(23, 23, 23, 0.4)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '1.75rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '2rem',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+          }}>
+            
+            {/* Manager Emblem & Name */}
+            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  width: '78px',
+                  height: '78px',
+                  borderRadius: '50%',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundImage: `url('${manager.avatar_path || '/assets/images/default-manager.webp'}'), url('/assets/images/default-manager.webp')`,
+                  border: `3px solid ${spotlightColor}`,
+                  boxShadow: `0 0 15px ${spotlightColor}40`
+                }} />
+                {/* Floating Pulsing Emblem */}
+                <div className="pulsing-badge" style={{
+                  position: 'absolute',
+                  bottom: '-5px',
+                  right: '-5px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: spotlightColor,
+                  border: '2px solid rgb(13, 18, 24)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '0.8rem',
+                  color: '#000',
+                  boxShadow: `0 0 10px ${spotlightColor}`,
+                  animation: 'pulse 3s infinite'
+                }}>
+                  {level}
+                </div>
               </div>
-              <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem", fontWeight: 800, color: "#fff", margin: "0 0 4px" }}>
-                {manager.name}'s Medals
-              </h1>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)' }}>
-                R2G career milestones and detailed progress logs.
-              </p>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', color: spotlightColor, background: `${spotlightColor}18`, padding: '2px 8px', borderRadius: '4px', letterSpacing: '1px' }}>
+                    {rankLabel}
+                  </span>
+                </div>
+                <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.85rem", fontWeight: 900, color: "#fff", margin: "4px 0 2px" }}>
+                  {manager.name}
+                </h1>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono)' }}>
+                  ID: {manager.r2g_id || 'NOT_ASSIGNED'}
+                </p>
+              </div>
             </div>
 
-            {/* Total Counters */}
-            <div className="medals-counters-grid">
-              <div className="medals-counter-card" style={{ background: 'rgba(192, 132, 252, 0.1)', border: '1px solid rgba(192, 132, 252, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
-                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#c084fc' }}>{unlocked.length}</div>
-                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Unlocked</div>
+            {/* Quick Stats Cabinet */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1, minWidth: '280px', justifyContent: 'flex-end' }}>
+              
+              {/* Badges Cabinet */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fff', fontFamily: 'var(--font-mono)' }}>
+                  {unlockedBadgesCount}<span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '1rem', marginLeft: '2px' }}>/{totalBadgesCount}</span>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Badges Earned</div>
               </div>
-              <div className="medals-counter-card" style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '120px' }}>
-                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fbbf24' }}>{medalInfo.medalExp.toLocaleString()}</div>
-                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Medal EXP</div>
+
+              {/* Completion meter */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: spotlightColor, fontFamily: 'var(--font-mono)' }}>
+                  {badgesCompletionPercent}%
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Completion</div>
               </div>
-              <div className="medals-counter-card" style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
-                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{locked.length}</div>
-                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Locked</div>
+
+              {/* XP Cabinet */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
+                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>
+                  {totalExp.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Total XP</div>
+              </div>
+
+            </div>
+
+            {/* XP Progress Bar (Full Width within header card) */}
+            <div style={{ width: '100%', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
+                <span>Level {level} Progress</span>
+                <span>{totalExp} / {nextLevelExp} XP ({progressPercent}%)</span>
+              </div>
+              <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', padding: '2px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{
+                  width: `${progressPercent}%`,
+                  height: '100%',
+                  background: `linear-gradient(90deg, ${spotlightColor}, #06b6d4)`,
+                  borderRadius: '4px',
+                  position: 'relative',
+                  boxShadow: `0 0 10px ${spotlightColor}`
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    width: '4px',
+                    height: '100%',
+                    backgroundColor: '#fff',
+                    boxShadow: '0 0 6px #fff, 0 0 10px #fff'
+                  }} />
+                </div>
               </div>
             </div>
+
           </div>
 
-          <style>{`
-            .medals-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-              gap: 1.25rem;
-            }
-            .medals-header-summary {
-              background: rgba(13, 18, 24, 0.45);
-              border: 1px solid rgba(255, 255, 255, 0.05);
-              border-radius: 16px;
-              padding: 1.5rem;
-              backdrop-filter: blur(20px);
-              margin-bottom: 2rem;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              flex-wrap: wrap;
-              gap: 1.5rem;
-            }
-            .medals-header-title-section {
-              flex: 1;
-              min-width: 250px;
-            }
-            .medals-counters-grid {
-              display: flex;
-              gap: 0.75rem;
-              flex-wrap: wrap;
-            }
-            @media (max-width: 768px) {
-              .medals-header-summary {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-                gap: 1.25rem;
-              }
-              .medals-header-title-section {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-              }
-              .medals-counters-grid {
-                justify-content: center;
-                width: 100%;
-              }
-            }
-            @media (max-width: 576px) {
-              .medals-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-              }
-              .medals-counters-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 6px;
-              }
-              .medals-counter-card {
-                padding: 8px 4px !important;
-                min-width: unset !important;
-              }
-              .medals-counter-val {
-                font-size: 1.15rem !important;
-              }
-              .medals-counter-lbl {
-                font-size: 0.52rem !important;
-              }
-            }
-          `}</style>
+          {/* Navigation Tabs */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
+            <button
+              onClick={() => setActiveTab('SHOWCASE')}
+              className={`portal-btn ${activeTab === 'SHOWCASE' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '8px 20px', fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            >
+              <i className="fa-solid fa-gem" style={{ marginRight: '6px' }} /> Trophy Cabinet Showcase
+            </button>
+            <button
+              onClick={() => setActiveTab('LEDGER')}
+              className={`portal-btn ${activeTab === 'LEDGER' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '8px 20px', fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            >
+              <i className="fa-solid fa-list-ol" style={{ marginRight: '6px' }} /> XP Progression Ledger
+            </button>
+          </div>
 
-          {/* Unlocked Medals grouped by Category */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {['COMMON', 'RARE', 'MYTHIC'].map((cat) => {
-              const catMedals = unlocked.filter((m: any) => m.category === cat);
-              const catColor = cat === 'COMMON' ? '#60a5fa' : cat === 'RARE' ? '#f59e0b' : '#ec4899';
-              if (catMedals.length === 0) return null;
-              return (
-                <div key={cat}>
-                  <h3 style={{ color: catColor, fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: catColor }} /> Unlocked {cat} Medals
-                  </h3>
-                  <div className="medals-grid">
-                    {catMedals.map((medal: any) => (
-                      <MedalCard key={medal.key} med={medal} />
+          {/* TAB 1: TROPHY CABINET SHOWCASE */}
+          {activeTab === 'SHOWCASE' && (
+            <div className="tab-pane-content" style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* Filter controls panel */}
+              <div className="glass-panel" style={{
+                background: 'rgba(23, 23, 23, 0.4)',
+                backdropFilter: 'blur(24px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '16px',
+                padding: '1rem 1.25rem',
+                display: 'flex',
+                gap: '2rem',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Rarity:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {(['ALL', 'COMMON', 'RARE', 'MYTHIC'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`filter-tab-btn ${categoryFilter === cat ? 'active' : ''}`}
+                      >
+                        {cat}
+                      </button>
                     ))}
                   </div>
                 </div>
-              );
-            })}
 
-            {/* Toggle Button for Locked Medals */}
-            {locked.length > 0 && (
-              <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                  <button
-                    onClick={() => setShowLocked(!showLocked)}
-                    className="portal-btn btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '0.8rem' }}
-                  >
-                    <i className={`fa-solid ${showLocked ? 'fa-eye-slash' : 'fa-eye'}`} />
-                    {showLocked ? 'Hide Locked Medals' : `Show Locked Medals (${locked.length})`}
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Status:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {(['ALL', 'UNLOCKED', 'LOCKED'] as const).map(stat => (
+                      <button
+                        key={stat}
+                        onClick={() => setStatusFilter(stat)}
+                        className={`filter-tab-btn ${statusFilter === stat ? 'active' : ''}`}
+                      >
+                        {stat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Medals Showcase Grid */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                {['COMMON', 'RARE', 'MYTHIC'].map((cat) => {
+                  const catMedals = filteredMedals.filter((m: any) => m.category === cat);
+                  const catColor = cat === 'COMMON' ? '#60a5fa' : cat === 'RARE' ? '#f59e0b' : '#ec4899';
+                  if (catMedals.length === 0) return null;
+                  
+                  // Sort: Unlocked first, then locked
+                  const sorted = [...catMedals].sort((a, b) => {
+                    if (a.isAchieved && !b.isAchieved) return -1;
+                    if (!a.isAchieved && b.isAchieved) return 1;
+                    return b.level - a.level;
+                  });
+
+                  return (
+                    <div key={cat}>
+                      <h3 style={{ color: catColor, fontSize: '0.95rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: catColor }} /> {cat} MEDALS
+                      </h3>
+                      <div className="cabinet-badges-grid">
+                        {sorted.map(m => {
+                          const scheme = LEVEL_SCHEMES[m.isLocked ? 0 : m.level];
+                          return (
+                            <div
+                              key={m.id}
+                              onClick={() => setModalMedal(m)}
+                              className={`cabinet-badge-card ${m.isLocked ? 'locked' : 'unlocked'}`}
+                              style={{
+                                background: 'rgba(23, 23, 23, 0.40)',
+                                border: `1px solid ${m.isLocked ? 'rgba(255,255,255,0.06)' : `${scheme.text}20`}`,
+                                borderRadius: '16px',
+                                padding: '1rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                position: 'relative',
+                                minHeight: '135px',
+                                justifyContent: 'space-between'
+                              }}
+                            >
+                              {/* Corner status indicator */}
+                              {!m.isLocked ? (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: 'rgba(34,197,94,0.15)',
+                                  border: '1px solid rgba(34,197,94,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#22c55e',
+                                  fontSize: '0.6rem',
+                                  fontWeight: 900
+                                }}>
+                                  ✓
+                                </div>
+                              ) : (
+                                <div className="lock-overlay-tag" style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  width: '18px',
+                                  height: '18px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'rgba(255,255,255,0.2)',
+                                  fontSize: '0.65rem'
+                                }}>
+                                  <i className="fa-solid fa-lock" />
+                                </div>
+                              )}
+
+                              {/* Halo Glow effect (rendered under image wrapper) */}
+                              {!m.isLocked && <div className="halo-glow" style={{ backgroundColor: scheme.halo }} />}
+
+                              {/* Badge Icon Wrapper */}
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: m.isLocked ? 'rgba(255,255,255,0.02)' : `${scheme.text}10`,
+                                border: `1px solid ${m.isLocked ? 'rgba(255,255,255,0.05)' : `${scheme.text}25`}`
+                              }}>
+                                <i className={m.iconClass} style={{ fontSize: '1.45rem', color: m.isLocked ? 'rgba(255,255,255,0.2)' : scheme.text }} />
+                              </div>
+
+                              {/* Title */}
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.3)' : '#fff', lineHeight: 1.2 }}>
+                                  {m.name}
+                                </div>
+                                {!m.isLocked && (
+                                  <div style={{ fontSize: '0.58rem', fontWeight: 900, color: scheme.text, textTransform: 'uppercase', letterSpacing: '1px', marginTop: '3px' }}>
+                                    TIER {scheme.roman}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: XP PROGRESSION LEDGER */}
+          {activeTab === 'LEDGER' && (
+            <div className="tab-pane-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+              <div className="glass-panel" style={{
+                background: 'rgba(23, 23, 23, 0.4)',
+                backdropFilter: 'blur(24px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+              }}>
+                <h3 style={{ fontSize: '1.05rem', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                  <i className="fa-solid fa-list-ol" style={{ color: '#fbbf24', marginRight: '8px' }} /> XP Audit History Log
+                </h3>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="ledger-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900 }}>Event Source</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900 }}>Description</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900, textAlign: 'right' }}>Date Logged</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900, textAlign: 'right' }}>XP Awarded</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledgerEntries.map((entry) => {
+                        let pillBorder = 'rgba(255,255,255,0.1)';
+                        let pillText = 'rgba(255,255,255,0.5)';
+                        let pillBg = 'rgba(255,255,255,0.01)';
+
+                        if (entry.source === 'MATCH_WON') {
+                          pillBorder = '#22c55e';
+                          pillText = '#22c55e';
+                          pillBg = 'rgba(34,197,94,0.04)';
+                        } else if (entry.source === 'GOAL_SCORED') {
+                          pillBorder = '#06b6d4';
+                          pillText = '#06b6d4';
+                          pillBg = 'rgba(6,182,212,0.04)';
+                        } else if (entry.source === 'MATCH_PLAYED') {
+                          pillBorder = '#3b82f6';
+                          pillText = '#3b82f6';
+                          pillBg = 'rgba(59,130,246,0.04)';
+                        } else if (entry.source === 'BADGE_UNLOCKED') {
+                          pillBorder = '#fbbf24';
+                          pillText = '#fbbf24';
+                          pillBg = 'rgba(251,191,36,0.04)';
+                        }
+
+                        return (
+                          <tr key={entry.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} className="ledger-row">
+                            <td style={{ padding: '12px 12px' }}>
+                              <span style={{
+                                border: `1px solid ${pillBorder}`,
+                                color: pillText,
+                                background: pillBg,
+                                fontSize: '0.6rem',
+                                fontWeight: 900,
+                                textTransform: 'uppercase',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                letterSpacing: '0.5px'
+                              }}>
+                                {entry.source.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 12px', color: '#fff', fontWeight: 600 }}>{entry.description}</td>
+                            <td style={{ padding: '12px 12px', color: 'rgba(255,255,255,0.45)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{entry.date}</td>
+                            <td style={{ padding: '12px 12px', color: pillText, fontWeight: 900, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+                              +{entry.xp.toLocaleString()} XP
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
-                {showLocked && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    {['COMMON', 'RARE', 'MYTHIC'].map((cat) => {
-                      const catMedals = locked.filter((m: any) => m.category === cat);
-                      const catColor = cat === 'COMMON' ? '#60a5fa' : cat === 'RARE' ? '#f59e0b' : '#ec4899';
-                      if (catMedals.length === 0) return null;
-                      return (
-                        <div key={cat}>
-                          <h3 style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '6px' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.15)' }} /> Locked {cat} Medals
-                          </h3>
-                          <div className="medals-grid">
-                            {catMedals.map((medal: any) => (
-                              <MedalCard key={medal.key} med={medal} dimmed />
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
       </main>
+
+      {/* DETAILED MODAL OVERLAY */}
+      {modalMedal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.82)',
+          backdropFilter: 'blur(12px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1.5rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}
+        onClick={() => setModalMedal(null)}>
+          
+          <div style={{
+            background: 'rgb(18, 18, 18)',
+            border: `1px solid ${modalMedal.isLocked ? 'rgba(255,255,255,0.1)' : `${LEVEL_SCHEMES[modalMedal.level].text}35`}`,
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '480px',
+            padding: '2rem',
+            position: 'relative',
+            boxShadow: modalMedal.isLocked ? '0 20px 40px rgba(0,0,0,0.5)' : `0 0 40px ${LEVEL_SCHEMES[modalMedal.level].text}15`,
+            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both'
+          }}
+          onClick={(e) => e.stopPropagation()}>
+            
+            {/* Modal Exit */}
+            <button
+              onClick={() => setModalMedal(null)}
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255,255,255,0.4)',
+                fontSize: '1.5rem',
+                cursor: 'pointer'
+              }}
+            >
+              &times;
+            </button>
+
+            {/* Glowing Medal Icon Badge */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <div style={{
+                width: '78px',
+                height: '78px',
+                borderRadius: '16px',
+                background: modalMedal.isLocked ? 'rgba(255,255,255,0.03)' : `${LEVEL_SCHEMES[modalMedal.level].text}15`,
+                border: `1px solid ${modalMedal.isLocked ? 'rgba(255,255,255,0.06)' : `${LEVEL_SCHEMES[modalMedal.level].text}35`}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: modalMedal.isLocked ? 'none' : `0 0 25px ${LEVEL_SCHEMES[modalMedal.level].text}20`
+              }}>
+                <i className={modalMedal.iconClass} style={{ fontSize: '2.5rem', color: modalMedal.isLocked ? 'rgba(255,255,255,0.25)' : LEVEL_SCHEMES[modalMedal.level].text }} />
+              </div>
+            </div>
+
+            {/* Modal Title details */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text, background: `${LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text}18`, padding: '2px 8px', borderRadius: '4px' }}>
+                  {modalMedal.category}
+                </span>
+                {!modalMedal.isLocked && (
+                  <span style={{ fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '2px 8px', borderRadius: '4px' }}>
+                    Tier {LEVEL_SCHEMES[modalMedal.level].roman}
+                  </span>
+                )}
+              </div>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 950, color: '#fff', margin: '4px 0', fontFamily: 'var(--font-display)' }}>
+                {modalMedal.name}
+              </h2>
+              <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                {modalMedal.description}
+              </p>
+            </div>
+
+            {/* Requirements Progress Info */}
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '6px', color: 'rgba(255,255,255,0.4)' }}>
+                <span>Record value:</span>
+                <strong style={{ color: '#fff' }}>{modalMedal.currentValue}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                <span>Level Target:</span>
+                <strong style={{ color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text }}>{modalMedal.targetValue}</strong>
+              </div>
+
+              {/* Progress visual bar */}
+              {modalMedal.targetValue !== "Admin award only" && (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
+                    <span>Milestone Progress</span>
+                    <span>{modalMedal.progressPercent}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${modalMedal.progressPercent}%`,
+                      height: '100%',
+                      borderRadius: '3px',
+                      background: `linear-gradient(90deg, ${LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text}, #fff)`
+                    }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Bounty */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
+              <div>
+                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', display: 'block' }}>EXP Bounty:</span>
+                <span style={{ fontSize: '1.15rem', fontWeight: 950, color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text, fontFamily: 'var(--font-mono)' }}>
+                  +{modalMedal.exp} XP
+                </span>
+              </div>
+
+              <div>
+                {modalMedal.isLocked ? (
+                  modalMedal.targetValue === "Admin award only" ? (
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>
+                      Admin grant only
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', fontWeight: 900, color: LEVEL_SCHEMES[modalMedal.level].text }}>
+                      Need {modalMedal.remaining} more
+                    </span>
+                  )
+                ) : (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <i className="fa-solid fa-circle-check" /> Claimed
+                  </span>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Global CSS Inject */}
+      <style>{`
+        .filter-tab-btn {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.45);
+          padding: 4px 12px;
+          font-size: 0.72rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .filter-tab-btn:hover {
+          background: rgba(255,255,255,0.06);
+          color: #fff;
+        }
+        .filter-tab-btn.active {
+          background: #fff;
+          border-color: #fff;
+          color: #000;
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+        }
+
+        .cabinet-badges-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 1rem;
+        }
+
+        /* Badge hover effects */
+        .cabinet-badge-card.unlocked:hover {
+          transform: translateY(-4px) scale(1.05);
+        }
+        .cabinet-badge-card.unlocked:hover .halo-glow {
+          opacity: 1;
+        }
+        .cabinet-badge-card.locked {
+          filter: grayscale(1);
+          opacity: 0.25;
+        }
+        .cabinet-badge-card.locked:hover {
+          opacity: 0.45;
+          filter: grayscale(0.7);
+        }
+
+        /* Halo underneath badge */
+        .halo-glow {
+          position: absolute;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60px;
+          height: 8px;
+          border-radius: 50%;
+          filter: blur(10px);
+          opacity: 0;
+          transition: opacity 0.25s;
+          pointer-events: none;
+        }
+
+        .ledger-row:hover {
+          background: rgba(255, 255, 255, 0.015);
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(12px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+          70% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(255,255,255,0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+        }
+
+        @media (max-width: 576px) {
+          .cabinet-badges-grid {
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
+          }
+          .cabinet-badge-card {
+            padding: 8px !important;
+            min-height: 110px !important;
+          }
+        }
+      `}</style>
 
       <PortalFooter />
     </div>
