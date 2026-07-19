@@ -74,6 +74,7 @@ export interface CalculatedMedal {
   exp: number;
   description: string;
   thresholds?: number[];
+  achievedLevels?: boolean[];
 }
 
 export function getExpForMedal(category: 'COMMON' | 'RARE' | 'MYTHIC', level: number): number {
@@ -143,6 +144,9 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   let totalConceded = 0;
   let totalCs = 0;
 
+  const trophiesList: string[] = [];
+  const awardsList: string[] = [];
+
   // Add stats from manager_seasons (Solo Tour historically aggregated)
   let maxGoalsInSeason = 0;
   let maxCsInSeason = 0;
@@ -193,8 +197,9 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
         if (lower.includes('maldini')) maldiniTrophyCount++;
         if (lower.includes('nominee')) {} // Handled separately
         if (lower.includes("ballon d'or") || (lower.includes('ballon') && !lower.includes('nominee'))) ballonDorWinnerCount++;
-        if (lower.includes('best')) r2gBestCount++;
+        if (lower.includes('best') || lower.includes('pots') || lower.includes('player of season')) r2gBestCount++;
         totalRankAwards++;
+        awardsList.push(`${award} (Season ${s.season_id})`);
       });
     }
 
@@ -214,9 +219,10 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
           if (lower.includes('champion') || lower.includes('winner')) uclChampionCount++;
         }
         if (lower.includes('runner') || lower.includes('runrs')) runnerUpCount++;
-        if (lower.includes('champion') || lower.includes('winner') || lower.includes('1st')) {
+        if (lower.includes('champion') || lower.includes('winner') || lower.includes('1st') || lower.includes('champ')) {
           trophyCareerCount++;
           trophyAnyCount++;
+          trophiesList.push(`${comp} (Season ${s.season_id})`);
         }
       });
     }
@@ -435,6 +441,14 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
     level,
     league,
     medals: computedMedals,
+    trophiesList,
+    awardsList,
+    awardsCount: {
+      goldenBoot: goldBootCount,
+      goldenGlove: goldGloveCount,
+      goldenBall: goldBallCount + ballonDorWinnerCount + r2gBestCount,
+      bestDefender: maldiniTrophyCount
+    },
     careerStats: {
       matches: totalMatches,
       wins: totalWins,

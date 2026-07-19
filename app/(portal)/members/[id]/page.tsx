@@ -33,6 +33,7 @@ export default function PlayerProfilePage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -137,6 +138,11 @@ export default function PlayerProfilePage() {
     : 0;
 
   const goalDiff = combined.goals_scored - combined.goals_conceded;
+
+  const topClaimedMedals = [...(medalInfo.medals || [])]
+    .filter((m: any) => m.level > 0)
+    .sort((a: any, b: any) => b.level - a.level)
+    .slice(0, 5);
 
   const managerPhoto = manager.avatar_path 
     ? manager.avatar_path 
@@ -423,16 +429,6 @@ export default function PlayerProfilePage() {
 
               <div style={{ marginTop: "1rem" }}>
                 <div className="sidebar-stat-row">
-                  <span className="sidebar-stat-label">Tactical Star Rating</span>
-                  <span className="sidebar-stat-value" style={{ display: "flex", gap: "2px", color: "#fbbf24" }}>
-                    {generateStarRating(manager.star_rating)}
-                  </span>
-                </div>
-                <div className="sidebar-stat-row">
-                  <span className="sidebar-stat-label">Overall Rating</span>
-                  <span className="sidebar-stat-value" style={{ color: "#c084fc" }}>{manager.overall_rating || 80} OVR</span>
-                </div>
-                <div className="sidebar-stat-row">
                   <span className="sidebar-stat-label">Active Club</span>
                   <span className="sidebar-stat-value">{manager.club_name || "FREE AGENT"}</span>
                 </div>
@@ -466,7 +462,7 @@ export default function PlayerProfilePage() {
                   <span className="sidebar-stat-label">Total EXP</span>
                   <span className="sidebar-stat-value" style={{ color: '#fff' }}>{medalInfo.totalExp} EXP</span>
                 </div>
-                <div style={{ marginTop: '0.75rem', textAlign: 'left' }}>
+                <div style={{ marginTop: '0.75rem', textAlign: 'left', borderBottom: '1px solid rgba(255, 255, 255, 0.03)', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>
                     <span>Next Level Progress</span>
                     <span>{progressPercent}%</span>
@@ -475,18 +471,45 @@ export default function PlayerProfilePage() {
                     <div className="level-progress-bar" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
+
+                {/* Wallets */}
+                <div style={{ marginTop: '0.75rem' }}>
+                  <div className="sidebar-stat-row">
+                    <span className="sidebar-stat-label">Coins Balance</span>
+                    <span className="sidebar-stat-value" style={{ color: '#fbbf24', fontWeight: 'bold' }}>
+                      <i className="fa-solid fa-coins" style={{ marginRight: '4px' }} />
+                      {manager.r2g_coin_balance ?? 0}
+                    </span>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span className="sidebar-stat-label">Tokens Balance</span>
+                    <span className="sidebar-stat-value" style={{ color: '#c084fc', fontWeight: 'bold' }}>
+                      <i className="fa-solid fa-ticket" style={{ marginRight: '4px' }} />
+                      {manager.r2g_token_balance ?? 0}
+                    </span>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span className="sidebar-stat-label">Vouchers Balance</span>
+                    <span className="sidebar-stat-value" style={{ color: '#3b82f6', fontWeight: 'bold' }}>
+                      <i className="fa-solid fa-receipt" style={{ marginRight: '4px' }} />
+                      {manager.r2g_voucher_balance ?? 0}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Main Content Area */}
             <div className="profile-main-content">
               
-              {/* Combined Career Totals */}
+              {/* Combined Career Record */}
               <div>
-                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.75rem", textTransform: "uppercase", letterSpacing: "1px" }}>
                   <i className="fa-solid fa-chart-pie" style={{ color: "#c084fc", marginRight: "8px" }} /> Combined Career Record
                 </h3>
-                <div className="overview-stats-grid">
+                
+                {/* Match Records Grid */}
+                <div className="overview-stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '12px' }}>
                   <div className="overview-stat-card">
                     <div className="overview-val">{combined.matches_played}</div>
                     <div className="overview-lbl">Matches</div>
@@ -496,14 +519,106 @@ export default function PlayerProfilePage() {
                     <div className="overview-lbl">Wins</div>
                   </div>
                   <div className="overview-stat-card" style={{ borderLeft: "3px solid #a855f7" }}>
-                    <div className="overview-val" style={{ color: "#c084fc" }}>{winRate}%</div>
-                    <div className="overview-lbl">Win Rate</div>
+                    <div className="overview-val" style={{ color: "#c084fc" }}>{combined.draws}</div>
+                    <div className="overview-lbl">Draws</div>
+                  </div>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #ef4444" }}>
+                    <div className="overview-val" style={{ color: "#ef4444" }}>{combined.losses}</div>
+                    <div className="overview-lbl">Losses</div>
+                  </div>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #eab308" }}>
+                    <div className="overview-val" style={{ color: "#fbbf24" }}>{winRate}%</div>
+                    <div className="overview-lbl">Win %</div>
+                  </div>
+                </div>
+
+                {/* Goal Records Grid */}
+                <div className="overview-stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #3b82f6" }}>
+                    <div className="overview-val" style={{ color: "#60a5fa" }}>{combined.goals_scored}</div>
+                    <div className="overview-lbl">Goals Scored</div>
                   </div>
                   <div className="overview-stat-card" style={{ borderLeft: "3px solid #f43f5e" }}>
-                    <div className="overview-val" style={{ color: goalDiff >= 0 ? "#22c55e" : "#f43f5e" }}>
+                    <div className="overview-val" style={{ color: "#f43f5e" }}>{combined.goals_conceded}</div>
+                    <div className="overview-lbl">GA (Conceded)</div>
+                  </div>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #c084fc" }}>
+                    <div className="overview-val" style={{ color: goalDiff >= 0 ? "#22c55e" : "#ef4444" }}>
                       {goalDiff > 0 ? `+${goalDiff}` : goalDiff}
                     </div>
-                    <div className="overview-lbl">Goal Diff</div>
+                    <div className="overview-lbl">GD (Goal Diff)</div>
+                  </div>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #10b981" }}>
+                    <div className="overview-val" style={{ color: "#10b981" }}>{combined.clean_sheets}</div>
+                    <div className="overview-lbl">CS (Clean Sheets)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trophies & Awards Showcase */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                {/* Trophies Card */}
+                <div style={{ background: 'rgba(13, 18, 24, 0.45)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.25rem', backdropFilter: 'blur(20px)' }}>
+                  <h3 style={{ fontSize: "0.9rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px", borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                      <i className="fa-solid fa-trophy" style={{ color: "#fbbf24", marginRight: "8px" }} /> Trophies Won
+                    </span>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fbbf24' }}>{medalInfo.trophiesList?.length || 0}</span>
+                  </h3>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                    {(!medalStats.trophiesList || medalStats.trophiesList.length === 0) ? (
+                      <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', padding: '1rem 0' }}>No trophies won yet.</div>
+                    ) : (
+                      medalStats.trophiesList.map((t: string, idx: number) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                          <i className="fa-solid fa-trophy" style={{ color: '#fbbf24', fontSize: '0.85rem' }} />
+                          <span style={{ color: '#fff', fontWeight: 600 }}>{t}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Awards Card */}
+                <div style={{ background: 'rgba(13, 18, 24, 0.45)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.25rem', backdropFilter: 'blur(20px)' }}>
+                  <h3 style={{ fontSize: "0.9rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px", borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                      <i className="fa-solid fa-award" style={{ color: "#c084fc", marginRight: "8px" }} /> Individual Awards
+                    </span>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#c084fc' }}>{medalInfo.awardsList?.length || 0}</span>
+                  </h3>
+                  
+                  {/* Category counts grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.95rem', color: '#fbbf24', fontWeight: 'bold' }}>{medalStats.awardsCount?.goldenBoot || 0}</div>
+                      <div style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Boot</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.95rem', color: '#60a5fa', fontWeight: 'bold' }}>{medalStats.awardsCount?.goldenGlove || 0}</div>
+                      <div style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Glove</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.95rem', color: '#a855f7', fontWeight: 'bold' }}>{medalStats.awardsCount?.goldenBall || 0}</div>
+                      <div style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Ball</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px', padding: '4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.95rem', color: '#f43f5e', fontWeight: 'bold' }}>{medalStats.awardsCount?.bestDefender || 0}</div>
+                      <div style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Def</div>
+                    </div>
+                  </div>
+
+                  <div style={{ maxHeight: '110px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                    {(!medalStats.awardsList || medalStats.awardsList.length === 0) ? (
+                      <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', padding: '1rem 0', textAlign: 'center' }}>No individual awards won.</div>
+                    ) : (
+                      medalStats.awardsList.map((a: string, idx: number) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                          <i className="fa-solid fa-award" style={{ color: '#c084fc', fontSize: '0.85rem' }} />
+                          <span style={{ color: '#fff', fontWeight: 600 }}>{a}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -546,18 +661,28 @@ export default function PlayerProfilePage() {
                 </div>
               </div>
 
-              {/* Medal Showcase */}
+              {/* Medal Showcase (Top 5 Claimed) */}
               <div>
-                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-                  <i className="fa-solid fa-medal" style={{ color: "#c084fc", marginRight: "8px" }} /> Medals Showcase
-                </h3>
-                {medalInfo.medals.filter((m: any) => m.level > 0).length === 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "1px" }}>
+                    <i className="fa-solid fa-medal" style={{ color: "#c084fc", marginRight: "8px" }} /> Medals Showcase (Top Claimed)
+                  </h3>
+                  <Link href={`/members/${id}/medals`} className="portal-btn btn-secondary" style={{ fontSize: '0.72rem', padding: '5px 12px', textTransform: 'uppercase', fontWeight: 700 }}>
+                    <i className="fa-solid fa-list-check" style={{ marginRight: '6px' }} /> View All Medals
+                  </Link>
+                </div>
+                {topClaimedMedals.length === 0 ? (
                   <div style={{ padding: '2rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '0.85rem' }}>
                     No medals unlocked yet. Complete career matches, score goals, or win tournaments to earn medals!
+                    <div style={{ marginTop: '12px' }}>
+                      <Link href={`/members/${id}/medals`} className="portal-btn btn-primary" style={{ fontSize: '0.75rem', padding: '6px 14px' }}>
+                        View Medal Requirements
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="medal-showcase-grid">
-                    {medalInfo.medals.filter((m: any) => m.level > 0).map((medal: any) => {
+                    {topClaimedMedals.map((medal: any) => {
                       const medalColor = MEDAL_LEVEL_COLORS[medal.level] || '#fff';
                       return (
                         <div key={medal.key} className="medal-card" style={{ border: `1px solid ${medalColor}`, boxShadow: `0 0 10px ${medalColor}22` }}>
@@ -580,9 +705,6 @@ export default function PlayerProfilePage() {
                                 {medal.category} Lvl {medal.level}
                               </span>
                               <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>+{medal.exp} EXP</span>
-                            </div>
-                            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
-                              Val: <span style={{ color: '#fff' }}>{medal.currentValue}</span> / Next: <span style={{ color: '#fff' }}>{medal.requiredValueForNext}</span>
                             </div>
                           </div>
                         </div>
@@ -700,6 +822,8 @@ export default function PlayerProfilePage() {
 
         </div>
       </main>
+
+
 
       <PortalFooter />
     </div>
