@@ -335,6 +335,16 @@ export default function MedalsAlignmentDashboard() {
 
 /* ── Shared medal panel helpers ── */
 
+const EXP_RATES: Record<string, number[]> = {
+  MYTHIC: [0, 400, 800, 1500, 2500, 4000],
+  RARE:   [0, 250, 500, 1000, 1750, 2500],
+  COMMON: [0, 100, 200, 400,  800,  1500],
+};
+
+function getExpForLevel(category: string, level: number): number {
+  return EXP_RATES[category]?.[level] ?? 0;
+}
+
 function StarDots({ level, color }: { level: number; color: string }) {
   const lvl = Math.min(5, Math.max(0, Number(level) || 0));
   return (
@@ -351,27 +361,97 @@ function StarDots({ level, color }: { level: number; color: string }) {
   );
 }
 
-function MedalCard({ med }: { med: any }) {
+function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
   const isMythic = med.category === 'MYTHIC';
   const isRare = med.category === 'RARE';
   const color = isMythic ? '#fbbf24' : isRare ? '#3b82f6' : '#10b981';
-  const bg = isMythic ? 'rgba(251,191,36,0.04)' : isRare ? 'rgba(59,130,246,0.04)' : 'rgba(16,185,129,0.04)';
-  const border = isMythic ? 'rgba(251,191,36,0.2)' : isRare ? 'rgba(59,130,246,0.2)' : 'rgba(16,185,129,0.2)';
+  const bg = isMythic ? 'rgba(251,191,36,0.03)' : isRare ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)';
+  const border = isMythic ? 'rgba(251,191,36,0.15)' : isRare ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)';
+  const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+  const earnedExp = getExpForLevel(med.category, lvl);
+
+  // Build level rows: threshold labels from med.thresholds array
+  const thresholds: (number | string)[] = med.thresholds || [];
+  const levelLabels: string[] = [
+    thresholds[0] !== undefined ? String(thresholds[0]) : '—',
+    thresholds[1] !== undefined ? String(thresholds[1]) : '—',
+    thresholds[2] !== undefined ? String(thresholds[2]) : '—',
+    thresholds[3] !== undefined ? String(thresholds[3]) : '—',
+    thresholds[4] !== undefined ? String(thresholds[4]) : '—',
+  ];
+  // For medals with no thresholds (isDirectLevel5 / special logic), use generic labels
+  const isSpecial = thresholds.length === 0;
+
   return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '8px', padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', opacity: dimmed ? 0.5 : 1 }}>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', color, background: `${color}18`, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
           {med.category}
         </span>
-        <StarDots level={med.level} color={color} />
+        <StarDots level={lvl} color={color} />
       </div>
-      <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.83rem', lineHeight: 1.2 }}>{med.name}</div>
-      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{med.description}</div>
-      <div style={{ fontSize: '0.67rem', fontFamily: 'var(--font-mono)', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)', padding: '5px 9px', borderRadius: '5px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <span><span style={{ color: 'rgba(255,255,255,0.45)' }}>Record: </span><strong style={{ color: '#fff' }}>{med.currentValue}</strong></span>
-        {med.requiredValueForNext !== '-' && (
-          <span><span style={{ color: 'rgba(255,255,255,0.45)' }}>Next: </span><strong style={{ color }}>{med.requiredValueForNext}</strong></span>
-        )}
+
+      {/* Name + description */}
+      <div style={{ fontWeight: 700, color: dimmed ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: '0.83rem', lineHeight: 1.2 }}>{med.name}</div>
+      <div style={{ fontSize: '0.69rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{med.description}</div>
+
+      {/* Current record */}
+      {lvl > 0 && (
+        <div style={{ fontSize: '0.67rem', fontFamily: 'var(--font-mono)', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)', padding: '4px 8px', borderRadius: '5px', display: 'flex', gap: '12px' }}>
+          <span><span style={{ color: 'rgba(255,255,255,0.4)' }}>Record: </span><strong style={{ color: '#fff' }}>{med.currentValue}</strong></span>
+          {med.requiredValueForNext !== '-' && (
+            <span><span style={{ color: 'rgba(255,255,255,0.4)' }}>Next: </span><strong style={{ color }}>{med.requiredValueForNext}</strong></span>
+          )}
+        </div>
+      )}
+
+      {/* ── Level breakdown table ── */}
+      <div style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.65rem', fontFamily: 'var(--font-mono)' }}>
+          <thead>
+            <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Lvl</th>
+              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isSpecial ? 'Condition' : 'Req.'}</th>
+              <th style={{ padding: '4px 8px', textAlign: 'right', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>EXP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5].map(l => {
+              const isAchieved = l <= lvl;
+              const isCurrent = l === lvl;
+              const rowBg = isCurrent
+                ? `${color}14`
+                : isAchieved
+                  ? `${color}07`
+                  : 'transparent';
+              const expVal = getExpForLevel(med.category, l);
+              const req = isSpecial ? (l === 5 ? 'Admin grant' : `Level ${l} criteria`) : levelLabels[l - 1];
+              return (
+                <tr key={l} style={{ background: rowBg, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <td style={{ padding: '4px 8px', color: isCurrent ? color : isAchieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', fontWeight: isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {isCurrent && <span style={{ color, fontSize: '0.55rem' }}>▶</span>}
+                    {l}
+                  </td>
+                  <td style={{ padding: '4px 8px', color: isCurrent ? '#fff' : isAchieved ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)' }}>
+                    {req}
+                  </td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right', color: isCurrent ? color : isAchieved ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontWeight: isCurrent ? 700 : 400 }}>
+                    +{expVal.toLocaleString()} XP
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Total XP earned */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', paddingTop: '2px' }}>
+        <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)' }}>Total XP Earned:</span>
+        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: lvl > 0 ? color : 'rgba(255,255,255,0.2)', fontFamily: 'var(--font-mono)' }}>
+          {earnedExp.toLocaleString()} XP
+        </span>
       </div>
     </div>
   );
@@ -388,20 +468,64 @@ function MedalPanel({ medals, unlockedCount, colSpan }: { medals: any[]; unlocke
 }
 
 function MedalPanelInline({ medals, unlockedCount }: { medals: any[]; unlockedCount: number }) {
+  const [showLocked, setShowLocked] = React.useState(false);
+
+  const unlocked = medals.filter((med: any) => med.level > 0);
+  const locked = medals.filter((med: any) => med.level <= 0);
+  const totalMedalExp = unlocked.reduce((sum: number, med: any) => {
+    return sum + (EXP_RATES[med.category]?.[Math.min(5, Number(med.level) || 0)] ?? 0);
+  }, 0);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-        <i className="fa-solid fa-medal" /> Unlocked Medals & Achievements ({unlockedCount})
-      </h4>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Header with totals */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+        <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          <i className="fa-solid fa-medal" /> Medals & Achievements
+        </h4>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.7rem', background: 'rgba(192,132,252,0.1)', border: '1px solid rgba(192,132,252,0.2)', borderRadius: '6px', padding: '3px 10px', color: '#c084fc', fontWeight: 600 }}>
+            <i className="fa-solid fa-lock-open" style={{ marginRight: '4px' }} />{unlockedCount} Unlocked
+          </span>
+          <span style={{ fontSize: '0.7rem', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '6px', padding: '3px 10px', color: '#fbbf24', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            <i className="fa-solid fa-star" style={{ marginRight: '4px' }} />{totalMedalExp.toLocaleString()} XP from Medals
+          </span>
+          <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '3px 10px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+            {medals.length - unlockedCount} Locked
+          </span>
+        </div>
+      </div>
+
+      {/* Unlocked medals */}
       {unlockedCount === 0 ? (
-        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <i className="fa-solid fa-lock" /> No medals unlocked yet.
+        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0' }}>
+          <i className="fa-solid fa-lock" /> No medals unlocked yet. Play matches or log statistics to unlock achievements.
         </div>
       ) : (
         <div className="medals-grid">
-          {medals.filter((med: any) => med.level > 0).map((med: any) => (
+          {unlocked.map((med: any) => (
             <MedalCard key={med.key} med={med} />
           ))}
+        </div>
+      )}
+
+      {/* Locked medals toggle */}
+      {locked.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowLocked(s => !s)}
+            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', padding: '5px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: showLocked ? '0.75rem' : 0, transition: 'all 0.2s' }}
+          >
+            <i className={`fa-solid ${showLocked ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ fontSize: '0.6rem' }} />
+            {showLocked ? 'Hide' : 'Show'} {locked.length} locked medals
+          </button>
+          {showLocked && (
+            <div className="medals-grid">
+              {locked.map((med: any) => (
+                <MedalCard key={med.key} med={med} dimmed />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
