@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, Suspense } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import "../../../../../portal.css";
 import "../../admin.css";
 import { fetchFixtureById, updateFixture } from "@/utils/solo/serverActions";
@@ -23,10 +23,18 @@ interface Fixture {
   matchStatusReason: string | null;
 }
 
-export default function AdminFixtureDetail() {
+function AdminFixtureDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const fixtureId = parseInt(params.id as string, 10);
+  const tParam = searchParams.get("t") || "";
+  const rParam = searchParams.get("r") || "";
+
+  const backHref = tParam 
+    ? `/solo-tour/admin/fixtures?t=${tParam}&r=${rParam}`
+    : "/solo-tour/admin/fixtures";
 
   const [fixture, setFixture] = useState<Fixture | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,7 +143,7 @@ export default function AdminFixtureDetail() {
         <div className="portal-glow-orb-2" />
         <div className="portal-container" style={{ maxWidth: "800px" }}>
           <div className="portal-breadcrumb">
-            <Link href="/solo-tour/admin/fixtures" className="portal-btn btn-secondary back-link-btn">
+            <Link href={backHref} className="portal-btn btn-secondary back-link-btn">
               <i className="fas fa-arrow-left" /> Back to Fixture Manager
             </Link>
           </div>
@@ -163,7 +171,7 @@ export default function AdminFixtureDetail() {
         <div className="portal-glow-orb-2" />
         <div className="portal-container" style={{ maxWidth: "800px" }}>
           <div className="portal-breadcrumb">
-            <Link href="/solo-tour/admin/fixtures" className="portal-btn btn-secondary back-link-btn">
+            <Link href={backHref} className="portal-btn btn-secondary back-link-btn">
               <i className="fas fa-arrow-left" /> Back to Fixture Manager
             </Link>
           </div>
@@ -195,7 +203,7 @@ export default function AdminFixtureDetail() {
 
       <div className="portal-container" style={{ maxWidth: "800px" }}>
         <div className="portal-breadcrumb">
-          <Link href="/solo-tour/admin/fixtures" className="portal-btn btn-secondary back-link-btn">
+          <Link href={backHref} className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Fixture Manager
           </Link>
         </div>
@@ -364,7 +372,7 @@ export default function AdminFixtureDetail() {
                 )}
               </button>
               <Link 
-                href="/solo-tour/admin/fixtures" 
+                href={backHref} 
                 className="portal-btn btn-secondary" 
                 style={{ height: "42px", padding: "0 20px", display: "inline-flex", alignItems: "center" }}
               >
@@ -376,5 +384,20 @@ export default function AdminFixtureDetail() {
 
       </div>
     </div>
+  );
+}
+
+export default function AdminFixtureDetail() {
+  return (
+    <Suspense fallback={
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-container" style={{ textAlign: "center", paddingTop: "5rem", color: "var(--text-secondary)" }}>
+          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "2rem", color: "var(--solo-primary)" }} />
+        </div>
+      </div>
+    }>
+      <AdminFixtureDetailContent />
+    </Suspense>
   );
 }

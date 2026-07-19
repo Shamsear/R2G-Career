@@ -1,7 +1,7 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import "../../../../portal.css";
 import "../admin.css";
 
@@ -10,11 +10,15 @@ import {
   fetchFixtures
 } from "@/utils/solo/serverActions";
 
-export default function FixturesManager() {
+function FixturesManagerContent() {
+  const searchParams = useSearchParams();
+  const initialTournamentId = searchParams.get("t") || "";
+  const initialRound = parseInt(searchParams.get("r") || "1", 10);
+
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
-  const [activeRound, setActiveRound] = useState<number>(1);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(initialTournamentId);
+  const [activeRound, setActiveRound] = useState<number>(initialRound);
   
   const [toast, setToast] = useState<string | null>(null);
 
@@ -43,6 +47,19 @@ export default function FixturesManager() {
   useEffect(() => {
     loadData();
   }, [selectedTournamentId]);
+
+  // Synchronize component state to browser URL search params
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (selectedTournamentId) {
+      url.searchParams.set("t", selectedTournamentId);
+      url.searchParams.set("r", activeRound.toString());
+    } else {
+      url.searchParams.delete("t");
+      url.searchParams.delete("r");
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [selectedTournamentId, activeRound]);
 
   // Find unique rounds available in current fixtures list
   const rounds = Array.from(new Set(fixtures.map(f => f.roundNumber || 1))).sort((a, b) => a - b);
@@ -212,8 +229,8 @@ export default function FixturesManager() {
                                     {f.match_status || (f.homeScore !== null && f.awayScore !== null ? "played" : "scheduled")}
                                   </span>
                                 </td>
-                                <td style={{ textAlign: "right" }}>
-                                  <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                 <td style={{ textAlign: "right" }}>
+                                  <Link href={`/solo-tour/admin/fixtures/${f.id}?t=${selectedTournamentId}&r=${activeRound}`} className="portal-btn btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                                     <i className="fa-solid fa-pen-to-square" /> Enter Result
                                   </Link>
                                 </td>
@@ -237,5 +254,20 @@ export default function FixturesManager() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FixturesManager() {
+  return (
+    <Suspense fallback={
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-container" style={{ textAlign: "center", paddingTop: "5rem", color: "var(--text-secondary)" }}>
+          <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "2rem", color: "var(--solo-primary)" }} />
+        </div>
+      </div>
+    }>
+      <FixturesManagerContent />
+    </Suspense>
   );
 }
