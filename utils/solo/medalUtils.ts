@@ -11,52 +11,52 @@ export interface MedalDefinition {
 
 export const MEDAL_DEFINITIONS: Record<string, MedalDefinition> = {
   // COMMON (14 Medals)
-  matches_played: { key: 'matches_played', name: 'Match played', category: 'COMMON', thresholds: [100, 250, 500, 1000, 2000], description: 'Matches played in career' },
-  goals_scored: { key: 'goals_scored', name: 'Goal', category: 'COMMON', thresholds: [200, 500, 900, 1500, 3000], description: 'Goals scored in career' },
-  clean_sheets: { key: 'clean_sheets', name: 'Cs', category: 'COMMON', thresholds: [25, 75, 150, 250, 500], description: 'Clean Sheets kept in career' },
-  draws: { key: 'draws', name: 'Draw', category: 'COMMON', thresholds: [40, 100, 200, 400, 700], description: 'Draws in career' },
-  single_match_draw: { key: 'single_match_draw', name: 'Orotta matchil draw avunnath', category: 'COMMON', description: 'Draw score achieved (1-1, 2-2, 0-0, 3-3, 5-5)' },
-  single_match_goals: { key: 'single_match_goals', name: 'Oru matchil score', category: 'COMMON', thresholds: [1, 3, 5, 7, 10], description: 'Goals scored in a single match' },
-  single_match_cs_win: { key: 'single_match_cs_win', name: 'Oru match cs kitti win avunnath', category: 'COMMON', description: 'Win with clean sheet (1-0, 2-0, 3-0, 5-0, 7-0)' },
-  single_match_gd_win: { key: 'single_match_gd_win', name: 'Oru match win avunna gd (goal lead)', category: 'COMMON', thresholds: [1, 2, 3, 5, 7], description: 'Goal difference in a single match win' },
+  matches_played: { key: 'matches_played', name: 'Matches Played', category: 'COMMON', thresholds: [100, 250, 500, 1000, 2000], description: 'Matches played in career' },
+  goals_scored: { key: 'goals_scored', name: 'Goals Scored', category: 'COMMON', thresholds: [200, 500, 900, 1500, 3000], description: 'Goals scored in career' },
+  clean_sheets: { key: 'clean_sheets', name: 'Clean Sheets', category: 'COMMON', thresholds: [25, 75, 150, 250, 500], description: 'Clean Sheets kept in career' },
+  draws: { key: 'draws', name: 'Draws', category: 'COMMON', thresholds: [40, 100, 200, 400, 700], description: 'Draws in career' },
+  single_match_draw: { key: 'single_match_draw', name: 'Single Match Draw', category: 'COMMON', description: 'Draw score achieved (1-1, 2-2, 0-0, 3-3, 5-5)' },
+  single_match_goals: { key: 'single_match_goals', name: 'Goals in a Single Match', category: 'COMMON', thresholds: [1, 3, 5, 7, 10], description: 'Goals scored in a single match' },
+  single_match_cs_win: { key: 'single_match_cs_win', name: 'Clean Sheet Win', category: 'COMMON', description: 'Win with clean sheet (1-0, 2-0, 3-0, 5-0, 7-0)' },
+  single_match_gd_win: { key: 'single_match_gd_win', name: 'Goal Difference Win', category: 'COMMON', thresholds: [1, 2, 3, 5, 7], description: 'Goal difference in a single match win' },
   participate_div_5: { key: 'participate_div_5', name: 'Participate Career Division 5', category: 'COMMON', thresholds: [1, 3, 5, 10, 15], description: 'Seasons participating in Division 5 exactly' },
   participate_div_4: { key: 'participate_div_4', name: 'Participate Career Division 4', category: 'COMMON', thresholds: [1, 3, 5, 10, 15], description: 'Seasons participating in Division 4 exactly' },
   top_15_rank: { key: 'top_15_rank', name: 'R2G career top 15 rank list', category: 'COMMON', thresholds: [1, 3, 5, 10, 15], description: 'Finishes in R2G Career Top 15' },
   top_15_fantasy: { key: 'top_15_fantasy', name: 'Top 15 fantasy', category: 'COMMON', thresholds: [1, 3, 5, 7, 10], description: 'Finishes in Top 15 Fantasy' },
   participate_team_tour: { key: 'participate_team_tour', name: 'Participate team tour', category: 'COMMON', thresholds: [1, 3, 5, 10, 15], description: 'Times participated in team tour' },
-  team_tour_win_margin: { key: 'team_tour_win_margin', name: 'Team touril orotta matchile win margin', category: 'COMMON', thresholds: [3, 5, 7, 10, 15], description: 'Win margin in team tour match' },
-
+  team_tour_win_margin: { key: 'team_tour_win_margin', name: 'Team Tour Win Margin', category: 'COMMON', thresholds: [3, 5, 7, 10, 15], description: 'Win margin in team tour match' },
+ 
   // RARE (17 Medals)
   participate_div_3: { key: 'participate_div_3', name: 'Participate Career Division 3', category: 'RARE', thresholds: [1, 3, 5, 10, 15], description: 'Seasons participating in Division 3 exactly' },
   participate_div_2: { key: 'participate_div_2', name: 'Participate Career Division 2', category: 'RARE', thresholds: [1, 3, 5, 10, 15], description: 'Seasons participating in Division 2 exactly' },
   participate_ucl: { key: 'participate_ucl', name: 'Participate R2G CAREER UCL', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Seasons participated in Career UCL' },
   ballon_dor_nominee: { key: 'ballon_dor_nominee', name: 'Participate Ballon d\'or nominee', category: 'RARE', thresholds: [1, 3, 5, 10, 15], description: 'Times nominated for Ballon d\'Or' },
   top_10_rank: { key: 'top_10_rank', name: 'R2G career top 10 rank list', category: 'RARE', thresholds: [1, 3, 5, 10, 15], description: 'Finishes in R2G Career Top 10' },
-  claim_awards: { key: 'claim_awards', name: 'clime R2G career awards', category: 'RARE', thresholds: [2, 5, 10, 25, 50], description: 'R2G Career Awards claimed' },
-  claim_golden_boot: { key: 'claim_golden_boot', name: 'Clime Golden boot', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Boot awards won' },
-  claim_golden_glove: { key: 'claim_golden_glove', name: 'Clime golden glove', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Glove awards won' },
-  claim_golden_ball: { key: 'claim_golden_ball', name: 'Clime golden ball', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Ball awards won' },
-  claim_maldini_trophy: { key: 'claim_maldini_trophy', name: 'Clime maldini trophy', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Maldini Trophy awards won (Career mode only)' },
+  claim_awards: { key: 'claim_awards', name: 'Claim R2G Career Awards', category: 'RARE', thresholds: [2, 5, 10, 25, 50], description: 'R2G Career Awards claimed' },
+  claim_golden_boot: { key: 'claim_golden_boot', name: 'Claim Golden Boot', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Boot awards won' },
+  claim_golden_glove: { key: 'claim_golden_glove', name: 'Claim Golden Glove', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Glove awards won' },
+  claim_golden_ball: { key: 'claim_golden_ball', name: 'Claim Golden Ball', category: 'RARE', thresholds: [1, 5, 10, 20, 40], description: 'Golden Ball awards won' },
+  claim_maldini_trophy: { key: 'claim_maldini_trophy', name: 'Claim Maldini Trophy', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Maldini Trophy awards won (Career mode only)' },
   top_10_fantasy: { key: 'top_10_fantasy', name: 'TOP 10 fantacy', category: 'RARE', thresholds: [1, 3, 5, 7, 10], description: 'Finishes in Top 10 Fantasy' },
-  runner_up_finish: { key: 'runner_up_finish', name: 'The unlucky, Participate finale', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Tournament runner-up finishes' },
+  runner_up_finish: { key: 'runner_up_finish', name: 'Runner-up Finishes', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Tournament runner-up finishes' },
   team_tour_unbeaten: { key: 'team_tour_unbeaten', name: 'Team tour unbeaten journey', category: 'RARE', thresholds: [2, 4, 7, 10, 15], description: 'Unbeaten matches run in team tour' },
-  season_goals: { key: 'season_goals', name: 'Orotta seasonil goal score', category: 'RARE', thresholds: [25, 50, 75, 100, 150], description: 'Goals scored in a single season' },
-  season_cs: { key: 'season_cs', name: 'Orotta seasonile cs', category: 'RARE', thresholds: [5, 10, 15, 20, 30], description: 'Clean Sheets kept in a single season' },
+  season_goals: { key: 'season_goals', name: 'Single Season Goals', category: 'RARE', thresholds: [25, 50, 75, 100, 150], description: 'Goals scored in a single season' },
+  season_cs: { key: 'season_cs', name: 'Single Season Clean Sheets', category: 'RARE', thresholds: [5, 10, 15, 20, 30], description: 'Clean Sheets kept in a single season' },
   player_of_day_team_tour: { key: 'player_of_day_team_tour', name: 'Player of the day (team tour)', category: 'RARE', thresholds: [1, 5, 10, 20, 50], description: 'Player of the day awards won' },
   player_of_week_team_tour: { key: 'player_of_week_team_tour', name: 'Player of the week (team tour)', category: 'RARE', thresholds: [1, 3, 5, 10, 20], description: 'Player of the week awards won' },
-
+ 
   // MYTHIC (16 Medals)
   participate_div_1: { key: 'participate_div_1', name: 'Participate career Division 1', category: 'MYTHIC', thresholds: [1, 3, 5, 10, 15], description: 'Seasons participating in Division 1 exactly' },
   top_5_rank: { key: 'top_5_rank', name: 'R2G career top 5 rank list', category: 'MYTHIC', thresholds: [1, 3, 5, 10, 15], description: 'Finishes in R2G Career Top 5' },
-  claim_ballon_dor: { key: 'claim_ballon_dor', name: 'Clime ballon d\'or', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'Ballon d\'Or awards won' },
-  claim_r2g_best: { key: 'claim_r2g_best', name: 'Clime R2G best', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'R2G Best awards won' },
-  claim_career_ucl: { key: 'claim_career_ucl', name: 'CLIME CAREER UCL', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'Career UCL Trophies won' },
+  claim_ballon_dor: { key: 'claim_ballon_dor', name: 'Claim Ballon d\'Or', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'Ballon d\'Or awards won' },
+  claim_r2g_best: { key: 'claim_r2g_best', name: 'Claim R2G Best', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'R2G Best awards won' },
+  claim_career_ucl: { key: 'claim_career_ucl', name: 'Claim Career UCL', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'Career UCL Trophies won' },
   participate_rws: { key: 'participate_rws', name: 'PARTICIPATE RWS', category: 'MYTHIC', thresholds: [1, 2, 3, 5, 10], description: 'RWS participation seasons' },
   champion_rws: { key: 'champion_rws', name: 'Champion world (RWS)', category: 'MYTHIC', isDirectLevel5: true, description: 'RWS Champion (Level 5 direct)' },
   runner_up_rws: { key: 'runner_up_rws', name: 'Runners world', category: 'MYTHIC', isDirectLevel5: true, description: 'RWS Runner Up (Level 5 direct)' },
-  claim_trophy_career: { key: 'claim_trophy_career', name: 'Clime trophy career', category: 'MYTHIC', thresholds: [1, 3, 5, 10, 20], description: 'Career trophies won' },
-  claim_trophy_any_tour: { key: 'claim_trophy_any_tour', name: 'Clime trophy any tour', category: 'MYTHIC', thresholds: [1, 5, 10, 20, 50], description: 'Total trophies won across any tour' },
-  claim_trophy_together: { key: 'claim_trophy_together', name: 'Clime trophy together (team/upcoming)', category: 'MYTHIC', thresholds: [1, 3, 5, 7, 10], description: 'Team trophies won together' },
+  claim_trophy_career: { key: 'claim_trophy_career', name: 'Claim Career Trophy', category: 'MYTHIC', thresholds: [1, 3, 5, 10, 20], description: 'Career trophies won' },
+  claim_trophy_any_tour: { key: 'claim_trophy_any_tour', name: 'Claim Trophies (Any Tour)', category: 'MYTHIC', thresholds: [1, 5, 10, 20, 50], description: 'Total trophies won across any tour' },
+  claim_trophy_together: { key: 'claim_trophy_together', name: 'Claim Trophies Together', category: 'MYTHIC', thresholds: [1, 3, 5, 7, 10], description: 'Team trophies won together' },
   champion_fantasy: { key: 'champion_fantasy', name: 'Champion of fantasy', category: 'MYTHIC', isDirectLevel5: true, description: 'Champion of Fantasy (Level 5 direct)' },
   top_5_fantasy: { key: 'top_5_fantasy', name: 'Top 5 fantacy', category: 'MYTHIC', thresholds: [1, 3, 5, 7, 10], description: 'Finishes in Top 5 Fantasy' },
   unbeaten_journey: { key: 'unbeaten_journey', name: 'Unbeaten journey (continues)', category: 'MYTHIC', thresholds: [3, 5, 10, 15, 25], description: 'Consecutive matches unbeaten run' },
@@ -72,6 +72,8 @@ export interface CalculatedMedal {
   currentValue: number | string;
   requiredValueForNext: number | string;
   exp: number;
+  description: string;
+  thresholds?: number[];
 }
 
 export function getExpForMedal(category: 'COMMON' | 'RARE' | 'MYTHIC', level: number): number {
@@ -388,7 +390,9 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       level,
       currentValue: currentValue.toString(),
       requiredValueForNext: reqNext.toString(),
-      exp
+      exp,
+      description: def.description,
+      thresholds: def.thresholds
     });
   });
 
@@ -396,7 +400,7 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   // Match: 25, Win: 40, Draw: 20, Lose: 10, Goal: 5, CS: 10
   const calculatedNormalExp = (totalMatches * 25) + (totalWins * 40) + (totalDraws * 20) + (totalLosses * 10) + (totalGoals * 5) + (totalCs * 10);
   
-  const { rows: mgrRows } = await client.query('SELECT COALESCE(normal_exp, 0) as normal_exp FROM managers WHERE id = $1', [managerId]);
+  const { rows: mgrRows } = await pool.query('SELECT COALESCE(normal_exp, 0) as normal_exp FROM managers WHERE id = $1', [managerId]);
   const normalExp = mgrRows.length > 0 ? Number(mgrRows[0].normal_exp) : 0;
 
   const totalExp = normalExp + totalMedalExp;

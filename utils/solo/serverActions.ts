@@ -5680,7 +5680,7 @@ export async function deleteClub(id: number) {
 export async function fetchManagersAlignment() {
   try {
     const { rows: managers } = await pool.query(`
-      SELECT m.id, m.name, m.photo, m.r2g_id, COALESCE(m.normal_exp, 0) as normal_exp
+      SELECT m.id, m.name, m.avatar_path as photo, m.r2g_id, COALESCE(m.normal_exp, 0) as normal_exp
       FROM managers m
       ORDER BY m.name ASC
     `);
