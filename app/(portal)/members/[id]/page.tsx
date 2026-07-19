@@ -16,6 +16,14 @@ const MEDAL_LEVEL_COLORS: Record<number, string> = {
   5: '#fbbf24'  // Gold
 };
 
+const ROMAN_NUMERALS: Record<number, string> = {
+  1: 'I',
+  2: 'II',
+  3: 'III',
+  4: 'IV',
+  5: 'V'
+};
+
 export default function MemberProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -88,6 +96,7 @@ export default function MemberProfilePage() {
   const totalPlayed = combined.matches_played || 0;
   const totalWins = combined.wins || 0;
   const winRate = totalPlayed > 0 ? Math.round((totalWins / totalPlayed) * 100) : 0;
+  const csRate = totalPlayed > 0 ? Math.round(((combined.clean_sheets || 0) / totalPlayed) * 100) : 0;
   const goalDiff = (combined.goals_scored || 0) - (combined.goals_conceded || 0);
 
   const managerPhoto = manager.avatar_path || "/assets/images/default-manager.webp";
@@ -201,16 +210,10 @@ export default function MemberProfilePage() {
               font-weight: 600;
             }
             
-            /* Responsive Stats Grids */
-            .overview-stats-grid-5 {
+            /* Responsive 10 Stats Grids (5 x 2) */
+            .overview-stats-grid-10 {
               display: grid;
               grid-template-columns: repeat(5, 1fr);
-              gap: 0.75rem;
-              margin-bottom: 0.75rem;
-            }
-            .overview-stats-grid-4 {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
               gap: 0.75rem;
             }
             .overview-stat-card {
@@ -350,18 +353,12 @@ export default function MemberProfilePage() {
               }
             }
             @media (max-width: 768px) {
-              .overview-stats-grid-5 {
+              .overview-stats-grid-10 {
                 grid-template-columns: repeat(3, 1fr);
-              }
-              .overview-stats-grid-4 {
-                grid-template-columns: repeat(2, 1fr);
               }
             }
             @media (max-width: 480px) {
-              .overview-stats-grid-5 {
-                grid-template-columns: repeat(2, 1fr);
-              }
-              .overview-stats-grid-4 {
+              .overview-stats-grid-10 {
                 grid-template-columns: repeat(2, 1fr);
               }
             }
@@ -416,7 +413,7 @@ export default function MemberProfilePage() {
                   <span className="sidebar-stat-label">Total EXP</span>
                   <span className="sidebar-stat-value" style={{ color: '#fff' }}>{medalInfo.totalExp} EXP</span>
                 </div>
-                <div style={{ marginTop: '0.75rem', textAlign: 'left', borderBottom: '1px solid rgba(255, 255, 255, 0.03)', paddingBottom: '0.75rem' }}>
+                <div style={{ marginTop: '0.75rem', textAlign: 'left' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>
                     <span>Next Level Progress</span>
                     <span>{progressPercent}%</span>
@@ -425,45 +422,21 @@ export default function MemberProfilePage() {
                     <div className="level-progress-bar" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
-
-                {/* Wallets */}
-                <div style={{ marginTop: '0.75rem' }}>
-                  <div className="sidebar-stat-row">
-                    <span className="sidebar-stat-label">Coins Balance</span>
-                    <span className="sidebar-stat-value" style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-                      <i className="fa-solid fa-coins" style={{ marginRight: '4px' }} />
-                      {manager.r2g_coin_balance ?? 0}
-                    </span>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span className="sidebar-stat-label">Tokens Balance</span>
-                    <span className="sidebar-stat-value" style={{ color: '#c084fc', fontWeight: 'bold' }}>
-                      <i className="fa-solid fa-ticket" style={{ marginRight: '4px' }} />
-                      {manager.r2g_token_balance ?? 0}
-                    </span>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span className="sidebar-stat-label">Vouchers Balance</span>
-                    <span className="sidebar-stat-value" style={{ color: '#3b82f6', fontWeight: 'bold' }}>
-                      <i className="fa-solid fa-receipt" style={{ marginRight: '4px' }} />
-                      {manager.r2g_voucher_balance ?? 0}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
 
             {/* Main Content Area */}
             <div className="profile-main-content">
               
-              {/* Combined Career Record */}
+              {/* Combined Career Record - 10 STATS GRID */}
               <div>
                 <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.75rem", textTransform: "uppercase", letterSpacing: "1px" }}>
                   <i className="fa-solid fa-chart-pie" style={{ color: "#c084fc", marginRight: "8px" }} /> Combined Career Record
                 </h3>
                 
-                {/* Match Records Grid */}
-                <div className="overview-stats-grid-5">
+                {/* 10 Stats Grid (5 x 2) */}
+                <div className="overview-stats-grid-10">
+                  {/* Row 1: Match Performance */}
                   <div className="overview-stat-card">
                     <div className="overview-val">{combined.matches_played}</div>
                     <div className="overview-lbl">Matches</div>
@@ -484,10 +457,8 @@ export default function MemberProfilePage() {
                     <div className="overview-val" style={{ color: "#fbbf24" }}>{winRate}%</div>
                     <div className="overview-lbl">Win %</div>
                   </div>
-                </div>
 
-                {/* Goal Records Grid */}
-                <div className="overview-stats-grid-4">
+                  {/* Row 2: Goals & Defensive Records */}
                   <div className="overview-stat-card" style={{ borderLeft: "3px solid #3b82f6" }}>
                     <div className="overview-val" style={{ color: "#60a5fa" }}>{combined.goals_scored}</div>
                     <div className="overview-lbl">Goals Scored</div>
@@ -505,6 +476,10 @@ export default function MemberProfilePage() {
                   <div className="overview-stat-card" style={{ borderLeft: "3px solid #10b981" }}>
                     <div className="overview-val" style={{ color: "#10b981" }}>{combined.clean_sheets}</div>
                     <div className="overview-lbl">CS (Clean Sheets)</div>
+                  </div>
+                  <div className="overview-stat-card" style={{ borderLeft: "3px solid #06b6d4" }}>
+                    <div className="overview-val" style={{ color: "#06b6d4" }}>{csRate}%</div>
+                    <div className="overview-lbl">CS % (Clean Sheet)</div>
                   </div>
                 </div>
               </div>
@@ -638,6 +613,7 @@ export default function MemberProfilePage() {
                   <div className="medal-showcase-grid">
                     {topClaimedMedals.map((medal: any) => {
                       const medalColor = MEDAL_LEVEL_COLORS[medal.level] || '#fff';
+                      const roman = ROMAN_NUMERALS[medal.level] || medal.level;
                       return (
                         <div key={medal.key} className="medal-card" style={{ border: `1px solid ${medalColor}`, boxShadow: `0 0 10px ${medalColor}22` }}>
                           <div className="medal-icon-wrap" style={{ background: `${medalColor}15`, color: medalColor }}>
@@ -656,7 +632,7 @@ export default function MemberProfilePage() {
                                 background: `${medalColor}15`,
                                 textTransform: 'uppercase'
                               }}>
-                                {medal.category} Tier {LEVEL_SCHEMES[medal.level]?.roman || medal.level}
+                                {medal.category} Tier {roman}
                               </span>
                               <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>+{medal.exp} EXP</span>
                             </div>

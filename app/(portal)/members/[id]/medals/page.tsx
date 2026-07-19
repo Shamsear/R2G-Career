@@ -344,7 +344,7 @@ export default function MemberMedalsPage() {
   ledgerEntries.sort((a, b) => b.id.localeCompare(a.id));
 
   return (
-    <div className="app-container" style={{ position: 'relative', overflow: 'hidden' }}>
+    <div className="app-container" style={{ position: 'relative', overflowX: 'hidden', width: '100%' }}>
       <PortalNavbar />
 
       {/* Radial Spotlights */}
@@ -361,11 +361,11 @@ export default function MemberMedalsPage() {
         zIndex: 1
       }} />
 
-      <main className="main-content" style={{ position: 'relative', zIndex: 5 }}>
-        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.5rem 1.5rem", alignItems: "stretch", gap: '1.5rem' }}>
+      <main className="main-content" style={{ position: 'relative', zIndex: 5, width: '100%' }}>
+        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.25rem 1rem", alignItems: "stretch", gap: '1.25rem' }}>
           
           {/* Breadcrumb */}
-          <div className="portal-breadcrumb" style={{ marginBottom: "0.5rem" }}>
+          <div className="portal-breadcrumb" style={{ marginBottom: "0.25rem" }}>
             <Link href={`/members/${id}`} className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px", backdropFilter: 'blur(12px)', background: 'rgba(23, 23, 23, 0.40)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Profile
             </Link>
@@ -377,21 +377,21 @@ export default function MemberMedalsPage() {
             backdropFilter: 'blur(24px)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '20px',
-            padding: '1.75rem',
+            padding: '1.25rem 1.5rem',
             display: 'flex',
-            justifyContent: 'space-between',
+            justify: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '2rem',
+            gap: '1.5rem',
             boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
           }}>
             
             {/* Manager Emblem & Name */}
-            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
               <div style={{ position: 'relative' }}>
                 <div style={{
-                  width: '78px',
-                  height: '78px',
+                  width: '72px',
+                  height: '72px',
                   borderRadius: '50%',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
@@ -403,8 +403,8 @@ export default function MemberMedalsPage() {
                   position: 'absolute',
                   bottom: '-5px',
                   right: '-5px',
-                  width: '32px',
-                  height: '32px',
+                  width: '30px',
+                  height: '30px',
                   borderRadius: '50%',
                   background: spotlightColor,
                   border: '2px solid rgb(13, 18, 24)',
@@ -427,43 +427,43 @@ export default function MemberMedalsPage() {
                     {rankLabel}
                   </span>
                 </div>
-                <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.85rem", fontWeight: 900, color: "#fff", margin: "4px 0 2px" }}>
+                <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.65rem", fontWeight: 900, color: "#fff", margin: "4px 0 2px", wordBreak: "break-word" }}>
                   {manager.name}
                 </h1>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono)' }}>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono)' }}>
                   ID: {manager.r2g_id || 'NOT_ASSIGNED'}
                 </p>
               </div>
             </div>
 
             {/* Quick Stats Cabinet */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1, minWidth: '280px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0, justifyContent: 'flex-end' }}>
               
-              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fff', fontFamily: 'var(--font-mono)' }}>
-                  {unlockedBadgesCount}<span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '1rem', marginLeft: '2px' }}>/{totalBadgesCount}</span>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 14px', textAlign: 'center', flex: '1 1 80px', minWidth: 0 }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#fff', fontFamily: 'var(--font-mono)' }}>
+                  {unlockedBadgesCount}<span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem', marginLeft: '2px' }}>/{totalBadgesCount}</span>
                 </div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Badges Earned</div>
+                <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Badges Earned</div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: spotlightColor, fontFamily: 'var(--font-mono)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 14px', textAlign: 'center', flex: '1 1 80px', minWidth: 0 }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 900, color: spotlightColor, fontFamily: 'var(--font-mono)' }}>
                   {badgesCompletionPercent}%
                 </div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Completion</div>
+                <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Completion</div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
-                <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 14px', textAlign: 'center', flex: '1 1 80px', minWidth: 0 }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>
                   {totalExp.toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Total XP</div>
+                <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Total XP</div>
               </div>
 
             </div>
 
             {/* XP Progress Bar */}
-            <div style={{ width: '100%', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
+            <div style={{ width: '100%', marginTop: '0.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                 <span>Level {level} Progress</span>
                 <span>{totalExp} / {nextLevelExp} XP ({progressPercent}%)</span>
@@ -493,18 +493,18 @@ export default function MemberMedalsPage() {
           </div>
 
           {/* Navigation Tabs */}
-          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => setActiveTab('SHOWCASE')}
               className={`portal-btn ${activeTab === 'SHOWCASE' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '8px 20px', fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              style={{ padding: '8px 16px', fontSize: '0.78rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
             >
               <i className="fa-solid fa-gem" style={{ marginRight: '6px' }} /> Trophy Cabinet Showcase
             </button>
             <button
               onClick={() => setActiveTab('LEDGER')}
               className={`portal-btn ${activeTab === 'LEDGER' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '8px 20px', fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              style={{ padding: '8px 16px', fontSize: '0.78rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}
             >
               <i className="fa-solid fa-list-ol" style={{ marginRight: '6px' }} /> XP Progression Ledger
             </button>
@@ -512,7 +512,7 @@ export default function MemberMedalsPage() {
 
           {/* TAB 1: TROPHY CABINET SHOWCASE */}
           {activeTab === 'SHOWCASE' && (
-            <div className="tab-pane-content" style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="tab-pane-content" style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
               {/* Filter controls panel */}
               <div className="glass-panel" style={{
@@ -520,15 +520,15 @@ export default function MemberMedalsPage() {
                 backdropFilter: 'blur(24px)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '16px',
-                padding: '1rem 1.25rem',
+                padding: '0.85rem 1.25rem',
                 display: 'flex',
-                gap: '2rem',
+                gap: '1.25rem',
                 flexWrap: 'wrap',
                 alignItems: 'center'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Rarity:</span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Rarity:</span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {(['ALL', 'COMMON', 'RARE', 'MYTHIC'] as const).map(cat => (
                       <button
                         key={cat}
@@ -541,9 +541,9 @@ export default function MemberMedalsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Status:</span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', fontWeight: 900, textTransform: 'uppercase' }}>Status:</span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {(['ALL', 'UNLOCKED', 'LOCKED'] as const).map(stat => (
                       <button
                         key={stat}
@@ -558,7 +558,7 @@ export default function MemberMedalsPage() {
               </div>
 
               {/* Medals Showcase Grid */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 {['COMMON', 'RARE', 'MYTHIC'].map((cat) => {
                   const catMedals = filteredMedals.filter((m: any) => m.category === cat);
                   const catColor = cat === 'COMMON' ? '#60a5fa' : cat === 'RARE' ? '#f59e0b' : '#ec4899';
@@ -574,7 +574,7 @@ export default function MemberMedalsPage() {
 
                   return (
                     <div key={cat}>
-                      <h3 style={{ color: catColor, fontSize: '0.95rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
+                      <h3 style={{ color: catColor, fontSize: '0.9rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: catColor }} /> {cat} MEDALS
                       </h3>
                       <div className="cabinet-badges-grid">
@@ -588,8 +588,8 @@ export default function MemberMedalsPage() {
                               style={{
                                 background: 'rgba(23, 23, 23, 0.40)',
                                 border: `1px solid ${m.isLocked ? 'rgba(255,255,255,0.06)' : `${scheme.text}20`}`,
-                                borderRadius: '16px',
-                                padding: '1rem',
+                                borderRadius: '14px',
+                                padding: '0.85rem 0.75rem',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
@@ -597,7 +597,7 @@ export default function MemberMedalsPage() {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 position: 'relative',
-                                minHeight: '145px',
+                                minHeight: '135px',
                                 justifyContent: 'space-between'
                               }}
                             >
@@ -605,8 +605,8 @@ export default function MemberMedalsPage() {
                               {!m.isLocked ? (
                                 <div style={{
                                   position: 'absolute',
-                                  top: '8px',
-                                  right: '8px',
+                                  top: '6px',
+                                  right: '6px',
                                   width: '18px',
                                   height: '18px',
                                   borderRadius: '50%',
@@ -625,8 +625,8 @@ export default function MemberMedalsPage() {
                               ) : (
                                 <div className="lock-overlay-tag" style={{
                                   position: 'absolute',
-                                  top: '8px',
-                                  right: '8px',
+                                  top: '6px',
+                                  right: '6px',
                                   width: '18px',
                                   height: '18px',
                                   display: 'flex',
@@ -645,8 +645,8 @@ export default function MemberMedalsPage() {
 
                               {/* 3D Generated Circular Medal Asset Image */}
                               <div style={{
-                                width: '58px',
-                                height: '58px',
+                                width: '52px',
+                                height: '52px',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -672,11 +672,11 @@ export default function MemberMedalsPage() {
                               </div>
 
                               {/* Title + Tier Label */}
-                              <div style={{ marginTop: '0.5rem', position: 'relative', zIndex: 2 }}>
-                                <div style={{ fontSize: '0.78rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.3)' : '#fff', lineHeight: 1.2 }}>
+                              <div style={{ marginTop: '0.4rem', position: 'relative', zIndex: 2 }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.3)' : '#fff', lineHeight: 1.2 }}>
                                   {m.name}
                                 </div>
-                                <div style={{ fontSize: '0.58rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.25)' : scheme.text, textTransform: 'uppercase', letterSpacing: '1px', marginTop: '3px' }}>
+                                <div style={{ fontSize: '0.58rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.25)' : scheme.text, textTransform: 'uppercase', letterSpacing: '1px', marginTop: '2px' }}>
                                   TIER {m.tierRoman}
                                 </div>
                               </div>
@@ -700,21 +700,21 @@ export default function MemberMedalsPage() {
                 backdropFilter: 'blur(24px)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '20px',
-                padding: '1.5rem',
+                padding: '1.25rem',
                 boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
               }}>
-                <h3 style={{ fontSize: '1.05rem', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                <h3 style={{ fontSize: '1rem', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1.2px' }}>
                   <i className="fa-solid fa-list-ol" style={{ color: '#fbbf24', marginRight: '8px' }} /> XP Audit History Log
                 </h3>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="ledger-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+                  <table className="ledger-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', minWidth: '500px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900 }}>Event Source</th>
-                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900 }}>Description</th>
-                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900, textAlign: 'right' }}>Date Logged</th>
-                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.68rem', fontWeight: 900, textAlign: 'right' }}>XP Awarded</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 900 }}>Event Source</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 900 }}>Description</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 900, textAlign: 'right' }}>Date Logged</th>
+                        <th style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 900, textAlign: 'right' }}>XP Awarded</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -743,24 +743,25 @@ export default function MemberMedalsPage() {
 
                         return (
                           <tr key={entry.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} className="ledger-row">
-                            <td style={{ padding: '12px 12px' }}>
+                            <td style={{ padding: '10px 12px' }}>
                               <span style={{
                                 border: `1px solid ${pillBorder}`,
                                 color: pillText,
                                 background: pillBg,
-                                fontSize: '0.6rem',
+                                fontSize: '0.58rem',
                                 fontWeight: 900,
                                 textTransform: 'uppercase',
                                 padding: '3px 8px',
                                 borderRadius: '4px',
-                                letterSpacing: '0.5px'
+                                letterSpacing: '0.5px',
+                                whiteSpace: 'nowrap'
                               }}>
                                 {entry.source.replace('_', ' ')}
                               </span>
                             </td>
-                            <td style={{ padding: '12px 12px', color: '#fff', fontWeight: 600 }}>{entry.description}</td>
-                            <td style={{ padding: '12px 12px', color: 'rgba(255,255,255,0.45)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{entry.date}</td>
-                            <td style={{ padding: '12px 12px', color: pillText, fontWeight: 900, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '10px 12px', color: '#fff', fontWeight: 600 }}>{entry.description}</td>
+                            <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.45)', textAlign: 'right', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>{entry.date}</td>
+                            <td style={{ padding: '10px 12px', color: pillText, fontWeight: 900, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
                               +{entry.xp.toLocaleString()} XP
                             </td>
                           </tr>
@@ -782,13 +783,13 @@ export default function MemberMedalsPage() {
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.82)',
+          backgroundColor: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 99999,
-          padding: '1.5rem',
+          padding: '1rem',
           animation: 'fadeIn 0.2s ease-out'
         }}
         onClick={() => setModalMedal(null)}>
@@ -796,10 +797,12 @@ export default function MemberMedalsPage() {
           <div style={{
             background: 'rgb(18, 18, 18)',
             border: `1px solid ${modalMedal.isLocked ? 'rgba(255,255,255,0.1)' : `${LEVEL_SCHEMES[modalMedal.level].text}35`}`,
-            borderRadius: '24px',
+            borderRadius: '20px',
             width: '100%',
-            maxWidth: '480px',
-            padding: '2rem',
+            maxWidth: '440px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '1.5rem',
             position: 'relative',
             boxShadow: modalMedal.isLocked ? '0 20px 40px rgba(0,0,0,0.5)' : `0 0 40px ${LEVEL_SCHEMES[modalMedal.level].text}15`,
             animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both'
@@ -811,23 +814,24 @@ export default function MemberMedalsPage() {
               onClick={() => setModalMedal(null)}
               style={{
                 position: 'absolute',
-                top: '1.25rem',
-                right: '1.25rem',
+                top: '1rem',
+                right: '1rem',
                 background: 'none',
                 border: 'none',
                 color: 'rgba(255,255,255,0.4)',
                 fontSize: '1.5rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                lineHeight: 1
               }}
             >
               &times;
             </button>
 
             {/* Circular Medal Asset Image in Modal */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
               <div style={{
-                width: '90px',
-                height: '90px',
+                width: '80px',
+                height: '80px',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
@@ -851,7 +855,7 @@ export default function MemberMedalsPage() {
             </div>
 
             {/* Modal Title details */}
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span style={{ fontSize: '0.62rem', fontWeight: 900, textTransform: 'uppercase', color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text, background: `${LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text}18`, padding: '2px 8px', borderRadius: '4px' }}>
                   {modalMedal.category}
@@ -860,28 +864,28 @@ export default function MemberMedalsPage() {
                   Tier {modalMedal.tierRoman}
                 </span>
               </div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 950, color: '#fff', margin: '4px 0', fontFamily: 'var(--font-display)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 950, color: '#fff', margin: '4px 0', fontFamily: 'var(--font-display)' }}>
                 {modalMedal.name}
               </h2>
-              <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.82rem', lineHeight: 1.4 }}>
+              <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.8rem', lineHeight: 1.4 }}>
                 {modalMedal.description}
               </p>
             </div>
 
             {/* Requirements Progress Info */}
-            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '12px', padding: '0.85rem', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '6px', color: 'rgba(255,255,255,0.4)' }}>
                 <span>Record value:</span>
                 <strong style={{ color: '#fff' }}>{modalMedal.currentValue}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '12px', color: 'rgba(255,255,255,0.4)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '10px', color: 'rgba(255,255,255,0.4)' }}>
                 <span>Tier Requirement:</span>
                 <strong style={{ color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text }}>{modalMedal.targetValue}</strong>
               </div>
 
               {/* Progress visual bar */}
               {modalMedal.targetValue !== "Admin award only" && (
-                <div style={{ marginTop: '10px' }}>
+                <div style={{ marginTop: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
                     <span>Milestone Progress</span>
                     <span>{modalMedal.progressPercent}%</span>
@@ -899,10 +903,10 @@ export default function MemberMedalsPage() {
             </div>
 
             {/* Footer Bounty */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
               <div>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', display: 'block' }}>EXP Bounty:</span>
-                <span style={{ fontSize: '1.15rem', fontWeight: 950, color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', display: 'block' }}>EXP Bounty:</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 950, color: LEVEL_SCHEMES[modalMedal.isLocked ? 0 : modalMedal.level].text, fontFamily: 'var(--font-mono)' }}>
                   +{modalMedal.exp} XP
                 </span>
               </div>
@@ -936,8 +940,8 @@ export default function MemberMedalsPage() {
           background: rgba(255,255,255,0.02);
           border: 1px solid rgba(255,255,255,0.05);
           color: rgba(255,255,255,0.45);
-          padding: 4px 12px;
-          font-size: 0.72rem;
+          padding: 4px 10px;
+          font-size: 0.7rem;
           font-weight: 900;
           text-transform: uppercase;
           border-radius: 6px;
@@ -957,7 +961,7 @@ export default function MemberMedalsPage() {
 
         .cabinet-badges-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
           gap: 1rem;
         }
 
@@ -1009,14 +1013,23 @@ export default function MemberMedalsPage() {
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0); }
         }
 
-        @media (max-width: 576px) {
+        @media (max-width: 640px) {
           .cabinet-badges-grid {
-            grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.75rem;
           }
           .cabinet-badge-card {
-            padding: 8px !important;
+            padding: 8px 6px !important;
             min-height: 120px !important;
+          }
+          .glass-panel {
+            padding: 1rem !important;
+          }
+        }
+        @media (max-width: 400px) {
+          .cabinet-badges-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
           }
         }
       `}</style>
