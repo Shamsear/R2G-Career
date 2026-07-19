@@ -304,12 +304,12 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
     let currentValue: number | string = 0;
     let reqNext: number | string = '-';
 
-    if (manualMap.has(def.key)) {
+    if (def.isDirectLevel5) {
+      // DirectLevel5 medals (RWS champ, Fantasy champ, etc.) are admin-only manual overrides
       level = manualMap.get(def.key) || 0;
       currentValue = level > 0 ? `Level ${level}` : 0;
-    } else if (def.isDirectLevel5) {
-      level = 0; // Not unlocked unless specified in manual/admin table
     } else {
+      // All auto-calculated medals: always derive from live stats (ignore DB cache)
       // Automatic calculations
       let stat = 0;
       switch (def.key) {

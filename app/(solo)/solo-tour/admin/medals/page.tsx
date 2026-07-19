@@ -276,7 +276,10 @@ export default function MedalsAlignmentDashboard() {
                                               {med.category}
                                             </span>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#fbbf24', letterSpacing: '2px' }}>
-                                              {'★'.repeat(med.level)}{'☆'.repeat(5 - med.level)}
+                                              {(() => {
+                                                const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+                                                return '★'.repeat(lvl) + '☆'.repeat(5 - lvl);
+                                              })()}
                                             </span>
                                           </div>
                                           <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '0.85rem' }}>{med.name}</div>
