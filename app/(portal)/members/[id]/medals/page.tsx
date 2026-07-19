@@ -35,12 +35,12 @@ interface LedgerEntry {
 }
 
 const LEVEL_SCHEMES: Record<number, { text: string; bg: string; border: string; glow: string; halo: string; roman: string }> = {
-  0: { text: "#94a3b8", bg: "rgba(148, 163, 184, 0.01)", border: "rgba(148, 163, 184, 0.08)", glow: "none", halo: "none", roman: "" }, // Locked
-  1: { text: "#ef4444", bg: "rgba(239, 68, 68, 0.03)", border: "rgba(239, 68, 68, 0.15)", glow: "0 0 10px rgba(239,68,68,0.05)", halo: "rgba(239,68,68,0.15)", roman: "I" }, // Red
-  2: { text: "#3b82f6", bg: "rgba(59, 130, 246, 0.03)", border: "rgba(59, 130, 246, 0.15)", glow: "0 0 10px rgba(59,130,246,0.05)", halo: "rgba(59,130,246,0.15)", roman: "II" }, // Blue
-  3: { text: "#10b981", bg: "rgba(16, 185, 129, 0.03)", border: "rgba(16, 185, 129, 0.15)", glow: "0 0 10px rgba(16,185,129,0.05)", halo: "rgba(16,185,129,0.15)", roman: "III" }, // Green
-  4: { text: "#c084fc", bg: "rgba(192, 132, 252, 0.03)", border: "rgba(192, 132, 252, 0.15)", glow: "0 0 10px rgba(192,132,252,0.05)", halo: "rgba(192,132,252,0.15)", roman: "IV" }, // Purple
-  5: { text: "#fbbf24", bg: "rgba(251, 191, 36, 0.03)", border: "rgba(251, 191, 36, 0.15)", glow: "0 0 15px rgba(251,191,36,0.08)", halo: "rgba(251,191,36,0.25)", roman: "V" }  // Gold
+  0: { text: "#94a3b8", bg: "rgba(148, 163, 184, 0.01)", border: "rgba(148, 163, 184, 0.08)", glow: "none", halo: "none", roman: "" }, // Locked (Slate Grey)
+  1: { text: "#10b981", bg: "rgba(16, 185, 129, 0.03)", border: "rgba(16, 185, 129, 0.15)", glow: "0 0 10px rgba(16,185,129,0.05)", halo: "rgba(16,185,129,0.15)", roman: "I" }, // Green (Tier I)
+  2: { text: "#3b82f6", bg: "rgba(59, 130, 246, 0.03)", border: "rgba(59, 130, 246, 0.15)", glow: "0 0 10px rgba(59,130,246,0.05)", halo: "rgba(59,130,246,0.15)", roman: "II" }, // Blue (Tier II)
+  3: { text: "#c084fc", bg: "rgba(192, 132, 252, 0.03)", border: "rgba(192, 132, 252, 0.15)", glow: "0 0 10px rgba(192,132,252,0.05)", halo: "rgba(192,132,252,0.15)", roman: "III" }, // Purple (Tier III)
+  4: { text: "#ef4444", bg: "rgba(239, 68, 68, 0.03)", border: "rgba(239, 68, 68, 0.15)", glow: "0 0 10px rgba(239,68,68,0.05)", halo: "rgba(239,68,68,0.15)", roman: "IV" }, // Red (Tier IV - 4th)
+  5: { text: "#fbbf24", bg: "rgba(251, 191, 36, 0.03)", border: "rgba(251, 191, 36, 0.15)", glow: "0 0 15px rgba(251,191,36,0.08)", halo: "rgba(251,191,36,0.25)", roman: "V" }  // Gold (Tier V)
 };
 
 const EXP_RATES: Record<string, number[]> = {

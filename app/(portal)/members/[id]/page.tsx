@@ -9,11 +9,11 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import "../../../portal.css";
 
 const MEDAL_LEVEL_COLORS: Record<number, string> = {
-  1: '#ef4444', // Red
-  2: '#3b82f6', // Blue
-  3: '#10b981', // Green
-  4: '#c084fc', // Purple
-  5: '#fbbf24'  // Gold
+  1: '#10b981', // Green (Tier I)
+  2: '#3b82f6', // Blue (Tier II)
+  3: '#c084fc', // Purple (Tier III)
+  4: '#ef4444', // Red (Tier IV - 4th)
+  5: '#fbbf24'  // Gold (Tier V)
 };
 
 const ROMAN_NUMERALS: Record<number, string> = {
