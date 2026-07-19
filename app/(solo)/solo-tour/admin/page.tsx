@@ -30,6 +30,13 @@ const ADMIN_MODULES = [
     desc: "Register managers, edit wallet balances, squad ratings, stats, and apply ban fines.",
   },
   {
+    href: "/solo-tour/admin/medals",
+    icon: "fa-solid fa-medal",
+    accent: "players",
+    title: "Medals & EXP Alignment",
+    desc: "Cross-check members stats, align normal experience gameplay points, and backfill medals.",
+  },
+  {
     href: "/solo-tour/admin/tournaments",
     icon: "fa-solid fa-sitemap",
     accent: "tournaments",

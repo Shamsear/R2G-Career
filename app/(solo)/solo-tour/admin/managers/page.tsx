@@ -15,8 +15,12 @@ import {
   updateManagerWalletAndStatsOnly,
   deleteClubAndManager,
   applyFine,
-  fetchRegisteredClubs
+  fetchRegisteredClubs,
+  updateManagerMedal,
+  deleteManagerMedal,
+  fetchPlayerCombinedStats
 } from "@/utils/solo/serverActions";
+
 
 const countriesList = [
   { code: "+91", name: "India", flag: "🇮🇳" },
@@ -87,6 +91,9 @@ export default function ClubsManager() {
     rt: 0,
     voucher: 0
   });
+
+  const [medalsList, setMedalsList] = useState<any[]>([]);
+
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -269,7 +276,42 @@ export default function ClubsManager() {
       isBanned: m.is_banned || false,
       isActive: m.is_active !== false
     });
+
+    // Fetch and populate manager medals
+    setMedalsList([]);
+    startTransition(async () => {
+      try {
+        const statsRes = await fetchPlayerCombinedStats(m.r2g_id || m.name);
+        if (statsRes && statsRes.medalStats) {
+          setMedalsList(statsRes.medalStats.medals);
+        }
+      } catch (err) {
+        console.error("Error loading manager medals:", err);
+      }
+    });
   };
+
+  const handleMedalChange = async (medalKey: string, level: number) => {
+    if (!clubForm.id) return;
+    try {
+      if (level === 0) {
+        await deleteManagerMedal(parseInt(clubForm.id), medalKey);
+      } else {
+        await updateManagerMedal(parseInt(clubForm.id), medalKey, level);
+      }
+      showToast("Medal updated successfully!");
+      // Reload medals list
+      const statsRes = await fetchPlayerCombinedStats(clubForm.r2gId || clubForm.managerName);
+      if (statsRes && statsRes.medalStats) {
+        setMedalsList(statsRes.medalStats.medals);
+      }
+      loadData();
+    } catch (e) {
+      console.error(e);
+      showToast("Error updating medal!");
+    }
+  };
+
 
   const handleDeleteClub = (id: number) => {
     if (!confirm("This will permanently delete the club, manager, wallet, and contracts. Continue?")) return;
@@ -905,6 +947,39 @@ export default function ClubsManager() {
                         <button type="button" className="portal-btn btn-primary" onClick={handleUpdateManagerWalletAndStats} disabled={isPending}>
                           {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Saving...</> : <><i className="fa-solid fa-wallet" /> Update Wallet & Stats Only</>}
                         </button>
+                      </div>
+                    )}
+
+                    {clubForm.id && medalsList.length > 0 && (
+                      <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px dashed rgba(255, 255, 255, 0.08)" }}>
+                        <h3 style={{ fontSize: "0.95rem", color: "#fff", marginBottom: "0.75rem", fontFamily: "var(--font-display)", display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <i className="fa-solid fa-medal" style={{ color: '#c084fc' }} /> Medals & Achievements Override
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', maxHeight: '350px', overflowY: 'auto', paddingRight: '6px' }}>
+                          {medalsList.map((medal: any) => (
+                            <div key={medal.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.01)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={medal.name}>
+                                {medal.category === 'MYTHIC' ? '🟨' : medal.category === 'RARE' ? '🟪' : '🟩'} {medal.name}
+                              </span>
+                              <select 
+                                className="admin-input" 
+                                style={{ padding: '3px 6px', fontSize: '0.72rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: '#fff' }}
+                                value={medal.level} 
+                                onChange={(e) => handleMedalChange(medal.key, parseInt(e.target.value))}
+                              >
+                                <option value={0}>Locked (Level 0)</option>
+                                <option value={1}>Level 1 (Devils Red)</option>
+                                <option value={2}>Level 2 (Yellow Gold)</option>
+                                <option value={3}>Level 3 (Shining Pink)</option>
+                                <option value={4}>Level 4 (Shining Sky Blue)</option>
+                                <option value={5}>Level 5 (Shining Silver)</option>
+                              </select>
+                              <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.35)' }}>
+                                Stat: {medal.currentValue} / EXP: +{medal.exp}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

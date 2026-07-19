@@ -7,8 +7,14 @@ const pool = new Pool({
 });
 
 async function run() {
-  const { rows } = await pool.query('SELECT id, name FROM players LIMIT 10');
-  console.log(rows);
+  const columns = await pool.query(`
+    SELECT column_name, data_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'fixtures'
+  `);
+  console.log('Columns in fixtures:');
+  columns.rows.forEach(c => console.log(`  - ${c.column_name}: ${c.data_type}`));
+  
   process.exit(0);
 }
-run();
+run().catch(console.error);

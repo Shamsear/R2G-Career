@@ -271,14 +271,42 @@ export default function MembersDirectoryPage() {
                       }}
                     />
                     <div className="player-dir-info">
-                      <h4 className="player-dir-name">{player.name}</h4>
-                      {player.r2g_id && (
-                        <div className="player-dir-badge-row" style={{ marginTop: "0.25rem" }}>
+                      <h4 className="player-dir-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {player.name}
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'linear-gradient(135deg, #a855f7, #6b21a8)', color: '#fff' }}>
+                          Lvl {player.level || 1} • {player.league || "Amateur"}
+                        </span>
+                      </h4>
+                      <div className="player-dir-badge-row" style={{ marginTop: "0.25rem", display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {player.r2g_id && (
                           <span className="player-dir-badge">
                             {player.r2g_id}
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {player.highestMedal && (
+                          <span style={{ 
+                            fontSize: '0.65rem', 
+                            fontWeight: 700, 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            background: 'rgba(255,255,255,0.05)', 
+                            border: `1px solid ${
+                              player.highestMedal.level === 1 ? '#ef4444' : 
+                              player.highestMedal.level === 2 ? '#f59e0b' : 
+                              player.highestMedal.level === 3 ? '#ec4899' : 
+                              player.highestMedal.level === 4 ? '#0ea5e9' : 
+                              '#94a3b8'
+                            }`,
+                            color: player.highestMedal.level === 1 ? '#ef4444' : 
+                                   player.highestMedal.level === 2 ? '#f59e0b' : 
+                                   player.highestMedal.level === 3 ? '#ec4899' : 
+                                   player.highestMedal.level === 4 ? '#0ea5e9' : 
+                                   '#94a3b8'
+                          }}>
+                            {player.highestMedal.category === 'MYTHIC' ? '🟨' : player.highestMedal.category === 'RARE' ? '🟪' : '🟩'} {player.highestMedal.name} Lvl {player.highestMedal.level}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <i className="fas fa-chevron-right" style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.8rem" }} />
                   </Link>

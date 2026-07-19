@@ -15,6 +15,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false } // Standard practice for external Supabase/Neon DBs
 });
 
+// Auto-initialize medal_audit_logs table
+pool.query(`
+  CREATE TABLE IF NOT EXISTS medal_audit_logs (
+    id SERIAL PRIMARY KEY,
+    manager_id INTEGER NOT NULL REFERENCES managers(id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL,
+    details TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).catch(err => console.error("Error creating medal_audit_logs table:", err));
+
+
 async function logTransaction(
   managerId: string | number,
   seasonId: string | number,
@@ -1628,6 +1640,24 @@ export async function updateFixture(
     const tournamentName = fixture.tournament_name;
     const tournamentType = fixture.tournament_type;
 
+    // Fetch manager IDs from clubs
+    const { rows: clubMgrRows } = await pool.query(`
+      SELECT 
+        (SELECT manager_id FROM clubs WHERE id = $1) as home_mgr,
+        (SELECT manager_id FROM clubs WHERE id = $2) as away_mgr
+    `, [homeClubId, awayClubId]);
+    const homeMgrId = clubMgrRows[0]?.home_mgr;
+    const awayMgrId = clubMgrRows[0]?.away_mgr;
+
+    // Revert old gameplay EXP from DB
+    if (fixture.home_score !== null && fixture.away_score !== null && (fixture.match_status === 'played' || fixture.match_status.startsWith('extended'))) {
+      const oldHomeExp = 25 + (fixture.home_score > fixture.away_score ? 40 : fixture.home_score < fixture.away_score ? 10 : 20) + (fixture.home_score * 5) + (fixture.away_score === 0 ? 10 : 0);
+      const oldAwayExp = 25 + (fixture.away_score > fixture.home_score ? 40 : fixture.away_score < fixture.home_score ? 10 : 20) + (fixture.away_score * 5) + (fixture.home_score === 0 ? 10 : 0);
+      
+      if (homeMgrId) await pool.query(`UPDATE managers SET normal_exp = GREATEST(0, normal_exp - $1) WHERE id = $2`, [oldHomeExp, homeMgrId]);
+      if (awayMgrId) await pool.query(`UPDATE managers SET normal_exp = GREATEST(0, normal_exp - $1) WHERE id = $2`, [oldAwayExp, awayMgrId]);
+    }
+
     // Flag: skip all financial logic for RWS and Special Tour
     const skipFinancial = tournamentType === 'rws' || tournamentType === 'special';
 
@@ -1710,6 +1740,23 @@ export async function updateFixture(
       RETURNING *
     `, [finalHomeScore, finalAwayScore, matchStatus, matchStatusReason, id]);
     const updatedFixture = updatedRows[0];
+
+    // Apply new gameplay EXP to DB
+    if (finalHomeScore !== null && finalAwayScore !== null && (matchStatus === 'played' || matchStatus.startsWith('extended'))) {
+      const newHomeExp = 25 + (finalHomeScore > finalAwayScore ? 40 : finalHomeScore < finalAwayScore ? 10 : 20) + (finalHomeScore * 5) + (finalAwayScore === 0 ? 10 : 0);
+      const newAwayExp = 25 + (finalAwayScore > finalHomeScore ? 40 : finalAwayScore < finalHomeScore ? 10 : 20) + (finalAwayScore * 5) + (finalHomeScore === 0 ? 10 : 0);
+
+      if (homeMgrId) {
+        await pool.query(`UPDATE managers SET normal_exp = COALESCE(normal_exp, 0) + $1 WHERE id = $2`, [newHomeExp, homeMgrId]);
+        await pool.query(`INSERT INTO medal_audit_logs (manager_id, action_type, details) VALUES ($1, 'match_accrual', $2)`, 
+          [homeMgrId, `Accrued +${newHomeExp} Normal EXP from completed fixture #${id} (${finalHomeScore}-${finalAwayScore})`]);
+      }
+      if (awayMgrId) {
+        await pool.query(`UPDATE managers SET normal_exp = COALESCE(normal_exp, 0) + $1 WHERE id = $2`, [newAwayExp, awayMgrId]);
+        await pool.query(`INSERT INTO medal_audit_logs (manager_id, action_type, details) VALUES ($1, 'match_accrual', $2)`, 
+          [awayMgrId, `Accrued +${newAwayExp} Normal EXP from completed fixture #${id} (${finalAwayScore}-${finalHomeScore})`]);
+      }
+    }
 
     // 4. Calculate and apply new bonuses/fines if the match is completed
     if (!skipFinancial) {
@@ -5125,9 +5172,13 @@ export async function fetchPlayerCombinedStats(identifier: string | number) {
 
     console.log(`📈 Final stats map:`, statsMap);
 
+    const { fetchManagerMedalsAndLevel } = await import('./medalUtils');
+    const medalStats = await fetchManagerMedalsAndLevel(manager.id, pool as any);
+
     return {
       manager,
-      stats: statsMap
+      stats: statsMap,
+      medalStats
     };
   } catch (error) {
     console.error("Error fetching player combined stats:", error);
@@ -5146,12 +5197,76 @@ export async function fetchAllPlayersDirectory() {
       LEFT JOIN clubs c ON mw.current_club_id = c.id
       ORDER BY m.name ASC
     `);
-    return rows;
+    
+    const { fetchManagerMedalsAndLevel } = await import('./medalUtils');
+    const playersWithLevels = await Promise.all(rows.map(async (m) => {
+      try {
+        const medalStats = await fetchManagerMedalsAndLevel(m.id, pool as any);
+        const highestMedal = medalStats.medals.reduce((highest: any, curr: any) => {
+          if (curr.level > 0 && curr.level > (highest?.level || 0)) return curr;
+          return highest;
+        }, null);
+        return {
+          ...m,
+          level: medalStats.level,
+          league: medalStats.league,
+          totalExp: medalStats.totalExp,
+          highestMedal
+        };
+      } catch (e) {
+        console.error(`Error fetching medal stats for player ${m.id}:`, e);
+        return { ...m, level: 1, league: "Amateur", totalExp: 0, highestMedal: null };
+      }
+    }));
+
+    return playersWithLevels;
   } catch (error) {
     console.error("Error fetching all players directory:", error);
     return [];
   }
 }
+
+export async function updateManagerMedal(managerId: number, medalKey: string, level: number) {
+  try {
+    await pool.query(
+      `INSERT INTO manager_medals (manager_id, medal_key, level)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (manager_id, medal_key) 
+       DO UPDATE SET level = EXCLUDED.level`,
+      [managerId, medalKey, level]
+    );
+    // Write audit log
+    await pool.query(
+      `INSERT INTO medal_audit_logs (manager_id, action_type, details)
+       VALUES ($1, 'override', $2)`,
+      [managerId, `Admin override: Set medal '${medalKey}' to Level ${level}`]
+    );
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating manager medal:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteManagerMedal(managerId: number, medalKey: string) {
+  try {
+    await pool.query(
+      `DELETE FROM manager_medals WHERE manager_id = $1 AND medal_key = $2`,
+      [managerId, medalKey]
+    );
+    // Write audit log
+    await pool.query(
+      `INSERT INTO medal_audit_logs (manager_id, action_type, details)
+       VALUES ($1, 'deletion', $2)`,
+      [managerId, `Admin override: Locked/removed medal '${medalKey}' (Level 0)`]
+    );
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting manager medal:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 
 export async function fetchActivePlayerContract(playerId: number, seasonId: number) {
   try {
@@ -5380,5 +5495,101 @@ export async function deleteClub(id: number) {
     throw e;
   }
 }
+
+export async function fetchManagersAlignment() {
+  try {
+    const { rows: managers } = await pool.query(`
+      SELECT m.id, m.name, m.photo, m.r2g_id, COALESCE(m.normal_exp, 0) as normal_exp
+      FROM managers m
+      ORDER BY m.name ASC
+    `);
+
+    const { fetchManagerMedalsAndLevel } = await import('./medalUtils');
+
+    const result = await Promise.all(managers.map(async (m) => {
+      const stats = await fetchManagerMedalsAndLevel(m.id, pool as any);
+      
+      // Calculate how many medals need override or alignment
+      // Check if DB stored level matches calculated level or if there are discrepancies
+      const hasDiscrepancy = m.normal_exp !== stats.calculatedNormalExp;
+
+      return {
+        id: m.id,
+        name: m.name,
+        photo: m.photo,
+        r2gId: m.r2g_id,
+        storedNormalExp: m.normal_exp,
+        calculatedNormalExp: stats.calculatedNormalExp,
+        calculatedTotalExp: stats.totalExp,
+        calculatedLevel: stats.level,
+        calculatedLeague: stats.league,
+        hasDiscrepancy,
+        medals: stats.medals
+      };
+    }));
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching managers alignment data:", error);
+    return [];
+  }
+}
+
+export async function alignManagerStatsAndMedals(managerId: number) {
+  try {
+    const { fetchManagerMedalsAndLevel } = await import('./medalUtils');
+    const stats = await fetchManagerMedalsAndLevel(managerId, pool as any);
+
+    // Update normal_exp in DB
+    await pool.query(`
+      UPDATE managers 
+      SET normal_exp = $1 
+      WHERE id = $2
+    `, [stats.calculatedNormalExp, managerId]);
+
+    // Backfill medals
+    for (const medal of stats.medals) {
+      if (medal.level > 0) {
+        await pool.query(`
+          INSERT INTO manager_medals (manager_id, medal_key, level)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (manager_id, medal_key)
+          DO UPDATE SET level = EXCLUDED.level
+        `, [managerId, medal.key, medal.level]);
+      } else {
+        await pool.query(`
+          DELETE FROM manager_medals
+          WHERE manager_id = $1 AND medal_key = $2
+        `, [managerId, medal.key]);
+      }
+    }
+
+    // Write audit log
+    await pool.query(
+      `INSERT INTO medal_audit_logs (manager_id, action_type, details)
+       VALUES ($1, 'alignment', $2)`,
+      [managerId, `Admin alignment: Backfilled and aligned normal_exp to ${stats.calculatedNormalExp} EXP and processed all medals.`]
+    );
+
+    return { success: true };
+  } catch (e) {
+    console.error(`Error aligning manager ${managerId}:`, e);
+    throw e;
+  }
+}
+
+export async function alignAllManagersStatsAndMedals() {
+  try {
+    const { rows: managers } = await pool.query(`SELECT id FROM managers`);
+    for (const m of managers) {
+      await alignManagerStatsAndMedals(m.id);
+    }
+    return { success: true, count: managers.length };
+  } catch (e) {
+    console.error("Error aligning all managers:", e);
+    throw e;
+  }
+}
+
 
 

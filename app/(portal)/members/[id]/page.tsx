@@ -95,7 +95,7 @@ export default function PlayerProfilePage() {
     );
   }
 
-  const { manager, stats } = data;
+  const { manager, stats, medalStats } = data;
 
   // Calculate combined stats
   const combined = {
@@ -107,6 +107,30 @@ export default function PlayerProfilePage() {
     goals_conceded: (stats.solo?.goals_conceded || 0) + (stats.special?.goals_conceded || 0) + (stats.rws?.goals_conceded || 0),
     clean_sheets: (stats.solo?.clean_sheets || 0) + (stats.special?.clean_sheets || 0) + (stats.rws?.clean_sheets || 0),
   };
+
+  const medalInfo = medalStats || {
+    level: 1,
+    normalExp: 0,
+    medalExp: 0,
+    totalExp: 0,
+    medals: []
+  };
+
+  const currentLevel = medalInfo.level || 1;
+  const currentLevelStartExp = Math.pow(currentLevel - 1, 2) * 100;
+  const nextLevelExp = Math.pow(currentLevel, 2) * 100;
+  const levelRange = nextLevelExp - currentLevelStartExp;
+  const earnedInCurrentLevel = (medalInfo.totalExp || 0) - currentLevelStartExp;
+  const progressPercent = Math.max(0, Math.min(100, Math.round((earnedInCurrentLevel / levelRange) * 100)));
+
+  const MEDAL_LEVEL_COLORS: Record<number, string> = {
+    1: "#ef4444", // Devils Red
+    2: "#f59e0b", // Yellowish Gold
+    3: "#ec4899", // Shining Pink
+    4: "#0ea5e9", // Shining Sky Blue
+    5: "#94a3b8"  // Shining Silver
+  };
+
 
   const winRate = combined.matches_played > 0 
     ? Math.round((combined.wins / combined.matches_played) * 100) 
@@ -305,6 +329,50 @@ export default function PlayerProfilePage() {
               font-weight: 700;
               color: #fff;
             }
+            .medal-showcase-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+              gap: 1rem;
+              margin-top: 0.75rem;
+            }
+            .medal-card {
+              background: rgba(255, 255, 255, 0.02);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+              border-radius: 12px;
+              padding: 1rem;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              transition: all 0.2s ease;
+            }
+            .medal-card:hover {
+              transform: translateY(-2px);
+              background: rgba(255, 255, 255, 0.04);
+            }
+            .medal-icon-wrap {
+              width: 44px;
+              height: 44px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.25rem;
+              flex-shrink: 0;
+            }
+            .level-progress-wrap {
+              width: 100%;
+              height: 8px;
+              border-radius: 4px;
+              background: rgba(255, 255, 255, 0.08);
+              margin-top: 6px;
+              overflow: hidden;
+            }
+            .level-progress-bar {
+              height: 100%;
+              border-radius: 4px;
+              background: linear-gradient(90deg, #c084fc, #a855f7);
+              transition: width 0.5s ease-out;
+            }
 
             /* Responsive Tweaks */
             @media (max-width: 992px) {
@@ -386,6 +454,27 @@ export default function PlayerProfilePage() {
                     {manager.is_active !== false ? "Active Tactician" : "Inactive"}
                   </span>
                 </div>
+                <div className="sidebar-stat-row">
+                  <span className="sidebar-stat-label">Member Level</span>
+                  <span className="sidebar-stat-value" style={{ fontWeight: 800, color: '#c084fc' }}>Lvl {medalInfo.level}</span>
+                </div>
+                <div className="sidebar-stat-row">
+                  <span className="sidebar-stat-label">League Tier</span>
+                  <span className="sidebar-stat-value" style={{ fontWeight: 800, color: '#3b82f6' }}>{medalInfo.league || "Amateur"}</span>
+                </div>
+                <div className="sidebar-stat-row">
+                  <span className="sidebar-stat-label">Total EXP</span>
+                  <span className="sidebar-stat-value" style={{ color: '#fff' }}>{medalInfo.totalExp} EXP</span>
+                </div>
+                <div style={{ marginTop: '0.75rem', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>
+                    <span>Next Level Progress</span>
+                    <span>{progressPercent}%</span>
+                  </div>
+                  <div className="level-progress-wrap">
+                    <div className="level-progress-bar" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -417,6 +506,90 @@ export default function PlayerProfilePage() {
                     <div className="overview-lbl">Goal Diff</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Levels & EXP Breakdown */}
+              <div style={{ background: 'rgba(13, 18, 24, 0.45)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(20px)' }}>
+                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+                  <i className="fa-solid fa-trophy" style={{ color: "#c084fc", marginRight: "8px" }} /> Level & Experience (EXP) Breakdown
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+                  <div>
+                    <h4 style={{ fontSize: '0.85rem', color: '#fff', marginBottom: '0.5rem', fontWeight: 700 }}>EXP SUMMARY</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>Normal Gameplay EXP</span>
+                        <span style={{ color: '#fff', fontWeight: 600 }}>+{medalInfo.normalExp} EXP</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>Medal Achievements EXP</span>
+                        <span style={{ color: '#fff', fontWeight: 600 }}>+{medalInfo.medalExp} EXP</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', paddingTop: '4px' }}>
+                        <span style={{ color: '#c084fc', fontWeight: 700 }}>Total Career EXP</span>
+                        <span style={{ color: '#c084fc', fontWeight: 800 }}>{medalInfo.totalExp} EXP</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{ fontSize: '0.85rem', color: '#fff', marginBottom: '0.5rem', fontWeight: 700 }}>NORMAL EXP FORMULA</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
+                      <div>Matches: <span style={{ color: '#fff' }}>{combined.matches_played} &times; 25</span></div>
+                      <div>Wins: <span style={{ color: '#fff' }}>{combined.wins} &times; 40</span></div>
+                      <div>Draws: <span style={{ color: '#fff' }}>{combined.draws} &times; 20</span></div>
+                      <div>Losses: <span style={{ color: '#fff' }}>{combined.losses} &times; 10</span></div>
+                      <div>Goals: <span style={{ color: '#fff' }}>{combined.goals_scored} &times; 5</span></div>
+                      <div>Clean Sheets: <span style={{ color: '#fff' }}>{combined.clean_sheets} &times; 10</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Medal Showcase */}
+              <div>
+                <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+                  <i className="fa-solid fa-medal" style={{ color: "#c084fc", marginRight: "8px" }} /> Medals Showcase
+                </h3>
+                {medalInfo.medals.filter((m: any) => m.level > 0).length === 0 ? (
+                  <div style={{ padding: '2rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '0.85rem' }}>
+                    No medals unlocked yet. Complete career matches, score goals, or win tournaments to earn medals!
+                  </div>
+                ) : (
+                  <div className="medal-showcase-grid">
+                    {medalInfo.medals.filter((m: any) => m.level > 0).map((medal: any) => {
+                      const medalColor = MEDAL_LEVEL_COLORS[medal.level] || '#fff';
+                      return (
+                        <div key={medal.key} className="medal-card" style={{ border: `1px solid ${medalColor}`, boxShadow: `0 0 10px ${medalColor}22` }}>
+                          <div className="medal-icon-wrap" style={{ background: `${medalColor}15`, color: medalColor }}>
+                            <i className="fa-solid fa-medal" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{medal.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', fontSize: '0.68rem' }}>
+                              <span style={{ 
+                                color: medalColor, 
+                                fontWeight: 700, 
+                                padding: '1px 5px', 
+                                borderRadius: '3px', 
+                                background: `${medalColor}15`,
+                                textTransform: 'uppercase'
+                              }}>
+                                {medal.category} Lvl {medal.level}
+                              </span>
+                              <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>+{medal.exp} EXP</span>
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                              Val: <span style={{ color: '#fff' }}>{medal.currentValue}</span> / Next: <span style={{ color: '#fff' }}>{medal.requiredValueForNext}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Tournaments Breakdown */}
