@@ -277,7 +277,7 @@ export default function MemberMedalsPage() {
       <PortalNavbar />
 
       <main className="main-content">
-        <div className="portal-container" style={{ maxWidth: "1200px", padding: "1.5rem 1.5rem" }}>
+        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.5rem 1.5rem", alignItems: "stretch" }}>
           
           {/* Breadcrumb */}
           <div className="portal-breadcrumb" style={{ marginBottom: "1.5rem" }}>
@@ -287,20 +287,8 @@ export default function MemberMedalsPage() {
           </div>
 
           {/* Header Summary */}
-          <div style={{
-            background: 'rgba(13, 18, 24, 0.45)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            backdropFilter: 'blur(20px)',
-            marginBottom: '2rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1.5rem'
-          }}>
-            <div>
+          <div className="medals-header-summary">
+            <div className="medals-header-title-section">
               <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "3px 10px", borderRadius: "10px", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", fontSize: "0.7rem", fontWeight: 600, color: "#c084fc", textTransform: "uppercase", marginBottom: "0.5rem" }}>
                 <i className="fa-solid fa-medal" /> Tactician Achievements
               </div>
@@ -313,18 +301,18 @@ export default function MemberMedalsPage() {
             </div>
 
             {/* Total Counters */}
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <div style={{ background: 'rgba(192, 132, 252, 0.1)', border: '1px solid rgba(192, 132, 252, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#c084fc' }}>{unlocked.length}</div>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Unlocked</div>
+            <div className="medals-counters-grid">
+              <div className="medals-counter-card" style={{ background: 'rgba(192, 132, 252, 0.1)', border: '1px solid rgba(192, 132, 252, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
+                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#c084fc' }}>{unlocked.length}</div>
+                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Unlocked</div>
               </div>
-              <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '120px' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fbbf24' }}>{medalInfo.medalExp.toLocaleString()}</div>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Medal EXP</div>
+              <div className="medals-counter-card" style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '120px' }}>
+                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fbbf24' }}>{medalInfo.medalExp.toLocaleString()}</div>
+                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Medal EXP</div>
               </div>
-              <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{locked.length}</div>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Locked</div>
+              <div className="medals-counter-card" style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '10px', padding: '10px 16px', textAlign: 'center', minWidth: '100px' }}>
+                <div className="medals-counter-val" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.6)' }}>{locked.length}</div>
+                <div className="medals-counter-lbl" style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 600 }}>Locked</div>
               </div>
             </div>
           </div>
@@ -334,6 +322,66 @@ export default function MemberMedalsPage() {
               display: grid;
               grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
               gap: 1.25rem;
+            }
+            .medals-header-summary {
+              background: rgba(13, 18, 24, 0.45);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+              border-radius: 16px;
+              padding: 1.5rem;
+              backdrop-filter: blur(20px);
+              margin-bottom: 2rem;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 1.5rem;
+            }
+            .medals-header-title-section {
+              flex: 1;
+              min-width: 250px;
+            }
+            .medals-counters-grid {
+              display: flex;
+              gap: 0.75rem;
+              flex-wrap: wrap;
+            }
+            @media (max-width: 768px) {
+              .medals-header-summary {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                gap: 1.25rem;
+              }
+              .medals-header-title-section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+              }
+              .medals-counters-grid {
+                justify-content: center;
+                width: 100%;
+              }
+            }
+            @media (max-width: 576px) {
+              .medals-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+              }
+              .medals-counters-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+              }
+              .medals-counter-card {
+                padding: 8px 4px !important;
+                min-width: unset !important;
+              }
+              .medals-counter-val {
+                font-size: 1.15rem !important;
+              }
+              .medals-counter-lbl {
+                font-size: 0.52rem !important;
+              }
             }
           `}</style>
 
