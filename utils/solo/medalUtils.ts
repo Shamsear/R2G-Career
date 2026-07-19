@@ -80,10 +80,15 @@ export function getExpForMedal(category: 'COMMON' | 'RARE' | 'MYTHIC', level: nu
   if (level <= 0) return 0;
   const rates = {
     MYTHIC: [0, 400, 800, 1500, 2500, 4000],
-    RARE: [0, 250, 500, 1000, 1750, 2500],
-    COMMON: [0, 100, 200, 400, 800, 1500]
+    RARE:   [0, 250, 500, 1000, 1750, 2500],
+    COMMON: [0, 100, 200,  400,  800, 1500]
   };
-  return rates[category][level] || 0;
+  // Cumulative: sum EXP from level 1 up to current level
+  let total = 0;
+  for (let l = 1; l <= level; l++) {
+    total += rates[category][l] || 0;
+  }
+  return total;
 }
 
 export function calculateLevelFromExp(totalExp: number): number {
@@ -256,10 +261,10 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
     // Draw match checks
     if (scoreSelf === scoreOpp) {
       if (scoreSelf === 0) hasDraw0_0 = true;
-      if (scoreSelf >= 1) hasDraw1_1 = true;
-      if (scoreSelf >= 2) hasDraw2_2 = true;
-      if (scoreSelf >= 3) hasDraw3_3 = true;
-      if (scoreSelf >= 5) hasDraw5_5 = true;
+      if (scoreSelf === 1) hasDraw1_1 = true;
+      if (scoreSelf === 2) hasDraw2_2 = true;
+      if (scoreSelf === 3) hasDraw3_3 = true;
+      if (scoreSelf === 5) hasDraw5_5 = true;
     }
 
     // Win with CS
@@ -303,6 +308,13 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
     let level = 0;
     let currentValue: number | string = 0;
     let reqNext: number | string = '-';
+    
+    // Draw logic variables scoped to loop iteration
+    const hasL1 = hasDraw1_1 || hasDraw2_2 || hasDraw3_3 || hasDraw5_5;
+    const hasL2 = hasDraw2_2 || hasDraw3_3 || hasDraw5_5;
+    const hasL3 = hasDraw0_0;
+    const hasL4 = hasDraw3_3 || hasDraw5_5;
+    const hasL5 = hasDraw5_5;
 
     if (def.isDirectLevel5) {
       // DirectLevel5 medals (RWS champ, Fantasy champ, etc.) are admin-only manual overrides
@@ -347,13 +359,14 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
 
         // Draw score exact / higher logic
         case 'single_match_draw':
-          if (hasDraw5_5) level = 5;
-          else if (hasDraw3_3) level = 4;
-          else if (hasDraw0_0) level = 3;
-          else if (hasDraw2_2) level = 2;
-          else if (hasDraw1_1) level = 1;
+          if (hasL1 && hasL2 && hasL3 && hasL4 && hasL5) level = 5;
+          else if (hasL1 && hasL2 && hasL3 && hasL4) level = 4;
+          else if (hasL1 && hasL2 && hasL3) level = 3;
+          else if (hasL1 && hasL2) level = 2;
+          else if (hasL1) level = 1;
+          
           currentValue = hasDraw5_5 ? '5-5' : hasDraw3_3 ? '3-3' : hasDraw0_0 ? '0-0' : hasDraw2_2 ? '2-2' : hasDraw1_1 ? '1-1' : 'None';
-          reqNext = level < 5 ? ['1-1', '2-2', '0-0', '3-3', '5-5'][level] : '-';
+          reqNext = level === 0 ? '1-1' : (level < 5 ? ['1-1', '2-2', '0-0', '3-3', '5-5'][level] : '-');
           break;
 
         // CS win logic (1-0, 2-0, 3-0, 5-0, 7-0)
@@ -388,11 +401,18 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       name: def.name,
       category: def.category,
       level,
-      currentValue: currentValue.toString(),
-      requiredValueForNext: reqNext.toString(),
+      currentValue: (currentValue ?? '').toString(),
+      requiredValueForNext: (reqNext ?? '').toString(),
       exp,
       description: def.description,
-      thresholds: def.thresholds
+      thresholds: def.thresholds,
+      achievedLevels: [
+        def.key === 'single_match_draw' ? hasL1 : (level >= 1),
+        def.key === 'single_match_draw' ? hasL2 : (level >= 2),
+        def.key === 'single_match_draw' ? hasL3 : (level >= 3),
+        def.key === 'single_match_draw' ? hasL4 : (level >= 4),
+        def.key === 'single_match_draw' ? hasL5 : (level >= 5),
+      ]
     });
   });
 

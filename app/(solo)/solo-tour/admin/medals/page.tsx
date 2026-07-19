@@ -15,7 +15,9 @@ export default function MedalsAlignmentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [expandedManagerIds, setExpandedManagerIds] = useState<Record<number, boolean>>({});
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [lastRecalculated, setLastRecalculated] = useState<Date | null>(null);
+  const [expandedManagerIds, setExpandedManagerIds] = useState<Record<number, boolean>>({}); 
 
   const toggleExpandManager = (managerId: number) => {
     setExpandedManagerIds(prev => ({
@@ -34,8 +36,23 @@ export default function MedalsAlignmentDashboard() {
     }
   };
 
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      const data = await fetchManagersAlignment();
+      setAlignmentData(data);
+      setLastRecalculated(new Date());
+      showToast("Preview recalculated from live stats.");
+    } catch (err) {
+      console.error(err);
+      showToast("Error recalculating preview.");
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   useEffect(() => {
-    loadData();
+    handleRecalculate();
   }, []);
 
   const showToast = (msg: string) => {
@@ -47,25 +64,25 @@ export default function MedalsAlignmentDashboard() {
     startTransition(async () => {
       try {
         await alignManagerStatsAndMedals(managerId);
-        showToast(`Successfully aligned medals and EXP for ${name}!`);
-        await loadData();
+        showToast(`Saved & aligned medals for ${name}!`);
+        await handleRecalculate();
       } catch (err) {
         console.error(err);
-        showToast(`Failed to align stats for ${name}`);
+        showToast(`Failed to save stats for ${name}`);
       }
     });
   };
 
   const handleAlignAll = () => {
-    if (!confirm("Are you sure you want to align and backfill stats and medals for ALL managers?")) return;
+    if (!confirm("This will SAVE recalculated medals and EXP to the database for ALL managers. Proceed?")) return;
     startTransition(async () => {
       try {
         const res = await alignAllManagersStatsAndMedals();
-        showToast(`Successfully backfilled and aligned ${res.count} managers!`);
-        await loadData();
+        showToast(`Saved & aligned ${res.count} managers to database!`);
+        await handleRecalculate();
       } catch (err) {
         console.error(err);
-        showToast("Error during bulk alignment.");
+        showToast("Error during bulk save.");
       }
     });
   };
@@ -146,26 +163,62 @@ export default function MedalsAlignmentDashboard() {
               <i className="fa-solid fa-sync" /> MEDALS & EXP ALIGNMENT
             </div>
             <h1 className="portal-title">MEDALS & EXP ALIGNMENT</h1>
-            <p className="portal-subtitle">Cross-check and backfill medals/EXP for tacticians.</p>
+            <p className="portal-subtitle">Recalculate preview from live stats, then save to database.</p>
           </div>
-          <button
-            onClick={handleAlignAll}
-            disabled={isPending}
-            className="portal-btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '42px' }}
-          >
-            {isPending ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-users" />}
-            Align All Members
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Step 1 — Preview */}
+            <button
+              onClick={handleRecalculate}
+              disabled={isRecalculating || isPending}
+              className="portal-btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '42px' }}
+            >
+              {isRecalculating
+                ? <i className="fa-solid fa-spinner fa-spin" />
+                : <i className="fa-solid fa-rotate" />}
+              Recalculate Preview
+            </button>
+            {/* Step 2 — Save */}
+            <button
+              onClick={handleAlignAll}
+              disabled={isPending || isRecalculating}
+              className="portal-btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '42px' }}
+            >
+              {isPending ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-floppy-disk" />}
+              Save All to DB
+            </button>
+          </div>
         </div>
 
-        {/* Info card */}
+        {/* Info card — two-step workflow */}
         <div className="admin-card" style={{ marginTop: 0, padding: '1.25rem', border: '1px solid rgba(192,132,252,0.15)', background: 'rgba(192,132,252,0.03)', marginBottom: '1.5rem' }}>
-          <p style={{ margin: 0, fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
-            <i className="fa-solid fa-circle-info" style={{ color: '#c084fc', marginRight: '6px' }} />
-            Use this page to cross-check and assign medals to players based on their current historical statistics.
-            Once aligned, their gameplay EXP is locked in database, and will <strong>only accrue progressively</strong> in the future when fixture results are finalized.
-          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span style={{ background: 'rgba(96,165,250,0.15)', color: '#60a5fa', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>1</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#60a5fa' }}>Recalculate Preview</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, paddingLeft: '26px' }}>
+                Reads live fixture stats and computes what each manager's medals and EXP <em>should</em> be. <strong style={{ color: '#fff' }}>Nothing is saved.</strong>
+              </p>
+            </div>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>2</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#fbbf24' }}>Save All to DB</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, paddingLeft: '26px' }}>
+                Commits the calculated values to the database. Only run after reviewing the preview and confirming the values look correct.
+              </p>
+            </div>
+            {lastRecalculated && (
+              <div style={{ width: '100%', fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.6rem', marginTop: '0.25rem' }}>
+                <i className="fa-solid fa-clock" style={{ marginRight: '4px' }} />
+                Preview last recalculated: {lastRecalculated.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -250,7 +303,7 @@ export default function MedalsAlignmentDashboard() {
                           </td>
                           <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => handleAlignSingle(m.id, m.name)} disabled={isPending} className="portal-btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.7rem', minHeight: 'auto', height: '30px' }}>
-                              Align
+                              Save to DB
                             </button>
                           </td>
                         </tr>
@@ -367,20 +420,36 @@ function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
   const color = isMythic ? '#fbbf24' : isRare ? '#3b82f6' : '#10b981';
   const bg = isMythic ? 'rgba(251,191,36,0.03)' : isRare ? 'rgba(59,130,246,0.03)' : 'rgba(16,185,129,0.03)';
   const border = isMythic ? 'rgba(251,191,36,0.15)' : isRare ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)';
-  const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
-  const earnedExp = getExpForLevel(med.category, lvl);
+  
+  // Sum cumulative XP ONLY from the levels that are actually achieved (marked true in achievedLevels)
+  const earnedExp = med.achievedLevels
+    ? med.achievedLevels.reduce((sum: number, achieved: boolean, idx: number) => {
+        return sum + (achieved ? getExpForLevel(med.category, idx + 1) : 0);
+      }, 0)
+    : Number(med.exp) || 0;
 
-  // Build level rows: threshold labels from med.thresholds array
+  const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+
+  // Per-key label overrides for medals with custom (non-threshold) logic
+  const SPECIAL_LEVEL_LABELS: Record<string, string[]> = {
+    single_match_draw:   ['Draw 1-1', 'Draw 2-2', 'Draw 0-0', 'Draw 3-3', 'Draw 5-5'],
+    single_match_cs_win: ['Win 1-0',  'Win 2-0',  'Win 3-0',  'Win 5-0',  'Win 7-0'],
+    champion_rws:              ['—', '—', '—', '—', 'Admin grant'],
+    runner_up_rws:             ['—', '—', '—', '—', 'Admin grant'],
+    champion_fantasy:          ['—', '—', '—', '—', 'Admin grant'],
+    player_of_season_team_tour:['—', '—', '—', '—', 'Admin grant'],
+  };
+
   const thresholds: (number | string)[] = med.thresholds || [];
-  const levelLabels: string[] = [
-    thresholds[0] !== undefined ? String(thresholds[0]) : '—',
-    thresholds[1] !== undefined ? String(thresholds[1]) : '—',
-    thresholds[2] !== undefined ? String(thresholds[2]) : '—',
-    thresholds[3] !== undefined ? String(thresholds[3]) : '—',
-    thresholds[4] !== undefined ? String(thresholds[4]) : '—',
-  ];
-  // For medals with no thresholds (isDirectLevel5 / special logic), use generic labels
-  const isSpecial = thresholds.length === 0;
+  const specialLabels = SPECIAL_LEVEL_LABELS[med.key];
+
+  function getLevelReq(l: number): string {
+    if (specialLabels) return specialLabels[l - 1] ?? '—';
+    if (thresholds[l - 1] !== undefined) return String(thresholds[l - 1]);
+    return '—';
+  }
+
+  const headerLabel = specialLabels ? 'Requirement' : 'Req. (≥)';
 
   return (
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', opacity: dimmed ? 0.5 : 1 }}>
@@ -412,31 +481,33 @@ function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
               <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Lvl</th>
-              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isSpecial ? 'Condition' : 'Req.'}</th>
+              <th style={{ padding: '4px 8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{headerLabel}</th>
               <th style={{ padding: '4px 8px', textAlign: 'right', color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>EXP</th>
             </tr>
           </thead>
           <tbody>
             {[1, 2, 3, 4, 5].map(l => {
-              const isAchieved = l <= lvl;
-              const isCurrent = l === lvl;
-              const rowBg = isCurrent
-                ? `${color}14`
-                : isAchieved
-                  ? `${color}07`
-                  : 'transparent';
+              const isAchieved = med.achievedLevels ? med.achievedLevels[l - 1] : l <= lvl;
+              // Next required target is the first level that is NOT achieved
+              const isNextTarget = med.achievedLevels 
+                ? (!isAchieved && med.achievedLevels.slice(0, l - 1).every(Boolean))
+                : (l === lvl + 1);
+              
+              // Style achieved rows with subtle background color
+              const rowBg = isAchieved ? `${color}07` : 'transparent';
               const expVal = getExpForLevel(med.category, l);
-              const req = isSpecial ? (l === 5 ? 'Admin grant' : `Level ${l} criteria`) : levelLabels[l - 1];
+              const req = getLevelReq(l);
               return (
                 <tr key={l} style={{ background: rowBg, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                  <td style={{ padding: '4px 8px', color: isCurrent ? color : isAchieved ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', fontWeight: isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {isCurrent && <span style={{ color, fontSize: '0.55rem' }}>▶</span>}
+                  <td style={{ padding: '4px 8px', color: isAchieved ? color : isNextTarget ? '#fbbf24' : 'rgba(255,255,255,0.3)', fontWeight: (isAchieved || isNextTarget) ? 700 : 400, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {isAchieved && <span style={{ color, fontSize: '0.55rem' }}>✓</span>}
+                    {!isAchieved && isNextTarget && <span style={{ color: '#fbbf24', fontSize: '0.55rem' }}>❯</span>}
                     {l}
                   </td>
-                  <td style={{ padding: '4px 8px', color: isCurrent ? '#fff' : isAchieved ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)' }}>
+                  <td style={{ padding: '4px 8px', color: isAchieved ? '#fff' : isNextTarget ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)' }}>
                     {req}
                   </td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right', color: isCurrent ? color : isAchieved ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontWeight: isCurrent ? 700 : 400 }}>
+                  <td style={{ padding: '4px 8px', textAlign: 'right', color: isAchieved ? color : 'rgba(255,255,255,0.25)', fontWeight: isAchieved ? 700 : 400 }}>
                     +{expVal.toLocaleString()} XP
                   </td>
                 </tr>
@@ -472,9 +543,7 @@ function MedalPanelInline({ medals, unlockedCount }: { medals: any[]; unlockedCo
 
   const unlocked = medals.filter((med: any) => med.level > 0);
   const locked = medals.filter((med: any) => med.level <= 0);
-  const totalMedalExp = unlocked.reduce((sum: number, med: any) => {
-    return sum + (EXP_RATES[med.category]?.[Math.min(5, Number(med.level) || 0)] ?? 0);
-  }, 0);
+  const totalMedalExp = unlocked.reduce((sum: number, med: any) => sum + (Number(med.exp) || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
