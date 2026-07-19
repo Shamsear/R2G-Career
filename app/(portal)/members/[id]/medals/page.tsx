@@ -22,7 +22,7 @@ interface MedalLevelItem {
   remaining: number;
   progressPercent: number;
   exp: number;
-  iconClass: string;
+  imageSrc: string;
 }
 
 interface LedgerEntry {
@@ -48,55 +48,43 @@ const EXP_RATES: Record<string, number[]> = {
   COMMON: [0, 100, 200, 400,  800,  1500],
 };
 
-const MEDAL_ICON_MAP: Record<string, string> = {
-  matches_played: "fa-solid fa-gamepad",
-  goals_scored: "fa-solid fa-futbol",
-  clean_sheets: "fa-solid fa-shield-halved",
-  draws: "fa-solid fa-handshake",
-  single_match_draw: "fa-solid fa-scale-balanced",
-  single_match_goals: "fa-solid fa-fire",
-  single_match_cs_win: "fa-solid fa-circle-check",
-  single_match_gd_win: "fa-solid fa-arrows-left-right",
-  participate_div_5: "fa-solid fa-layer-group",
-  participate_div_4: "fa-solid fa-layer-group",
-  top_15_rank: "fa-solid fa-ranking-star",
-  top_15_fantasy: "fa-solid fa-wand-magic-sparkles",
-  participate_team_tour: "fa-solid fa-users",
-  team_tour_win_margin: "fa-solid fa-arrow-right-to-bracket",
-  participate_div_3: "fa-solid fa-layer-group",
-  participate_div_2: "fa-solid fa-layer-group",
-  participate_ucl: "fa-solid fa-trophy",
-  ballon_dor_nominee: "fa-solid fa-award",
-  top_10_rank: "fa-solid fa-ranking-star",
-  claim_awards: "fa-solid fa-crown",
-  claim_golden_boot: "fa-solid fa-shoe-prints",
-  claim_golden_glove: "fa-solid fa-hand-holding-heart",
-  claim_golden_ball: "fa-solid fa-circle",
-  claim_maldini_trophy: "fa-solid fa-shield-heart",
-  top_10_fantasy: "fa-solid fa-wand-magic-sparkles",
-  runner_up_finish: "fa-solid fa-medal",
-  team_tour_unbeaten: "fa-solid fa-shield-cat",
-  season_goals: "fa-solid fa-meteor",
-  season_cs: "fa-solid fa-lock",
-  player_of_day_team_tour: "fa-solid fa-sun",
-  player_of_week_team_tour: "fa-solid fa-calendar-week",
-  participate_div_1: "fa-solid fa-layer-group",
-  top_5_rank: "fa-solid fa-ranking-star",
-  claim_ballon_dor: "fa-solid fa-award",
-  claim_r2g_best: "fa-solid fa-star-half-stroke",
-  claim_career_ucl: "fa-solid fa-trophy",
-  participate_rws: "fa-solid fa-earth-americas",
-  champion_rws: "fa-solid fa-globe",
-  runner_up_rws: "fa-solid fa-flag",
-  claim_trophy_career: "fa-solid fa-trophy",
-  claim_trophy_any_tour: "fa-solid fa-trophy",
-  claim_trophy_together: "fa-solid fa-people-group",
-  champion_fantasy: "fa-solid fa-hat-wizard",
-  top_5_fantasy: "fa-solid fa-wand-magic-sparkles",
-  unbeaten_journey: "fa-solid fa-running",
-  cs_journey: "fa-solid fa-key",
-  player_of_season_team_tour: "fa-solid fa-medal"
+const MEDAL_IMAGE_MAP: Record<string, string> = {
+  // Golden Boot & Goals
+  goals_scored: "/assets/images/medals/medal_boot.jpg",
+  single_match_goals: "/assets/images/medals/medal_boot.jpg",
+  claim_golden_boot: "/assets/images/medals/medal_boot.jpg",
+  season_goals: "/assets/images/medals/medal_boot.jpg",
+
+  // Gloves & Defense / Clean Sheets
+  clean_sheets: "/assets/images/medals/medal_glove.jpg",
+  single_match_cs_win: "/assets/images/medals/medal_shield.jpg",
+  claim_golden_glove: "/assets/images/medals/medal_glove.jpg",
+  season_cs: "/assets/images/medals/medal_shield.jpg",
+  cs_journey: "/assets/images/medals/medal_shield.jpg",
+
+  // Trophies & Cups
+  participate_ucl: "/assets/images/medals/medal_trophy.jpg",
+  claim_awards: "/assets/images/medals/medal_trophy.jpg",
+  claim_golden_ball: "/assets/images/medals/medal_trophy.jpg",
+  claim_maldini_trophy: "/assets/images/medals/medal_shield.jpg",
+  claim_ballon_dor: "/assets/images/medals/medal_trophy.jpg",
+  claim_r2g_best: "/assets/images/medals/medal_trophy.jpg",
+  claim_career_ucl: "/assets/images/medals/medal_trophy.jpg",
+  champion_rws: "/assets/images/medals/medal_trophy.jpg",
+  champion_fantasy: "/assets/images/medals/medal_trophy.jpg",
+  claim_trophy_career: "/assets/images/medals/medal_trophy.jpg",
+  claim_trophy_any_tour: "/assets/images/medals/medal_trophy.jpg",
+  claim_trophy_together: "/assets/images/medals/medal_trophy.jpg",
+  runner_up_finish: "/assets/images/medals/medal_trophy.jpg",
+  runner_up_rws: "/assets/images/medals/medal_trophy.jpg",
+
+  // Default Circular Medal
+  default: "/assets/images/medals/medal_common.jpg"
 };
+
+function getMedalImage(key: string): string {
+  return MEDAL_IMAGE_MAP[key] || MEDAL_IMAGE_MAP.default;
+}
 
 function getExpForLevel(category: string, level: number): number {
   return EXP_RATES[category]?.[level] ?? 0;
@@ -156,7 +144,7 @@ export default function MemberMedalsPage() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <PortalNavbar />
-        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#06b6d4", animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
             <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Loading Gamified Showcase...</p>
@@ -201,7 +189,6 @@ export default function MemberMedalsPage() {
   const totalExp = medalInfo.medalExp;
   const { level, nextLevelExp, progressPercent } = calculateLevel(totalExp);
   
-  // Spotlight Color based on Level/Rank
   let spotlightColor = "#06b6d4"; // Cyan default
   let rankLabel = "Rookie";
   if (level >= 15) {
@@ -219,7 +206,7 @@ export default function MemberMedalsPage() {
   const allMedalItems: MedalLevelItem[] = [];
   medalInfo.medals.forEach((med: any) => {
     const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
-    const iconClass = MEDAL_ICON_MAP[med.key] || "fa-solid fa-medal";
+    const imageSrc = getMedalImage(med.key);
 
     if (med.isDirectLevel5) {
       const isAchieved = lvl === 5;
@@ -237,7 +224,7 @@ export default function MemberMedalsPage() {
         remaining: 0,
         progressPercent: isAchieved ? 100 : 0,
         exp: getExpForLevel(med.category, 5),
-        iconClass
+        imageSrc
       });
     } else {
       const thresholds = med.thresholds || [];
@@ -283,7 +270,7 @@ export default function MemberMedalsPage() {
           remaining,
           progressPercent,
           exp: getExpForLevel(med.category, l),
-          iconClass
+          imageSrc
         });
       }
     }
@@ -302,11 +289,10 @@ export default function MemberMedalsPage() {
   const unlockedBadgesCount = allMedalItems.filter(m => m.isAchieved).length;
   const badgesCompletionPercent = Math.round((unlockedBadgesCount / totalBadgesCount) * 100) || 0;
 
-  // 3. Dynamically Generate deterministic XP Ledger log history
+  // 3. XP Ledger entries
   const ledgerEntries: LedgerEntry[] = [];
   let ledgerCounter = 1;
 
-  // Generate badge unlocks
   allMedalItems.filter(m => m.isAchieved).forEach(m => {
     ledgerEntries.push({
       id: `xp-badge-${ledgerCounter++}`,
@@ -317,7 +303,6 @@ export default function MemberMedalsPage() {
     });
   });
 
-  // Generate goals scored entries
   const goalCount = parseInt(combined.goals_scored) || 0;
   for (let i = 20; i <= goalCount; i += 20) {
     ledgerEntries.push({
@@ -329,7 +314,6 @@ export default function MemberMedalsPage() {
     });
   }
 
-  // Generate wins entries
   const winCount = parseInt(combined.wins) || 0;
   for (let i = 5; i <= winCount; i += 5) {
     ledgerEntries.push({
@@ -341,7 +325,6 @@ export default function MemberMedalsPage() {
     });
   }
 
-  // Generate matches entries
   const matchesCount = parseInt(combined.matches_played) || 0;
   for (let i = 10; i <= matchesCount; i += 10) {
     ledgerEntries.push({
@@ -353,7 +336,6 @@ export default function MemberMedalsPage() {
     });
   }
 
-  // Sort entries chronologically (recent first)
   ledgerEntries.sort((a, b) => b.id.localeCompare(a.id));
 
   return (
@@ -384,7 +366,7 @@ export default function MemberMedalsPage() {
             </Link>
           </div>
 
-          {/* Gamified Profile Header card (Glassmorphic) */}
+          {/* Gamified Profile Header card */}
           <div className="glass-panel" style={{
             background: 'rgba(23, 23, 23, 0.4)',
             backdropFilter: 'blur(24px)',
@@ -412,7 +394,6 @@ export default function MemberMedalsPage() {
                   border: `3px solid ${spotlightColor}`,
                   boxShadow: `0 0 15px ${spotlightColor}40`
                 }} />
-                {/* Floating Pulsing Emblem */}
                 <div className="pulsing-badge" style={{
                   position: 'absolute',
                   bottom: '-5px',
@@ -453,7 +434,6 @@ export default function MemberMedalsPage() {
             {/* Quick Stats Cabinet */}
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1, minWidth: '280px', justifyContent: 'flex-end' }}>
               
-              {/* Badges Cabinet */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
                 <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fff', fontFamily: 'var(--font-mono)' }}>
                   {unlockedBadgesCount}<span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '1rem', marginLeft: '2px' }}>/{totalBadgesCount}</span>
@@ -461,7 +441,6 @@ export default function MemberMedalsPage() {
                 <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Badges Earned</div>
               </div>
 
-              {/* Completion meter */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
                 <div style={{ fontSize: '1.65rem', fontWeight: 900, color: spotlightColor, fontFamily: 'var(--font-mono)' }}>
                   {badgesCompletionPercent}%
@@ -469,7 +448,6 @@ export default function MemberMedalsPage() {
                 <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Completion</div>
               </div>
 
-              {/* XP Cabinet */}
               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '10px 16px', textAlign: 'center', minWidth: '110px' }}>
                 <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>
                   {totalExp.toLocaleString()}
@@ -479,7 +457,7 @@ export default function MemberMedalsPage() {
 
             </div>
 
-            {/* XP Progress Bar (Full Width within header card) */}
+            {/* XP Progress Bar */}
             <div style={{ width: '100%', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                 <span>Level {level} Progress</span>
@@ -581,7 +559,6 @@ export default function MemberMedalsPage() {
                   const catColor = cat === 'COMMON' ? '#60a5fa' : cat === 'RARE' ? '#f59e0b' : '#ec4899';
                   if (catMedals.length === 0) return null;
                   
-                  // Sort: Unlocked first, then locked
                   const sorted = [...catMedals].sort((a, b) => {
                     if (a.isAchieved && !b.isAchieved) return -1;
                     if (!a.isAchieved && b.isAchieved) return 1;
@@ -613,7 +590,7 @@ export default function MemberMedalsPage() {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 position: 'relative',
-                                minHeight: '135px',
+                                minHeight: '145px',
                                 justifyContent: 'space-between'
                               }}
                             >
@@ -633,7 +610,8 @@ export default function MemberMedalsPage() {
                                   justifyContent: 'center',
                                   color: '#22c55e',
                                   fontSize: '0.6rem',
-                                  fontWeight: 900
+                                  fontWeight: 900,
+                                  zIndex: 3
                                 }}>
                                   ✓
                                 </div>
@@ -648,31 +626,46 @@ export default function MemberMedalsPage() {
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   color: 'rgba(255,255,255,0.2)',
-                                  fontSize: '0.65rem'
+                                  fontSize: '0.65rem',
+                                  zIndex: 3
                                 }}>
                                   <i className="fa-solid fa-lock" />
                                 </div>
                               )}
 
-                              {/* Halo Glow effect (rendered under image wrapper) */}
+                              {/* Halo Glow effect */}
                               {!m.isLocked && <div className="halo-glow" style={{ backgroundColor: scheme.halo }} />}
 
-                              {/* Badge Icon Wrapper */}
+                              {/* 3D Generated Circular Medal Asset Image */}
                               <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '12px',
+                                width: '58px',
+                                height: '58px',
+                                borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: m.isLocked ? 'rgba(255,255,255,0.02)' : `${scheme.text}10`,
-                                border: `1px solid ${m.isLocked ? 'rgba(255,255,255,0.05)' : `${scheme.text}25`}`
+                                position: 'relative',
+                                zIndex: 2
                               }}>
-                                <i className={m.iconClass} style={{ fontSize: '1.45rem', color: m.isLocked ? 'rgba(255,255,255,0.2)' : scheme.text }} />
+                                <img
+                                  src={m.imageSrc}
+                                  alt={m.name}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    mixBlendMode: 'screen',
+                                    filter: m.isLocked
+                                      ? 'grayscale(1) opacity(0.25)'
+                                      : `drop-shadow(0 0 8px ${scheme.text})`,
+                                    transition: 'transform 0.2s, filter 0.2s'
+                                  }}
+                                />
                               </div>
 
                               {/* Title */}
-                              <div style={{ marginTop: '0.5rem' }}>
+                              <div style={{ marginTop: '0.5rem', position: 'relative', zIndex: 2 }}>
                                 <div style={{ fontSize: '0.78rem', fontWeight: 900, color: m.isLocked ? 'rgba(255,255,255,0.3)' : '#fff', lineHeight: 1.2 }}>
                                   {m.name}
                                 </div>
@@ -825,20 +818,30 @@ export default function MemberMedalsPage() {
               &times;
             </button>
 
-            {/* Glowing Medal Icon Badge */}
+            {/* Circular Medal Asset Image in Modal */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <div style={{
-                width: '78px',
-                height: '78px',
-                borderRadius: '16px',
-                background: modalMedal.isLocked ? 'rgba(255,255,255,0.03)' : `${LEVEL_SCHEMES[modalMedal.level].text}15`,
-                border: `1px solid ${modalMedal.isLocked ? 'rgba(255,255,255,0.06)' : `${LEVEL_SCHEMES[modalMedal.level].text}35`}`,
+                width: '90px',
+                height: '90px',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: modalMedal.isLocked ? 'none' : `0 0 25px ${LEVEL_SCHEMES[modalMedal.level].text}20`
+                justifyContent: 'center'
               }}>
-                <i className={modalMedal.iconClass} style={{ fontSize: '2.5rem', color: modalMedal.isLocked ? 'rgba(255,255,255,0.25)' : LEVEL_SCHEMES[modalMedal.level].text }} />
+                <img
+                  src={modalMedal.imageSrc}
+                  alt={modalMedal.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    mixBlendMode: 'screen',
+                    filter: modalMedal.isLocked
+                      ? 'grayscale(1) opacity(0.3)'
+                      : `drop-shadow(0 0 16px ${LEVEL_SCHEMES[modalMedal.level].text})`
+                  }}
+                />
               </div>
             </div>
 
@@ -951,7 +954,7 @@ export default function MemberMedalsPage() {
 
         .cabinet-badges-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
           gap: 1rem;
         }
 
@@ -963,12 +966,10 @@ export default function MemberMedalsPage() {
           opacity: 1;
         }
         .cabinet-badge-card.locked {
-          filter: grayscale(1);
-          opacity: 0.25;
+          opacity: 0.35;
         }
         .cabinet-badge-card.locked:hover {
-          opacity: 0.45;
-          filter: grayscale(0.7);
+          opacity: 0.55;
         }
 
         /* Halo underneath badge */
@@ -1007,12 +1008,12 @@ export default function MemberMedalsPage() {
 
         @media (max-width: 576px) {
           .cabinet-badges-grid {
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
             gap: 8px;
           }
           .cabinet-badge-card {
             padding: 8px !important;
-            min-height: 110px !important;
+            min-height: 120px !important;
           }
         }
       `}</style>
