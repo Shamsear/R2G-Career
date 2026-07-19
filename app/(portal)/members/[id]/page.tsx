@@ -3,29 +3,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { fetchPlayerCombinedStats } from "@/utils/solo/serverActions";
 import PortalNavbar from "@/components/portal/PortalNavbar";
 import PortalFooter from "@/components/portal/PortalFooter";
 import "../../../portal.css";
 
-function generateStarRating(rating: any) {
-  if (!rating) rating = 0;
-  const stars = [];
-  const parsed = parseInt(rating, 10);
-  for (let i = 1; i <= 5; i++) {
-    if (i === 3 && parsed >= 6) {
-      stars.push(<i key={i} className="fas fa-sun" style={{ color: "gold" }} />);
-    } else if (i <= parsed) {
-      stars.push(<i key={i} className="fas fa-star" />);
-    } else {
-      stars.push(<i key={i} className="fas fa-star empty" />);
-    }
-  }
-  return stars;
-}
+const MEDAL_LEVEL_COLORS: Record<number, string> = {
+  1: '#ef4444', // Red
+  2: '#3b82f6', // Blue
+  3: '#10b981', // Green
+  4: '#c084fc', // Purple
+  5: '#fbbf24'  // Gold
+};
 
-export default function PlayerProfilePage() {
+export default function MemberProfilePage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -33,7 +24,6 @@ export default function PlayerProfilePage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -41,13 +31,13 @@ export default function PlayerProfilePage() {
       try {
         const res = await fetchPlayerCombinedStats(decodeURIComponent(id));
         if (!res) {
-          setError(`Player Profile for "${decodeURIComponent(id)}" not found`);
+          setError(`Tactician Profile for "${decodeURIComponent(id)}" not found`);
         } else {
           setData(res);
         }
       } catch (err: any) {
         console.error(err);
-        setError("Failed to load player combined stats");
+        setError("Failed to load tactician profile stats");
       } finally {
         setLoading(false);
       }
@@ -57,18 +47,14 @@ export default function PlayerProfilePage() {
 
   if (loading) {
     return (
-      <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <PortalNavbar />
-        <main style={{ position: 'relative', zIndex: 2, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#c084fc", borderRightColor: "#a855f7", animation: "spin 1s linear infinite", margin: "0 auto 1.5rem" }} />
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>Compiling Profile Statistics...</p>
+            <div style={{ width: "50px", height: "50px", borderRadius: "50%", border: "3px solid transparent", borderTopColor: "#a855f7", animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Loading Tactician Profile...</p>
           </div>
-          <style>{`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </main>
         <PortalFooter />
       </div>
@@ -77,16 +63,16 @@ export default function PlayerProfilePage() {
 
   if (error || !data) {
     return (
-      <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <PortalNavbar />
-        <main style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
           <div style={{ maxWidth: "600px", textAlign: "center" }}>
-            <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="portal-card" style={{ padding: "3rem" }}>
               <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "3rem", color: "#ef4444", marginBottom: "1.5rem" }} />
-              <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>Profile Not Found</h2>
+              <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>Error Loading Profile</h2>
               <p style={{ color: "var(--text-secondary)", marginBottom: "2rem" }}>{error}</p>
               <button onClick={() => router.back()} className="portal-btn btn-secondary">
-                <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Go Back
+                Go Back
               </button>
             </div>
           </div>
@@ -97,63 +83,43 @@ export default function PlayerProfilePage() {
   }
 
   const { manager, stats, medalStats } = data;
+  const combined = stats.solo;
 
-  // Calculate combined stats
-  const combined = {
-    matches_played: (stats.solo?.matches_played || 0) + (stats.special?.matches_played || 0) + (stats.rws?.matches_played || 0),
-    wins: (stats.solo?.wins || 0) + (stats.special?.wins || 0) + (stats.rws?.wins || 0),
-    draws: (stats.solo?.draws || 0) + (stats.special?.draws || 0) + (stats.rws?.draws || 0),
-    losses: (stats.solo?.losses || 0) + (stats.special?.losses || 0) + (stats.rws?.losses || 0),
-    goals_scored: (stats.solo?.goals_scored || 0) + (stats.special?.goals_scored || 0) + (stats.rws?.goals_scored || 0),
-    goals_conceded: (stats.solo?.goals_conceded || 0) + (stats.special?.goals_conceded || 0) + (stats.rws?.goals_conceded || 0),
-    clean_sheets: (stats.solo?.clean_sheets || 0) + (stats.special?.clean_sheets || 0) + (stats.rws?.clean_sheets || 0),
-  };
+  const totalPlayed = combined.matches_played || 0;
+  const totalWins = combined.wins || 0;
+  const winRate = totalPlayed > 0 ? Math.round((totalWins / totalPlayed) * 100) : 0;
+  const goalDiff = (combined.goals_scored || 0) - (combined.goals_conceded || 0);
+
+  const managerPhoto = manager.avatar_path || "/assets/images/default-manager.webp";
 
   const medalInfo = medalStats || {
     level: 1,
+    league: "Amateur",
     normalExp: 0,
     medalExp: 0,
     totalExp: 0,
-    medals: []
+    progressPercent: 0,
+    claimedCount: 0,
+    medals: [],
+    trophiesList: [],
+    awardsList: [],
+    awardsCount: { goldenBoot: 0, goldenGlove: 0, goldenBall: 0, bestDefender: 0 }
   };
 
-  const currentLevel = medalInfo.level || 1;
-  const currentLevelStartExp = Math.pow(currentLevel - 1, 2) * 100;
-  const nextLevelExp = Math.pow(currentLevel, 2) * 100;
-  const levelRange = nextLevelExp - currentLevelStartExp;
-  const earnedInCurrentLevel = (medalInfo.totalExp || 0) - currentLevelStartExp;
-  const progressPercent = Math.max(0, Math.min(100, Math.round((earnedInCurrentLevel / levelRange) * 100)));
+  const progressPercent = medalInfo.progressPercent || 0;
 
-  const MEDAL_LEVEL_COLORS: Record<number, string> = {
-    1: "#ef4444", // Devils Red
-    2: "#f59e0b", // Yellowish Gold
-    3: "#ec4899", // Shining Pink
-    4: "#0ea5e9", // Shining Sky Blue
-    5: "#94a3b8"  // Shining Silver
-  };
-
-
-  const winRate = combined.matches_played > 0 
-    ? Math.round((combined.wins / combined.matches_played) * 100) 
-    : 0;
-
-  const goalDiff = combined.goals_scored - combined.goals_conceded;
-
-  const topClaimedMedals = [...(medalInfo.medals || [])]
+  // Filter top claimed medals for showcase
+  const topClaimedMedals = (medalInfo.medals || [])
     .filter((m: any) => m.level > 0)
     .sort((a: any, b: any) => b.level - a.level)
     .slice(0, 5);
-
-  const managerPhoto = manager.avatar_path 
-    ? manager.avatar_path 
-    : `/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, "-")}.webp`;
 
   return (
     <div className="app-container">
       <PortalNavbar />
 
       <main className="main-content">
-        <div className="portal-container" style={{ maxWidth: "1200px", padding: "1.5rem 1.5rem" }}>
+        <div className="portal-container" style={{ maxWidth: "100%", width: "100%", padding: "1.5rem 1.5rem" }}>
           
           {/* Navigation Breadcrumb */}
           <div className="portal-breadcrumb" style={{ marginBottom: "0.75rem" }}>
@@ -162,30 +128,32 @@ export default function PlayerProfilePage() {
             </button>
           </div>
 
-          {/* CSS Styles */}
+          {/* CSS Styles for Fluid Responsive Layout */}
           <style>{`
             .profile-grid-layout {
               display: grid;
-              grid-template-columns: 320px 1fr;
-              gap: 2rem;
+              grid-template-columns: minmax(280px, 320px) 1fr;
+              gap: 1.5rem;
               margin-top: 1rem;
             }
             .profile-sidebar-card {
               background: rgba(13, 18, 24, 0.45);
               border: 1px solid rgba(255, 255, 255, 0.05);
               border-radius: 16px;
-              padding: 1.5rem 2rem;
+              padding: 1.5rem 1.5rem;
               backdrop-filter: blur(20px);
               text-align: center;
+              height: fit-content;
             }
             .profile-main-content {
               display: flex;
               flex-direction: column;
               gap: 1.5rem;
+              min-width: 0;
             }
             .profile-avatar-wrap {
-              width: 140px;
-              height: 140px;
+              width: 130px;
+              height: 130px;
               border-radius: 12px;
               margin: 0 auto 1.25rem;
               background-size: cover;
@@ -195,12 +163,13 @@ export default function PlayerProfilePage() {
             }
             .manager-profile-name {
               font-family: var(--font-display);
-              font-size: 1.5rem;
+              font-size: 1.4rem;
               font-weight: 800;
               color: #fff;
               margin: 0 0 0.5rem;
               letter-spacing: 1px;
               text-transform: uppercase;
+              word-break: break-word;
             }
             .manager-profile-id {
               display: inline-block;
@@ -231,32 +200,50 @@ export default function PlayerProfilePage() {
               color: #fff;
               font-weight: 600;
             }
-            .overview-stats-grid {
+            
+            /* Responsive Stats Grids */
+            .overview-stats-grid-5 {
+              display: grid;
+              grid-template-columns: repeat(5, 1fr);
+              gap: 0.75rem;
+              margin-bottom: 0.75rem;
+            }
+            .overview-stats-grid-4 {
               display: grid;
               grid-template-columns: repeat(4, 1fr);
-              gap: 1rem;
+              gap: 0.75rem;
             }
             .overview-stat-card {
               background: rgba(13, 18, 24, 0.45);
               border: 1px solid rgba(255, 255, 255, 0.05);
               border-radius: 12px;
-              padding: 1rem;
+              padding: 0.85rem 0.5rem;
               backdrop-filter: blur(20px);
               text-align: center;
+              min-width: 0;
             }
             .overview-val {
               font-family: var(--font-display);
-              font-size: 2rem;
+              font-size: 1.6rem;
               font-weight: 800;
               color: #fff;
-              margin-bottom: 0.25rem;
+              margin-bottom: 0.2rem;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
             .overview-lbl {
-              font-size: 0.7rem;
-              font-weight: 600;
+              font-size: 0.65rem;
+              font-weight: 700;
               color: rgba(255, 255, 255, 0.4);
               text-transform: uppercase;
               letter-spacing: 0.5px;
+            }
+
+            .awards-showcase-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+              gap: 1.5rem;
             }
             .tournaments-breakdown-grid {
               display: grid;
@@ -282,7 +269,7 @@ export default function PlayerProfilePage() {
             }
             .tourney-breakdown-title {
               font-family: var(--font-display);
-              font-size: 1.05rem;
+              font-size: 1rem;
               font-weight: 800;
               color: #fff;
               margin: 0 0 0.75rem;
@@ -307,37 +294,10 @@ export default function PlayerProfilePage() {
               color: #fff;
               font-weight: 600;
             }
-            .wallet-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 1rem;
-              margin-top: 0.75rem;
-            }
-            .wallet-pill {
-              display: flex;
-              align-items: center;
-              gap: 0.75rem;
-              padding: 12px 16px;
-              background: rgba(255, 255, 255, 0.02);
-              border: 1px solid rgba(255, 255, 255, 0.05);
-              border-radius: 8px;
-            }
-            .wallet-icon {
-              font-size: 1.1rem;
-            }
-            .wallet-pill-label {
-              font-size: 0.65rem;
-              color: rgba(255, 255, 255, 0.4);
-              text-transform: uppercase;
-            }
-            .wallet-pill-val {
-              font-size: 0.95rem;
-              font-weight: 700;
-              color: #fff;
-            }
+
             .medal-showcase-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
               gap: 1rem;
               margin-top: 0.75rem;
             }
@@ -345,10 +305,10 @@ export default function PlayerProfilePage() {
               background: rgba(255, 255, 255, 0.02);
               border: 1px solid rgba(255, 255, 255, 0.05);
               border-radius: 12px;
-              padding: 1rem;
+              padding: 0.85rem;
               display: flex;
               align-items: center;
-              gap: 12px;
+              gap: 10px;
               transition: all 0.2s ease;
             }
             .medal-card:hover {
@@ -356,13 +316,13 @@ export default function PlayerProfilePage() {
               background: rgba(255, 255, 255, 0.04);
             }
             .medal-icon-wrap {
-              width: 44px;
-              height: 44px;
+              width: 40px;
+              height: 40px;
               border-radius: 50%;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 1.25rem;
+              font-size: 1.1rem;
               flex-shrink: 0;
             }
             .level-progress-wrap {
@@ -380,41 +340,35 @@ export default function PlayerProfilePage() {
               transition: width 0.5s ease-out;
             }
 
-            /* Responsive Tweaks */
-            @media (max-width: 992px) {
+            /* Responsive Layout Media Queries */
+            @media (max-width: 1100px) {
               .profile-grid-layout {
                 grid-template-columns: 1fr;
               }
               .tournaments-breakdown-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
               }
             }
-            @media (max-width: 576px) {
-              .overview-stats-grid {
+            @media (max-width: 768px) {
+              .overview-stats-grid-5 {
+                grid-template-columns: repeat(3, 1fr);
+              }
+              .overview-stats-grid-4 {
                 grid-template-columns: repeat(2, 1fr);
               }
-              .wallet-grid {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
+            }
+            @media (max-width: 480px) {
+              .overview-stats-grid-5 {
+                grid-template-columns: repeat(2, 1fr);
+              }
+              .overview-stats-grid-4 {
+                grid-template-columns: repeat(2, 1fr);
               }
             }
           `}</style>
 
-          {/* Hero Banner Header */}
-          <div style={{ textAlign: "center", padding: "0 0 0.5rem", animation: "rwsFadeUp 0.5s ease-out both", display: "none" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "4px 14px", borderRadius: "20px", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", fontSize: "0.72rem", fontWeight: 600, color: "#c084fc", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "0.5rem" }}>
-              <i className="fa-solid fa-user-circle" /> Player Profile
-            </div>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 800, color: "#fff", margin: "0 0 0.25rem", letterSpacing: "2px", textTransform: "uppercase", background: "linear-gradient(135deg, #ffffff 0%, #c084fc 50%, #a855f7 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              UNIFIED PLAYER PROFILE
-            </h1>
-            <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.5)", maxWidth: "550px", margin: "0 auto", lineHeight: 1.4 }}>
-              Comprehensive performance ledger across Solo Tour, Special Tour, and R2G World Series.
-            </p>
-          </div>
-
           {/* Layout Grid */}
-          <div className="profile-grid-layout" style={{ animation: "rwsFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both", animationDelay: "100ms" }}>
+          <div className="profile-grid-layout" style={{ animation: "rwsFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both" }}>
             
             {/* Sidebar */}
             <div className="profile-sidebar-card">
@@ -509,7 +463,7 @@ export default function PlayerProfilePage() {
                 </h3>
                 
                 {/* Match Records Grid */}
-                <div className="overview-stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '12px' }}>
+                <div className="overview-stats-grid-5">
                   <div className="overview-stat-card">
                     <div className="overview-val">{combined.matches_played}</div>
                     <div className="overview-lbl">Matches</div>
@@ -533,7 +487,7 @@ export default function PlayerProfilePage() {
                 </div>
 
                 {/* Goal Records Grid */}
-                <div className="overview-stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                <div className="overview-stats-grid-4">
                   <div className="overview-stat-card" style={{ borderLeft: "3px solid #3b82f6" }}>
                     <div className="overview-val" style={{ color: "#60a5fa" }}>{combined.goals_scored}</div>
                     <div className="overview-lbl">Goals Scored</div>
@@ -556,7 +510,7 @@ export default function PlayerProfilePage() {
               </div>
 
               {/* Trophies & Awards Showcase */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              <div className="awards-showcase-grid">
                 {/* Trophies Card */}
                 <div style={{ background: 'rgba(13, 18, 24, 0.45)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '1.25rem', backdropFilter: 'blur(20px)' }}>
                   <h3 style={{ fontSize: "0.9rem", fontFamily: "var(--font-display)", color: "#fff", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "1px", borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -663,7 +617,7 @@ export default function PlayerProfilePage() {
 
               {/* Medal Showcase (Top 5 Claimed) */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 style={{ fontSize: "1rem", fontFamily: "var(--font-display)", color: "#fff", margin: 0, textTransform: "uppercase", letterSpacing: "1px" }}>
                     <i className="fa-solid fa-medal" style={{ color: "#c084fc", marginRight: "8px" }} /> Medals Showcase (Top Claimed)
                   </h3>
@@ -702,7 +656,7 @@ export default function PlayerProfilePage() {
                                 background: `${medalColor}15`,
                                 textTransform: 'uppercase'
                               }}>
-                                {medal.category} Lvl {medal.level}
+                                {medal.category} Tier {LEVEL_SCHEMES[medal.level]?.roman || medal.level}
                               </span>
                               <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>+{medal.exp} EXP</span>
                             </div>
@@ -814,16 +768,12 @@ export default function PlayerProfilePage() {
                 </div>
               </div>
 
-
-
             </div>
 
           </div>
 
         </div>
       </main>
-
-
 
       <PortalFooter />
     </div>
