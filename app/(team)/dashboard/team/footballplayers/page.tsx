@@ -47,6 +47,8 @@ export default function PlayerStatisticsPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const STORAGE_KEY = 'r2g_football_players_db_filters';
+
   const [isFetching, setIsFetching] = useState(false); // For filter/search changes
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
@@ -70,6 +72,94 @@ export default function PlayerStatisticsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const itemsPerPage = 25; // Show 25 players per page for faster loading
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Restore filter state from URL or sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get('search');
+    const qPos = params.get('position');
+    const qStyle = params.get('style');
+    const qTeam = params.get('team');
+    const qStarred = params.get('starred');
+    const qPage = params.get('page');
+
+    const hasUrlParams =
+      qSearch !== null ||
+      qPos !== null ||
+      qStyle !== null ||
+      qTeam !== null ||
+      qStarred !== null ||
+      qPage !== null;
+
+    if (hasUrlParams) {
+      if (qSearch !== null) setSearchTerm(qSearch);
+      if (qPos !== null) setPositionFilter(qPos);
+      if (qStyle !== null) setPlayingStyleFilter(qStyle);
+      if (qTeam !== null) setTeamFilter(qTeam);
+      if (qStarred !== null) setShowStarredOnly(qStarred === 'true');
+      if (qPage !== null && !isNaN(Number(qPage))) setCurrentPage(Math.max(1, Number(qPage)));
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+          if (parsed.positionFilter !== undefined) setPositionFilter(parsed.positionFilter);
+          if (parsed.playingStyleFilter !== undefined) setPlayingStyleFilter(parsed.playingStyleFilter);
+          if (parsed.teamFilter !== undefined) setTeamFilter(parsed.teamFilter);
+          if (parsed.showStarredOnly !== undefined) setShowStarredOnly(parsed.showStarredOnly);
+          if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
+        }
+      } catch (e) {
+        console.error('Failed to restore football players database filters', e);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Save filter state to sessionStorage and URL query parameters
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          searchTerm,
+          positionFilter,
+          playingStyleFilter,
+          teamFilter,
+          showStarredOnly,
+          currentPage,
+        })
+      );
+    } catch (e) {
+      console.error('Failed to save football players database state', e);
+    }
+
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (positionFilter) params.set('position', positionFilter);
+    if (playingStyleFilter) params.set('style', playingStyleFilter);
+    if (teamFilter) params.set('team', teamFilter);
+    if (showStarredOnly) params.set('starred', 'true');
+    if (currentPage > 1) params.set('page', currentPage.toString());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    if (window.location.search !== (queryString ? `?${queryString}` : '')) {
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [
+    searchTerm,
+    positionFilter,
+    playingStyleFilter,
+    teamFilter,
+    showStarredOnly,
+    currentPage,
+    isInitialized,
+  ]);
 
   useEffect(() => {
     if (!loading && !user) {

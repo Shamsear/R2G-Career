@@ -7,12 +7,53 @@ import PortalNavbar from "@/components/portal/PortalNavbar";
 import PortalFooter from "@/components/portal/PortalFooter";
 import "../../portal.css";
 
+const STORAGE_KEY = "r2g_members_dir_filters";
+
 export default function MembersDirectoryPage() {
   const [players, setPlayers] = useState<any[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get("search");
+
+    if (qSearch !== null) {
+      setSearchTerm(qSearch);
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+        }
+      } catch (e) {
+        console.error("Failed to restore members directory search", e);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ searchTerm }));
+    } catch (e) {
+      console.error("Failed to save members directory search", e);
+    }
+
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [searchTerm, isInitialized]);
 
   useEffect(() => {
     async function loadData() {

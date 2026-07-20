@@ -68,6 +68,8 @@ export default function TeamPlayersPage() {
   const [isLoadingAuction, setIsLoadingAuction] = useState(true);
   const [isLoadingTournament, setIsLoadingTournament] = useState(true);
   
+  const STORAGE_KEY = 'r2g_team_player_db_filters';
+
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
   // Auction player filters
@@ -77,6 +79,101 @@ export default function TeamPlayersPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [starRatingFilter, setStarRatingFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Restore filter state from URL or sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qTab = params.get('tab') as TabType;
+    const qSearch = params.get('search');
+    const qPos = params.get('position');
+    const qGroup = params.get('group');
+    const qCategory = params.get('category');
+    const qStar = params.get('star');
+    const qStatus = params.get('status');
+
+    const hasUrlParams =
+      qTab !== null ||
+      qSearch !== null ||
+      qPos !== null ||
+      qGroup !== null ||
+      qCategory !== null ||
+      qStar !== null ||
+      qStatus !== null;
+
+    if (hasUrlParams) {
+      if (qTab && (qTab === 'tournament' || qTab === 'auction')) setActiveTab(qTab);
+      if (qSearch !== null) setSearchTerm(qSearch);
+      if (qPos !== null) setPositionFilter(qPos);
+      if (qGroup !== null) setPositionGroupFilter(qGroup);
+      if (qCategory !== null) setCategoryFilter(qCategory);
+      if (qStar !== null) setStarRatingFilter(qStar);
+      if (qStatus !== null) setStatusFilter(qStatus);
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.activeTab) setActiveTab(parsed.activeTab);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+          if (parsed.positionFilter !== undefined) setPositionFilter(parsed.positionFilter);
+          if (parsed.positionGroupFilter !== undefined) setPositionGroupFilter(parsed.positionGroupFilter);
+          if (parsed.categoryFilter !== undefined) setCategoryFilter(parsed.categoryFilter);
+          if (parsed.starRatingFilter !== undefined) setStarRatingFilter(parsed.starRatingFilter);
+          if (parsed.statusFilter !== undefined) setStatusFilter(parsed.statusFilter);
+        }
+      } catch (e) {
+        console.error('Failed to restore team players database filters', e);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Save filter state to sessionStorage and URL searchParams
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          activeTab,
+          searchTerm,
+          positionFilter,
+          positionGroupFilter,
+          categoryFilter,
+          starRatingFilter,
+          statusFilter,
+        })
+      );
+    } catch (e) {
+      console.error('Failed to save team players database state', e);
+    }
+
+    const params = new URLSearchParams();
+    if (activeTab !== 'tournament') params.set('tab', activeTab);
+    if (searchTerm) params.set('search', searchTerm);
+    if (positionFilter !== 'all') params.set('position', positionFilter);
+    if (positionGroupFilter !== 'all') params.set('group', positionGroupFilter);
+    if (categoryFilter !== 'all') params.set('category', categoryFilter);
+    if (starRatingFilter !== 'all') params.set('star', starRatingFilter);
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    if (window.location.search !== (queryString ? `?${queryString}` : '')) {
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [
+    activeTab,
+    searchTerm,
+    positionFilter,
+    positionGroupFilter,
+    categoryFilter,
+    starRatingFilter,
+    statusFilter,
+    isInitialized,
+  ]);
 
   useEffect(() => {
     if (!loading && !user) {

@@ -6,6 +6,8 @@ import "../../../portal.css";
 import "./player-database.css";
 import { fetchPlayersDb } from "../../../../utils/solo/serverActions";
 
+const STORAGE_KEY = "r2g_solo_player_db_filters";
+
 export default function PlayerStatus() {
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +19,75 @@ export default function PlayerStatus() {
   const [clubFilter, setClubFilter] = useState("ALL");
   const [positionFilters, setPositionFilters] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInitialized, setIsInitialized] = useState(false);
   const itemsPerPage = 24;
+
+  // Restore filter state from URL or sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get("search");
+    const qStar = params.get("star");
+    const qClub = params.get("club");
+    const qPos = params.get("pos");
+    const qPage = params.get("page");
+
+    const hasUrlParams =
+      qSearch !== null ||
+      qStar !== null ||
+      qClub !== null ||
+      qPos !== null ||
+      qPage !== null;
+
+    if (hasUrlParams) {
+      if (qSearch !== null) setSearchTerm(qSearch);
+      if (qStar !== null) setStarFilter(qStar);
+      if (qClub !== null) setClubFilter(qClub);
+      if (qPos !== null) setPositionFilters(qPos ? qPos.split(",").filter(Boolean) : []);
+      if (qPage !== null && !isNaN(Number(qPage))) setCurrentPage(Math.max(1, Number(qPage)));
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+          if (parsed.starFilter !== undefined) setStarFilter(parsed.starFilter);
+          if (parsed.clubFilter !== undefined) setClubFilter(parsed.clubFilter);
+          if (parsed.positionFilters !== undefined) setPositionFilters(parsed.positionFilters);
+          if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
+        }
+      } catch (e) {
+        console.error("Failed to restore player database state", e);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Save filter state to sessionStorage and URL query parameters
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ searchTerm, starFilter, clubFilter, positionFilters, currentPage })
+      );
+    } catch (e) {
+      console.error("Failed to save player database state", e);
+    }
+
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (starFilter && starFilter !== "all") params.set("star", starFilter);
+    if (clubFilter && clubFilter !== "ALL") params.set("club", clubFilter);
+    if (positionFilters.length > 0) params.set("pos", positionFilters.join(","));
+    if (currentPage > 1) params.set("page", currentPage.toString());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [searchTerm, starFilter, clubFilter, positionFilters, currentPage, isInitialized]);
 
   useEffect(() => {
     document.title = "Players Database - Solo Tour | R2G";
@@ -53,6 +123,12 @@ export default function PlayerStatus() {
     setClubFilter("ALL");
     setPositionFilters([]);
     setCurrentPage(1);
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   };
 
   const filteredPlayers = useMemo(() => {
