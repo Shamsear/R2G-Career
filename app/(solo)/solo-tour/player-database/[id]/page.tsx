@@ -126,7 +126,9 @@ export default function PlayerProfilePage() {
     const seasonsLeft = Math.max(0, expireNum - currentSeasonVal);
 
     // Club logo path
-    const clubLogoPath = `/assets/images/club-logos/${encodeURIComponent(player.club.replace(/\s+/g, '-'))}.webp`;
+    const clubLogoPath = (player.club === 'FREE AGENT' || player.club === 'Free Agent' || !player.club)
+        ? '/assets/images/freeagent.WEBP'
+        : `/assets/images/club-logos/${encodeURIComponent(player.club.replace(/\s+/g, '-'))}.webp`;
 
     return (
         <div className="portal-root-wrapper">
@@ -174,7 +176,7 @@ export default function PlayerProfilePage() {
                             <div className="hero-club-row">
                                 <img 
                                     className="hero-club-logo" 
-                                    src={clubLogoError ? '/assets/images/default-club-logo.png' : clubLogoPath}
+                                    src={clubLogoError ? '/assets/images/freeagent.WEBP' : clubLogoPath}
                                     alt={player.club}
                                     onError={() => setClubLogoError(true)}
                                 />

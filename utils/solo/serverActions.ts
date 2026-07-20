@@ -43,17 +43,43 @@ export async function logSoloAdminAction(actionType: string, details: any) {
   }
 }
 
-function resolvePlayerImageUrl(imagepath: string | null | undefined, id: number | string): string {
+function resolvePlayerImageUrl(imagepath: string | null | undefined, id: number | string, updatedAt?: string | number | Date): string {
   const pathVal = imagepath || `/assets/images/players/${id}.png`;
-  if (pathVal.startsWith('http://') || pathVal.startsWith('https://')) {
+  
+  if (pathVal && pathVal.startsWith('data:image/')) {
     return pathVal;
+  }
+
+  let mtime = 0;
+  if (updatedAt) {
+    mtime = new Date(updatedAt).getTime();
+  } else if (typeof window === 'undefined' && typeof process !== 'undefined') {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(process.cwd(), 'public', 'assets', 'images', 'players', `${id}.png`);
+      if (fs.existsSync(filePath)) {
+        mtime = Math.floor(fs.statSync(filePath).mtimeMs);
+      }
+    } catch (e) {}
+  }
+  
+  const cacheBust = mtime ? `?v=${mtime}` : `?v=${Date.now()}`;
+
+  if (pathVal.startsWith('http://') || pathVal.startsWith('https://')) {
+    return pathVal.includes('?') ? `${pathVal}&v=${mtime || Date.now()}` : `${pathVal}?v=${mtime || Date.now()}`;
   }
   if (pathVal.startsWith('/assets/images/players/')) {
     const filename = pathVal.substring('/assets/images/players/'.length);
-    return `https://ik.imagekit.io/6dbhhctcf/players/${filename}`;
+    return `https://ik.imagekit.io/6dbhhctcf/players/${filename}${cacheBust}`;
   }
-  return `https://ik.imagekit.io/6dbhhctcf/players/${id}.png`;
+  return `https://ik.imagekit.io/6dbhhctcf/players/${id}.png${cacheBust}`;
 }
+
+// Auto-initialize players updated_at column
+pool.query(`
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`).catch(err => console.error("Error adding updated_at column to players table:", err));
 
 // Auto-initialize medal_audit_logs table
 pool.query(`
@@ -410,7 +436,7 @@ export async function fetchPlayersDb() {
     try {
         const { rows: playersResult } = await pool.query(`
             SELECT 
-                p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagePath,
+                p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagepath, p.updated_at,
                 c.name as club_name, pc.status
             FROM players p
             LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
@@ -425,7 +451,7 @@ export async function fetchPlayersDb() {
             value: p.value || 0,
             star: p.star || '3-star-standard',
             level: 'undefined',
-            imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
+            imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
             stats: []
         }));
     } catch (error) {
@@ -2473,7 +2499,7 @@ export async function updatePlayer(data: any) {
     
     const { rows } = await pool.query(`
       UPDATE players SET
-        name = $1, position = $2, card_type = $3, base_value = $4, image_path = $5, is_suspended = $6
+        name = $1, position = $2, card_type = $3, base_value = $4, image_path = $5, is_suspended = $6, updated_at = CURRENT_TIMESTAMP
       WHERE id = $7
       RETURNING *
     `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, finalPath, data.isSuspended || false, data.id]);
@@ -5745,6 +5771,7 @@ export async function fetchAdminPlayersList() {
         p.card_type as star, 
         p.base_value as value, 
         p.image_path as imagepath, 
+        p.updated_at,
         p.is_suspended,
         pc.current_club_id as club_id,
         c.name as club_name
@@ -5760,7 +5787,7 @@ export async function fetchAdminPlayersList() {
       position: p.position || '',
       value: p.value || 80,
       star: p.star || '3-star-standard',
-      imagePath: p.imagepath || '',
+      imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
       isSuspended: p.is_suspended || false,
       clubId: p.club_id,
       clubName: p.club_name || null

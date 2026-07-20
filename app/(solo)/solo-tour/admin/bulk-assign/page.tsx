@@ -904,7 +904,8 @@ export default function BulkAssignPlayersPage() {
                         </div>
 
                         <div>
-                          <span className="badge-active" style={{ fontSize: "0.72rem" }}>
+                          <span className="badge-active" style={{ fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                            <img src="/assets/images/freeagent.WEBP" alt="" style={{ width: "14px", height: "14px", objectFit: "contain" }} />
                             Free Agent
                           </span>
                         </div>
@@ -1111,7 +1112,8 @@ export default function BulkAssignPlayersPage() {
 
                             {/* Current Status */}
                             <td>
-                              <span className="badge-active" style={{ fontSize: "0.75rem" }}>
+                              <span className="badge-active" style={{ fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <img src="/assets/images/freeagent.WEBP" alt="" style={{ width: "14px", height: "14px", objectFit: "contain" }} />
                                 Free Agent
                               </span>
                             </td>

@@ -8,6 +8,14 @@ import { fetchPlayersDb } from "../../../../utils/solo/serverActions";
 
 const STORAGE_KEY = "r2g_solo_player_db_filters";
 
+const TIER_OPTIONS = [
+  { value: "all", label: "All Tiers", badge: "ALL" },
+  { value: "legend", label: "Legend (150+ Coins)", badge: "PRIME" },
+  { value: "5-star", label: "5★ Standard (120-149 Coins)", badge: "5★" },
+  { value: "4-star", label: "4★ Standard (100-119 Coins)", badge: "4★" },
+  { value: "3-star", label: "3★ Standard (<100 Coins)", badge: "3★" }
+];
+
 export default function PlayerStatus() {
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +29,27 @@ export default function PlayerStatus() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isInitialized, setIsInitialized] = useState(false);
   const itemsPerPage = 24;
+
+  // Custom Searchable Dropdown States
+  const [clubDropdownOpen, setClubDropdownOpen] = useState(false);
+  const [clubSearch, setClubSearch] = useState("");
+  const [starDropdownOpen, setStarDropdownOpen] = useState(false);
+  const [starSearch, setStarSearch] = useState("");
+
+  // Close custom dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (!target.closest("[data-club-filter-dropdown]")) {
+        setClubDropdownOpen(false);
+      }
+      if (!target.closest("[data-star-filter-dropdown]")) {
+        setStarDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Restore filter state from URL or sessionStorage on mount
   useEffect(() => {
@@ -163,6 +192,22 @@ export default function PlayerStatus() {
     return Array.from(c).sort();
   }, [players]);
 
+  // Filtered List for Custom Club Dropdown
+  const filteredClubList = useMemo(() => {
+    const allClubs = ["ALL", "FREE AGENT", ...clubs.filter(c => c !== "FREE AGENT")];
+    return allClubs.filter(c => c.toLowerCase().includes(clubSearch.toLowerCase()));
+  }, [clubs, clubSearch]);
+
+  // Filtered List for Custom Tier Dropdown
+  const filteredTierList = useMemo(() => {
+    return TIER_OPTIONS.filter(t => t.label.toLowerCase().includes(starSearch.toLowerCase()));
+  }, [starSearch]);
+
+  const selectedTierLabel = useMemo(() => {
+    const opt = TIER_OPTIONS.find(t => t.value === starFilter);
+    return opt ? opt.label : "All Tiers";
+  }, [starFilter]);
+
   const hasActiveFilters =
     searchTerm || starFilter !== "all" || clubFilter !== "ALL" || positionFilters.length > 0;
 
@@ -188,6 +233,153 @@ export default function PlayerStatus() {
 
   return (
     <div className="portal-root-wrapper">
+      <style jsx global>{`
+        .portal-container {
+          gap: 0.75rem !important;
+        }
+        @media (max-width: 768px) {
+          .portal-container {
+            gap: 0.5rem !important;
+            padding: 0.75rem 0.75rem 1.25rem !important;
+          }
+          .filter-toolbar-row {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.5rem !important;
+          }
+          .toolbar-search {
+            width: 100% !important;
+            min-width: 100% !important;
+            flex: none !important;
+          }
+          .custom-filter-dropdown {
+            width: 100% !important;
+            min-width: 100% !important;
+            flex: none !important;
+          }
+        }
+        .filter-toolbar {
+          position: relative !important;
+          z-index: 100 !important;
+          overflow: visible !important;
+          margin-bottom: 0.4rem !important;
+        }
+        .filter-toolbar-row {
+          position: relative !important;
+          z-index: 100 !important;
+          overflow: visible !important;
+        }
+        .active-filters {
+          margin-top: 0.2rem !important;
+          margin-bottom: 0.25rem !important;
+        }
+        .result-count {
+          padding: 0 !important;
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+          line-height: 1 !important;
+        }
+        .cards-wrapper {
+          position: relative !important;
+          z-index: 1 !important;
+          margin-top: -6px !important;
+          padding-top: 0 !important;
+        }
+        .card {
+          margin-top: 0 !important;
+        }
+        .custom-filter-dropdown {
+          position: relative !important;
+          z-index: 110 !important;
+          min-width: 170px;
+          flex: 1;
+        }
+        .custom-dropdown-trigger {
+          background: rgba(16, 21, 31, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
+          padding: 9px 14px;
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 500;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          user-select: none;
+          transition: all 0.2s ease;
+        }
+        .custom-dropdown-trigger:hover {
+          border-color: var(--solo-primary, #6366f1);
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .custom-dropdown-menu {
+          position: absolute !important;
+          top: 100% !important;
+          left: 0 !important;
+          right: 0 !important;
+          margin-top: 6px !important;
+          background: #131824 !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(99, 102, 241, 0.2) !important;
+          z-index: 9999 !important;
+          overflow: hidden !important;
+          animation: adminFadeIn 0.18s ease !important;
+        }
+        .cards-wrapper {
+          position: relative !important;
+          z-index: 1 !important;
+        }
+        .custom-dropdown-search {
+          padding: 8px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-dropdown-search input {
+          width: 100%;
+          background: rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          padding: 7px 10px;
+          font-size: 0.8rem;
+          color: #fff;
+          outline: none;
+          box-sizing: border-box;
+        }
+        .custom-dropdown-list {
+          max-height: 220px;
+          overflow-y: auto;
+        }
+        .custom-dropdown-list::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-dropdown-list::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 4px;
+        }
+        .custom-dropdown-item {
+          padding: 9px 12px;
+          font-size: 0.82rem;
+          color: #fff;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          transition: background 0.12s ease;
+        }
+        .custom-dropdown-item:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .custom-dropdown-item.selected {
+          background: rgba(99, 102, 241, 0.2);
+          border-left: 3px solid var(--solo-primary, #6366f1);
+          font-weight: 600;
+        }
+      `}</style>
+
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
@@ -232,8 +424,8 @@ export default function PlayerStatus() {
 
         {/* Filter toolbar */}
         <div className="filter-toolbar">
-          <div className="filter-toolbar-row">
-            <div className="toolbar-search">
+          <div className="filter-toolbar-row" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <div className="toolbar-search" style={{ flex: 1.5 }}>
               <input
                 type="text"
                 placeholder="Search players..."
@@ -249,31 +441,140 @@ export default function PlayerStatus() {
               )}
             </div>
 
-            <select
-              className="toolbar-select"
-              value={starFilter}
-              onChange={(e) => { setStarFilter(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="all">All Tiers</option>
-              <option value="legend">Legend</option>
-              <option value="5-star">5★ Standard</option>
-              <option value="4-star">4★ Standard</option>
-              <option value="3-star">3★ Standard</option>
-            </select>
+            {/* CUSTOM SEARCHABLE TIER DROPDOWN */}
+            <div className="custom-filter-dropdown" data-star-filter-dropdown="true">
+              <div
+                className="custom-dropdown-trigger"
+                onClick={() => setStarDropdownOpen(prev => !prev)}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <i className="fa-solid fa-layer-group" style={{ color: "var(--solo-primary)", fontSize: "0.8rem" }} />
+                  <strong>{selectedTierLabel}</strong>
+                </span>
+                <i className={`fa-solid fa-chevron-${starDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
+              </div>
 
-            <select
-              className="toolbar-select"
-              value={clubFilter}
-              onChange={(e) => { setClubFilter(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="ALL">All Clubs</option>
-              <option value="FREE AGENT">FREE AGENT</option>
-              {clubs
-                .filter((c) => c !== "FREE AGENT")
-                .map((club) => (
-                  <option key={club} value={club}>{club}</option>
-                ))}
-            </select>
+              {starDropdownOpen && (
+                <div className="custom-dropdown-menu">
+                  <div className="custom-dropdown-search">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search tier..."
+                      value={starSearch}
+                      onChange={(e) => setStarSearch(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="custom-dropdown-list">
+                    {filteredTierList.map(opt => {
+                      const isSelected = starFilter === opt.value;
+                      return (
+                        <div
+                          key={opt.value}
+                          className={`custom-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStarFilter(opt.value);
+                            setCurrentPage(1);
+                            setStarDropdownOpen(false);
+                            setStarSearch("");
+                          }}
+                        >
+                          <span>{opt.label}</span>
+                          {isSelected && <i className="fa-solid fa-check" style={{ color: "var(--solo-primary)", fontSize: "0.75rem" }} />}
+                        </div>
+                      );
+                    })}
+                    {filteredTierList.length === 0 && (
+                      <div style={{ padding: "12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem" }}>
+                        No tiers found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* CUSTOM SEARCHABLE CLUB DROPDOWN */}
+            <div className="custom-filter-dropdown" data-club-filter-dropdown="true">
+              <div
+                className="custom-dropdown-trigger"
+                onClick={() => setClubDropdownOpen(prev => !prev)}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+                  {clubFilter === "FREE AGENT" ? (
+                    <img src="/assets/images/freeagent.WEBP" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                  ) : clubFilter !== "ALL" ? (
+                    <img
+                      src={`/assets/images/club-logos/${encodeURIComponent(clubFilter.replace(/\s+/g, '-'))}.webp`}
+                      alt=""
+                      style={{ width: "16px", height: "16px", objectFit: "contain" }}
+                      onError={(e: any) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <i className="fa-solid fa-shield-halved" style={{ color: "var(--solo-primary)", fontSize: "0.8rem" }} />
+                  )}
+                  <strong>{clubFilter === "ALL" ? "All Clubs" : clubFilter}</strong>
+                </span>
+                <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
+              </div>
+
+              {clubDropdownOpen && (
+                <div className="custom-dropdown-menu">
+                  <div className="custom-dropdown-search">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search club name..."
+                      value={clubSearch}
+                      onChange={(e) => setClubSearch(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="custom-dropdown-list">
+                    {filteredClubList.map(clubName => {
+                      const isSelected = clubFilter === clubName;
+                      return (
+                        <div
+                          key={clubName}
+                          className={`custom-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClubFilter(clubName);
+                            setCurrentPage(1);
+                            setClubDropdownOpen(false);
+                            setClubSearch("");
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {clubName === "FREE AGENT" ? (
+                              <img src="/assets/images/freeagent.WEBP" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                            ) : clubName !== "ALL" ? (
+                              <img
+                                src={`/assets/images/club-logos/${encodeURIComponent(clubName.replace(/\s+/g, '-'))}.webp`}
+                                alt=""
+                                style={{ width: "16px", height: "16px", objectFit: "contain" }}
+                                onError={(e: any) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <i className="fa-solid fa-layer-group" style={{ fontSize: "0.75rem", opacity: 0.5 }} />
+                            )}
+                            <span>{clubName === "ALL" ? "All Clubs" : clubName}</span>
+                          </div>
+                          {isSelected && <i className="fa-solid fa-check" style={{ color: "var(--solo-primary)", fontSize: "0.75rem" }} />}
+                        </div>
+                      );
+                    })}
+                    {filteredClubList.length === 0 && (
+                      <div style={{ padding: "12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem" }}>
+                        No clubs found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="filter-toolbar-row">
@@ -333,7 +634,7 @@ export default function PlayerStatus() {
           {currentPage > 1 && <>&nbsp;&middot; Page {currentPage}</>}
         </div>
 
-        {/* Cards / No results */}
+        {/* Cards / No results (PRESERVED FIFA CARD RENDER CODE) */}
         {filteredPlayers.length === 0 ? (
           <div className="no-results-message">
             <i className="fa-solid fa-user-slash" />

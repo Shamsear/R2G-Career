@@ -500,7 +500,16 @@ export default function PlayersManager() {
                           </span>
                         </td>
                         <td style={{ textTransform: "capitalize" }}>{p.star.replace(/-/g, " ")}</td>
-                        <td>{p.clubName || <em style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>Free Agent</em>}</td>
+                        <td>
+                          {p.clubName ? (
+                            p.clubName
+                          ) : (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "rgba(255,255,255,0.45)", fontSize: "0.85rem" }}>
+                              <img src="/assets/images/freeagent.WEBP" alt="Free Agent" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                              <em>Free Agent</em>
+                            </span>
+                          )}
+                        </td>
                         <td style={{ textAlign: "right" }}>
                           <button className="portal-btn btn-secondary" style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleEditPlayer(p)}>
                             <i className="fa-solid fa-pen" /> Edit
