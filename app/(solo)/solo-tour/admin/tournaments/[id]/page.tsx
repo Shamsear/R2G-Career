@@ -2133,7 +2133,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
                 Official tournament standings and statistics captured on {new Date().toLocaleDateString()}
               </p>
-                {/* Table Tab */}
+            </div>
+            {/* Table Tab */}
             {activeTab === "table" && (
               <div>
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
