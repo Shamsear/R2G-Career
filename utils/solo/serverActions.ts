@@ -15,6 +15,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false } // Standard practice for external Supabase/Neon DBs
 });
 
+function resolvePlayerImageUrl(imagepath: string | null | undefined, id: number | string): string {
+  const pathVal = imagepath || `/assets/images/players/${id}.png`;
+  if (pathVal.startsWith('http://') || pathVal.startsWith('https://')) {
+    return pathVal;
+  }
+  if (pathVal.startsWith('/assets/images/players/')) {
+    const filename = pathVal.substring('/assets/images/players/'.length);
+    return `https://ik.imagekit.io/6dbhhctcf/players/${filename}`;
+  }
+  return `https://ik.imagekit.io/6dbhhctcf/players/${id}.png`;
+}
+
 // Auto-initialize medal_audit_logs table
 pool.query(`
   CREATE TABLE IF NOT EXISTS medal_audit_logs (
@@ -282,7 +294,7 @@ export async function fetchManagerByName(name: string) {
                 position: p.position,
                 value: p.value || 0,
                 star: p.star || '3-star-standard',
-                imagePath: p.imagepath || `/assets/images/players/${p.id}.png`
+                imagePath: resolvePlayerImageUrl(p.imagepath, p.id)
             })),
             seasons: seasons
         };
@@ -340,7 +352,7 @@ export async function fetchPlayerById(id: string | number) {
             value: p.value || 0,
             star: p.star || '3-star-standard',
             level: p.tier_status || 'undefined',
-            imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+            imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
             salary: p.salary || 0,
             startSeason: p.start_season || '',
             expireSeason: p.expire_season || '',
@@ -375,7 +387,7 @@ export async function fetchPlayersDb() {
             value: p.value || 0,
             star: p.star || '3-star-standard',
             level: 'undefined',
-            imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+            imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
             stats: []
         }));
     } catch (error) {
@@ -718,7 +730,7 @@ export async function fetchClubPlayers(clubId: string | number) {
       position: p.position || '',
       value: p.value || 0,
       star: p.star || '3-star-standard',
-      imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+      imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
       isSuspended: p.is_suspended || false
     }));
   } catch (e) {
@@ -4642,7 +4654,7 @@ export async function fetchFreeAgents() {
       position: p.position || '',
       value: Number(p.value) || 0,
       star: p.star || '3-star-standard',
-      imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+      imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
       isSuspended: p.is_suspended || false
     }));
   } catch (e) {
@@ -5631,7 +5643,7 @@ export async function fetchClubPlayersWithContracts(clubId: string | number, sea
       position: p.position || '',
       value: p.value || 0,
       star: p.star || '3-star-standard',
-      imagePath: p.imagepath || `/assets/images/players/${p.id}.png`,
+      imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
       isSuspended: p.is_suspended || false,
       startSeason: p.start_season || '',
       expireSeason: p.expire_season || '',
