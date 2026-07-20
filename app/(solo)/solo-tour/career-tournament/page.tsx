@@ -64,28 +64,35 @@ export default function CareerTournament() {
   ];
 
   const renderSection = (title: string, icon: string, items: typeof tournaments) => (
-    <div className="tournament-category-block">
-      <div className="tournament-category-title">
-        <i className={icon} style={{ color: "var(--rose)", marginRight: "0.35rem" }} />
-        <h2>{title}</h2>
+    <div className="tournament-category-block" style={{ marginBottom: "3rem" }}>
+      <div className="tournament-category-title" style={{ marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <i className={icon} style={{ color: "var(--rose)", fontSize: "1.25rem" }} />
+        <h2 style={{ fontSize: "1.2rem", fontWeight: 700, letterSpacing: "1px" }}>{title}</h2>
       </div>
-      <div className="tournament-cards-grid">
+      <div className="tournament-cards-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "1.5rem" }}>
         {items.map((t, i) => (
           <div
             key={i}
             className="tournament-display-card"
-            style={{ transitionDelay: `${i * 0.06}s` }}
+            style={{
+              transitionDelay: `${i * 0.06}s`,
+              background: "rgba(255, 255, 255, 0.02)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              borderRadius: "16px",
+              overflow: "hidden"
+            }}
           >
-            <div className="tournament-card-header">
-              <h3>{t.name}</h3>
+            <div className="tournament-card-header" style={{ padding: "1rem 1.25rem", borderBottom: "1px solid rgba(255, 255, 255, 0.06)", background: "rgba(255, 255, 255, 0.02)" }}>
+              <h3 style={{ fontSize: "0.95rem", color: "#ffffff", fontWeight: 700, margin: 0, letterSpacing: "0.5px" }}>{t.name}</h3>
             </div>
-            <div className="tournament-card-body">
-              <div className="tournament-pair-images">
-                <div className="tournament-img-wrapper" onClick={() => openModal(t.img1)}>
-                  <Image src={t.img1} alt={t.name} width={300} height={200} style={{ width: "100%", height: "auto" }} />
+            <div className="tournament-card-body" style={{ padding: "1.25rem" }}>
+              <div className="tournament-pair-images" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="tournament-img-wrapper" onClick={() => openModal(t.img1)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.4)" }}>
+                  <Image src={t.img1} alt={t.name} width={400} height={260} style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
-                <div className="tournament-img-wrapper" onClick={() => openModal(t.img2)}>
-                  <Image src={t.img2} alt={`${t.name} Standings`} width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="tournament-img-wrapper" onClick={() => openModal(t.img2)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.4)" }}>
+                  <Image src={t.img2} alt={`${t.name} Standings`} width={400} height={260} style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
               </div>
             </div>
@@ -101,29 +108,29 @@ export default function CareerTournament() {
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container">
+      <div style={{ maxWidth: "1500px", width: "95%", margin: "0 auto", padding: "1.5rem 1rem 4rem", position: "relative", zIndex: 2 }}>
         {/* Breadcrumb */}
-        <div className="portal-breadcrumb">
+        <div className="portal-breadcrumb" style={{ marginBottom: "1rem" }}>
           <Link href="/solo-tour" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left" /> Back to Dashboard
           </Link>
         </div>
 
         {/* Header */}
-        <div className="portal-header">
+        <div className="portal-header" style={{ textAlign: "center", marginBottom: "2rem" }}>
           <div className="portal-page-badge">
             <i className="fa-solid fa-sitemap" />
             Career Tournaments
           </div>
-          <h1 className="portal-title">CAREER TOURNAMENTS</h1>
-          <p className="portal-subtitle">
+          <h1 className="portal-title" style={{ fontSize: "2.25rem", margin: "0.5rem 0" }}>CAREER TOURNAMENTS</h1>
+          <p className="portal-subtitle" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", maxWidth: "600px", margin: "0 auto" }}>
             Compete in division leagues and cup championships to earn rewards and build your
             manager legacy.
           </p>
         </div>
 
         {/* Stats summary */}
-        <div className="portal-stats-ribbon">
+        <div className="portal-stats-ribbon" style={{ marginBottom: "2.5rem" }}>
           <div className="stat-pill">
             <i className="fa-solid fa-layer-group" />
             <span>5 Divisions</span>
@@ -153,24 +160,12 @@ export default function CareerTournament() {
         </div>
 
         {/* Tip note */}
-        <div className="glass-panel" style={{ textAlign: "center", padding: "1.5rem 2rem" }}>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+        <div className="glass-panel" style={{ textAlign: "center", padding: "1.5rem 2rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", marginTop: "1rem" }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", margin: 0 }}>
             <i className="fa-solid fa-magnifying-glass-plus" style={{ color: "var(--rose)" }} />
             Click any image to expand it in full view
           </p>
         </div>
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              Tournaments: Active
-            </div>
-            <div className="status-item">R2G Career Mode</div>
-          </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
       </div>
 
       {/* Back to top */}
