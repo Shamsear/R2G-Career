@@ -118,7 +118,9 @@ function FixturesManagerContent() {
                 >
                   <option value="">-- Select Tournament --</option>
                   {tournaments.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} (S{t.season_number})</option>
+                    <option key={t.id} value={t.id}>
+                      {t.name}{(t.tournament_type === 'special' || t.tournament_type === 'rws') ? '' : ` (S${t.season_number})`}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -246,7 +246,7 @@ export default function SpecialTourFixtures() {
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.15)", color: "var(--text-secondary)" }}>
                       <th style={{ padding: "0.75rem", width: "50px" }}>Pos</th>
-                      <th style={{ padding: "0.75rem" }}>Club</th>
+                      <th style={{ padding: "0.75rem" }}>Participant Manager</th>
                       <th style={{ padding: "0.75rem", textAlign: "center" }}>P</th>
                       <th style={{ padding: "0.75rem", textAlign: "center" }}>PTS</th>
                       <th style={{ padding: "0.75rem", textAlign: "center" }}>GD</th>
@@ -267,18 +267,26 @@ export default function SpecialTourFixtures() {
                           {index + 1}
                         </td>
                         <td style={{ padding: "1rem 0.75rem", fontWeight: 600 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <div 
-                              style={{ 
-                                width: "24px", 
-                                height: "24px", 
-                                backgroundSize: "contain", 
-                                backgroundPosition: "center", 
-                                backgroundRepeat: "no-repeat", 
-                                backgroundImage: `url('${row.club_logo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
-                              }}
-                            />
-                            {row.club_name}
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                            {row.club_logo ? (
+                              <img 
+                                src={row.club_logo} 
+                                alt={row.club_name} 
+                                style={{ width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }} 
+                              />
+                            ) : (
+                              <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "bold" }}>
+                                {row.club_name.substring(0, 1)}
+                              </div>
+                            )}
+                            <span>
+                              {row.club_name}
+                              {row.manager_r2g_id && (
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "6px", fontWeight: "normal" }}>
+                                  ({row.manager_r2g_id})
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </td>
                         <td style={{ padding: "1rem 0.75rem", textAlign: "center", fontWeight: 500 }}>{row.matches_played}</td>

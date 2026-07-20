@@ -20,19 +20,57 @@ async function uploadImages() {
   // Filter for only png and jpg files
   const imageFiles = files.filter(file => file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.webp'));
   
-  console.log(`Found ${imageFiles.length} images to upload.`);
+  console.log(`Local images found: ${imageFiles.length}`);
+  console.log(`Fetching list of existing files from ImageKit folder '/players'...`);
+
+  const existingFiles = new Set();
+  let skip = 0;
+  const limit = 1000;
+  
+  while (true) {
+    try {
+      const list = await new Promise((resolve, reject) => {
+        imagekit.listFiles({
+          path: '/players',
+          limit: limit,
+          skip: skip
+        }, function(error, result) {
+          if (error) reject(error);
+          else resolve(result);
+        });
+      });
+
+      if (!list || list.length === 0) break;
+      for (const item of list) {
+        existingFiles.add(item.name);
+      }
+      if (list.length < limit) break;
+      skip += limit;
+    } catch (err) {
+      console.warn("⚠️ Could not retrieve full file list from ImageKit:", err.message);
+      break;
+    }
+  }
+
+  console.log(`Found ${existingFiles.size} existing files already uploaded to ImageKit.`);
 
   let successCount = 0;
+  let skippedCount = 0;
   let failCount = 0;
 
-  // We upload sequentially to avoid hitting rate limits, 
-  // but you can increase concurrency if needed.
   for (let i = 0; i < imageFiles.length; i++) {
     const fileName = imageFiles[i];
+
+    if (existingFiles.has(fileName)) {
+      console.log(`[${i + 1}/${imageFiles.length}] ⏭️ Skipping ${fileName} (already exists)`);
+      skippedCount++;
+      continue;
+    }
+
     const filePath = path.join(IMAGE_DIR, fileName);
     const fileData = fs.readFileSync(filePath);
 
-    console.log(`[${i + 1}/${imageFiles.length}] Uploading ${fileName}...`);
+    console.log(`[${i + 1}/${imageFiles.length}] ⬆️ Uploading ${fileName}...`);
 
     try {
       await new Promise((resolve, reject) => {
@@ -59,9 +97,10 @@ async function uploadImages() {
   }
 
   console.log(`\n--- Upload Summary ---`);
-  console.log(`Total attempted: ${imageFiles.length}`);
-  console.log(`Successfully uploaded: ${successCount}`);
-  console.log(`Failed to upload: ${failCount}`);
+  console.log(`Total local images: ${imageFiles.length}`);
+  console.log(`Already uploaded (skipped): ${skippedCount}`);
+  console.log(`Newly uploaded: ${successCount}`);
+  console.log(`Failed: ${failCount}`);
   console.log(`----------------------\n`);
 }
 

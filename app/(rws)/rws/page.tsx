@@ -117,7 +117,7 @@ export default function RwsYearSelection() {
                     </div>
                     <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>RWS {s.rws_year}</h2>
                     <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>
-                      Solo Tour Season {s.season_number}
+                      R2G World Series {s.rws_year || s.season_number}
                     </p>
                   </div>
                   <div className="portal-card-action" style={{ marginTop: "1rem", fontSize: "0.75rem" }}>

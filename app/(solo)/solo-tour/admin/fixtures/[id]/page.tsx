@@ -14,8 +14,10 @@ interface Fixture {
   tournamentType: string;
   homeClub: string;
   homeLogo: string;
+  homeR2gId?: string;
   awayClub: string;
   awayLogo: string;
+  awayR2gId?: string;
   homeScore: number | null;
   awayScore: number | null;
   roundNumber: number;
@@ -259,21 +261,30 @@ function AdminFixtureDetailContent() {
         {/* Hero Scoreboard View */}
         <div className="admin-card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", flexWrap: "wrap", gap: "1.5rem" }}>
-            {/* Home Club */}
+            {/* Home Participant */}
             <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
               {fixture.homeLogo ? (
                 <img 
                   src={fixture.homeLogo} 
                   alt={fixture.homeClub} 
-                  style={{ width: "64px", height: "64px", objectFit: "contain" }} 
+                  style={fixture.tournamentType === 'special' ? { width: "64px", height: "64px", objectFit: "cover", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)" } : { width: "64px", height: "64px", objectFit: "contain" }} 
                 />
               ) : (
-                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
+                <div style={{ width: "64px", height: "64px", borderRadius: fixture.tournamentType === 'special' ? "50%" : "8px", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
                   {fixture.homeClub.substring(0, 2).toUpperCase()}
                 </div>
               )}
-              <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>{fixture.homeClub}</h2>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>HOME</span>
+              <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>
+                {fixture.homeClub}
+                {fixture.tournamentType === 'special' && fixture.homeR2gId && (
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: "2px", fontWeight: "normal" }}>
+                    ({fixture.homeR2gId})
+                  </span>
+                )}
+              </h2>
+              {fixture.tournamentType !== 'special' && (
+                <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>HOME</span>
+              )}
             </div>
 
             {/* Score */}
@@ -301,21 +312,30 @@ function AdminFixtureDetailContent() {
               </span>
             </div>
 
-            {/* Away Club */}
+            {/* Away Participant */}
             <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
               {fixture.awayLogo ? (
                 <img 
                   src={fixture.awayLogo} 
                   alt={fixture.awayClub} 
-                  style={{ width: "64px", height: "64px", objectFit: "contain" }} 
+                  style={fixture.tournamentType === 'special' ? { width: "64px", height: "64px", objectFit: "cover", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)" } : { width: "64px", height: "64px", objectFit: "contain" }} 
                 />
               ) : (
-                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
+                <div style={{ width: "64px", height: "64px", borderRadius: fixture.tournamentType === 'special' ? "50%" : "8px", background: "rgba(255,255,255,0.03)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "var(--solo-primary)", fontWeight: "800" }}>
                   {fixture.awayClub.substring(0, 2).toUpperCase()}
                 </div>
               )}
-              <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>{fixture.awayClub}</h2>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>AWAY</span>
+              <h2 style={{ fontSize: "1.1rem", color: "#ffffff", fontWeight: "700", margin: "0" }}>
+                {fixture.awayClub}
+                {fixture.tournamentType === 'special' && fixture.awayR2gId && (
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", marginTop: "2px", fontWeight: "normal" }}>
+                    ({fixture.awayR2gId})
+                  </span>
+                )}
+              </h2>
+              {fixture.tournamentType !== 'special' && (
+                <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>AWAY</span>
+              )}
             </div>
           </div>
         </div>

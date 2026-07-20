@@ -563,10 +563,10 @@ export async function fetchFixtures(tournamentId?: number) {
     let query = `
       SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number,
              f.match_status, f.match_status_reason, f.group_name,
-             t.name as tournament_name,
-             hc.name as home_club_name, hc.logo_path as home_club_logo, hm.name as home_manager,
+             t.name as tournament_name, t.tournament_type,
+             hc.name as home_club_name, hc.logo_path as home_club_logo, hm.name as home_manager, hm.avatar_path as home_manager_avatar, hm.r2g_id as home_r2g_id,
              tth.custom_team_name as home_custom_name, tth.use_existing_club as home_use_existing, tth.custom_logo_path as home_custom_logo,
-             ac.name as away_club_name, ac.logo_path as away_club_logo, am.name as away_manager,
+             ac.name as away_club_name, ac.logo_path as away_club_logo, am.name as away_manager, am.avatar_path as away_manager_avatar, am.r2g_id as away_r2g_id,
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
@@ -586,20 +586,30 @@ export async function fetchFixtures(tournamentId?: number) {
 
     const { rows } = await pool.query(query, params);
     return rows.map(r => {
-      const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : r.home_club_name;
-      const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : r.away_club_name;
-      const homeLogo = (!r.home_use_existing && r.home_custom_logo) ? r.home_custom_logo : r.home_club_logo;
-      const awayLogo = (!r.away_use_existing && r.away_custom_logo) ? r.away_custom_logo : r.away_club_logo;
+      const isSpecial = r.tournament_type === 'special';
+      const homeDefaultName = isSpecial ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
+      const awayDefaultName = isSpecial ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
+      const homeDefaultLogo = isSpecial ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
+      const awayDefaultLogo = isSpecial ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
+
+      const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : homeDefaultName;
+      const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : awayDefaultName;
+      const homeLogo = (!r.home_use_existing && r.home_custom_logo) ? r.home_custom_logo : homeDefaultLogo;
+      const awayLogo = (!r.away_use_existing && r.away_custom_logo) ? r.away_custom_logo : awayDefaultLogo;
+
       return {
         id: r.id,
         tournamentId: r.tournament_id,
         tournamentName: r.tournament_name,
+        tournamentType: r.tournament_type,
         homeClub: homeName,
         homeLogo: homeLogo,
         homeManager: r.home_manager || "Unknown",
+        homeR2gId: r.home_r2g_id,
         awayClub: awayName,
         awayLogo: awayLogo,
         awayManager: r.away_manager || "Unknown",
+        awayR2gId: r.away_r2g_id,
         homeScore: r.home_score,
         awayScore: r.away_score,
         roundNumber: r.round_number,
@@ -620,9 +630,9 @@ export async function fetchFixtureById(fixtureId: number) {
     const { rows } = await pool.query(`
       SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number, f.match_status, f.match_status_reason,
              t.name as tournament_name, t.tournament_type,
-             hc.name as home_club_name, hc.logo_path as home_club_logo,
+             hc.name as home_club_name, hc.logo_path as home_club_logo, hm.name as home_manager, hm.avatar_path as home_manager_avatar, hm.r2g_id as home_r2g_id,
              tth.custom_team_name as home_custom_name, tth.use_existing_club as home_use_existing, tth.custom_logo_path as home_custom_logo,
-             ac.name as away_club_name, ac.logo_path as away_club_logo,
+             ac.name as away_club_name, ac.logo_path as away_club_logo, am.name as away_manager, am.avatar_path as away_manager_avatar, am.r2g_id as away_r2g_id,
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
@@ -639,10 +649,16 @@ export async function fetchFixtureById(fixtureId: number) {
     if (rows.length === 0) return null;
     const r = rows[0];
 
-    const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : r.home_club_name;
-    const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : r.away_club_name;
-    const homeLogo = (!r.home_use_existing && r.home_custom_logo) ? r.home_custom_logo : r.home_club_logo;
-    const awayLogo = (!r.away_use_existing && r.away_custom_logo) ? r.away_custom_logo : r.away_club_logo;
+    const isSpecial = r.tournament_type === 'special';
+    const homeDefaultName = isSpecial ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
+    const awayDefaultName = isSpecial ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
+    const homeDefaultLogo = isSpecial ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
+    const awayDefaultLogo = isSpecial ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
+
+    const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : homeDefaultName;
+    const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : awayDefaultName;
+    const homeLogo = (!r.home_use_existing && r.home_custom_logo) ? r.home_custom_logo : homeDefaultLogo;
+    const awayLogo = (!r.away_use_existing && r.away_custom_logo) ? r.away_custom_logo : awayDefaultLogo;
 
     return {
       id: r.id,
@@ -651,8 +667,12 @@ export async function fetchFixtureById(fixtureId: number) {
       tournamentType: r.tournament_type,
       homeClub: homeName,
       homeLogo: homeLogo,
+      homeManager: r.home_manager || "Unknown",
+      homeR2gId: r.home_r2g_id,
       awayClub: awayName,
       awayLogo: awayLogo,
+      awayManager: r.away_manager || "Unknown",
+      awayR2gId: r.away_r2g_id,
       homeScore: r.home_score,
       awayScore: r.away_score,
       roundNumber: r.round_number,
@@ -689,7 +709,8 @@ export async function fetchTournamentStandings(tournamentId: number) {
       SELECT ts.club_id, ts.matches_played, ts.points, ts.goals_scored, ts.goals_against, ts.goal_difference, ts.group_name,
              c.name as club_name, c.logo_path as club_logo,
              tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
-             m.name as manager
+             m.name as manager, m.avatar_path as manager_avatar, m.r2g_id as manager_r2g_id,
+             t.tournament_type
       FROM tournament_standings ts
       JOIN managers m ON ts.club_id = m.id
       LEFT JOIN clubs c ON m.id = c.id
@@ -698,12 +719,18 @@ export async function fetchTournamentStandings(tournamentId: number) {
       WHERE ts.tournament_id = $1
       ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_scored DESC
     `, [tournamentId]);
-    return rows.map((r: any) => ({
-      ...r,
-      club_name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : r.club_name,
-      club_logo: (!r.use_existing_club && r.custom_logo_path) ? r.custom_logo_path : r.club_logo,
-      manager: r.manager || "Unknown"
-    }));
+    return rows.map((r: any) => {
+      const isSpecial = r.tournament_type === 'special';
+      const defaultName = isSpecial ? (r.manager || "Unknown") : (r.club_name || r.manager);
+      const defaultLogo = isSpecial ? (r.manager_avatar || r.club_logo) : r.club_logo;
+      return {
+        ...r,
+        club_name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : defaultName,
+        club_logo: (!r.use_existing_club && r.custom_logo_path) ? r.custom_logo_path : defaultLogo,
+        manager: r.manager || "Unknown",
+        manager_r2g_id: r.manager_r2g_id
+      };
+    });
   } catch (error) {
     console.error("Error fetching tournament standings:", error);
     return [];
@@ -3161,7 +3188,8 @@ export async function fetchTournamentClubs(tournamentId: number) {
     const { rows } = await pool.query(`
       SELECT ts.club_id, COALESCE(c.name, m.name) as name, c.logo_path,
              tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
-             m.name as manager, ts.group_name
+             m.name as manager, m.avatar_path as manager_avatar, m.r2g_id as manager_r2g_id,
+             ts.group_name, t.tournament_type
       FROM tournament_standings ts
       JOIN managers m ON ts.club_id = m.id
       LEFT JOIN clubs c ON m.id = c.id
@@ -3170,17 +3198,23 @@ export async function fetchTournamentClubs(tournamentId: number) {
       WHERE ts.tournament_id = $1
       ORDER BY COALESCE(c.name, m.name) ASC
     `, [tournamentId]);
-    return rows.map((r: any) => ({
-      club_id: r.club_id,
-      name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : r.name,
-      logo_path: (!r.use_existing_club && r.custom_logo_path) ? r.custom_logo_path : r.logo_path,
-      custom_team_name: r.custom_team_name,
-      custom_logo_path: r.custom_logo_path,
-      use_existing_club: r.use_existing_club ?? true,
-      original_name: r.name,
-      manager: r.manager || "Unknown",
-      group_name: r.group_name
-    }));
+    return rows.map((r: any) => {
+      const isSpecial = r.tournament_type === 'special';
+      const defaultName = isSpecial ? (r.manager || "Unknown") : r.name;
+      const defaultLogo = isSpecial ? (r.manager_avatar || r.logo_path) : r.logo_path;
+      return {
+        club_id: r.club_id,
+        name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : defaultName,
+        logo_path: (!r.use_existing_club && r.custom_logo_path) ? r.custom_logo_path : defaultLogo,
+        custom_team_name: r.custom_team_name,
+        custom_logo_path: r.custom_logo_path,
+        use_existing_club: isSpecial ? false : (r.use_existing_club ?? true),
+        original_name: defaultName,
+        manager: r.manager || "Unknown",
+        manager_r2g_id: r.manager_r2g_id,
+        group_name: r.group_name
+      };
+    });
   } catch (e) {
     console.error("Error fetching tournament clubs:", e);
     throw e;
@@ -3212,9 +3246,20 @@ export async function addClubToTournament(
     }
 
     // Update or insert tournament_teams
-    const { rows: tourney } = await pool.query(`SELECT name FROM tournaments WHERE id = $1`, [tournamentId]);
+    const { rows: tourney } = await pool.query(`SELECT name, tournament_type FROM tournaments WHERE id = $1`, [tournamentId]);
     if (tourney.length > 0) {
       const tourneyName = tourney[0].name;
+      const isSpecial = tourney[0].tournament_type === 'special';
+      
+      if (isSpecial) {
+        const { rows: mgrRows } = await pool.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [clubId]);
+        if (mgrRows.length > 0) {
+          if (!customTeamName) customTeamName = mgrRows[0].name;
+          if (!customLogoPath) customLogoPath = mgrRows[0].avatar_path;
+          useExistingClub = false;
+        }
+      }
+
       const { rowCount } = await pool.query(`
         UPDATE tournament_teams 
         SET custom_team_name = $1, use_existing_club = $2, custom_logo_path = $3
@@ -3254,15 +3299,25 @@ export async function addMultipleClubsToTournament(
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
 
-    const { rows: tourney } = await client.query(`SELECT name FROM tournaments WHERE id = $1`, [tournamentId]);
+    const { rows: tourney } = await client.query(`SELECT name, tournament_type FROM tournaments WHERE id = $1`, [tournamentId]);
     if (tourney.length === 0) throw new Error("Tournament not found");
     const tourneyName = tourney[0].name;
+    const isSpecial = tourney[0].tournament_type === 'special';
 
     for (let i = 0; i < clubIds.length; i++) {
       const clubId = clubIds[i];
-      const customName = customNames[i] || null;
-      const customLogo = customLogos[i] || null;
-      const useExistingClub = !customName;
+      let customName = customNames[i] || null;
+      let customLogo = customLogos[i] || null;
+      let useExistingClub = !customName;
+
+      if (isSpecial) {
+        const { rows: mgrRows } = await client.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [clubId]);
+        if (mgrRows.length > 0) {
+          if (!customName) customName = mgrRows[0].name;
+          if (!customLogo) customLogo = mgrRows[0].avatar_path;
+          useExistingClub = false;
+        }
+      }
 
       // Check if already added
       const { rows: exists } = await client.query(`

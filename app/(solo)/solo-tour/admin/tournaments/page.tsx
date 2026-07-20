@@ -286,9 +286,11 @@ export default function TournamentsManager() {
                     >
                       <div className="rule-card-header">
                         <span className="rule-card-title" style={{ fontSize: "0.95rem" }}>{t.name}</span>
-                        <span className="badge-info">
-                          Season {t.season_number}
-                        </span>
+                        {!(t.tournament_type === 'rws' || t.tournament_type === 'special') && (
+                          <span className="badge-info">
+                            Season {t.season_number}
+                          </span>
+                        )}
                       </div>
 
                       <div className="rule-card-pills" style={{ marginTop: "0.25rem" }}>

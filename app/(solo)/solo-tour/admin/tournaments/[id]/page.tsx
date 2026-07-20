@@ -808,7 +808,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           </div>
           <h1 className="portal-title">{tournament.name}</h1>
           <p className="portal-subtitle">
-            Format: <strong>{tournament.format_type}</strong> | Active Season: <strong>Season {tournament.season_number}</strong>
+            Format: <strong>{tournament.format_type}</strong>
+            {(tournament.tournament_type !== 'special' && tournament.tournament_type !== 'rws') && (
+              <> | Active Season: <strong>Season {tournament.season_number}</strong></>
+            )}
           </p>
         </div>
 
@@ -1079,7 +1082,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </>
                   )}
                   <div>Type: <strong style={{ color: "#38bdf8" }}>{tournamentTypes.find(tp => tp.name === tournament.tournament_type)?.display_name || tournament.tournament_type || "solo"}</strong></div>
-                  <div>Season: <strong style={{ color: "#fff" }}>Season {tournament.season_number}</strong></div>
+                  {(tournament.tournament_type !== 'special' && tournament.tournament_type !== 'rws') && (
+                    <div>Season: <strong style={{ color: "#fff" }}>Season {tournament.season_number}</strong></div>
+                  )}
                   
                   {tournament.division_tier && (
                     <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "0.6rem", marginTop: "0.2rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
@@ -1181,7 +1186,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           // Inline editing layout
                           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", flex: 1 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                              {tc.logo_path && <img src={tc.logo_path} alt={tc.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
+                              {tc.logo_path && <img src={tc.logo_path} alt={tc.name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
                               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{tc.original_name}</span>
                             </div>
                             <input
@@ -1218,10 +1223,12 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           // Default static view
                           <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             {tc.logo_path && (
-                              <img src={tc.logo_path} alt={tc.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                              <img src={tc.logo_path} alt={tc.name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />
                             )}
                             <strong style={{ color: "#fff" }}>
-                              {tc.name} ({tc.manager})
+                              {tournament.tournament_type === 'special' 
+                                ? `${tc.name}${tc.manager_r2g_id ? ` (#${tc.manager_r2g_id})` : ''}`
+                                : `${tc.name} (${tc.manager})`}
                             </strong>
                           </span>
                         )}
@@ -1430,7 +1437,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                         color: isChecked ? "#fbbf24" : "#ccc", 
                                         cursor: "pointer",
                                         textAlign: "left",
-                                        fontSize: "0.75rem",
+                                        fontSize: "0.75rem", 
                                         transition: "background 0.15s ease"
                                       }}
                                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isChecked ? "rgba(251, 191, 36, 0.12)" : "rgba(255,255,255,0.03)"}
@@ -1443,9 +1450,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                           readOnly 
                                           style={{ accentColor: "#fbbf24", cursor: "pointer" }} 
                                         />
-                                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{c.r2g_id || c.name}</span>
+                                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                                          {tournament?.tournament_type === 'special' ? c.manager : (c.r2g_id || c.name)}
+                                        </span>
                                       </div>
-                                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", flexShrink: 0, marginLeft: "8px" }}>{c.manager} ({c.name})</span>
+                                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", flexShrink: 0, marginLeft: "8px" }}>
+                                        {tournament?.tournament_type === 'special' ? (c.r2g_id ? `ID: ${c.r2g_id}` : "") : `${c.manager} (${c.name})`}
+                                      </span>
                                     </button>
                                   );
                                 })
@@ -1718,8 +1729,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 <tr key={row.club_id}>
                                   <td>{idx + 1}</td>
                                   <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                                    <strong>{row.club_name}</strong> <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
+                                    {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                                    <strong>{row.club_name}</strong>
+                                    {tournament?.tournament_type === 'special' ? (
+                                      row.manager_r2g_id && <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager_r2g_id})</span>
+                                    ) : (
+                                      <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
+                                    )}
                                   </td>
                                   <td style={{ textAlign: "center" }}>{row.matches_played}</td>
                                   <td style={{ textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
@@ -1745,7 +1761,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     <thead>
                       <tr>
                         <th style={{ width: "50px" }}>Pos</th>
-                        <th>Club</th>
+                        <th>{tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}</th>
                         <th style={{ textAlign: "center", width: "80px" }}>Group</th>
                         <th style={{ textAlign: "center", width: "60px" }}>MP</th>
                         <th style={{ textAlign: "center", width: "50px" }}>GF</th>
@@ -1759,8 +1775,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <tr key={row.club_id}>
                           <td><strong>{idx + 1}</strong></td>
                           <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                            <strong>{row.club_name}</strong> <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
+                            {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                            <strong>{row.club_name}</strong>
+                            {tournament?.tournament_type === 'special' ? (
+                              row.manager_r2g_id && <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager_r2g_id})</span>
+                            ) : (
+                              <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
+                            )}
                           </td>
                           <td style={{ textAlign: "center", color: "#fbbf24", fontWeight: "bold" }}>
                             {row.group_name ? `Group ${row.group_name}` : "—"}
@@ -1835,8 +1856,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.8rem", background: "rgba(255,255,255,0.02)", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.04)" }}>
                         <span style={{ fontWeight: "600", color: "#ffffff", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ color: "var(--text-secondary)", marginRight: "0.25rem" }}>#{idx + 1}</span>
-                          {s.logo && <img src={s.logo} alt={s.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                          {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
+                          {s.logo && <img src={s.logo} alt={s.name} style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                          {s.name} {tournament?.tournament_type !== 'special' && <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>}
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#fbbf24", fontSize: "0.95rem" }}>
                           {s.value} Goals
@@ -1862,8 +1883,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.8rem", background: "rgba(255,255,255,0.02)", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.04)" }}>
                         <span style={{ fontWeight: "600", color: "#ffffff", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ color: "var(--text-secondary)", marginRight: "0.25rem" }}>#{idx + 1}</span>
-                          {s.logo && <img src={s.logo} alt={s.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                          {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
+                          {s.logo && <img src={s.logo} alt={s.name} style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                          {s.name} {tournament?.tournament_type !== 'special' && <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>}
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#38bdf8", fontSize: "0.95rem" }}>
                           {s.value > 0 ? `+${s.value}` : s.value} GD
@@ -1889,8 +1910,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.8rem", background: "rgba(255,255,255,0.02)", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.04)" }}>
                         <span style={{ fontWeight: "600", color: "#ffffff", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ color: "var(--text-secondary)", marginRight: "0.25rem" }}>#{idx + 1}</span>
-                          {s.logo && <img src={s.logo} alt={s.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                          {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
+                          {s.logo && <img src={s.logo} alt={s.name} style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                          {s.name} {tournament?.tournament_type !== 'special' && <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>}
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#a855f7", fontSize: "0.95rem" }}>
                           {s.value} Clean Sheets
@@ -1916,8 +1937,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.8rem", background: "rgba(255,255,255,0.02)", borderRadius: "6px", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.04)" }}>
                         <span style={{ fontWeight: "600", color: "#ffffff", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ color: "var(--text-secondary)", marginRight: "0.25rem" }}>#{idx + 1}</span>
-                          {s.logo && <img src={s.logo} alt={s.name} style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                          {s.name} <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>
+                          {s.logo && <img src={s.logo} alt={s.name} style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                          {s.name} {tournament?.tournament_type !== 'special' && <span style={{ color: "var(--text-secondary)", fontWeight: "normal" }}>({s.manager})</span>}
                         </span>
                         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "#10b981", fontSize: "0.95rem" }}>
                           {s.value} GA/Match
@@ -2140,7 +2161,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                   <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
                                   <td style={{ padding: "12px", textAlign: "left" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                      {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
+                                      {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                       <div>
                                         <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
                                         <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
@@ -2178,7 +2199,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                             <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
                             <td style={{ padding: "12px", textAlign: "left" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />}
+                                {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                 <div>
                                   <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
                                   <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
@@ -2264,10 +2285,12 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "8px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                             <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "rgba(255,255,255,0.4)" }}>#{idx + 1}</span>
-                            {s.logo && <img src={s.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
+                            {s.logo && <img src={s.logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "24px", height: "24px", objectFit: "contain" }} />}
                             <div>
                               <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>{s.name}</div>
-                              <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
+                              {tournament?.tournament_type !== 'special' && (
+                                <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
+                              )}
                             </div>
                           </div>
                           <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: c.color }}>

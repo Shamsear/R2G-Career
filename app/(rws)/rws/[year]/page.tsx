@@ -148,7 +148,7 @@ export default function RwsYearDashboard() {
             R2G WORLD SERIES {yearStr}
           </h1>
           <p className="rws-hero-sub">
-            Championship hub for Solo Tour Season {season.season_number}. View selected candidate lists,
+            Championship hub for the R2G World Series {yearStr}. View selected candidate lists,
             track upcoming match calendars/results, and browse the gallery.
           </p>
         </div>

@@ -168,7 +168,7 @@ export default function RwsYearSelectedCandidates() {
             PARTICIPATING TEAMS
           </h1>
           <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)", maxWidth: "550px", margin: "0 auto", lineHeight: 1.5 }}>
-            Meet the elite teams and tactical managers competing in the R2G World Series {yearStr} for Solo Tour Season {season.season_number}.
+            Meet the elite teams and tactical managers competing in the R2G World Series {yearStr}.
           </p>
         </div>
 
