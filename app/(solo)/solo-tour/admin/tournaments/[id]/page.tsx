@@ -40,6 +40,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
   const [sharing, setSharing] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const posterRef = useRef<HTMLDivElement>(null);
 
   const handleSharePoster = async () => {
@@ -305,15 +306,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   };
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [tourney, rules, matches, clubsData, types, tourneyClubs, standingsData] = await Promise.all([
-        fetchTournamentById(tournamentId),
-        fetchFinancialRules(),
-        fetchFixtures(tournamentId),
-        fetchRegisteredClubs(true),
-        fetchTournamentTypes(),
-        fetchTournamentClubs(tournamentId),
-        fetchTournamentStandings(tournamentId)
+        fetchTournamentById(tournamentId).catch(e => { console.error(e); return null; }),
+        fetchFinancialRules().catch(e => { console.error(e); return []; }),
+        fetchFixtures(tournamentId).catch(e => { console.error(e); return []; }),
+        fetchRegisteredClubs(true).catch(e => { console.error(e); return []; }),
+        fetchTournamentTypes().catch(e => { console.error(e); return []; }),
+        fetchTournamentClubs(tournamentId).catch(e => { console.error(e); return []; }),
+        fetchTournamentStandings(tournamentId).catch(e => { console.error(e); return []; })
       ]);
       setTournament(tourney);
       setFinancialRules(rules || []);
@@ -336,8 +338,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         setEditPromotionCount(tourney.promotion_count !== null && tourney.promotion_count !== undefined ? tourney.promotion_count.toString() : "");
         setEditRelegationCount(tourney.relegation_count !== null && tourney.relegation_count !== undefined ? tourney.relegation_count.toString() : "");
       }
-    } catch {
+    } catch (e) {
+      console.error(e);
       showToast("Error loading tournament details!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -2001,7 +2006,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 )}
               </div>
               
-              {fixtures.length === 0 ? (
+              {loading ? (
+                <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "8px", fontSize: "1.2rem" }} /> Loading matches...
+                </div>
+              ) : fixtures.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                   No matches scheduled for this tournament yet.
                 </div>
@@ -2196,7 +2205,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
                   ROUND {activeRound} MATCH CALENDAR
                 </div>
-                {roundFixtures.length === 0 ? (
+                {loading ? (
+                  <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
+                    <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "8px", fontSize: "1.2rem" }} /> Loading matches...
+                  </div>
+                ) : roundFixtures.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
                     No matches scheduled for Round {activeRound}.
                   </div>

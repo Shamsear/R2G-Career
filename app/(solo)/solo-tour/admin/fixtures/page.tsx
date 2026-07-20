@@ -21,6 +21,7 @@ function FixturesManagerContent() {
   const [activeRound, setActiveRound] = useState<number>(initialRound);
   
   const [toast, setToast] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -28,19 +29,22 @@ function FixturesManagerContent() {
   };
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const tourneys = await fetchTournaments();
       setTournaments(tourneys || []);
       
       // If a tournament is already selected, reload its fixtures
       if (selectedTournamentId) {
-        const matches = await fetchFixtures(parseInt(selectedTournamentId));
+        const matches = await fetchFixtures(parseInt(selectedTournamentId)).catch(() => []);
         setFixtures(matches || []);
       } else {
         setFixtures([]);
       }
     } catch {
       showToast("Error loading fixtures data!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -169,7 +173,11 @@ function FixturesManagerContent() {
                     {selectedTourneyObj?.name} - {rounds.length > 0 ? `Round ${activeRound} of ${rounds.length}` : "No Fixtures"}
                   </h2>
 
-                  {fixtures.length === 0 ? (
+                  {loading ? (
+                    <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
+                      <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "8px", fontSize: "1.2rem" }} /> Loading matches...
+                    </div>
+                  ) : fixtures.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
                       <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block" }} />
                       No matches scheduled for this tournament yet.

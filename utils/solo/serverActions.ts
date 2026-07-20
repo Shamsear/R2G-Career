@@ -5400,6 +5400,17 @@ export async function fetchAllPlayersDirectory() {
       }
     }));
 
+    // Sort players by level descending, then totalExp descending, then name ASC
+    playersWithLevels.sort((a, b) => {
+      if ((b.level || 1) !== (a.level || 1)) {
+        return (b.level || 1) - (a.level || 1);
+      }
+      if ((b.totalExp || 0) !== (a.totalExp || 0)) {
+        return (b.totalExp || 0) - (a.totalExp || 0);
+      }
+      return a.name.localeCompare(b.name);
+    });
+
     return playersWithLevels;
   } catch (error) {
     console.error("Error fetching all players directory:", error);

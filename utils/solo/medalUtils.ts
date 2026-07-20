@@ -427,7 +427,8 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   const calculatedNormalExp = (totalMatches * 25) + (totalWins * 40) + (totalDraws * 20) + (totalLosses * 10) + (totalGoals * 5) + (totalCs * 10);
   
   const { rows: mgrRows } = await pool.query('SELECT COALESCE(normal_exp, 0) as normal_exp FROM managers WHERE id = $1', [managerId]);
-  const normalExp = mgrRows.length > 0 ? Number(mgrRows[0].normal_exp) : 0;
+  const storedNormalExp = mgrRows.length > 0 ? Number(mgrRows[0].normal_exp) : 0;
+  const normalExp = Math.max(storedNormalExp, calculatedNormalExp);
 
   const totalExp = normalExp + totalMedalExp;
   const level = calculateLevelFromExp(totalExp);

@@ -304,7 +304,9 @@ export async function PATCH(
       matchups, 
       edited_by, 
       edited_by_name, 
-      edit_reason 
+      edit_reason,
+      home_penalty_goals,
+      away_penalty_goals
     } = body;
 
     if (!matchups || !Array.isArray(matchups)) {
@@ -562,8 +564,8 @@ export async function PATCH(
           fixture_id: fixtureId,
           home_team_id: fixture.home_team_id,
           away_team_id: fixture.away_team_id,
-          home_score: totalHomeScore,
-          away_score: totalAwayScore,
+          home_score: newHomeScore,
+          away_score: newAwayScore,
           home_penalty_goals: Number(home_penalty_goals) || 0,
           away_penalty_goals: Number(away_penalty_goals) || 0,
           matchups: matchups,

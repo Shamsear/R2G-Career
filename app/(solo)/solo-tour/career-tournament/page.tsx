@@ -61,7 +61,6 @@ export default function CareerTournament() {
 
   const specialTour = [
     { name: "R2G AUTHENTIC TOUR", img1: "/assets/images/tournaments/car19.webp", img2: "/assets/images/tournaments/car20.webp" },
-    { name: "R2G INTER CLASH",    img1: "/assets/images/tournaments/car21.webp", img2: "/assets/images/tournaments/car22.webp" },
   ];
 
   const renderSection = (title: string, icon: string, items: typeof tournaments) => (

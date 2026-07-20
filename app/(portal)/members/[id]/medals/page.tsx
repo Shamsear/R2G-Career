@@ -187,7 +187,7 @@ export default function MemberMedalsPage() {
   };
 
   // 1. Calculate Progression levels & colors dynamically
-  const totalExp = medalInfo.medalExp;
+  const totalExp = medalInfo.totalExp || medalInfo.medalExp || 0;
   const { level, nextLevelExp, progressPercent } = calculateLevel(totalExp);
   
   let spotlightColor = "#06b6d4"; // Cyan default

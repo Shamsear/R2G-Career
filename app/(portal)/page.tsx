@@ -8,7 +8,7 @@ import { fetchActiveSeason, fetchAllPlayersDirectory } from "@/utils/solo/server
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [seasonNum, setSeasonNum] = useState<number>(7);
+  const [seasonNum, setSeasonNum] = useState<number | null>(null);
   const [memberCount, setMemberCount] = useState<number>(0);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function Home() {
             style={{ animationDelay: "100ms" }}
           >
             <i className="fa-solid fa-futbol" />
-            Season {seasonNum} — Now Live
+            {seasonNum !== null ? `Season ${seasonNum} — Now Live` : "Active Season — Now Live"}
           </div>
 
           <h1
@@ -457,7 +457,9 @@ export default function Home() {
             <span className="status-indicator online" />
             Server: Online
           </div>
-          <div className="status-item">Season {seasonNum}: Active</div>
+          <div className="status-item">
+            {seasonNum !== null ? `Season ${seasonNum}: Active` : "Season: Active"}
+          </div>
         </div>
         <div className="portal-footer-social">
           <a href="#" aria-label="Instagram"><i className="fab fa-instagram" /></a>
