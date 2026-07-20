@@ -1,1 +1,38 @@
-﻿/* Style reset */
+/* ═══════════════════════════════════════════════════════════════
+   PWA & Safe Area Inset Styles (Camera Notch & Top Status Bar)
+   Theme: Road To Glory Dark Status Bar Integration
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+html {
+  background-color: #050608 !important;
+  color-scheme: dark;
+}
+
+body {
+  background-color: #050608 !important;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Ensure header navbars expand under status bar / camera notch cutout in PWA mode */
+.tech-header,
+.navbar,
+.header,
+.portal-root-wrapper,
+.app-container {
+  padding-top: var(--sat);
+}
+
+/* Safe area bottom padding for fixed navigation bars */
+.tech-footer,
+.footer,
+.portal-footer {
+  padding-bottom: max(1rem, var(--sab));
+}

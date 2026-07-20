@@ -21,6 +21,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#050608",
+  viewportFit: "cover",
 };
 
 export default function SoloLayout({
@@ -31,6 +33,10 @@ export default function SoloLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="theme-color" content="#050608" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="msapplication-navbutton-color" content="#050608" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
