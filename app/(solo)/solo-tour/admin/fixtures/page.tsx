@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import "../../../../portal.css";
 import "../admin.css";
 
@@ -12,6 +12,7 @@ import {
 
 function FixturesManagerContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialTournamentId = searchParams.get("t") || "";
   const initialRound = parseInt(searchParams.get("r") || "1", 10);
 
@@ -189,18 +190,22 @@ function FixturesManagerContent() {
                       </p>
                       
                       <div className="table-responsive" style={{ marginTop: 0 }}>
-                        <table className="admin-list-table">
+                         <table className="admin-list-table">
                           <thead>
                             <tr>
                               <th>Matchup (Home vs Away)</th>
                               <th style={{ width: "120px", textAlign: "center" }}>Result Score</th>
-                              <th style={{ width: "150px" }}>Match Status</th>
-                              <th style={{ textAlign: "right" }}>Actions</th>
+                              <th style={{ width: "150px", textAlign: "right" }}>Match Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {roundFixtures.map(f => (
-                              <tr key={f.id} style={{ height: "42px" }}>
+                              <tr 
+                                key={f.id} 
+                                style={{ height: "42px", cursor: "pointer" }}
+                                onClick={() => router.push(`/solo-tour/admin/fixtures/${f.id}?t=${selectedTournamentId}&r=${activeRound}`)}
+                                className="clickable-row"
+                              >
                                 <td style={{ whiteSpace: "nowrap", padding: "8px 12px" }}>
                                   <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
                                     {f.groupName && (
@@ -224,7 +229,7 @@ function FixturesManagerContent() {
                                 <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.95rem", color: "#fff", whiteSpace: "nowrap", padding: "8px 12px" }}>
                                   {f.homeScore !== null && f.awayScore !== null ? `${f.homeScore} - ${f.awayScore}` : "-"}
                                 </td>
-                                <td style={{ whiteSpace: "nowrap", padding: "8px 12px" }}>
+                                <td style={{ whiteSpace: "nowrap", padding: "8px 12px", textAlign: "right" }}>
                                   <span style={{
                                     fontSize: "0.65rem",
                                     padding: "2px 6px",
@@ -237,11 +242,6 @@ function FixturesManagerContent() {
                                   }}>
                                     {f.match_status || (f.homeScore !== null && f.awayScore !== null ? "played" : "scheduled")}
                                   </span>
-                                </td>
-                                <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "8px 12px" }}>
-                                  <Link href={`/solo-tour/admin/fixtures/${f.id}?t=${selectedTournamentId}&r=${activeRound}`} className="portal-btn btn-primary" style={{ padding: "3px 8px", fontSize: "0.7rem", minHeight: "24px", height: "24px", display: "inline-flex", alignItems: "center", gap: "4px", margin: 0 }}>
-                                    <i className="fa-solid fa-pen-to-square" /> Enter Result
-                                  </Link>
                                 </td>
                               </tr>
                             ))}
