@@ -58,6 +58,13 @@ const ADMIN_MODULES = [
     desc: "Manage rosters, toggle suspensions with fines, and sign player contracts.",
   },
   {
+    href: "/solo-tour/admin/bulk-assign",
+    icon: "fa-solid fa-file-contract",
+    accent: "players",
+    title: "Bulk Player Assignment",
+    desc: "Select a team, multi-select players, set customizable contract dates & prices with auto-calculated salaries.",
+  },
+  {
     href: "/solo-tour/admin/auction",
     icon: "fa-solid fa-gavel",
     accent: "nominees",

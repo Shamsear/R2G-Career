@@ -411,14 +411,23 @@ export default function PlayersManager() {
               <i className="fa-solid fa-table-list" />
               Player Registry
             </h2>
-            <button
-              type="button"
-              className="portal-btn btn-primary"
-              style={{ padding: "6px 15px", fontSize: "0.8rem" }}
-              onClick={handleOpenAddPlayerModal}
-            >
-              <i className="fa-solid fa-user-plus" /> Register Player
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <Link
+                href="/solo-tour/admin/bulk-assign"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 15px", fontSize: "0.8rem", gap: "6px" }}
+              >
+                <i className="fa-solid fa-file-contract" /> Bulk Assign Players
+              </Link>
+              <button
+                type="button"
+                className="portal-btn btn-primary"
+                style={{ padding: "6px 15px", fontSize: "0.8rem" }}
+                onClick={handleOpenAddPlayerModal}
+              >
+                <i className="fa-solid fa-user-plus" /> Register Player
+              </button>
+            </div>
           </div>
 
           {/* Search bar inside the registry card */}

@@ -5968,5 +5968,69 @@ export async function fetchSoloAdminLogs() {
   }
 }
 
+export async function bulkAssignPlayersWithContracts(
+  clubId: number | string,
+  assignments: {
+    playerId: number;
+    startSeason: string;
+    expireSeason: string;
+    signedValue: number;
+    salary?: number;
+  }[]
+) {
+  try {
+    const isAdmin = await checkIsSoloAdmin();
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Admin privilege required");
+    }
+
+    if (!clubId) {
+      throw new Error("Target team / club is required.");
+    }
+    if (!assignments || assignments.length === 0) {
+      throw new Error("No players selected for assignment.");
+    }
+
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+
+    await pool.query('BEGIN');
+
+    for (const item of assignments) {
+      const cleanStart = (item.startSeason || '').toString().replace(/\D/g, '');
+      const cleanExpire = (item.expireSeason || '').toString().replace(/\D/g, '');
+      const price = Number(item.signedValue) || 0;
+      const salary = Number((price * 0.05).toFixed(2));
+
+      // Deactivate previous active contract for player in this season
+      await pool.query(`
+        UPDATE player_contracts
+        SET status = 'inactive'
+        WHERE player_id = $1 AND season_id = $2
+      `, [item.playerId, seasonId]);
+
+      // Create new active contract for target club
+      await pool.query(`
+        INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      `, [item.playerId, seasonId, parseInt(clubId.toString()), price, salary, cleanStart, cleanExpire]);
+    }
+
+    await logSoloAdminAction('bulk_assign_players', {
+      clubId,
+      assignedCount: assignments.length,
+      playerIds: assignments.map(a => a.playerId)
+    });
+
+    await pool.query('COMMIT');
+    return { success: true, count: assignments.length };
+  } catch (e: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error bulk assigning players:", e);
+    throw new Error(e.message || "Failed to assign players");
+  }
+}
+
+
 
 
