@@ -34,7 +34,7 @@ export async function getCurrentAdminUsername() {
 export async function logSoloAdminAction(actionType: string, details: any) {
   try {
     const username = await getCurrentAdminUsername();
-    await originalQuery(`
+    await pool.query(`
       INSERT INTO solo_admin_action_logs (admin_username, action_type, details)
       VALUES ($1, $2, $3)
     `, [username, actionType, typeof details === 'string' ? details : JSON.stringify(details)]);
@@ -42,44 +42,6 @@ export async function logSoloAdminAction(actionType: string, details: any) {
     console.error("Failed to log admin action:", err);
   }
 }
-
-// Database-level Query Interceptor to log EVERY single database mutation automatically
-const originalQuery = pool.query.bind(pool);
-pool.query = async function(text: any, params: any) {
-  let queryString = "";
-  if (typeof text === 'string') {
-    queryString = text;
-  } else if (text && typeof text.text === 'string') {
-    queryString = text.text;
-  }
-  
-  const upperQuery = queryString.trim().toUpperCase();
-  const isMutation = upperQuery.startsWith('INSERT') || 
-                     upperQuery.startsWith('UPDATE') || 
-                     upperQuery.startsWith('DELETE');
-                     
-  const isAuditLogTable = upperQuery.includes('SOLO_ADMIN_ACTION_LOGS');
-
-  if (isMutation && !isAuditLogTable) {
-    try {
-      const username = await getCurrentAdminUsername();
-      if (username !== 'unknown_admin') {
-        originalQuery(`
-          INSERT INTO solo_admin_action_logs (admin_username, action_type, details)
-          VALUES ($1, $2, $3)
-        `, [
-          username, 
-          upperQuery.split(' ')[0] + '_QUERY', 
-          JSON.stringify({ query: queryString.replace(/\s+/g, ' '), params })
-        ]).catch(err => console.error("Async query audit logging failed:", err));
-      }
-    } catch (err) {
-      // Ignore authentication lookup errors during query log attempts
-    }
-  }
-  
-  return originalQuery(text, params);
-} as any;
 
 function resolvePlayerImageUrl(imagepath: string | null | undefined, id: number | string): string {
   const pathVal = imagepath || `/assets/images/players/${id}.png`;
@@ -1728,12 +1690,12 @@ export async function updateFixture(
     const tournamentName = fixture.tournament_name;
     const tournamentType = fixture.tournament_type;
 
-    // Fetch manager IDs from clubs
+    // Fetch manager IDs from manager_seasons for the current season
     const { rows: clubMgrRows } = await pool.query(`
       SELECT 
-        (SELECT manager_id FROM clubs WHERE id = $1) as home_mgr,
-        (SELECT manager_id FROM clubs WHERE id = $2) as away_mgr
-    `, [homeClubId, awayClubId]);
+        (SELECT manager_id FROM manager_seasons WHERE club_id = $1 AND season_id = $3 LIMIT 1) as home_mgr,
+        (SELECT manager_id FROM manager_seasons WHERE club_id = $2 AND season_id = $3 LIMIT 1) as away_mgr
+    `, [homeClubId, awayClubId, seasonId]);
     const homeMgrId = clubMgrRows[0]?.home_mgr;
     const awayMgrId = clubMgrRows[0]?.away_mgr;
 
@@ -5884,6 +5846,24 @@ export async function alignAllManagersStatsAndMedals() {
   } catch (e) {
     console.error("Error aligning all managers:", e);
     throw e;
+  }
+}
+
+export async function fetchSoloAdminLogs() {
+  try {
+    const isAdmin = await checkIsSoloAdmin();
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Admin privilege required");
+    }
+    const { rows } = await pool.query(`
+      SELECT * FROM solo_admin_action_logs
+      ORDER BY created_at DESC
+      LIMIT 200
+    `);
+    return rows;
+  } catch (error) {
+    console.error("Error fetching admin logs:", error);
+    return [];
   }
 }
 

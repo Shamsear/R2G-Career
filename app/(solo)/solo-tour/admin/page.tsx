@@ -100,6 +100,13 @@ const ADMIN_MODULES = [
     desc: "Create new seasons, activate/deactivate seasons, and carry over managers/wallets.",
   },
   {
+    href: "/solo-tour/admin/logs",
+    icon: "fa-solid fa-receipt",
+    accent: "finops",
+    title: "Admin Audit Logs",
+    desc: "Inspect real-time system logs of administrative actions, edits, and database mutations.",
+  },
+  {
     href: "/solo-tour/admin/divisions",
     icon: "fa-solid fa-layer-group",
     accent: "tournaments",
