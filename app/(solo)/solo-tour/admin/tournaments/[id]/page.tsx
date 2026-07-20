@@ -2133,9 +2133,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
                 Official tournament standings and statistics captured on {new Date().toLocaleDateString()}
               </p>
-            </div>
-
-            {/* Table Tab */}
+                {/* Table Tab */}
             {activeTab === "table" && (
               <div>
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
@@ -2158,7 +2156,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                             <thead>
                               <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                                 <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                                <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
+                                <th style={{ padding: "12px", textAlign: "left" }}>
+                                  {tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}
+                                </th>
                                 <th style={{ padding: "12px", textAlign: "center" }}>P</th>
                                 <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
                                 <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
@@ -2170,10 +2170,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                   <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
                                   <td style={{ padding: "12px", textAlign: "left" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                      {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
+                                      {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                       <div>
-                                        <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
-                                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                        <div style={{ fontWeight: "bold" }}>
+                                          {tournament?.tournament_type === 'special' ? (row.manager || row.club_name) : row.club_name}
+                                        </div>
+                                        {tournament?.tournament_type !== 'special' && (
+                                          <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                        )}
                                       </div>
                                     </div>
                                   </td>
@@ -2194,7 +2198,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       <thead>
                         <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                           <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                          <th style={{ padding: "12px", textAlign: "left" }}>Club</th>
+                          <th style={{ padding: "12px", textAlign: "left" }}>
+                            {tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}
+                          </th>
                           <th style={{ padding: "12px", textAlign: "center" }}>P</th>
                           <th style={{ padding: "12px", textAlign: "center" }}>GF</th>
                           <th style={{ padding: "12px", textAlign: "center" }}>GA</th>
@@ -2208,10 +2214,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                             <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
                             <td style={{ padding: "12px", textAlign: "left" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
+                                {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                 <div>
-                                  <div style={{ fontWeight: "bold" }}>{row.club_name}</div>
-                                  <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                  <div style={{ fontWeight: "bold" }}>
+                                    {tournament?.tournament_type === 'special' ? (row.manager || row.club_name) : row.club_name}
+                                  </div>
+                                  {tournament?.tournament_type !== 'special' && (
+                                    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{row.manager || "No Manager"}</div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -2249,17 +2259,43 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       const isFinished = match.homeScore !== null && match.awayScore !== null;
                       const homeWon = isFinished && match.homeScore > match.awayScore;
                       const awayWon = isFinished && match.awayScore > match.homeScore;
+                      const isSpecial = tournament?.tournament_type === 'special';
+                      const homeDisplayName = isSpecial ? (match.homeManager || match.homeClub) : match.homeClub;
+                      const awayDisplayName = isSpecial ? (match.awayManager || match.awayClub) : match.awayClub;
+                      const homeLogoUrl = isSpecial ? (match.homeManagerAvatar || match.homeLogo) : match.homeLogo;
+                      const awayLogoUrl = isSpecial ? (match.awayManagerAvatar || match.awayLogo) : match.awayLogo;
+
                       return (
-                        <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1.2rem" }}>
+                        <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1rem 1.2rem" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
-                              <span style={{ fontSize: "0.85rem", fontWeight: homeWon ? "bold" : "500" }}>{match.homeClub}</span>
+                              {homeLogoUrl && (
+                                <img
+                                  src={homeLogoUrl}
+                                  alt=""
+                                  style={isSpecial ? { width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" } : { width: "22px", height: "22px", objectFit: "contain" }}
+                                  onError={(e) => { e.currentTarget.src = isSpecial ? "/assets/images/default-avatar.png" : "/assets/images/default-club-logo.png"; }}
+                                />
+                              )}
+                              <span style={{ fontSize: "0.85rem", fontWeight: homeWon ? "bold" : "500", color: homeWon ? "#22c55e" : "#ffffff" }}>
+                                {homeDisplayName}
+                              </span>
                             </div>
                             <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#c084fc", padding: "0 1.5rem" }}>
                               {isFinished ? `${match.homeScore} - ${match.awayScore}` : "VS"}
                             </span>
                             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px", justifyContent: "flex-end" }}>
-                              <span style={{ fontSize: "0.85rem", fontWeight: awayWon ? "bold" : "500" }}>{match.awayClub}</span>
+                              <span style={{ fontSize: "0.85rem", fontWeight: awayWon ? "bold" : "500", color: awayWon ? "#22c55e" : "#ffffff" }}>
+                                {awayDisplayName}
+                              </span>
+                              {awayLogoUrl && (
+                                <img
+                                  src={awayLogoUrl}
+                                  alt=""
+                                  style={isSpecial ? { width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)" } : { width: "22px", height: "22px", objectFit: "contain" }}
+                                  onError={(e) => { e.currentTarget.src = isSpecial ? "/assets/images/default-avatar.png" : "/assets/images/default-club-logo.png"; }}
+                                />
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2290,23 +2326,34 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {c.data.slice(0, 10).map((s, idx) => (
-                        <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "8px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "rgba(255,255,255,0.4)" }}>#{idx + 1}</span>
-                            {s.logo && <img src={s.logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "24px", height: "24px", objectFit: "contain" }} />}
-                            <div>
-                              <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>{s.name}</div>
-                              {tournament?.tournament_type !== 'special' && (
-                                <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
+                      {c.data.slice(0, 10).map((s, idx) => {
+                        const isSpecial = tournament?.tournament_type === 'special';
+                        const displayName = isSpecial ? (s.manager && s.manager !== "Unknown" ? s.manager : s.name) : s.name;
+                        return (
+                          <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "8px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "rgba(255,255,255,0.4)" }}>#{idx + 1}</span>
+                              {s.logo && (
+                                <img
+                                  src={s.logo}
+                                  alt=""
+                                  style={isSpecial ? { width: "26px", height: "26px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "24px", height: "24px", objectFit: "contain" }}
+                                  onError={(e) => { e.currentTarget.src = isSpecial ? "/assets/images/default-avatar.png" : "/assets/images/default-club-logo.png"; }}
+                                />
                               )}
+                              <div>
+                                <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>{displayName}</div>
+                                {!isSpecial && (
+                                  <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{s.manager}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: c.color }}>
+                              {activeSubTab === "ball" && s.value > 0 ? `+${s.value}` : s.value} <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", fontWeight: "normal" }}>{c.unit}</span>
                             </div>
                           </div>
-                          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: c.color }}>
-                            {activeSubTab === "ball" && s.value > 0 ? `+${s.value}` : s.value} <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", fontWeight: "normal" }}>{c.unit}</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
