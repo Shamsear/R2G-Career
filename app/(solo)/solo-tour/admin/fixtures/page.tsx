@@ -200,45 +200,46 @@ function FixturesManagerContent() {
                           </thead>
                           <tbody>
                             {roundFixtures.map(f => (
-                              <tr key={f.id}>
-                                <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                              <tr key={f.id} style={{ height: "42px" }}>
+                                <td style={{ whiteSpace: "nowrap", padding: "8px 12px" }}>
+                                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
                                     {f.groupName && (
                                       <span style={{ 
-                                        fontSize: "0.7rem", 
-                                        padding: "2px 6px", 
-                                        borderRadius: "4px", 
+                                        fontSize: "0.65rem", 
+                                        padding: "1px 5px", 
+                                        borderRadius: "3px", 
                                         background: "rgba(251, 191, 36, 0.15)", 
                                         color: "#fbbf24", 
                                         fontWeight: "bold",
-                                        marginRight: "6px"
+                                        marginRight: "4px"
                                       }}>
                                         Group {f.groupName}
                                       </span>
                                     )}
                                     <span style={{ fontWeight: 700, color: "#fff" }}>{f.homeClub}</span>
-                                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>vs</span>
+                                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>vs</span>
                                     <span style={{ fontWeight: 700, color: "#fff" }}>{f.awayClub}</span>
                                   </div>
                                 </td>
-                                <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "1rem", color: "#fff" }}>
+                                <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "0.95rem", color: "#fff", whiteSpace: "nowrap", padding: "8px 12px" }}>
                                   {f.homeScore !== null && f.awayScore !== null ? `${f.homeScore} - ${f.awayScore}` : "-"}
                                 </td>
-                                <td>
+                                <td style={{ whiteSpace: "nowrap", padding: "8px 12px" }}>
                                   <span style={{
-                                    fontSize: "0.7rem",
-                                    padding: "2px 8px",
+                                    fontSize: "0.65rem",
+                                    padding: "2px 6px",
                                     borderRadius: "4px",
-                                    background: f.match_status === 'void' ? "rgba(239, 68, 68, 0.15)" : f.match_status?.startsWith('wo') ? "rgba(245, 158, 11, 0.15)" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "rgba(34, 197, 94, 0.15)" : "rgba(255, 255, 255, 0.08)",
-                                    color: f.match_status === 'void' ? "#ef4444" : f.match_status?.startsWith('wo') ? "#f59e0b" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "#22c55e" : "var(--text-secondary)",
+                                    background: f.match_status === 'void' ? "rgba(239, 68, 68, 0.12)" : f.match_status?.startsWith('wo') ? "rgba(245, 158, 11, 0.12)" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "rgba(34, 197, 94, 0.12)" : "rgba(255, 255, 255, 0.05)",
+                                    color: f.match_status === 'void' ? "#ef4444" : f.match_status?.startsWith('wo') ? "#f59e0b" : (f.match_status === 'played' || (f.homeScore !== null && f.awayScore !== null)) ? "#22c55e" : "rgba(255,255,255,0.5)",
                                     fontWeight: "bold",
-                                    textTransform: "uppercase"
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px"
                                   }}>
                                     {f.match_status || (f.homeScore !== null && f.awayScore !== null ? "played" : "scheduled")}
                                   </span>
                                 </td>
-                                 <td style={{ textAlign: "right" }}>
-                                  <Link href={`/solo-tour/admin/fixtures/${f.id}?t=${selectedTournamentId}&r=${activeRound}`} className="portal-btn btn-primary" style={{ padding: "4px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "8px 12px" }}>
+                                  <Link href={`/solo-tour/admin/fixtures/${f.id}?t=${selectedTournamentId}&r=${activeRound}`} className="portal-btn btn-primary" style={{ padding: "3px 8px", fontSize: "0.7rem", minHeight: "24px", height: "24px", display: "inline-flex", alignItems: "center", gap: "4px", margin: 0 }}>
                                     <i className="fa-solid fa-pen-to-square" /> Enter Result
                                   </Link>
                                 </td>
