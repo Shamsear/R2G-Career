@@ -3,8 +3,12 @@
 import { Pool } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs';
 
 const connectionString = process.env.SOLO_DATABASE_URL;
+const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET || 'solo-admin-secret-key-1234567890');
 
 if (!connectionString) {
   console.error("❌ SOLO_DATABASE_URL is not set.");
@@ -14,6 +18,68 @@ const pool = new Pool({
   connectionString: connectionString || '',
   ssl: { rejectUnauthorized: false } // Standard practice for external Supabase/Neon DBs
 });
+
+export async function getCurrentAdminUsername() {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('solo_admin_session')?.value;
+    if (!sessionCookie) return 'unknown_admin';
+    const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
+    return (payload.username as string) || 'unknown_admin';
+  } catch {
+    return 'unknown_admin';
+  }
+}
+
+export async function logSoloAdminAction(actionType: string, details: any) {
+  try {
+    const username = await getCurrentAdminUsername();
+    await originalQuery(`
+      INSERT INTO solo_admin_action_logs (admin_username, action_type, details)
+      VALUES ($1, $2, $3)
+    `, [username, actionType, typeof details === 'string' ? details : JSON.stringify(details)]);
+  } catch (err) {
+    console.error("Failed to log admin action:", err);
+  }
+}
+
+// Database-level Query Interceptor to log EVERY single database mutation automatically
+const originalQuery = pool.query.bind(pool);
+pool.query = async function(text: any, params: any) {
+  let queryString = "";
+  if (typeof text === 'string') {
+    queryString = text;
+  } else if (text && typeof text.text === 'string') {
+    queryString = text.text;
+  }
+  
+  const upperQuery = queryString.trim().toUpperCase();
+  const isMutation = upperQuery.startsWith('INSERT') || 
+                     upperQuery.startsWith('UPDATE') || 
+                     upperQuery.startsWith('DELETE');
+                     
+  const isAuditLogTable = upperQuery.includes('SOLO_ADMIN_ACTION_LOGS');
+
+  if (isMutation && !isAuditLogTable) {
+    try {
+      const username = await getCurrentAdminUsername();
+      if (username !== 'unknown_admin') {
+        originalQuery(`
+          INSERT INTO solo_admin_action_logs (admin_username, action_type, details)
+          VALUES ($1, $2, $3)
+        `, [
+          username, 
+          upperQuery.split(' ')[0] + '_QUERY', 
+          JSON.stringify({ query: queryString.replace(/\s+/g, ' '), params })
+        ]).catch(err => console.error("Async query audit logging failed:", err));
+      }
+    } catch (err) {
+      // Ignore authentication lookup errors during query log attempts
+    }
+  }
+  
+  return originalQuery(text, params);
+} as any;
 
 function resolvePlayerImageUrl(imagepath: string | null | undefined, id: number | string): string {
   const pathVal = imagepath || `/assets/images/players/${id}.png`;
@@ -37,6 +103,16 @@ pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `).catch(err => console.error("Error creating medal_audit_logs table:", err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS solo_admin_action_logs (
+    id SERIAL PRIMARY KEY,
+    admin_username VARCHAR(50) NOT NULL,
+    action_type VARCHAR(100) NOT NULL,
+    details TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).catch(err => console.error("Error creating solo_admin_action_logs table:", err));
 
 
 async function logTransaction(
@@ -1752,6 +1828,13 @@ export async function updateFixture(
       RETURNING *
     `, [finalHomeScore, finalAwayScore, matchStatus, matchStatusReason, id]);
     const updatedFixture = updatedRows[0];
+    await logSoloAdminAction('update_fixture_score', {
+      id,
+      homeScore: finalHomeScore,
+      awayScore: finalAwayScore,
+      matchStatus,
+      tournamentName
+    });
 
     // Apply new gameplay EXP to DB
     if (finalHomeScore !== null && finalAwayScore !== null && (matchStatus === 'played' || matchStatus.startsWith('extended'))) {
@@ -2338,6 +2421,7 @@ export async function createPlayer(data: any) {
       newPlayer.image_path = savedPath;
     }
     
+    await logSoloAdminAction('create_player', { id: newPlayer.id, name: newPlayer.name });
     return newPlayer;
   } catch (e) {
     console.error("Error creating player:", e);
@@ -2358,7 +2442,10 @@ export async function updatePlayer(data: any) {
       WHERE id = $7
       RETURNING *
     `, [data.name, data.position, data.star || '3-star-standard', data.value || 80, finalPath, data.isSuspended || false, data.id]);
-    return rows[0];
+    
+    const updated = rows[0];
+    await logSoloAdminAction('update_player', { id: data.id, name: data.name });
+    return updated;
   } catch (e) {
     console.error("Error updating player:", e);
     throw e;
@@ -2368,6 +2455,7 @@ export async function updatePlayer(data: any) {
 export async function deletePlayer(id: number) {
   try {
     await pool.query(`DELETE FROM players WHERE id = $1`, [id]);
+    await logSoloAdminAction('delete_player', { id });
     return { success: true };
   } catch (e) {
     console.error("Error deleting player:", e);
@@ -3358,12 +3446,7 @@ export async function clearAllGroups(tournamentId: number) {
   }
 }
 
-// Admin login & session management actions
-import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
 
-const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET || 'solo-admin-secret-key-1234567890');
 
 export async function checkIsSoloAdmin() {
   try {
@@ -3377,9 +3460,11 @@ export async function checkIsSoloAdmin() {
   }
 }
 
+
+
 export async function loginSoloAdmin(data: any) {
   try {
-    const { username, password } = data;
+    const { username, password, rememberMe } = data;
     if (!username || !password) {
       return { success: false, error: "Username and password required" };
     }
@@ -3395,10 +3480,13 @@ export async function loginSoloAdmin(data: any) {
       return { success: false, error: "Invalid credentials" };
     }
 
+    const expTime = rememberMe ? '30d' : '2h';
+    const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 7200;
+
     // Generate JWT
     const jwt = await new SignJWT({ username: adminUser.username, id: adminUser.id })
       .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('2h')
+      .setExpirationTime(expTime)
       .sign(SECRET_KEY);
 
     // Set cookie
@@ -3408,8 +3496,10 @@ export async function loginSoloAdmin(data: any) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 7200 // 2 hours
+      maxAge: maxAge
     });
+
+    await logSoloAdminAction('login', { username });
 
     return { success: true };
   } catch (error: any) {
@@ -3420,12 +3510,14 @@ export async function loginSoloAdmin(data: any) {
 
 export async function logoutSoloAdmin() {
   try {
+    const username = await getCurrentAdminUsername();
     const cookieStore = await cookies();
     cookieStore.delete('solo_admin_session');
+    await logSoloAdminAction('logout', { username });
     return { success: true };
   } catch (error: any) {
     console.error("Error in logoutSoloAdmin:", error);
-    return { success: false };
+    return { success: false, error: "Logout error" };
   }
 }
 

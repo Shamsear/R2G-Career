@@ -11,6 +11,8 @@ import { loginSoloAdmin } from "@/utils/solo/serverActions";
 export default function AdminLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function AdminLogin() {
 
     startTransition(async () => {
       try {
-        const res = await loginSoloAdmin({ username, password });
+        const res = await loginSoloAdmin({ username, password, rememberMe });
         if (res.success) {
           router.push("/solo-tour/admin");
           router.refresh();
@@ -95,20 +97,58 @@ export default function AdminLogin() {
               />
             </div>
 
-            <div className="admin-form-group" style={{ marginBottom: "2rem" }}>
+             <div className="admin-form-group" style={{ marginBottom: "1.25rem" }}>
               <label htmlFor="password-input" style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-secondary)" }}>
                 Password
               </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  id="password-input"
+                  type={showPassword ? "text" : "password"}
+                  className="admin-input"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isPending}
+                  style={{ marginTop: "0.25rem", paddingRight: "40px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "55%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.4)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center"
+                  }}
+                >
+                  {showPassword ? (
+                    <i className="fa-solid fa-eye-slash" />
+                  ) : (
+                    <i className="fa-solid fa-eye" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "2rem" }}>
               <input
-                id="password-input"
-                type="password"
-                className="admin-input"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isPending}
-                style={{ marginTop: "0.25rem" }}
+                type="checkbox"
+                id="remember-me"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ cursor: "pointer", width: "16px", height: "16px", accentColor: "#a855f7" }}
               />
+              <label htmlFor="remember-me" style={{ fontSize: "0.75rem", color: "var(--text-secondary)", cursor: "pointer", userSelect: "none" }}>
+                Remember session (30 days)
+              </label>
             </div>
 
             <button 
