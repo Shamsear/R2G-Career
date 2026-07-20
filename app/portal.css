@@ -2371,3 +2371,62 @@ body {
   }
 }
 
+/* ─── Custom Select Dropdowns (Global Unified Theme) ─────────────────────── */
+select,
+.admin-select,
+.portal-select,
+.filter-select,
+.toolbar-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a855f7' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 14px 14px !important;
+  padding-right: 40px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-family: inherit !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease !important;
+}
+
+select:hover,
+.admin-select:hover,
+.portal-select:hover,
+.filter-select:hover,
+.toolbar-select:hover {
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  background-color: rgba(26, 35, 58, 0.95) !important;
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.15) !important;
+}
+
+select:focus,
+.admin-select:focus,
+.portal-select:focus,
+.filter-select:focus,
+.toolbar-select:focus {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25), 0 0 20px rgba(168, 85, 247, 0.2) !important;
+  background-color: rgba(15, 23, 42, 0.95) !important;
+}
+
+select option,
+.admin-select option,
+.portal-select option,
+.filter-select option,
+.toolbar-select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 10px 14px !important;
+  font-size: 0.875rem !important;
+}
+
+
