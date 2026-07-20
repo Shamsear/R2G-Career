@@ -3,8 +3,9 @@ import "../globals.css";
 import "../portal.css";
 import "../styles.css";
 import "../pwa.css";
-import SoloNavbar from "@/components/solo/SoloNavbar";
-import SoloFooter from "@/components/solo/SoloFooter";
+import "../(rws)/rws/rws.css";
+import SpecialTourNavbar from "@/components/special-tour/SpecialTourNavbar";
+import SpecialTourFooter from "@/components/special-tour/SpecialTourFooter";
 
 export const metadata: Metadata = {
   title: "Road To Glory - Special Tour",
@@ -41,11 +42,11 @@ export default function SpecialTourLayout({
       </head>
       <body>
         <div className="app-container">
-          <SoloNavbar />
+          <SpecialTourNavbar />
           <main className="main-content">
             {children}
           </main>
-          <SoloFooter />
+          <SpecialTourFooter />
         </div>
       </body>
     </html>

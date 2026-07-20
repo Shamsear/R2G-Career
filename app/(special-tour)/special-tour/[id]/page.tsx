@@ -176,6 +176,35 @@ export default function SpecialTourHub() {
             </div>
           </Link>
 
+          {/* Card 3: Photo Album / Gallery */}
+          <Link 
+            href={`/special-tour/${tourneyId}/album`} 
+            className="portal-card"
+            onMouseMove={handleMouseMove}
+            style={{ minHeight: "220px" }}
+          >
+            <div
+              className="portal-card-bg"
+              style={{ backgroundImage: "url('/assets/images/rws/album_bg.jpg')" }}
+            />
+            <div className="portal-card-shimmer" />
+            <div className="portal-card-glow" />
+            <div className="portal-card-overlay" />
+            <div className="portal-card-content">
+              <span className="portal-card-badge">
+                <i className="fa-solid fa-camera-retro" />
+                Photo Gallery
+              </span>
+              <h2>TOURNAMENT ALBUM</h2>
+              <p>
+                Browse official ceremony photos, matchday snapshots, and trophy presentation highlights.
+              </p>
+              <div className="portal-card-action">
+                Browse Album <i className="fas fa-arrow-right" />
+              </div>
+            </div>
+          </Link>
+
         </div>
 
       </div>

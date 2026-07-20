@@ -853,6 +853,15 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             >
               <i className="fa-solid fa-chart-simple" style={{ marginRight: "6px" }} /> Stats
             </button>
+            {tournament?.tournament_type === 'special' && (
+              <Link
+                href={`/solo-tour/admin/special-album?id=${tournament.id}`}
+                className="tab-btn"
+                style={{ background: "rgba(168, 85, 247, 0.15)", borderColor: "rgba(168, 85, 247, 0.3)", color: "#c084fc", textDecoration: "none" }}
+              >
+                <i className="fa-solid fa-camera-retro" style={{ marginRight: "6px" }} /> Album Manager
+              </Link>
+            )}
           </div>
 
           {(activeTab === "table" || activeTab === "fixtures" || activeTab === "stats") && (

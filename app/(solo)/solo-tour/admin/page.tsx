@@ -79,6 +79,13 @@ const ADMIN_MODULES = [
     desc: "Upload ceremony snapshots and draft board photos to the RWS gallery.",
   },
   {
+    href: "/solo-tour/admin/special-album",
+    icon: "fa-solid fa-camera-retro",
+    accent: "album",
+    title: "Special Tour Album",
+    desc: "Upload ceremony snapshots, matchday photos, and trophy highlights to Special Tournaments.",
+  },
+  {
     href: "/solo-tour/admin/awards",
     icon: "fa-solid fa-award",
     accent: "awards",

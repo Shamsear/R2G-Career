@@ -1109,6 +1109,52 @@ export async function deleteRwsAlbumPhoto(id: number) {
   }
 }
 
+export async function fetchSpecialTourAlbumPhotos(tournamentId: number) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM special_tour_album WHERE tournament_id = $1 ORDER BY id DESC`,
+      [tournamentId]
+    );
+    return rows;
+  } catch (e) {
+    console.error("Error fetching Special Tour album photos:", e);
+    return [];
+  }
+}
+
+export async function addSpecialTourAlbumPhoto(
+  tournamentId: number,
+  title: string,
+  tag: string,
+  imageUrl: string,
+  dateStr: string
+) {
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO special_tour_album (tournament_id, title, tag, image_url, date_str)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [tournamentId, title, tag, imageUrl, dateStr]
+    );
+    await logSoloAdminAction('add_special_tour_album_photo', { tournamentId, title, id: rows[0].id });
+    return rows[0];
+  } catch (e) {
+    console.error("Error adding Special Tour album photo:", e);
+    throw e;
+  }
+}
+
+export async function deleteSpecialTourAlbumPhoto(id: number) {
+  try {
+    await pool.query(`DELETE FROM special_tour_album WHERE id = $1`, [id]);
+    await logSoloAdminAction('delete_special_tour_album_photo', { id });
+    return { success: true };
+  } catch (e) {
+    console.error("Error deleting Special Tour album photo:", e);
+    throw e;
+  }
+}
+
 export async function fetchFinancialRules() {
   try {
     const { rows } = await pool.query(`SELECT * FROM career_financial_rules ORDER BY id ASC`);

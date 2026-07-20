@@ -17,6 +17,7 @@ export default function SpecialTourFixtures() {
   const [standings, setStandings] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>("table");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
+  const [activeRound, setActiveRound] = useState<number>(1);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,16 @@ export default function SpecialTourFixtures() {
         setTournament(t);
         setFixtures(f || []);
         setStandings(sData || []);
+
+        if (f && f.length > 0) {
+          const firstUnplayed = f.find((m: any) => m.homeScore === null || m.awayScore === null);
+          if (firstUnplayed) {
+            setActiveRound(firstUnplayed.roundNumber || 1);
+          } else {
+            const maxR = Math.max(...f.map((m: any) => m.roundNumber || 1));
+            setActiveRound(maxR);
+          }
+        }
       } catch (err) {
         console.error("Error loading tournament details:", err);
       } finally {
@@ -313,72 +324,213 @@ export default function SpecialTourFixtures() {
               No matches scheduled for this stage yet.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2rem", animation: "rwsFadeUp 0.4s ease-out both" }}>
-              {rounds.map((round) => (
-                <div key={round} className="rws-round-section" style={{ background: "rgba(15, 23, 42, 0.4)", borderRadius: "16px", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <h2 style={{ fontSize: "1.15rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <i className="fa-solid fa-circle-play" style={{ color: "var(--solo-primary)", fontSize: "0.95rem" }} />
-                    Round {round}
-                  </h2>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {fixturesByRound[round].map((match) => {
-                      const isFinished = match.homeScore !== null && match.awayScore !== null;
-                      return (
-                        <div 
-                          key={match.id} 
-                          style={{ 
-                            display: "flex", 
-                            justifyContent: "space-between", 
-                            alignItems: "center", 
-                            padding: "1rem 1.5rem", 
-                            background: "rgba(255,255,255,0.02)", 
-                            borderRadius: "10px", 
-                            border: "1px solid rgba(255,255,255,0.03)"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
-                            <div 
-                              style={{ 
-                                width: "20px", 
-                                height: "20px", 
-                                backgroundSize: "contain", 
-                                backgroundPosition: "center", 
-                                backgroundRepeat: "no-repeat", 
-                                backgroundImage: `url('${match.homeLogo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
-                              }}
+            <div style={{ animation: "rwsFadeUp 0.4s ease-out both" }}>
+              {/* Round Filter & Swipe Controls */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "14px",
+                padding: "8px 12px",
+                marginBottom: "1.5rem"
+              }}>
+                {/* Prev Round Button */}
+                <button
+                  type="button"
+                  onClick={() => setActiveRound(prev => Math.max(1, prev - 1))}
+                  disabled={activeRound <= 1}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: activeRound <= 1 ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.08)",
+                    color: activeRound <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
+                    cursor: activeRound <= 1 ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <i className="fa-solid fa-chevron-left" style={{ fontSize: "0.85rem" }} />
+                </button>
+
+                {/* Horizontal Scrollable Round Pills */}
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  overflowX: "auto",
+                  scrollBehavior: "smooth",
+                  WebkitOverflowScrolling: "touch",
+                  padding: "4px 0",
+                  scrollbarWidth: "none"
+                }}>
+                  {rounds.map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setActiveRound(r)}
+                      style={{
+                        padding: "6px 16px",
+                        borderRadius: "8px",
+                        border: activeRound === r ? "1px solid rgba(168, 85, 247, 0.5)" : "1px solid transparent",
+                        background: activeRound === r ? "linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(124, 58, 237, 0.3))" : "rgba(255, 255, 255, 0.04)",
+                        color: activeRound === r ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
+                        fontSize: "0.8rem",
+                        fontWeight: activeRound === r ? 700 : 500,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      Round {r}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Next Round Button */}
+                <button
+                  type="button"
+                  onClick={() => setActiveRound(prev => Math.min(Math.max(...rounds), prev + 1))}
+                  disabled={activeRound >= Math.max(...rounds)}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: activeRound >= Math.max(...rounds) ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.08)",
+                    color: activeRound >= Math.max(...rounds) ? "rgba(255,255,255,0.2)" : "#fff",
+                    cursor: activeRound >= Math.max(...rounds) ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.85rem" }} />
+                </button>
+              </div>
+
+              {/* Active Round Fixtures List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {(!fixturesByRound[activeRound] || fixturesByRound[activeRound].length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
+                    No matches scheduled for Round {activeRound}.
+                  </div>
+                ) : (
+                  fixturesByRound[activeRound].map((match: any) => {
+                    const isFinished = match.homeScore !== null && match.awayScore !== null;
+                    const homeWon = isFinished && match.homeScore > match.awayScore;
+                    const awayWon = isFinished && match.awayScore > match.homeScore;
+
+                    return (
+                      <div
+                        key={match.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "1rem 1.25rem",
+                          background: "rgba(255,255,255,0.02)",
+                          backdropFilter: "blur(8px)",
+                          borderRadius: "14px",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          transition: "all 0.2s ease"
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                          e.currentTarget.style.borderColor = "rgba(168, 85, 247, 0.3)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                        }}
+                      >
+                        {/* Home Manager */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, overflow: "hidden" }}>
+                          {match.homeLogo ? (
+                            <img
+                              src={match.homeLogo}
+                              alt={match.homeClub}
+                              style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }}
+                              onError={e => { e.currentTarget.src = "/assets/images/default-avatar.png"; }}
                             />
-                            <span style={{ fontWeight: 600, color: "#fff" }}>{match.homeClub}</span>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", justifyContent: "center", minWidth: "120px" }}>
-                            {isFinished ? (
-                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", fontWeight: 800, color: "var(--solo-primary)", letterSpacing: "1px" }}>
-                                {match.homeScore} - {match.awayScore}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: "4px", background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)", fontWeight: "bold" }}>
-                                VS
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, justifyContent: "flex-end" }}>
-                            <span style={{ fontWeight: 600, color: "#fff" }}>{match.awayClub}</span>
-                            <div 
-                              style={{ 
-                                width: "20px", 
-                                height: "20px", 
-                                backgroundSize: "contain", 
-                                backgroundPosition: "center", 
-                                backgroundRepeat: "no-repeat", 
-                                backgroundImage: `url('${match.awayLogo || '/assets/images/default-club-logo.png'}'), url('/assets/images/default-club-logo.png')` 
-                              }}
-                            />
+                          ) : (
+                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: "bold", flexShrink: 0 }}>
+                              {match.homeClub.substring(0, 1)}
+                            </div>
+                          )}
+                          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontWeight: homeWon ? 800 : 600, color: homeWon ? "#22c55e" : "#ffffff", fontSize: "0.9rem" }}>
+                              {match.homeClub}
+                            </span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+
+                        {/* Score Box */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 1rem", minWidth: "90px" }}>
+                          {isFinished ? (
+                            <span style={{
+                              fontFamily: "var(--font-mono)",
+                              fontSize: "1.1rem",
+                              fontWeight: 800,
+                              color: "var(--solo-primary)",
+                              background: "rgba(168, 85, 247, 0.12)",
+                              border: "1px solid rgba(168, 85, 247, 0.25)",
+                              padding: "4px 14px",
+                              borderRadius: "8px",
+                              letterSpacing: "1px"
+                            }}>
+                              {match.homeScore} - {match.awayScore}
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontSize: "0.75rem",
+                              fontWeight: 700,
+                              color: "rgba(255,255,255,0.5)",
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                              padding: "3px 12px",
+                              borderRadius: "6px"
+                            }}>
+                              VS
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Away Manager */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, justifyContent: "flex-end", overflow: "hidden" }}>
+                          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                            <span style={{ fontWeight: awayWon ? 800 : 600, color: awayWon ? "#22c55e" : "#ffffff", fontSize: "0.9rem" }}>
+                              {match.awayClub}
+                            </span>
+                          </div>
+                          {match.awayLogo ? (
+                            <img
+                              src={match.awayLogo}
+                              alt={match.awayClub}
+                              style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }}
+                              onError={e => { e.currentTarget.src = "/assets/images/default-avatar.png"; }}
+                            />
+                          ) : (
+                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: "bold", flexShrink: 0 }}>
+                              {match.awayClub.substring(0, 1)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )
         )}
