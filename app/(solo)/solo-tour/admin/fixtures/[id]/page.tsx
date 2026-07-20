@@ -120,15 +120,9 @@ function AdminFixtureDetailContent() {
             : "✅ Match results and payouts saved successfully!"
         );
         
-        // Refresh local state by refetching
-        const refreshed = await fetchFixtureById(fixtureId);
-        if (refreshed) {
-          setFixture(refreshed);
-          setMatchStatus(refreshed.matchStatus || "played");
-          setHomeScore(refreshed.homeScore !== null ? refreshed.homeScore.toString() : "");
-          setAwayScore(refreshed.awayScore !== null ? refreshed.awayScore.toString() : "");
-          setNotes(refreshed.matchStatusReason || "");
-        }
+        setTimeout(() => {
+          router.push(backHref);
+        }, 800);
       } catch (err: any) {
         showToast("❌ Error saving match results: " + err.message);
       }
@@ -196,8 +190,50 @@ function AdminFixtureDetailContent() {
       <div className="portal-glow-orb-2" />
 
       {toast && (
-        <div className="portal-toast" style={{ zIndex: 9999 }}>
-          {toast}
+        <div style={{
+          position: "fixed",
+          bottom: "2rem",
+          right: "2rem",
+          zIndex: 99999,
+          background: toast.startsWith("❌") 
+            ? "rgba(239, 68, 68, 0.25)" 
+            : toast.startsWith("⚠️") 
+            ? "rgba(245, 158, 11, 0.25)" 
+            : "rgba(34, 197, 94, 0.25)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          border: toast.startsWith("❌") 
+            ? "1px solid rgba(239, 68, 68, 0.5)" 
+            : toast.startsWith("⚠️") 
+            ? "1px solid rgba(245, 158, 11, 0.5)" 
+            : "1px solid rgba(34, 197, 94, 0.5)",
+          color: "#ffffff",
+          padding: "1rem 1.5rem",
+          borderRadius: "12px",
+          boxShadow: toast.startsWith("❌") 
+            ? "0 8px 32px rgba(239, 68, 68, 0.3)" 
+            : toast.startsWith("⚠️") 
+            ? "0 8px 32px rgba(245, 158, 11, 0.3)" 
+            : "0 8px 32px rgba(34, 197, 94, 0.3)",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          fontWeight: "600",
+          fontSize: "0.9rem"
+        }}>
+          <div style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            background: toast.startsWith("❌") ? "rgba(239, 68, 68, 0.35)" : toast.startsWith("⚠️") ? "rgba(245, 158, 11, 0.35)" : "rgba(34, 197, 94, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "1rem"
+          }}>
+            {toast.startsWith("❌") ? <i className="fa-solid fa-xmark" style={{ color: "#ef4444" }} /> : toast.startsWith("⚠️") ? <i className="fa-solid fa-triangle-exclamation" style={{ color: "#f59e0b" }} /> : <i className="fa-solid fa-check" style={{ color: "#22c55e" }} />}
+          </div>
+          <span>{toast.replace(/^[✅❌⚠️]\s*/, "")}</span>
         </div>
       )}
 
