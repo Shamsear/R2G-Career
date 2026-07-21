@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo, useRef } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -54,9 +54,84 @@ export default function PlayersManager() {
     }
   };
 
+  const STORAGE_KEY = "r2g_solo_admin_players_filters";
+  const isPopStateRef = useRef(false);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Restore page & search from URL or sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qPage = params.get("page");
+    const qSearch = params.get("search");
+
+    const hasUrlParams = qSearch !== null || qPage !== null;
+
+    if (hasUrlParams) {
+      if (qSearch !== null) setSearchTerm(qSearch);
+      if (qPage !== null && !isNaN(Number(qPage))) setCurrentPage(Math.max(1, Number(qPage)));
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+          if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
+        }
+      } catch (e) {
+        console.error("Failed to restore admin players filters", e);
+      }
+    }
+  }, []);
+
+  // Listen for browser/PWA back navigation (popstate)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const qPage = params.get("page");
+      const qSearch = params.get("search");
+
+      isPopStateRef.current = true;
+
+      setSearchTerm(qSearch !== null ? qSearch : "");
+      setCurrentPage(qPage !== null && !isNaN(Number(qPage)) ? Math.max(1, Number(qPage)) : 1);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync state with sessionStorage & URL history via pushState
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ searchTerm, currentPage })
+      );
+    } catch (e) {
+      console.error("Failed to save admin players filters", e);
+    }
+
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (currentPage > 1) params.set("page", currentPage.toString());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      window.history.pushState({ page: currentPage }, "", newUrl);
+    }
+  }, [searchTerm, currentPage]);
 
   const filteredPlayers = useMemo(() => {
     return players.filter(p => 
@@ -75,7 +150,9 @@ export default function PlayersManager() {
   }, [filteredPlayers, currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    if (!isPopStateRef.current) {
+      setCurrentPage(1);
+    }
   }, [searchTerm]);
 
   const handleSavePlayer = (e: React.FormEvent) => {

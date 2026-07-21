@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import "../../../portal.css";
 import { POSITIONS } from "@/utils/solo/playerAuctionFetcher";
@@ -48,6 +48,88 @@ export default function PlayerSigning() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  const STORAGE_KEY = "r2g_solo_player_signing_filters";
+  const isPopStateRef = useRef(false);
+
+  // Restore state from URL or sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qTab = params.get("tab");
+    const qSearch = params.get("search");
+    const qPage = params.get("page");
+
+    const hasUrlParams = qTab !== null || qSearch !== null || qPage !== null;
+
+    if (hasUrlParams) {
+      if (qTab !== null) setActiveTab(qTab);
+      if (qSearch !== null) setSearchTerm(qSearch);
+      if (qPage !== null && !isNaN(Number(qPage))) setCurrentPage(Math.max(1, Number(qPage)));
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.activeTab !== undefined) setActiveTab(parsed.activeTab);
+          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+          if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
+        }
+      } catch (e) {
+        console.error("Failed to restore player signing filters", e);
+      }
+    }
+  }, []);
+
+  // Listen for browser/PWA back navigation (popstate)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const qTab = params.get("tab");
+      const qSearch = params.get("search");
+      const qPage = params.get("page");
+
+      isPopStateRef.current = true;
+
+      setActiveTab(qTab !== null ? qTab : "all");
+      setSearchTerm(qSearch !== null ? qSearch : "");
+      setCurrentPage(qPage !== null && !isNaN(Number(qPage)) ? Math.max(1, Number(qPage)) : 1);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync state with sessionStorage & URL via pushState
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ activeTab, searchTerm, currentPage })
+      );
+    } catch (e) {
+      console.error("Failed to save player signing filters", e);
+    }
+
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (activeTab && activeTab !== "all") params.set("tab", activeTab);
+    if (searchTerm) params.set("search", searchTerm);
+    if (currentPage > 1) params.set("page", currentPage.toString());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      window.history.pushState({ page: currentPage }, "", newUrl);
+    }
+  }, [activeTab, searchTerm, currentPage]);
 
   useEffect(() => {
     async function loadData() {
@@ -106,7 +188,9 @@ export default function PlayerSigning() {
       });
     }
     setFilteredPlayers(result);
-    setCurrentPage(1); // Reset to first page when filters change
+    if (!isPopStateRef.current) {
+      setCurrentPage(1);
+    }
   }, [players, activeTab, searchTerm, sortConfig]);
 
   const requestSort = (key: string) => {

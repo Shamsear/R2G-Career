@@ -51,6 +51,8 @@ export default function PlayerStatus() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const isPopStateRef = useRef(false);
+
   // Restore filter state from URL or sessionStorage on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -92,7 +94,32 @@ export default function PlayerStatus() {
     setIsInitialized(true);
   }, []);
 
-  // Save filter state to sessionStorage and URL query parameters
+  // Listen for browser/PWA back navigation (popstate)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const qSearch = params.get("search");
+      const qStar = params.get("star");
+      const qClub = params.get("club");
+      const qPos = params.get("pos");
+      const qPage = params.get("page");
+
+      isPopStateRef.current = true;
+
+      setSearchTerm(qSearch !== null ? qSearch : "");
+      setStarFilter(qStar !== null ? qStar : "all");
+      setClubFilter(qClub !== null ? qClub : "ALL");
+      setPositionFilters(qPos ? qPos.split(",").filter(Boolean) : []);
+      setCurrentPage(qPage !== null && !isNaN(Number(qPage)) ? Math.max(1, Number(qPage)) : 1);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Save filter state to sessionStorage and URL query parameters via pushState
   useEffect(() => {
     if (!isInitialized) return;
     try {
@@ -102,6 +129,11 @@ export default function PlayerStatus() {
       );
     } catch (e) {
       console.error("Failed to save player database state", e);
+    }
+
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      return;
     }
 
     const params = new URLSearchParams();
@@ -114,7 +146,7 @@ export default function PlayerStatus() {
     const queryString = params.toString();
     const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
     if (window.location.search !== (queryString ? `?${queryString}` : "")) {
-      window.history.replaceState(null, "", newUrl);
+      window.history.pushState({ page: currentPage }, "", newUrl);
     }
   }, [searchTerm, starFilter, clubFilter, positionFilters, currentPage, isInitialized]);
 

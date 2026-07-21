@@ -71,6 +71,31 @@ export default function BulkAssignPlayersPage() {
   const [isPending, startTransition] = useTransition();
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
+  const STORAGE_KEY = "r2g_solo_bulk_assign_filters";
+
+  // Restore filters from sessionStorage
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.selectedClubId !== undefined) setSelectedClubId(parsed.selectedClubId);
+        if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
+        if (parsed.positionFilter !== undefined) setPositionFilter(parsed.positionFilter);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Save filters to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ selectedClubId, searchTerm, positionFilter })
+      );
+    } catch (e) {}
+  }, [selectedClubId, searchTerm, positionFilter]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
