@@ -3,24 +3,50 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { fetchTournamentById, fetchFixtures, fetchTournamentStandings } from "@/utils/solo/serverActions";
+import { 
+  fetchTournamentById, 
+  fetchFixtures, 
+  fetchTournamentStandings, 
+  fetchTournamentClubs 
+} from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../../portal.css";
 import "../../../../(rws)/rws/rws.css";
+
+interface Match {
+  id: number;
+  homeTeam: string;
+  homeLogo: string;
+  awayTeam: string;
+  awayLogo: string;
+  homeScore?: number;
+  awayScore?: number;
+  roundNumber: number;
+  groupName?: string | null;
+  status: "live" | "upcoming" | "finished";
+  matchEvents?: any[];
+}
 
 export default function SpecialTourFixtures() {
   const params = useParams();
   const tourneyId = parseInt(params.id as string, 10);
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const [tournament, setTournament] = useState<any>(null);
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("table");
-  const [activeSubTab, setActiveSubTab] = useState<string>("boot");
-  const [activeRound, setActiveRound] = useState<number>(1);
+  const [tournamentClubs, setTournamentClubs] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tab selections
+  const [activeTab, setActiveTab] = useState<string>("table");
+  const [activeSubTab, setActiveSubTab] = useState<string>("boot");
+
+  // Fixtures filtering states
+  const [activeRound, setActiveRound] = useState<number>(1);
+  const [activeGroup, setActiveGroup] = useState<string>("All");
 
   useEffect(() => {
     async function loadData() {
@@ -30,10 +56,11 @@ export default function SpecialTourFixtures() {
           return;
         }
 
-        const [t, f, sData] = await Promise.all([
+        const [t, f, sData, clubsData] = await Promise.all([
           fetchTournamentById(tourneyId),
           fetchFixtures(tourneyId),
-          fetchTournamentStandings(tourneyId)
+          fetchTournamentStandings(tourneyId),
+          fetchTournamentClubs(tourneyId)
         ]);
 
         if (!t) {
@@ -43,18 +70,23 @@ export default function SpecialTourFixtures() {
         setTournament(t);
         setFixtures(f || []);
         setStandings(sData || []);
+        setTournamentClubs(clubsData || []);
 
+        document.title = `${t.name} Series Portal | R2G`;
+
+        // Determine initial active round
         if (f && f.length > 0) {
-          const firstUnplayed = f.find((m: any) => m.homeScore === null || m.awayScore === null);
-          if (firstUnplayed) {
-            setActiveRound(firstUnplayed.roundNumber || 1);
+          const played = f.filter((m: any) => m.homeScore !== null && m.awayScore !== null);
+          if (played.length > 0) {
+            const maxPlayedRound = Math.max(...played.map((m: any) => m.roundNumber || 1));
+            setActiveRound(maxPlayedRound);
           } else {
-            const maxR = Math.max(...f.map((m: any) => m.roundNumber || 1));
-            setActiveRound(maxR);
+            setActiveRound(1);
           }
         }
       } catch (err) {
         console.error("Error loading tournament details:", err);
+        setError("Failed to load tournament standings and fixtures.");
       } finally {
         setLoading(false);
       }
@@ -62,22 +94,80 @@ export default function SpecialTourFixtures() {
     loadData();
   }, [tourneyId]);
 
-  // Dynamically compute stats lists for Boot, Ball, Glove, and Defender
+  // Unique rounds list
+  const roundsList = useMemo(() => {
+    const rounds = new Set<number>();
+    fixtures.forEach(f => {
+      if (f.roundNumber) rounds.add(f.roundNumber);
+    });
+    return Array.from(rounds).sort((a, b) => a - b);
+  }, [fixtures]);
+
+  // Unique groups list from fixtures
+  const availableGroups = useMemo(() => {
+    const groups = new Set<string>();
+    fixtures.forEach(f => {
+      if (f.groupName) {
+        groups.add(f.groupName);
+      }
+    });
+    return Array.from(groups).sort();
+  }, [fixtures]);
+
+  // Filtered fixtures based on activeRound and activeGroup
+  const filteredFixtures = useMemo(() => {
+    return fixtures.filter(f => {
+      const matchRound = f.roundNumber === activeRound;
+      let matchGroup = true;
+      if (activeGroup !== "All") {
+        if (activeGroup === "Knockout") {
+          matchGroup = !f.groupName;
+        } else {
+          matchGroup = f.groupName === activeGroup;
+        }
+      }
+      return matchRound && matchGroup;
+    });
+  }, [fixtures, activeRound, activeGroup]);
+
+  // Group standings by group name if applicable
+  const groupedStandings = useMemo(() => {
+    if (!standings || standings.length === 0) return {};
+    const groups: Record<string, any[]> = {};
+    standings.forEach(row => {
+      const gName = row.group_name || "A";
+      if (!groups[gName]) groups[gName] = [];
+      groups[gName].push(row);
+    });
+    return Object.keys(groups).sort().reduce((acc, key) => {
+      acc[key] = groups[key].sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
+      return acc;
+    }, {} as Record<string, any[]>);
+  }, [standings]);
+
+  // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
     const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
     const goalDiff: Record<string, { logo: string; manager: string; value: number }> = {};
     const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
     const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
+    tournamentClubs.forEach(tc => {
+      const name = tc.name;
+      const logo = tc.logo_path || "";
+      const manager = tc.manager || "Unknown";
+      goalsScored[name] = { logo, manager, value: 0 };
+      goalDiff[name] = { logo, manager, value: 0 };
+      cleanSheets[name] = { logo, manager, value: 0 };
+      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
+    });
+
     standings.forEach(row => {
       const name = row.club_name;
       const logo = row.club_logo || "";
       const manager = row.manager || "Unknown";
-
       goalsScored[name] = { logo, manager, value: row.goals_scored || 0 };
       goalDiff[name] = { logo, manager, value: row.goal_difference || 0 };
-      cleanSheets[name] = { logo, manager, value: 0 };
-      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
     fixtures.forEach(f => {
@@ -141,27 +231,49 @@ export default function SpecialTourFixtures() {
       });
 
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
-  }, [fixtures, standings]);
+  }, [fixtures, standings, tournamentClubs]);
 
-  // Group fixtures by round
-  const fixturesByRound = fixtures.reduce((acc: Record<number, any[]>, fix) => {
-    const round = fix.roundNumber || 1;
-    if (!acc[round]) acc[round] = [];
-    acc[round].push(fix);
-    return acc;
-  }, {});
+  const handlePrevRound = () => {
+    const curIdx = roundsList.indexOf(activeRound);
+    if (curIdx > 0) {
+      setActiveRound(roundsList[curIdx - 1]);
+    }
+  };
 
-  const rounds = Object.keys(fixturesByRound).map(Number).sort((a, b) => a - b);
+  const handleNextRound = () => {
+    const curIdx = roundsList.indexOf(activeRound);
+    if (curIdx < roundsList.length - 1) {
+      setActiveRound(roundsList[curIdx + 1]);
+    }
+  };
+
+  // Dynamic round name helper
+  const getRoundName = (rNum: number) => {
+    const roundMatches = fixtures.filter(f => f.roundNumber === rNum);
+    const hasGroupMatch = roundMatches.some(f => f.groupName);
+    
+    if (hasGroupMatch) {
+      return `Round ${rNum}`;
+    }
+    
+    const knockoutRounds = roundsList.filter(r => {
+      const matches = fixtures.filter(f => f.roundNumber === r);
+      return matches.every(f => !f.groupName);
+    });
+    
+    const idx = knockoutRounds.indexOf(rNum);
+    if (idx !== -1) {
+      const distance = knockoutRounds.length - 1 - idx;
+      if (distance === 0) return "Grand Final";
+      if (distance === 1) return "Semi-Finals";
+      if (distance === 2) return "Quarter-Finals";
+    }
+    
+    return `Round ${rNum}`;
+  };
 
   if (loading) {
-    return (
-      <div className="portal-root-wrapper">
-        <div className="portal-bg-grid" />
-        <div className="portal-glow-orb-1" />
-        <div className="portal-glow-orb-2" />
-        <RwsFullPageLoading text="Loading tournament fixtures" />
-      </div>
-    );
+    return <RwsFullPageLoading text="Loading series details" />;
   }
 
   if (error || !tournament) {
@@ -172,8 +284,8 @@ export default function SpecialTourFixtures() {
         <div className="portal-glow-orb-2" />
         <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
           <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
-            <Link href={`/special-tour/${tourneyId}`} className="portal-btn btn-secondary back-link-btn">
-              <i className="fas fa-arrow-left" /> Back to Tournament Hub
+            <Link href="/special-tour" className="portal-btn btn-secondary back-link-btn">
+              <i className="fas fa-arrow-left" /> Back to Special Tours
             </Link>
           </div>
           <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -187,17 +299,17 @@ export default function SpecialTourFixtures() {
   }
 
   return (
-    <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
+    <div className="portal-root-wrapper" ref={containerRef}>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container" style={{ paddingBottom: "4rem" }}>
+      <div className="portal-container" style={{ maxWidth: "960px" }}>
         
-        {/* Navigation Breadcrumbs */}
-        <div className="portal-breadcrumb">
-          <Link href={`/special-tour/${tourneyId}`} className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Tournament Hub
+        {/* Breadcrumb */}
+        <div className="portal-breadcrumb" style={{ marginBottom: "0.5rem" }}>
+          <Link href={`/special-tour/${tourneyId}`} className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+            <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Tournament Hub
           </Link>
         </div>
 
@@ -205,23 +317,23 @@ export default function SpecialTourFixtures() {
         <div className="rws-page-hero">
           <div className="portal-page-badge">
             <i className="fa-solid fa-trophy" />
-            Series Portal
+            Special Tour
           </div>
           <h1 className="rws-hero-title">
-            {tournament.name.toUpperCase()} SERIES
+            {tournament.name.toUpperCase()} PORTAL
           </h1>
           <p className="rws-hero-sub">
             Track points standings, matches calendar, score outcomes, and live tournament results.
           </p>
         </div>
 
-        {/* Segmented Tab Bar & Share Action */}
+        {/* Segmented Tab Bar */}
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
           <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "4px", gap: "4px" }}>
             {[
-              { key: "table", icon: "fa-solid fa-list-ol", label: "Standings Table" },
-              { key: "fixture", icon: "fa-solid fa-calendar-days", label: "Match Calendar" },
-              { key: "stats", icon: "fa-solid fa-chart-line", label: "Stats & Awards" }
+              { key: "table", icon: "fa-solid fa-list-ol", label: "Standings" },
+              { key: "fixture", icon: "fa-solid fa-calendar-days", label: "Fixtures" },
+              { key: "stats", icon: "fa-solid fa-chart-simple", label: "Stats" },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -243,299 +355,213 @@ export default function SpecialTourFixtures() {
           </div>
         </div>
 
-        {/* TAB 1: STANDINGS TABLE */}
+        {/* TAB 1 — STANDINGS */}
         {activeTab === "table" && (
-          standings.length === 0 ? (
-            <div className="glass-panel" style={{ textAlign: "center", padding: "4rem", color: "var(--text-secondary)" }}>
-              <i className="fa-solid fa-folder-open" style={{ fontSize: "3rem", marginBottom: "1rem", display: "block" }} />
-              No standings generated. Check back once fixtures kick off!
-            </div>
-          ) : (
-            <div className="glass-panel" style={{ padding: "2rem", animation: "rwsFadeUp 0.4s ease-out both" }}>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.85rem" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.15)", color: "var(--text-secondary)" }}>
-                      <th style={{ padding: "0.75rem", width: "50px" }}>Pos</th>
-                      <th style={{ padding: "0.75rem" }}>Participant Manager</th>
-                      <th style={{ padding: "0.75rem", textAlign: "center" }}>P</th>
-                      <th style={{ padding: "0.75rem", textAlign: "center" }}>PTS</th>
-                      <th style={{ padding: "0.75rem", textAlign: "center" }}>GD</th>
-                      <th style={{ padding: "0.75rem", textAlign: "center" }}>GF</th>
-                      <th style={{ padding: "0.75rem", textAlign: "center" }}>GA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((row, index) => (
-                      <tr 
-                        key={row.club_id} 
-                        style={{ 
-                          borderBottom: "1px solid rgba(255,255,255,0.05)",
-                          backgroundColor: index < 1 ? "rgba(45, 212, 191, 0.03)" : "transparent"
-                        }}
-                      >
-                        <td style={{ padding: "1rem 0.75rem", fontWeight: 700, color: index === 0 ? "var(--solo-primary)" : "var(--text-secondary)" }}>
-                          {index + 1}
-                        </td>
-                        <td style={{ padding: "1rem 0.75rem", fontWeight: 600 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                            {row.club_logo ? (
-                              <img 
-                                src={row.club_logo} 
-                                alt={row.club_name} 
-                                style={{ width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" }} 
-                              />
-                            ) : (
-                              <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "bold" }}>
-                                {row.club_name.substring(0, 1)}
-                              </div>
-                            )}
-                            <span>
-                              {row.club_name}
-                              {row.manager_r2g_id && (
-                                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "6px", fontWeight: "normal" }}>
-                                  ({row.manager_r2g_id})
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "1rem 0.75rem", textAlign: "center", fontWeight: 500 }}>{row.matches_played}</td>
-                        <td style={{ padding: "1rem 0.75rem", textAlign: "center", fontWeight: 700, color: "var(--solo-primary)" }}>{row.points}</td>
-                        <td style={{ padding: "1rem 0.75rem", textAlign: "center", fontWeight: 500, color: row.goal_difference >= 0 ? "#10b981" : "#ef4444" }}>
-                          {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
-                        </td>
-                        <td style={{ padding: "1rem 0.75rem", textAlign: "center", color: "var(--text-secondary)" }}>{row.goals_scored}</td>
-                        <td style={{ padding: "1rem 0.75rem", textAlign: "center", color: "var(--text-secondary)" }}>{row.goals_against}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
+            {standings.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "4rem 2rem", color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.02)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <i className="fa-solid fa-chart-bar" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block", opacity: 0.3 }} />
+                No standings data available yet.
               </div>
-            </div>
-          )
+            ) : tournament.num_groups && tournament.num_groups > 0 ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.25rem" }}>
+                {Object.entries(groupedStandings).map(([groupName, rows]) => (
+                  <div key={groupName} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+                    <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
+                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.9rem", color: "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>Group {groupName}</span>
+                    </div>
+                    <div style={{ padding: "0.5rem 0" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                        <thead>
+                          <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            <th style={{ padding: "0.5rem 1rem", textAlign: "left", width: "36px" }}>#</th>
+                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "left" }}>Club</th>
+                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "36px" }}>MP</th>
+                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "40px" }}>GD</th>
+                            <th style={{ padding: "0.5rem 1rem", textAlign: "center", width: "40px" }}>Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                              <td style={{ padding: "0.6rem 1rem" }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "22px", height: "22px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
+                              </td>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                  {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%" }} />}
+                                  <div>
+                                    <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem" }}>{row.club_name}</div>
+                                    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: "1px" }}>{row.manager || "Unknown"}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.6rem 0.5rem" }}>{row.matches_played}</td>
+                              <td style={{ textAlign: "center", padding: "0.6rem 0.5rem", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)" }}>
+                                {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                              </td>
+                              <td style={{ textAlign: "center", padding: "0.6rem 1rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.85rem" }}>{row.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+                <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <i className="fa-solid fa-list-ol" style={{ color: "#a855f7", fontSize: "0.85rem" }} />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>League Standings</span>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        <th style={{ padding: "0.75rem 1.25rem", textAlign: "left", width: "40px" }}>#</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Club</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>MP</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GF</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GA</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>GD</th>
+                        <th style={{ padding: "0.75rem 1.25rem", textAlign: "center", width: "50px" }}>Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((row, idx) => (
+                        <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <td style={{ padding: "0.7rem 1.25rem" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : idx === 1 ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : idx === 1 ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
+                          </td>
+                          <td style={{ padding: "0.7rem 0.5rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                              {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "22px", height: "22px", objectFit: "cover", borderRadius: "50%" }} />}
+                              <div>
+                                <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.85rem" }}>{row.club_name}</div>
+                                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: "1px" }}>{row.manager || "Unknown"}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.matches_played}</td>
+                          <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_scored}</td>
+                          <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_against}</td>
+                          <td style={{ textAlign: "center", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)", padding: "0.7rem 0.5rem" }}>
+                            {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                          </td>
+                          <td style={{ textAlign: "center", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.95rem", padding: "0.7rem 1.25rem" }}>{row.points}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* TAB 2: FIXTURES CALENDAR */}
+        {/* TAB 2 — FIXTURES */}
         {activeTab === "fixture" && (
-          rounds.length === 0 ? (
-            <div className="glass-panel" style={{ textAlign: "center", padding: "4rem", color: "var(--text-secondary)" }}>
-              <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "3rem", marginBottom: "1rem", display: "block" }} />
-              No matches scheduled for this stage yet.
-            </div>
-          ) : (
-            <div style={{ animation: "rwsFadeUp 0.4s ease-out both" }}>
-              {/* Round Filter & Swipe Controls */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "0.75rem",
-                background: "rgba(255, 255, 255, 0.02)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
-                borderRadius: "14px",
-                padding: "8px 12px",
-                marginBottom: "1.5rem"
-              }}>
-                {/* Prev Round Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(prev => Math.max(1, prev - 1))}
-                  disabled={activeRound <= 1}
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: activeRound <= 1 ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.08)",
-                    color: activeRound <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
-                    cursor: activeRound <= 1 ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    transition: "all 0.2s ease"
-                  }}
-                >
-                  <i className="fa-solid fa-chevron-left" style={{ fontSize: "0.85rem" }} />
+          <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
+            
+            {/* Round + Group Filter Bar */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.5rem", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px" }}>
+              {/* Round Nav */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <button type="button" onClick={handlePrevRound} disabled={roundsList.indexOf(activeRound) === 0}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: roundsList.indexOf(activeRound) === 0 ? 0.3 : 1, transition: "all 0.2s" }}>
+                  <i className="fa-solid fa-chevron-left" style={{ fontSize: "0.65rem" }} />
                 </button>
+                <div style={{ padding: "0 0.75rem", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: "#fff", minWidth: "120px", textAlign: "center" }}>
+                  {getRoundName(activeRound)}
+                </div>
+                <button type="button" onClick={handleNextRound} disabled={roundsList.indexOf(activeRound) === roundsList.length - 1}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: roundsList.indexOf(activeRound) === roundsList.length - 1 ? 0.3 : 1, transition: "all 0.2s" }}>
+                  <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.65rem" }} />
+                </button>
+              </div>
 
-                {/* Horizontal Scrollable Round Pills */}
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  overflowX: "auto",
-                  scrollBehavior: "smooth",
-                  WebkitOverflowScrolling: "touch",
-                  padding: "4px 0",
-                  scrollbarWidth: "none"
-                }}>
-                  {rounds.map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setActiveRound(r)}
-                      style={{
-                        padding: "6px 16px",
-                        borderRadius: "8px",
-                        border: activeRound === r ? "1px solid rgba(168, 85, 247, 0.5)" : "1px solid transparent",
-                        background: activeRound === r ? "linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(124, 58, 237, 0.3))" : "rgba(255, 255, 255, 0.04)",
-                        color: activeRound === r ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
-                        fontSize: "0.8rem",
-                        fontWeight: activeRound === r ? 700 : 500,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      Round {r}
+              {/* Group Tabs */}
+              {availableGroups.length > 0 && (
+                <div style={{ display: "flex", gap: "3px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "8px" }}>
+                  {[{ key: "All", label: "All" }, ...availableGroups.map(g => ({ key: g, label: `Grp ${g}` })), ...(fixtures.some(f => !f.groupName) ? [{ key: "Knockout", label: "KO" }] : [])].map(g => (
+                    <button key={g.key} type="button" onClick={() => setActiveGroup(g.key)}
+                      style={{ padding: "4px 12px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "0.72rem", fontWeight: activeGroup === g.key ? 700 : 500, background: activeGroup === g.key ? "rgba(168,85,247,0.85)" : "transparent", color: activeGroup === g.key ? "#fff" : "rgba(255,255,255,0.45)", transition: "all 0.2s" }}>
+                      {g.label}
                     </button>
                   ))}
                 </div>
+              )}
+            </div>
 
-                {/* Next Round Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(prev => Math.min(Math.max(...rounds), prev + 1))}
-                  disabled={activeRound >= Math.max(...rounds)}
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: activeRound >= Math.max(...rounds) ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.08)",
-                    color: activeRound >= Math.max(...rounds) ? "rgba(255,255,255,0.2)" : "#fff",
-                    cursor: activeRound >= Math.max(...rounds) ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    transition: "all 0.2s ease"
-                  }}
-                >
-                  <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.85rem" }} />
-                </button>
+            {/* Match Cards */}
+            {filteredFixtures.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "4rem 2rem", color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.02)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <i className="fa-solid fa-calendar-xmark" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block", opacity: 0.3 }} />
+                No matches for this selection.
               </div>
-
-              {/* Active Round Fixtures List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {(!fixturesByRound[activeRound] || fixturesByRound[activeRound].length === 0) ? (
-                  <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
-                    No matches scheduled for Round {activeRound}.
-                  </div>
-                ) : (
-                  fixturesByRound[activeRound].map((match: any) => {
-                    const isFinished = match.homeScore !== null && match.awayScore !== null;
-                    const homeWon = isFinished && match.homeScore > match.awayScore;
-                    const awayWon = isFinished && match.awayScore > match.homeScore;
-
-                    return (
-                      <div
-                        key={match.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "1rem 1.25rem",
-                          background: "rgba(255,255,255,0.02)",
-                          backdropFilter: "blur(8px)",
-                          borderRadius: "14px",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                          transition: "all 0.2s ease"
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                          e.currentTarget.style.borderColor = "rgba(168, 85, 247, 0.3)";
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                        }}
-                      >
-                        {/* Home Manager */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, overflow: "hidden" }}>
-                          {match.homeLogo ? (
-                            <img
-                              src={match.homeLogo}
-                              alt={match.homeClub}
-                              style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }}
-                              onError={e => { e.currentTarget.src = "/assets/images/default-avatar.png"; }}
-                            />
-                          ) : (
-                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: "bold", flexShrink: 0 }}>
-                              {match.homeClub.substring(0, 1)}
-                            </div>
-                          )}
-                          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <span style={{ fontWeight: homeWon ? 800 : 600, color: homeWon ? "#22c55e" : "#ffffff", fontSize: "0.9rem" }}>
-                              {match.homeClub}
-                            </span>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {filteredFixtures.map((match) => {
+                  const isFinished = match.homeScore !== null && match.awayScore !== null;
+                  const homeWon = isFinished && (match.homeScore ?? 0) > (match.awayScore ?? 0);
+                  const awayWon = isFinished && (match.awayScore ?? 0) > (match.homeScore ?? 0);
+                  return (
+                    <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px", padding: "1rem 1.5rem", transition: "all 0.25s ease", cursor: "default" }} onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(168,85,247,0.2)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.25)"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.boxShadow = "none"; }}>
+                      {/* Meta row */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          {getRoundName(match.roundNumber)} {match.groupName ? `· Grp ${match.groupName}` : ""}
+                        </span>
+                        <span style={{ fontSize: "0.62rem", fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: "4px", background: isFinished ? "rgba(255,255,255,0.04)" : "rgba(168,85,247,0.1)", color: isFinished ? "rgba(255,255,255,0.35)" : "#c084fc" }}>
+                          {isFinished ? "finished" : "upcoming"}
+                        </span>
+                      </div>
+                      {/* Matchup */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        {/* Home Team */}
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                          <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                            {match.homeLogo ? <img src={match.homeLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>{match.homeClub.slice(0,2).toUpperCase()}</span>}
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: "var(--font-display)", fontWeight: homeWon ? 700 : 600, fontSize: "0.88rem", color: homeWon ? "#fff" : "rgba(255,255,255,0.8)" }}>{match.homeClub}</div>
+                            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: "1px" }}>{match.homeManager || "Unknown"}</div>
                           </div>
                         </div>
-
-                        {/* Score Box */}
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 1rem", minWidth: "90px" }}>
-                          {isFinished ? (
-                            <span style={{
-                              fontFamily: "var(--font-mono)",
-                              fontSize: "1.1rem",
-                              fontWeight: 800,
-                              color: "var(--solo-primary)",
-                              background: "rgba(168, 85, 247, 0.12)",
-                              border: "1px solid rgba(168, 85, 247, 0.25)",
-                              padding: "4px 14px",
-                              borderRadius: "8px",
-                              letterSpacing: "1px"
-                            }}>
-                              {match.homeScore} - {match.awayScore}
-                            </span>
+                        {/* Score */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 1rem", borderRadius: "10px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)", minWidth: "70px", justifyContent: "center" }}>
+                          {!isFinished ? (
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>vs</span>
                           ) : (
-                            <span style={{
-                              fontSize: "0.75rem",
-                              fontWeight: 700,
-                              color: "rgba(255,255,255,0.5)",
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.08)",
-                              padding: "3px 12px",
-                              borderRadius: "6px"
-                            }}>
-                              VS
-                            </span>
+                            <>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 800, color: homeWon ? "#fff" : "rgba(255,255,255,0.6)" }}>{match.homeScore}</span>
+                              <span style={{ color: "rgba(255,255,255,0.15)", fontWeight: 300 }}>–</span>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.1rem", fontWeight: 800, color: awayWon ? "#fff" : "rgba(255,255,255,0.6)" }}>{match.awayScore}</span>
+                            </>
                           )}
                         </div>
-
-                        {/* Away Manager */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, justifyContent: "flex-end", overflow: "hidden" }}>
-                          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
-                            <span style={{ fontWeight: awayWon ? 800 : 600, color: awayWon ? "#22c55e" : "#ffffff", fontSize: "0.9rem" }}>
-                              {match.awayClub}
-                            </span>
+                        {/* Away Team */}
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.75rem", justifyContent: "flex-end" }}>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontFamily: "var(--font-display)", fontWeight: awayWon ? 700 : 600, fontSize: "0.88rem", color: awayWon ? "#fff" : "rgba(255,255,255,0.8)" }}>{match.awayClub}</div>
+                            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: "1px" }}>{match.awayManager || "Unknown"}</div>
                           </div>
-                          {match.awayLogo ? (
-                            <img
-                              src={match.awayLogo}
-                              alt={match.awayClub}
-                              style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }}
-                              onError={e => { e.currentTarget.src = "/assets/images/default-avatar.png"; }}
-                            />
-                          ) : (
-                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: "bold", flexShrink: 0 }}>
-                              {match.awayClub.substring(0, 1)}
-                            </div>
-                          )}
+                          <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                            {match.awayLogo ? <img src={match.awayLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>{match.awayClub.slice(0,2).toUpperCase()}</span>}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })
-                )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )
+            )}
+          </div>
         )}
 
-        {/* TAB 3: STATS & AWARDS */}
+        {/* TAB 3 — STATS */}
         {activeTab === "stats" && (
           <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
             {/* Sub-Tab Pills */}
@@ -576,9 +602,9 @@ export default function SpecialTourFixtures() {
                     <div style={{ padding: "0.5rem 0" }}>
                       {c.data.map((s, idx) => (
                         <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1.5rem", borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.03)" : "none", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
                             <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: 700, background: idx === 0 ? `${c.color}22` : "rgba(255,255,255,0.04)", color: idx === 0 ? c.color : "rgba(255,255,255,0.4)" }}>{idx + 1}</span>
-                            {s.logo && <img src={s.logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "4px" }} />}
+                            {s.logo && <img src={s.logo} alt="" style={{ width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%" }} />}
                             <div>
                               <span style={{ fontWeight: 600, color: "#fff", fontSize: "0.85rem" }}>{s.name}</span>
                               <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: "1px" }}>{s.manager}</div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "react";
+import { useParams } from "next/navigation";
 import { fetchTournamentById } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../portal.css";
