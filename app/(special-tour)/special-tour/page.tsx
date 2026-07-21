@@ -6,6 +6,25 @@ import { fetchActiveSeason, fetchTournamentsByType } from "@/utils/solo/serverAc
 import "../../portal.css";
 import "../../(rws)/rws/rws.css";
 
+function SpecialLoadingState({ text }: { text: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 2rem", width: "100%", animation: "rwsFadeUp 0.5s ease-out both" }}>
+      <div style={{ position: "relative", width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem" }}>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2.5px solid transparent", borderTopColor: "var(--solo-primary)", borderRightColor: "#c084fc", animation: "rwsSpin 1.1s linear infinite" }} />
+        <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "rgba(168, 85, 247, 0.08)", border: "1px solid rgba(168, 85, 247, 0.2)", display: "flex", alignItems: "center", justifyContent: "center", animation: "rwsPulse 1.2s infinite alternate" }}>
+          <i className="fa-solid fa-star" style={{ color: "#c084fc", fontSize: "1rem" }} />
+        </div>
+      </div>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: "0.75rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.4)", letterSpacing: "2px", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+        {text}
+      </div>
+      <div style={{ width: "100px", height: "2px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "10px", overflow: "hidden", position: "relative" }}>
+        <div style={{ position: "absolute", height: "100%", width: "60%", background: "linear-gradient(90deg, var(--solo-primary), #c084fc)", borderRadius: "10px", animation: "rwsLoadingBar 1.6s ease-in-out infinite" }} />
+      </div>
+    </div>
+  );
+}
+
 export default function SpecialTourYearSelection() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [tournaments, setTournaments] = useState<any[]>([]);
@@ -45,7 +64,7 @@ export default function SpecialTourYearSelection() {
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container" style={{ paddingBottom: "4rem", maxWidth: "1000px" }}>
+      <div className="portal-container" style={{ maxWidth: "1000px" }}>
         
         {/* Navigation Breadcrumbs */}
         <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
@@ -58,38 +77,36 @@ export default function SpecialTourYearSelection() {
         </div>
 
         {/* Hero Section */}
-        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-          <div className="portal-page-badge" style={{ margin: "0 auto 1rem auto" }}>
-            <i className="fa-solid fa-wand-magic-sparkles" />
+        <div className="rws-page-hero">
+          <div className="portal-page-badge">
+            <i className="fa-solid fa-star" />
             Special Tour Archives
           </div>
-          <h1 className="portal-title" style={{ fontSize: "2.5rem", letterSpacing: "3px" }}>SPECIAL TOURS</h1>
-          <p className="portal-subtitle" style={{ fontSize: "0.95rem", maxWidth: "600px", margin: "0.5rem auto 0 auto" }}>
-            Select an active or historical special tournament to view standings, check matches, and track payouts.
+          <h1 className="rws-hero-title">
+            SPECIAL TOUR SERIES
+          </h1>
+          <p className="rws-hero-sub">
+            Browse active special tournaments, cup invitational clashes, exhibition series, and historical records.
           </p>
         </div>
 
         {/* Loading state */}
         {loading ? (
-          <div style={{ textAlign: "center", color: "var(--text-secondary)", padding: "3rem" }}>
-            <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: "2rem", marginBottom: "1rem" }} />
-            <p>Loading tournaments list...</p>
-          </div>
+          <SpecialLoadingState text="Loading special tournaments" />
         ) : tournaments.length === 0 ? (
-          <div className="glass-panel" style={{ textAlign: "center", padding: "3.5rem 2rem", maxWidth: "650px", margin: "0 auto" }}>
-            <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "2.5rem", color: "#eab308", marginBottom: "1.5rem" }} />
-            <h2 style={{ fontSize: "1.3rem", color: "#fff", marginBottom: "0.5rem" }}>No Special Tournaments Registered</h2>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+          <div className="portal-card" style={{ padding: "3rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <i className="fa-solid fa-folder-closed" style={{ fontSize: "3rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }} />
+            <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>No Special Tournaments Scheduled</h2>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
               There are currently no tournaments classified under the "Special Tour" type.
-              Please navigate to the Admin Console to register a new tournament stage and select "Special Tour" as its type.
             </p>
             <Link href="/solo-tour/admin/tournaments" className="portal-btn btn-primary" style={{ display: "inline-flex", margin: "0 auto" }}>
-              <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} /> Create Special Stage
+              <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} /> Register Special Stage
             </Link>
           </div>
         ) : (
           /* Tournaments Grid */
-          <div className="rws-dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
+          <div className="rws-dashboard-grid">
             {tournaments.map((t) => (
               <Link 
                 key={t.id} 
@@ -118,9 +135,9 @@ export default function SpecialTourYearSelection() {
                         {activeSeason && t.season_number === activeSeason.season_number ? "Active" : "Archived"}
                       </span>
                     </div>
-                    <h2 style={{ fontSize: "1.3rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>{t.name}</h2>
+                    <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>{t.name}</h2>
                     <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>
-                      Format: {t.format_type === "round_robin" ? "Round Robin" : "Knockout"}
+                      Format: {t.format_type === "round_robin" ? "Round Robin" : t.format_type || "Tournament"}
                     </p>
                   </div>
                   <div className="portal-card-action" style={{ marginTop: "1rem", fontSize: "0.75rem" }}>

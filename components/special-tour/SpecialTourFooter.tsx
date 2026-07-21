@@ -31,13 +31,13 @@ export default function SpecialTourFooter() {
         </div>
 
         {/* Technical navigation links */}
-        <nav className="tech-footer-links" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <nav className="tech-footer-links">
           {navLinks.map((link, idx) => {
             const isActive = link.href === `/special-tour/${tourneyId}` || link.href === "/special-tour"
               ? pathname === link.href
               : pathname.startsWith(link.href);
             return (
-              <span key={link.href} style={{ display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
+              <span key={link.href} className="tech-footer-link-item">
                 {idx > 0 && <span className="sep">//</span>}
                 <Link 
                   href={link.href}

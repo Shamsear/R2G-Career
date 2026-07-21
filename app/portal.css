@@ -2225,14 +2225,16 @@ body {
 }
 
 /* ─── Compact Technical Footer ─────────────────────────────────────────────── */
+/* ─── Compact Technical Footer ─────────────────────────────────────────────── */
 .tech-footer {
   position: relative;
   z-index: 2;
   width: 100%;
-  height: 48px;
+  min-height: 48px;
   background: rgba(6, 8, 14, 0.95);
   border-top: 1px dashed var(--border-soft);
   margin-top: auto;
+  box-sizing: border-box;
 }
 
 .tech-footer-container {
@@ -2240,10 +2242,13 @@ body {
   align-items: center;
   justify-content: space-between;
   max-width: var(--max-content);
-  height: 100%;
+  min-height: 48px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0.5rem 1.5rem;
   font-family: var(--font-mono);
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .tech-footer-brand {
@@ -2258,6 +2263,7 @@ body {
   border-radius: 50%;
   background: var(--green-live);
   box-shadow: 0 0 6px var(--green-live);
+  flex-shrink: 0;
 }
 
 .brand-text {
@@ -2271,6 +2277,13 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.tech-footer-link-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .tech-footer-links a {
@@ -2278,9 +2291,11 @@ body {
   color: var(--text-secondary);
   text-decoration: none;
   transition: color 0.2s ease;
+  white-space: nowrap;
 }
 
-.tech-footer-links a:hover {
+.tech-footer-links a:hover,
+.tech-footer-links a.active {
   color: var(--rose-light);
 }
 
@@ -2294,6 +2309,7 @@ body {
   font-size: 0.72rem;
   color: var(--text-muted);
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 /* Portal tech menu button */
@@ -2321,16 +2337,7 @@ body {
   .tech-menu-btn {
     display: inline-block;
   }
-}
 
-/* Responsiveness overrides */
-@media (max-width: 1024px) {
-  .tech-nav {
-    gap: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
   .tech-nav {
     display: none;
   }
@@ -2343,8 +2350,45 @@ body {
     display: flex;
   }
   
+  .tech-footer-container {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .tech-footer-brand,
+  .tech-footer-info {
+    justify-content: center;
+    width: 100%;
+  }
+
   .tech-footer-links {
-    display: none;
+    display: flex !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 0.5rem;
+    width: 100%;
+  }
+
+  .tech-footer-link-item {
+    gap: 0.4rem;
+  }
+
+  .brand-text {
+    font-size: 0.65rem;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .tech-footer-links a {
+    font-size: 0.68rem;
+  }
+
+  .tech-footer-info {
+    font-size: 0.65rem;
+    text-align: center;
   }
 }
 

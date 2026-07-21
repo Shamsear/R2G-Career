@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams } from "react";
 import { fetchTournamentById } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../portal.css";
@@ -115,19 +115,21 @@ export default function SpecialTourHub() {
           </p>
         </div>
 
-        {/* Sub-modules Grid */}
-        <div className="rws-dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "2rem" }}>
+        {/* Sub-modules Grid matching RWS Hub */}
+        <div className="rws-dashboard-grid">
           
           {/* Card 1: Series Portal (Standings + Fixtures combined) */}
           <Link 
             href={`/special-tour/${tourneyId}/fixtures`} 
             className="portal-card"
             onMouseMove={handleMouseMove}
-            style={{ minHeight: "220px" }}
           >
             <div
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/rws/fixtures_bg.jpg')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
             />
             <div className="portal-card-shimmer" />
             <div className="portal-card-glow" />
@@ -152,11 +154,13 @@ export default function SpecialTourHub() {
             href={`/special-tour/${tourneyId}/nominees`} 
             className="portal-card"
             onMouseMove={handleMouseMove}
-            style={{ minHeight: "220px" }}
           >
             <div
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/rws/candidates_bg.jpg')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
             />
             <div className="portal-card-shimmer" />
             <div className="portal-card-glow" />
@@ -181,11 +185,13 @@ export default function SpecialTourHub() {
             href={`/special-tour/${tourneyId}/album`} 
             className="portal-card"
             onMouseMove={handleMouseMove}
-            style={{ minHeight: "220px" }}
           >
             <div
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/rws/album_bg.jpg')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
             />
             <div className="portal-card-shimmer" />
             <div className="portal-card-glow" />
