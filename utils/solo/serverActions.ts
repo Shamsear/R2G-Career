@@ -437,10 +437,11 @@ export async function fetchPlayersDb() {
         const { rows: playersResult } = await pool.query(`
             SELECT 
                 p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagepath, p.updated_at,
-                c.name as club_name, pc.status
+                c.name as club_name, pc.status, pss.status_type as tier_status
             FROM players p
             LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
             LEFT JOIN clubs c ON pc.current_club_id = c.id
+            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id AND LOWER(pss.status_type) = 'prime'
         `);
         
         return playersResult.map((p: any) => ({
@@ -449,7 +450,7 @@ export async function fetchPlayersDb() {
             club: p.club_name || 'FREE AGENT',
             position: p.position || '',
             value: p.value || 0,
-            star: p.star || '3-star-standard',
+            star: p.tier_status === 'Prime' || p.star === 'legend' ? 'legend' : (p.star || '3-star-standard'),
             level: 'undefined',
             imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
             stats: []
@@ -6055,6 +6056,541 @@ export async function bulkAssignPlayersWithContracts(
     await pool.query('ROLLBACK');
     console.error("Error bulk assigning players:", e);
     throw new Error(e.message || "Failed to assign players");
+  }
+}
+
+export async function primePlayerForTeam(playerId: number, clubId?: number) {
+  try {
+    const pId = parseInt(playerId.toString(), 10);
+    if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
+
+    const { rows: seasonRows } = await pool.query(`
+      SELECT id, season_number, is_mid_season FROM seasons ORDER BY season_number DESC LIMIT 1
+    `);
+    const activeSeason = seasonRows[0] || { id: 1, season_number: 9, is_mid_season: false };
+    const curSeasonNum = activeSeason.season_number || 9;
+    const nextSeasonNum = curSeasonNum + 1;
+    const validUntilStr = `season ${nextSeasonNum}.0 (1 Season)`;
+
+    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1`, [pId]);
+
+    await pool.query(`
+      INSERT INTO player_seasonal_statuses (player_id, season_id, status_type, valid_until)
+      VALUES ($1, $2, 'Prime', $3)
+    `, [pId, activeSeason.id, validUntilStr]);
+
+    await pool.query(`
+      UPDATE players
+      SET card_type = 'legend', base_value = GREATEST(base_value, 150), updated_at = NOW()
+      WHERE id = $1
+    `, [pId]);
+
+    await logSoloAdminAction("PRIME_PLAYER", { playerId: pId, clubId, validUntil: validUntilStr });
+
+    return { success: true, validUntil: validUntilStr };
+  } catch (err: any) {
+    console.error("Error priming player:", err);
+    return { success: false, error: err.message || "Failed to prime player" };
+  }
+}
+
+export async function removePlayerPrime(playerId: number) {
+  try {
+    const pId = parseInt(playerId.toString(), 10);
+    if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
+
+    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1`, [pId]);
+
+    await pool.query(`
+      UPDATE players
+      SET card_type = '3-star-standard', updated_at = NOW()
+      WHERE id = $1 AND card_type = 'legend'
+    `, [pId]);
+
+    await logSoloAdminAction("REMOVE_PRIME_PLAYER", { playerId: pId });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error removing player prime status:", err);
+    return { success: false, error: err.message || "Failed to remove prime status" };
+  }
+}
+
+export async function fetchPrimedPlayersList() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagepath,
+        c.id as club_id, c.name as club_name, c.logo_path as club_logo,
+        pss.status_type, pss.valid_until, pss.season_id,
+        s.season_number
+      FROM player_seasonal_statuses pss
+      JOIN players p ON pss.player_id = p.id
+      LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
+      LEFT JOIN clubs c ON pc.current_club_id = c.id
+      LEFT JOIN seasons s ON pss.season_id = s.id
+      WHERE LOWER(pss.status_type) = 'prime'
+      ORDER BY p.name ASC
+    `);
+
+    return rows.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      position: r.position,
+      star: r.star,
+      value: r.value,
+      imagePath: resolvePlayerImageUrl(r.imagepath, r.id, null),
+      clubId: r.club_id,
+      clubName: r.club_name || "Free Agent",
+      clubLogo: r.club_logo || "",
+      validUntil: r.valid_until || "1 Season",
+      seasonNumber: r.season_number || 9
+    }));
+  } catch (err) {
+    console.error("Error fetching primed players list:", err);
+    return [];
+  }
+}
+
+export async function fetchActiveReleaseWindow() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM release_windows 
+      WHERE status = 'ACTIVE' 
+      ORDER BY id DESC LIMIT 1
+    `);
+    return rows[0] || null;
+  } catch (err) {
+    console.error("Error fetching active release window:", err);
+    return null;
+  }
+}
+
+export async function fetchActiveTransferWindow() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM transfer_windows 
+      WHERE status = 'ACTIVE' 
+      ORDER BY id DESC LIMIT 1
+    `);
+    return rows[0] || null;
+  } catch (err) {
+    console.error("Error fetching active transfer window:", err);
+    return null;
+  }
+}
+
+export async function createReleaseWindow(
+  seasonId: number,
+  name: string,
+  windowType: 'start' | 'mid',
+  startDate: string,
+  endDate: string,
+  releaseLimit: number,
+  isUnlimited: boolean
+) {
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO release_windows (season_id, name, window_type, start_date, end_date, release_limit, is_unlimited, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+      RETURNING *
+    `, [seasonId, name, windowType, startDate, endDate, releaseLimit, isUnlimited]);
+    return { success: true, window: rows[0] };
+  } catch (err: any) {
+    console.error("Error creating release window:", err);
+    return { success: false, error: err.message || "Failed to create window" };
+  }
+}
+
+export async function createTransferWindow(
+  seasonId: number,
+  name: string,
+  windowType: 'start' | 'mid',
+  startDate: string,
+  endDate: string,
+  transferLimit: number,
+  isUnlimited: boolean
+) {
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO transfer_windows (season_id, name, window_type, start_date, end_date, transfer_limit, is_unlimited, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+      RETURNING *
+    `, [seasonId, name, windowType, startDate, endDate, transferLimit, isUnlimited]);
+    return { success: true, window: rows[0] };
+  } catch (err: any) {
+    console.error("Error creating transfer window:", err);
+    return { success: false, error: err.message || "Failed to create window" };
+  }
+}
+
+export async function fetchReleaseWindows(seasonId: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM release_windows WHERE season_id = $1 ORDER BY id DESC
+    `, [seasonId]);
+    return rows;
+  } catch (err) {
+    console.error("Error fetching release windows:", err);
+    return [];
+  }
+}
+
+export async function fetchTransferWindows(seasonId: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM transfer_windows WHERE season_id = $1 ORDER BY id DESC
+    `, [seasonId]);
+    return rows;
+  } catch (err) {
+    console.error("Error fetching transfer windows:", err);
+    return [];
+  }
+}
+
+export async function updateReleaseWindowStatus(id: number, status: 'ACTIVE' | 'INACTIVE') {
+  try {
+    await pool.query(`
+      UPDATE release_windows SET status = $1 WHERE id = $2
+    `, [status, id]);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateTransferWindowStatus(id: number, status: 'ACTIVE' | 'INACTIVE') {
+  try {
+    await pool.query(`
+      UPDATE transfer_windows SET status = $1 WHERE id = $2
+    `, [status, id]);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function submitReleaseRequest(clubId: number, playerId: number, refundAmount: number, windowId: number) {
+  try {
+    const activeSeason = await fetchActiveSeason();
+    if (!activeSeason) return { success: false, error: "No active season found." };
+    const seasonId = activeSeason.id;
+
+    const { rows: windowRows } = await pool.query(`
+      SELECT * FROM release_windows WHERE id = $1 AND status = 'ACTIVE'
+    `, [windowId]);
+    if (windowRows.length === 0) return { success: false, error: "Release window is not active." };
+    const rw = windowRows[0];
+
+    if (!rw.is_unlimited) {
+      const { rows: countRows } = await pool.query(`
+        SELECT COUNT(*) FROM release_requests 
+        WHERE club_id = $1 AND release_window_id = $2 AND status IN ('pending', 'approved')
+      `, [clubId, windowId]);
+      const currentCount = parseInt(countRows[0].count, 10);
+      if (currentCount >= rw.release_limit) {
+        return { success: false, error: `Release limit exceeded. Max ${rw.release_limit} releases allowed per club.` };
+      }
+    }
+
+    const { rows: contractRows } = await pool.query(`
+      SELECT p.name FROM player_contracts pc
+      JOIN players p ON pc.player_id = p.id
+      WHERE pc.player_id = $1 AND pc.current_club_id = $2 AND LOWER(pc.status) = 'active' AND pc.season_id = $3
+    `, [playerId, clubId, seasonId]);
+    if (contractRows.length === 0) return { success: false, error: "Player does not belong to your team squad." };
+    const playerName = contractRows[0].name;
+
+    await pool.query(`
+      INSERT INTO release_requests (season_id, club_id, player_id, player_name, refund_amount, status, release_window_id)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+    `, [seasonId, clubId, playerId, playerName, refundAmount, windowId]);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error submitting release request:", err);
+    return { success: false, error: err.message || "Failed to submit release request." };
+  }
+}
+
+export async function fetchReleaseRequestsList(seasonId?: number) {
+  try {
+    const sId = seasonId || (await fetchActiveSeason())?.id;
+    const { rows } = await pool.query(`
+      SELECT rr.*, c.name as club_name, c.logo_path as club_logo, rw.window_type, rw.name as window_name
+      FROM release_requests rr
+      JOIN clubs c ON rr.club_id = c.id
+      JOIN release_windows rw ON rr.release_window_id = rw.id
+      WHERE rr.season_id = $1
+      ORDER BY rr.submitted_at DESC
+    `, [sId]);
+    return rows;
+  } catch (err) {
+    console.error("Error fetching release requests list:", err);
+    return [];
+  }
+}
+
+export async function approveReleaseRequest(requestId: number) {
+  try {
+    const { rows: reqRows } = await pool.query(`
+      SELECT rr.*, rw.window_type FROM release_requests rr
+      JOIN release_windows rw ON rr.release_window_id = rw.id
+      WHERE rr.id = $1 AND rr.status = 'pending'
+    `, [requestId]);
+
+    if (reqRows.length === 0) return { success: false, error: "Pending release request not found." };
+    const req = reqRows[0];
+
+    const releaseRes = await releasePlayerContract(req.player_id, req.season_id, req.window_type);
+    if (!releaseRes.success) return { success: false, error: "Failed to release player contract." };
+
+    await pool.query(`
+      UPDATE release_requests 
+      SET status = 'approved', processed_at = NOW(), refund_amount = $1
+      WHERE id = $2
+    `, [releaseRes.refundAmount, requestId]);
+
+    try {
+      const { rows: clubRows } = await pool.query('SELECT name FROM clubs WHERE id = $1', [req.club_id]);
+      const clubName = clubRows.length > 0 ? clubRows[0].name : "Club";
+      const { triggerNews } = await import('@/lib/news/trigger');
+      await triggerNews('player_released', {
+        season_id: req.season_id.toString(),
+        team_name: clubName,
+        player_name: req.player_name,
+        refund_amount: releaseRes.refundAmount
+      });
+    } catch (newsErr) {
+      console.error("Failed to generate release news:", newsErr);
+    }
+
+    return { success: true, refundAmount: releaseRes.refundAmount };
+  } catch (err: any) {
+    console.error("Error approving release request:", err);
+    return { success: false, error: err.message || "Failed to approve release request." };
+  }
+}
+
+export async function rejectReleaseRequest(requestId: number, reason?: string) {
+  try {
+    await pool.query(`
+      UPDATE release_requests 
+      SET status = 'rejected', processed_at = NOW()
+      WHERE id = $1
+    `, [requestId]);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function submitTransferRequest(
+  requestingTeamId: number,
+  targetTeamId: number,
+  requestType: 'sale' | 'swap',
+  price: number,
+  playersList: { playerId: number; playerName: string; playerValue: number; fromTeamId: number; toTeamId: number }[]
+) {
+  try {
+    const activeSeason = await fetchActiveSeason();
+    if (!activeSeason) return { success: false, error: "No active season found." };
+    const seasonId = activeSeason.id;
+
+    const { rows: windowRows } = await pool.query(`
+      SELECT * FROM transfer_windows WHERE status = 'ACTIVE' AND season_id = $1 ORDER BY id DESC LIMIT 1
+    `, [seasonId]);
+    if (windowRows.length === 0) return { success: false, error: "No active transfer window found." };
+    const tw = windowRows[0];
+
+    if (!tw.is_unlimited) {
+      const { rows: countRows } = await pool.query(`
+        SELECT COUNT(*) FROM transfer_requests 
+        WHERE requesting_team_id = $1 AND transfer_window_id = $2 AND status IN ('pending', 'accepted', 'approved')
+      `, [requestingTeamId, tw.id]);
+      const currentCount = parseInt(countRows[0].count, 10);
+      if (currentCount >= tw.transfer_limit) {
+        return { success: false, error: `Transfer limit exceeded. Max ${tw.transfer_limit} transfers/swaps allowed per club.` };
+      }
+    }
+
+    if (requestType === 'swap') {
+      const fromReq = playersList.filter(p => p.fromTeamId === requestingTeamId);
+      const fromTar = playersList.filter(p => p.fromTeamId === targetTeamId);
+      if (fromReq.length !== fromTar.length || fromReq.length === 0) {
+        return { success: false, error: "Swap trade must be an even count (e.g. 1-for-1 or 2-for-2)." };
+      }
+    }
+
+    await pool.query('BEGIN');
+
+    const { rows: reqRows } = await pool.query(`
+      INSERT INTO transfer_requests (season_id, transfer_window_id, requesting_team_id, target_team_id, request_type, price, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      RETURNING id
+    `, [seasonId, tw.id, requestingTeamId, targetTeamId, requestType, price]);
+    const requestId = reqRows[0].id;
+
+    for (const p of playersList) {
+      await pool.query(`
+        INSERT INTO transfer_players (transfer_request_id, player_id, player_name, player_value, from_team_id, to_team_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [requestId, p.playerId, p.playerName, p.playerValue, p.fromTeamId, p.toTeamId]);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true, requestId };
+  } catch (err: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error submitting transfer request:", err);
+    return { success: false, error: err.message || "Failed to submit transfer request." };
+  }
+}
+
+export async function fetchTransferRequestsList(seasonId?: number) {
+  try {
+    const sId = seasonId || (await fetchActiveSeason())?.id;
+    const { rows: reqs } = await pool.query(`
+      SELECT tr.*, 
+             c1.name as requesting_team_name, c1.logo_path as requesting_team_logo,
+             c2.name as target_team_name, c2.logo_path as target_team_logo,
+             tw.window_type, tw.name as window_name
+      FROM transfer_requests tr
+      JOIN clubs c1 ON tr.requesting_team_id = c1.id
+      JOIN clubs c2 ON tr.target_team_id = c2.id
+      JOIN transfer_windows tw ON tr.transfer_window_id = tw.id
+      WHERE tr.season_id = $1
+      ORDER BY tr.submitted_at DESC
+    `, [sId]);
+
+    const result = [];
+    for (const r of reqs) {
+      const { rows: players } = await pool.query(`
+        SELECT * FROM transfer_players WHERE transfer_request_id = $1
+      `, [r.id]);
+      result.push({
+        ...r,
+        players: players.map(p => ({
+          id: p.id,
+          playerId: p.player_id,
+          playerName: p.player_name,
+          playerValue: p.player_value,
+          fromTeamId: p.from_team_id,
+          toTeamId: p.to_team_id
+        }))
+      });
+    }
+    return result;
+  } catch (err) {
+    console.error("Error fetching transfer requests:", err);
+    return [];
+  }
+}
+
+export async function respondToTransferRequest(requestId: number, status: 'accepted' | 'rejected', reason?: string) {
+  try {
+    await pool.query(`
+      UPDATE transfer_requests
+      SET status = $1, rejection_reason = $2
+      WHERE id = $3 AND status = 'pending'
+    `, [status, reason || null, requestId]);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function approveTransferRequest(requestId: number) {
+  try {
+    const { rows: reqRows } = await pool.query(`
+      SELECT * FROM transfer_requests WHERE id = $1 AND status = 'accepted'
+    `, [requestId]);
+    if (reqRows.length === 0) return { success: false, error: "Only counterpart-accepted transfer requests can be approved." };
+    const req = reqRows[0];
+
+    const { rows: players } = await pool.query(`
+      SELECT * FROM transfer_players WHERE transfer_request_id = $1
+    `, [requestId]);
+
+    if (req.request_type === 'sale') {
+      const targetPlayer = players[0];
+      const buyerClubId = req.target_team_id;
+      const sellerClubId = req.requesting_team_id;
+      
+      const res = await executeTransferSale(sellerClubId, targetPlayer.player_id, Number(req.price), buyerClubId);
+      if (!res.success) return { success: false, error: "Failed to execute sale transfer buy." };
+
+      await pool.query(`
+        UPDATE transfer_requests SET status = 'approved', processed_at = NOW() WHERE id = $1
+      `, [requestId]);
+
+      try {
+        const { rows: clubRows } = await pool.query('SELECT id, name FROM clubs WHERE id IN ($1, $2)', [sellerClubId, buyerClubId]);
+        const clubMap = Object.fromEntries(clubRows.map((c: any) => [c.id, c.name]));
+        const sellerName = clubMap[sellerClubId] || "Seller";
+        const buyerName = clubMap[buyerClubId] || "Buyer";
+        const { triggerNews } = await import('@/lib/news/trigger');
+        await triggerNews('transfer_completed', {
+          season_id: req.season_id.toString(),
+          team_name: buyerName,
+          player_name: targetPlayer.player_name,
+          winning_bid: Number(req.price),
+          context: `Sold by ${sellerName} to ${buyerName} for ${req.price} Coins`
+        });
+      } catch (newsErr) {
+        console.error("News trigger error:", newsErr);
+      }
+    } else if (req.request_type === 'swap') {
+      const playerAObj = players.find(p => p.from_team_id === req.requesting_team_id);
+      const playerBObj = players.find(p => p.from_team_id === req.target_team_id);
+      
+      if (!playerAObj || !playerBObj) return { success: false, error: "Invalid swap details. Missing players from either side." };
+
+      const res = await executeTransferSwap(
+        req.requesting_team_id,
+        playerAObj.player_id,
+        req.target_team_id,
+        playerBObj.player_id,
+        Number(req.price)
+      );
+      if (!res.success) return { success: false, error: "Failed to execute swap deal." };
+
+      await pool.query(`
+        UPDATE transfer_requests SET status = 'approved', processed_at = NOW() WHERE id = $1
+      `, [requestId]);
+
+      try {
+        const { rows: clubRows } = await pool.query('SELECT id, name FROM clubs WHERE id IN ($1, $2)', [req.requesting_team_id, req.target_team_id]);
+        const clubMap = Object.fromEntries(clubRows.map((c: any) => [c.id, c.name]));
+        const clubAName = clubMap[req.requesting_team_id] || "Club A";
+        const clubBName = clubMap[req.target_team_id] || "Club B";
+        const { triggerNews } = await import('@/lib/news/trigger');
+        await triggerNews('transfer_completed', {
+          season_id: req.season_id.toString(),
+          context: `Swap deal approved between ${clubAName} and ${clubBName}: ${playerAObj.player_name} swapped with ${playerBObj.player_name}`
+        });
+      } catch (newsErr) {
+        console.error("News trigger error:", newsErr);
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error approving transfer request:", err);
+    return { success: false, error: err.message || "Failed to approve transfer request." };
+  }
+}
+
+export async function rejectTransferRequest(requestId: number, reason?: string) {
+  try {
+    await pool.query(`
+      UPDATE transfer_requests 
+      SET status = 'rejected', processed_at = NOW(), rejection_reason = $1
+      WHERE id = $2
+    `, [reason || null, requestId]);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 

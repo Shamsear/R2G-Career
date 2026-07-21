@@ -17,14 +17,18 @@ import {
   releaseMidSeasonContracts,
   releasePlayerContract,
   fetchClubPlayersWithContracts,
-  fetchPlayersToBeReleased
+  fetchPlayersToBeReleased,
+  primePlayerForTeam,
+  removePlayerPrime,
+  fetchPrimedPlayersList,
+  fetchAdminPlayersList
 } from "@/utils/solo/serverActions";
 
 export default function AuctionManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [clubs, setClubs] = useState<any[]>([]);
   const [freeAgents, setFreeAgents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"auction" | "sell" | "release" | "swap" | "window">("auction");
+  const [activeTab, setActiveTab] = useState<"auction" | "sell" | "release" | "swap" | "window" | "prime">("auction");
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -89,6 +93,38 @@ export default function AuctionManager() {
   const [swapAdjustmentAtoB, setSwapAdjustmentAtoB] = useState<number>(0);
   const [bulkSwaps, setBulkSwaps] = useState<any[]>([]);
 
+  // Prime tab state
+  const [primeClubId, setPrimeClubId] = useState<string>("");
+  const [primeSelectedPlayerIds, setPrimeSelectedPlayerIds] = useState<number[]>([]);
+  const [primeSearchQuery, setPrimeSearchQuery] = useState<string>("");
+  const [primeClubDDOpen, setPrimeClubDDOpen] = useState<boolean>(false);
+  const [primeClubDDSearch, setPrimeClubDDSearch] = useState<string>("");
+  const [primedPlayers, setPrimedPlayers] = useState<any[]>([]);
+  const [primeAllPlayers, setPrimeAllPlayers] = useState<any[]>([]);
+  const [loadingPrimeData, setLoadingPrimeData] = useState<boolean>(false);
+
+  const loadPrimeData = async () => {
+    setLoadingPrimeData(true);
+    try {
+      const [primedList, allList] = await Promise.all([
+        fetchPrimedPlayersList(),
+        fetchAdminPlayersList()
+      ]);
+      setPrimedPlayers(primedList || []);
+      setPrimeAllPlayers(allList || []);
+    } catch {
+      showToast("Error loading Prime settings data!");
+    } finally {
+      setLoadingPrimeData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "prime") {
+      loadPrimeData();
+    }
+  }, [activeTab]);
+
   const cleanSeason = (s: string) => s.replace(/[^\d.]/g, '');
 
   const showToast = (msg: string) => {
@@ -135,6 +171,7 @@ export default function AuctionManager() {
       if (!target.closest("[data-release-club-dd]")) setReleaseClubDDOpen(false);
       if (!target.closest("[data-swapa-club-dd]")) setSwapAClubDDOpen(false);
       if (!target.closest("[data-swapb-club-dd]")) setSwapBClubDDOpen(false);
+      if (!target.closest("[data-prime-club-dd]")) setPrimeClubDDOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
 
@@ -710,6 +747,9 @@ export default function AuctionManager() {
           </button>
           <button className={`portal-btn ${activeTab === 'window' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('window')}>
             <i className="fa-solid fa-calendar-minus" /> Season Releases
+          </button>
+          <button className={`portal-btn ${activeTab === 'prime' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('prime')}>
+            <i className="fa-solid fa-crown" /> Prime Player (1 Season)
           </button>
         </div>
 
@@ -2191,6 +2231,313 @@ export default function AuctionManager() {
               )}
 
             </div>
+          </div>
+        {activeTab === 'prime' && (
+          <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
+            
+            {/* Left Column: Form Controls */}
+            <div className="admin-card" style={{ padding: "1.5rem" }}>
+              <h3 style={{ fontSize: "1rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
+                Prime Player Console
+              </h3>
+
+              {(() => {
+                // Filter all players by club or search query
+                const availablePlayers = primeAllPlayers.filter((p) => {
+                  let matchClub = true;
+                  if (primeClubId) {
+                    const selClub = clubs.find(c => String(c.id) === primeClubId);
+                    matchClub = String(p.clubId) === primeClubId || p.clubName === selClub?.name;
+                  }
+                  let matchSearch = true;
+                  if (primeSearchQuery) {
+                    const query = primeSearchQuery.toLowerCase();
+                    matchSearch = p.name.toLowerCase().includes(query) || (p.clubName && p.clubName.toLowerCase().includes(query)) || p.position.toLowerCase().includes(query);
+                  }
+                  // Hide already primed players
+                  const isAlreadyPrimed = primedPlayers.some(pp => pp.id === p.id);
+                  return matchClub && matchSearch && !isAlreadyPrimed;
+                });
+
+                const selectedClubObj = clubs.find(c => String(c.id) === primeClubId);
+                const filteredDropdownClubs = clubs.filter(c =>
+                  c.name.toLowerCase().includes(primeClubDDSearch.toLowerCase())
+                );
+
+                const handleTogglePlayer = (playerId: number) => {
+                  setPrimeSelectedPlayerIds(prev =>
+                    prev.includes(playerId) ? prev.filter(id => id !== playerId) : [...prev, playerId]
+                  );
+                };
+
+                const handleSelectAll = () => {
+                  const allFilteredIds = availablePlayers.map(p => p.id);
+                  const areAllSelected = allFilteredIds.every(id => primeSelectedPlayerIds.includes(id));
+
+                  if (areAllSelected) {
+                    setPrimeSelectedPlayerIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+                  } else {
+                    setPrimeSelectedPlayerIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+                  }
+                };
+
+                const handlePrimeSubmit = async (e: React.FormEvent) => {
+                  e.preventDefault();
+                  if (primeSelectedPlayerIds.length === 0) return showToast("Select at least one player to Prime!");
+
+                  startTransition(async () => {
+                    try {
+                      let count = 0;
+                      let lastValidUntil = "1 Season";
+                      for (const pId of primeSelectedPlayerIds) {
+                        const res = await primePlayerForTeam(pId, primeClubId ? Number(primeClubId) : undefined);
+                        if (res.success) {
+                          count++;
+                          if (res.validUntil) lastValidUntil = res.validUntil;
+                        }
+                      }
+                      showToast(`Successfully Primed ${count} players for 1 Season! (${lastValidUntil})`);
+                      setPrimeSelectedPlayerIds([]);
+                      loadPrimeData();
+                    } catch {
+                      showToast("Error priming players!");
+                    }
+                  });
+                };
+
+                return (
+                  <form onSubmit={handlePrimeSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    
+                    {/* Club Selection custom dropdown */}
+                    <div style={{ position: "relative" }} data-prime-club-dd>
+                      <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                        1. Select franchise / club
+                      </label>
+                      <div
+                        style={{
+                          padding: "12px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)",
+                          color: "#fff", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
+                        }}
+                        onClick={() => setPrimeClubDDOpen(prev => !prev)}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          {selectedClubObj?.logo_path ? (
+                            <img src={selectedClubObj.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+                          ) : (
+                            <i className="fa-solid fa-shield-halved" style={{ color: "#eab308", fontSize: "0.8rem" }} />
+                          )}
+                          <strong style={{ fontWeight: primeClubId ? 600 : 400, color: primeClubId ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                            {selectedClubObj ? selectedClubObj.name : "-- Choose franchise --"}
+                          </strong>
+                        </div>
+                        <i className={`fa-solid fa-chevron-${primeClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
+                      </div>
+
+                      {primeClubDDOpen && (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                          <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                            <input
+                              type="text"
+                              placeholder="Search club..."
+                              value={primeClubDDSearch}
+                              onChange={(e) => setPrimeClubDDSearch(e.target.value)}
+                              style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.8rem", outline: "none", boxSizing: "border-box" }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                            <div
+                              onClick={() => { setPrimeClubId(""); setPrimeClubDDOpen(false); setPrimeSelectedPlayerIds([]); }}
+                              style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", fontSize: "0.8rem" }}
+                            >
+                              All Clubs / All Players
+                            </div>
+                            {filteredDropdownClubs.map(c => (
+                              <div
+                                key={c.id}
+                                onClick={() => { setPrimeClubId(c.id.toString()); setPrimeClubDDOpen(false); setPrimeSelectedPlayerIds([]); }}
+                                style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.02)", fontSize: "0.8rem" }}
+                              >
+                                {c.logo_path && <img src={c.logo_path} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
+                                <span style={{ color: "#fff" }}>{c.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Players checklist */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", fontWeight: 600 }}>
+                          2. Select Players ({primeSelectedPlayerIds.length} selected)
+                        </label>
+                        {availablePlayers.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            style={{ background: "none", border: "none", color: "#eab308", cursor: "pointer", fontSize: "0.7rem", fontWeight: 700, padding: 0 }}
+                          >
+                            {availablePlayers.every(p => primeSelectedPlayerIds.includes(p.id)) ? "Deselect All" : "Select All"}
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="Search players to select..."
+                        value={primeSearchQuery}
+                        onChange={(e) => setPrimeSearchQuery(e.target.value)}
+                        style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.8rem", outline: "none", marginBottom: "8px", boxSizing: "border-box" }}
+                      />
+
+                      <div style={{ maxHeight: "240px", overflowY: "auto", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px", padding: "4px" }}>
+                        {availablePlayers.length === 0 ? (
+                          <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.78rem" }}>
+                            No players matching filters.
+                          </div>
+                        ) : (
+                          availablePlayers.map((p) => {
+                            const isChecked = primeSelectedPlayerIds.includes(p.id);
+                            return (
+                              <div
+                                key={p.id}
+                                onClick={() => handleTogglePlayer(p.id)}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: "10px", padding: "7px 10px", cursor: "pointer",
+                                  background: isChecked ? "rgba(234,179,8,0.05)" : "transparent",
+                                  borderBottom: "1px solid rgba(255,255,255,0.03)"
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {}} // toggled by row click
+                                  style={{ cursor: "pointer", accentColor: "#eab308" }}
+                                />
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                                  <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.8rem" }}>{p.name}</div>
+                                  <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>{p.position} · {p.clubName || "Free Agent"}</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isPending || primeSelectedPlayerIds.length === 0}
+                      style={{
+                        width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
+                        fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase",
+                        background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
+                        opacity: isPending || primeSelectedPlayerIds.length === 0 ? 0.5 : 1, transition: "all 0.25s ease"
+                      }}
+                    >
+                      Set Prime Selected ({primeSelectedPlayerIds.length})
+                    </button>
+
+                  </form>
+                );
+              })()}
+            </div>
+
+            {/* Right Column: List of Active Primed Players */}
+            <div className="admin-card" style={{ padding: "1.5rem" }}>
+              <h3 style={{ fontSize: "1.02rem", color: "#fff", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
+                  Active Primed Players ({primedPlayers.length})
+                </span>
+                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                  Duration: 1 Season
+                </span>
+              </h3>
+
+              {loadingPrimeData ? (
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)" }}>Loading primed players...</div>
+              ) : primedPlayers.length === 0 ? (
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.82rem" }}>
+                  No players are currently Primed in the database.
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ color: "var(--text-secondary)", fontSize: "0.68rem", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Player</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Position</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Franchise / Club</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>Prime Duration</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {primedPlayers.map((p) => {
+                        const handleRemove = async () => {
+                          if (!confirm("Are you sure you want to remove Prime status from this player?")) return;
+                          startTransition(async () => {
+                            try {
+                              const res = await removePlayerPrime(p.id);
+                              if (res.success) {
+                                showToast("Prime status removed!");
+                                loadPrimeData();
+                              } else {
+                                showToast(res.error || "Failed to remove status");
+                              }
+                            } catch {
+                              showToast("Error removing status");
+                            }
+                          });
+                        };
+
+                        return (
+                          <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                            <td style={{ padding: "0.75rem 0.5rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                {p.imagePath ? (
+                                  <img src={p.imagePath} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} />
+                                ) : (
+                                  <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700 }}>
+                                    {p.name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.8rem" }}>{p.name}</div>
+                                  <span style={{ fontSize: "0.6rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>PRIME</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-secondary)", fontWeight: 600 }}>{p.position}</td>
+                            <td style={{ padding: "0.75rem 0.5rem", color: "#fff", fontWeight: 600 }}>{p.clubName}</td>
+                            <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "#fbbf24" }}>
+                                {p.validUntil}
+                              </span>
+                            </td>
+                            <td style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
+                              <button
+                                type="button"
+                                onClick={handleRemove}
+                                disabled={isPending}
+                                style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 

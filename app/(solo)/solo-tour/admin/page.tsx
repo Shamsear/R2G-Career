@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useCallback } from "react";
+import { Suspense, useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import "../../../portal.css";
 import "./admin.css";
-import { logoutSoloAdmin } from "@/utils/solo/serverActions";
+import { logoutSoloAdmin, fetchActiveSeason } from "@/utils/solo/serverActions";
 
 const ADMIN_MODULES = [
   {
@@ -18,44 +18,44 @@ const ADMIN_MODULES = [
   {
     href: "/solo-tour/admin/clubs",
     icon: "fa-solid fa-shield-halved",
-    accent: "tournaments",
+    accent: "clubs",
     title: "Clubs Database",
-    desc: "Create and edit club franchises, customize club names, and upload club logos.",
+    desc: "Create and register squads, assign manager names, and upload club crest imagery.",
   },
   {
     href: "/solo-tour/admin/managers",
-    icon: "fa-solid fa-user-gear",
-    accent: "clubs",
+    icon: "fa-solid fa-user-tie",
+    accent: "managers",
     title: "Managers & Wallets",
-    desc: "Register managers, edit wallet balances, squad ratings, stats, and apply ban fines.",
+    desc: "Manage roster managers, create career ledger wallets, and track r2g coin balances.",
   },
   {
     href: "/solo-tour/admin/medals",
     icon: "fa-solid fa-medal",
-    accent: "players",
+    accent: "awards",
     title: "Medals & EXP Alignment",
-    desc: "Cross-check members stats, align normal experience gameplay points, and backfill medals.",
+    desc: "Disburse XP achievements, award championship medals, and review global career rank boards.",
   },
   {
     href: "/solo-tour/admin/tournaments",
-    icon: "fa-solid fa-sitemap",
+    icon: "fa-solid fa-trophy",
     accent: "tournaments",
     title: "Tournaments",
-    desc: "Create tournament stages, link financial templates, and manage structures.",
+    desc: "Configure divisions, cups, and custom special tournament layouts.",
   },
   {
     href: "/solo-tour/admin/fixtures",
     icon: "fa-solid fa-calendar-days",
     accent: "fixtures",
     title: "Fixtures Manager",
-    desc: "Generate matchup calendars, edit live scores, and manage round schedules.",
+    desc: "Generate fixture schedules, input scorelines, and edit detailed match stats sheets.",
   },
   {
     href: "/solo-tour/admin/players",
-    icon: "fa-solid fa-people-group",
+    icon: "fa-solid fa-user-group",
     accent: "players",
     title: "Players & Contracts",
-    desc: "Manage rosters, toggle suspensions with fines, and sign player contracts.",
+    desc: "Roster lookup directory, search players registry, and sign individual contracts.",
   },
   {
     href: "/solo-tour/admin/bulk-assign",
@@ -65,18 +65,39 @@ const ADMIN_MODULES = [
     desc: "Select a team, multi-select players, set customizable contract dates & prices with auto-calculated salaries.",
   },
   {
+    href: "/solo-tour/admin/prime",
+    icon: "fa-solid fa-crown",
+    accent: "awards",
+    title: "Prime Player Settings",
+    desc: "Grant 1-season Prime status to team players with PRIME icon badge and animated card artwork.",
+  },
+  {
     href: "/solo-tour/admin/auction",
     icon: "fa-solid fa-gavel",
     accent: "nominees",
     title: "Player Auctions & Transfers",
-    desc: "Auction free agents, execute transfers, swaps, releases — all squad management in one hub.",
+    desc: "Sign free agent bids, process direct transfers, and initiate draft selections.",
+  },
+  {
+    href: "/sub-admin/[seasonId]/tools/release-requests",
+    icon: "fa-solid fa-angles-down",
+    accent: "nominees",
+    title: "Approve Releases",
+    desc: "Approve or decline player release submissions and manage release windows.",
+  },
+  {
+    href: "/sub-admin/[seasonId]/tools/transfer-requests",
+    icon: "fa-solid fa-arrow-right-arrow-left",
+    accent: "nominees",
+    title: "Approve Transfers & Swaps",
+    desc: "Approve counterpart-accepted player sales and swap deals.",
   },
   {
     href: "/solo-tour/admin/nominees",
-    icon: "fa-solid fa-user-check",
+    icon: "fa-solid fa-star",
     accent: "nominees",
     title: "RWS Nominees",
-    desc: "Nominate and confirm elite managers for the R2G World Series invitational.",
+    desc: "Formulate annual rosters, select team candidates, and assign nominee values.",
   },
   {
     href: "/solo-tour/admin/album",
@@ -149,6 +170,16 @@ function AdminDashboardContent() {
   const year = searchParams.get("year");
   const specialId = searchParams.get("id");
 
+  const [activeSeasonId, setActiveSeasonId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchActiveSeason().then(season => {
+      if (season) {
+        setActiveSeasonId(season.id);
+      }
+    });
+  }, []);
+
   let backHref = "/solo-tour";
   let backLabel = "Back to Solo Dashboard";
 
@@ -208,7 +239,7 @@ function AdminDashboardContent() {
           {ADMIN_MODULES.map((mod) => (
             <Link
               key={mod.href}
-              href={mod.href}
+              href={mod.href.replace("[seasonId]", String(activeSeasonId || 6))}
               className="admin-module-card"
               data-accent={mod.accent}
               onMouseMove={handleMouseMove}
