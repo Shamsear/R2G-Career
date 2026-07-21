@@ -3,14 +3,15 @@
 import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import "../../solo-tour/admin/admin.css";
-import "../../portal.css";
+import "../../../portal.css";
 
 import {
   fetchActiveReleaseWindow,
   fetchRegisteredClubs,
   fetchClubPlayersWithContracts,
   submitReleaseRequest,
-  fetchActiveSeason
+  fetchActiveSeason,
+  fetchReleaseRequestsList
 } from "@/utils/solo/serverActions";
 
 export default function PublicReleasePage() {
@@ -20,7 +21,8 @@ export default function PublicReleasePage() {
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [squadPlayers, setSquadPlayers] = useState<any[]>([]);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
-  
+  const [history, setHistory] = useState<any[]>([]);
+
   // Custom dropdown states
   const [clubDropdownOpen, setClubDropdownOpen] = useState(false);
   const [clubSearch, setClubSearch] = useState("");
@@ -66,19 +68,33 @@ export default function PublicReleasePage() {
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
 
-  // Load squad players when club is selected
-  useEffect(() => {
-    if (selectedClubId && activeSeason) {
+  // Load squad players & history when club is selected
+  const loadSquadAndHistory = async (clubId: string) => {
+    if (clubId && activeSeason) {
       setLoadingPlayers(true);
       setSelectedPlayerIds([]);
-      fetchClubPlayersWithContracts(parseInt(selectedClubId), activeSeason.id)
-        .then((data) => setSquadPlayers(data || []))
-        .catch(() => showToast("Failed to load team squad!"))
-        .finally(() => setLoadingPlayers(false));
+      try {
+        const [playersData, historyData] = await Promise.all([
+          fetchClubPlayersWithContracts(parseInt(clubId), activeSeason.id),
+          fetchReleaseRequestsList(activeSeason.id)
+        ]);
+        setSquadPlayers(playersData || []);
+        // Filter history for this club
+        setHistory((historyData || []).filter((h: any) => String(h.club_id) === clubId));
+      } catch {
+        showToast("Failed to load team squad and history!");
+      } finally {
+        setLoadingPlayers(false);
+      }
     } else {
       setSquadPlayers([]);
       setSelectedPlayerIds([]);
+      setHistory([]);
     }
+  };
+
+  useEffect(() => {
+    loadSquadAndHistory(selectedClubId);
   }, [selectedClubId, activeSeason]);
 
   const selectedClub = useMemo(() => {
@@ -139,6 +155,35 @@ export default function PublicReleasePage() {
     }, 0);
   }, [selectedPlayerIds, squadWithRefunds]);
 
+  // Generate shareable WhatsApp copy text
+  const shareText = useMemo(() => {
+    if (!selectedClub || selectedPlayerIds.length === 0) return "";
+    const clubNameStr = selectedClub.name;
+    const lines = selectedPlayerIds.map((pId) => {
+      const p = squadWithRefunds.find(pl => pl.id === pId);
+      return `• *${p?.name}* (${p?.position}, Value: ${p?.value || p?.base_value} Coins) → Refund: *${p?.refundAmount} Coins*`;
+    });
+    return `*${clubNameStr.toUpperCase()} - PLAYER RELEASE REQUEST*\n\n${lines.join("\n")}\n\n*Total Refund expected:* ${totalRefund} Coins\n*Submitted via R2G Career Portal*`;
+  }, [selectedClub, selectedPlayerIds, squadWithRefunds, totalRefund]);
+
+  const handleCopyToClipboard = () => {
+    if (!shareText) return;
+    navigator.clipboard.writeText(shareText);
+    showToast("Release details copied to clipboard!");
+  };
+
+  // Copy History List
+  const handleCopyHistory = () => {
+    if (history.length === 0 || !selectedClub) return;
+    const lines = history.map((h: any) => {
+      const date = new Date(h.submitted_at).toLocaleDateString();
+      return `• [${date}] ${h.player_name} - ${h.refund_amount} Coins [${h.status.toUpperCase()}]`;
+    });
+    const txt = `*${selectedClub.name.toUpperCase()} - RELEASE HISTORY*\n\n${lines.join("\n")}`;
+    navigator.clipboard.writeText(txt);
+    showToast("History copied to clipboard!");
+  };
+
   const handleSubmitReleases = async () => {
     if (!activeWindow) return showToast("No active release window open.");
     if (selectedPlayerIds.length === 0) return showToast("Select at least one player to release!");
@@ -162,11 +207,7 @@ export default function PublicReleasePage() {
         if (successCount > 0) {
           showToast(`Successfully submitted ${successCount} release requests for approval!`);
           setSelectedPlayerIds([]);
-          // reload squad
-          if (selectedClubId && activeSeason) {
-            const data = await fetchClubPlayersWithContracts(parseInt(selectedClubId), activeSeason.id);
-            setSquadPlayers(data || []);
-          }
+          loadSquadAndHistory(selectedClubId);
         } else {
           showToast(failMessage || "Failed to submit request.");
         }
@@ -188,7 +229,7 @@ export default function PublicReleasePage() {
         </div>
       )}
 
-      <div className="portal-container" style={{ maxWidth: "800px" }}>
+      <div className="portal-container" style={{ maxWidth: "900px" }}>
         
         {/* Navigation links */}
         <div className="portal-breadcrumb" style={{ marginBottom: "1rem", display: "flex", gap: "0.75rem" }}>
@@ -307,81 +348,189 @@ export default function PublicReleasePage() {
 
             {/* Players Checklist panel */}
             {selectedClubId && (
-              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <h3 style={{ fontSize: "0.95rem", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <i className="fa-solid fa-people-group" style={{ color: "#a855f7" }} />
-                    Roster Players ({squadPlayers.length})
-                  </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1.5rem", alignItems: "start" }}>
+                
+                {/* Checklist column */}
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                    <h3 style={{ fontSize: "0.95rem", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <i className="fa-solid fa-people-group" style={{ color: "#a855f7" }} />
+                      Roster Players ({squadPlayers.length})
+                    </h3>
 
-                  {squadPlayers.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleSelectAll}
-                      style={{ background: "none", border: "none", color: "#a855f7", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}
-                    >
-                      {selectedPlayerIds.length === squadPlayers.length ? "Deselect All" : "Select All"}
-                    </button>
-                  )}
-                </div>
+                    {squadPlayers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        style={{ background: "none", border: "none", color: "#a855f7", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}
+                      >
+                        {selectedPlayerIds.length === squadPlayers.length ? "Deselect All" : "Select All"}
+                      </button>
+                    )}
+                  </div>
 
-                {loadingPlayers ? (
-                  <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
-                    Loading squad roster...
-                  </div>
-                ) : squadPlayers.length === 0 ? (
-                  <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>
-                    No players found in this team squad.
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                    {squadWithRefunds.map((p) => {
-                      const isChecked = selectedPlayerIds.includes(p.id);
-                      return (
-                        <div
-                          key={p.id}
-                          onClick={() => handleTogglePlayer(p.id)}
-                          style={{
-                            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "10px",
-                            background: isChecked ? "rgba(168,85,247,0.06)" : "rgba(255,255,255,0.01)",
-                            border: isChecked ? "1px solid rgba(168,85,247,0.3)" : "1px solid rgba(255,255,255,0.04)",
-                            cursor: "pointer", transition: "all 0.2s"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}} // toggled by row click
-                              style={{ accentColor: "#a855f7", cursor: "pointer" }}
-                            />
-                            <div>
-                              <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.85rem" }}>{p.name}</div>
-                              <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                                {p.position} &bull; Contract remaining: {p.remainingDuration.toFixed(1)} seasons
+                  {loadingPlayers ? (
+                    <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
+                      Loading squad roster...
+                    </div>
+                  ) : squadPlayers.length === 0 ? (
+                    <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>
+                      No players found in this team squad.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      {squadWithRefunds.map((p) => {
+                        const isChecked = selectedPlayerIds.includes(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => handleTogglePlayer(p.id)}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "10px",
+                              background: isChecked ? "rgba(168,85,247,0.06)" : "rgba(255,255,255,0.01)",
+                              border: isChecked ? "1px solid rgba(168,85,247,0.3)" : "1px solid rgba(255,255,255,0.04)",
+                              cursor: "pointer", transition: "all 0.2s"
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}} // toggled by row click
+                                style={{ accentColor: "#a855f7", cursor: "pointer" }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.85rem" }}>{p.name}</div>
+                                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
+                                  {p.position} &bull; Contract remaining: {p.remainingDuration.toFixed(1)} seasons
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: "right" }}>
+                              <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", display: "block" }}>
+                                Value: {p.value || p.base_value} Coins
+                              </span>
+                              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: p.refundAmount > 0 ? "#10b981" : "#ef4444" }}>
+                                Refund: {p.refundAmount} Coins
                               </span>
                             </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
-                          <div style={{ textAlign: "right" }}>
-                            <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", display: "block" }}>
-                              Value: {p.value || p.base_value} Coins
-                            </span>
-                            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: p.refundAmount > 0 ? "#10b981" : "#ef4444" }}>
-                              Refund: {p.refundAmount} Coins
-                            </span>
-                          </div>
+                {/* Right: Live Preview Panel */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  
+                  {/* Transaction Preview Card */}
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "16px", padding: "1.5rem" }}>
+                    <h3 style={{ fontSize: "0.9rem", color: "#fff", display: "flex", alignItems: "center", gap: "6px", marginBottom: "1rem" }}>
+                      <i className="fa-solid fa-calculator" style={{ color: "#a855f7" }} />
+                      Live Transaction Preview
+                    </h3>
+
+                    {selectedPlayerIds.length === 0 ? (
+                      <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", textAlign: "center", padding: "1.5rem 0" }}>
+                        Select players on the left to see calculated coin refunds and transaction outcomes.
+                      </p>
+                    ) : (
+                      <div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "1rem", marginBottom: "1rem" }}>
+                          {selectedPlayerIds.map(pId => {
+                            const p = squadWithRefunds.find(pl => pl.id === pId);
+                            return (
+                              <div key={pId} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                                <span style={{ color: "rgba(255,255,255,0.7)" }}>{p?.name} ({p?.position})</span>
+                                <span style={{ color: p?.refundAmount && p.refundAmount > 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                                  +{p?.refundAmount} Coins
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                          <span style={{ fontSize: "0.85rem", color: "#fff" }}>Total Coins Credited:</span>
+                          <strong style={{ fontSize: "1.2rem", color: "#10b981" }}>+{totalRefund} Coins</strong>
+                        </div>
+
+                        <div style={{ background: "rgba(168,85,247,0.04)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "10px", padding: "10px 12px", fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", lineHeight: "1.4", marginBottom: "1rem" }}>
+                          <i className="fa-solid fa-circle-exclamation" style={{ color: "#a855f7", marginRight: "6px" }} />
+                          Executing this release will remove these players from your team squad and refund the coins directly to your wallet once approved.
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={handleCopyToClipboard}
+                            style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600 }}
+                          >
+                            <i className="fa-brands fa-whatsapp" style={{ marginRight: "5px" }} /> Copy WhatsApp Text
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Submission history for this team */}
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                      <h3 style={{ fontSize: "0.9rem", color: "#fff", margin: 0 }}>Team Release History</h3>
+                      {history.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleCopyHistory}
+                          style={{ background: "none", border: "none", color: "#a855f7", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700 }}
+                        >
+                          <i className="fa-solid fa-copy" /> Copy Log
+                        </button>
+                      )}
+                    </div>
+
+                    {history.length === 0 ? (
+                      <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.3)", textAlign: "center", padding: "1rem 0" }}>
+                        No releases submitted yet this season.
+                      </p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "180px", overflowY: "auto" }}>
+                        {history.map((h: any) => {
+                          let badgeBg = "rgba(234,179,8,0.15)";
+                          let badgeColor = "#fbbf24";
+                          if (h.status === "approved") {
+                            badgeBg = "rgba(16,185,129,0.15)";
+                            badgeColor = "#34d399";
+                          } else if (h.status === "rejected") {
+                            badgeBg = "rgba(239,68,68,0.15)";
+                            badgeColor = "#f87171";
+                          }
+
+                          return (
+                            <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", background: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.02)", fontSize: "0.75rem" }}>
+                              <div>
+                                <div style={{ color: "#fff", fontWeight: 600 }}>{h.player_name}</div>
+                                <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Refund: {h.refund_amount} Coins</span>
+                              </div>
+                              <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: badgeBg, color: badgeColor, textTransform: "uppercase" }}>
+                                {h.status}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
               </div>
             )}
 
             {/* Bottom sticky submit row */}
             {selectedPlayerIds.length > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "16px", padding: "1rem 1.5rem", backdropFilter: "blur(12px)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "16px", padding: "1rem 1.5rem", backdropFilter: "blur(12px)", marginTop: "1.5rem" }}>
                 <div>
                   <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
                     Selected: {selectedPlayerIds.length} players

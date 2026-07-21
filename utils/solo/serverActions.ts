@@ -6417,8 +6417,8 @@ export async function submitTransferRequest(
     if (requestType === 'swap') {
       const fromReq = playersList.filter(p => p.fromTeamId === requestingTeamId);
       const fromTar = playersList.filter(p => p.fromTeamId === targetTeamId);
-      if (fromReq.length !== fromTar.length || fromReq.length === 0) {
-        return { success: false, error: "Swap trade must be an even count (e.g. 1-for-1 or 2-for-2)." };
+      if (fromReq.length !== 1 || fromTar.length !== 1) {
+        return { success: false, error: "Swap trades must always be exactly 1-for-1 player swaps." };
       }
     }
 

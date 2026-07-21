@@ -2232,6 +2232,7 @@ export default function AuctionManager() {
 
             </div>
           </div>
+        )}
         {activeTab === 'prime' && (
           <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
             

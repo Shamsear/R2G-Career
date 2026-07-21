@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import "../../../../solo-tour/admin/admin.css";
-import "../../../../portal.css";
+import "../../../../../portal.css";
 
 import {
   fetchReleaseRequestsList,
@@ -177,8 +177,8 @@ export default function AdminReleaseRequestsPage() {
           <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
             <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
           </Link>
-          <Link href={`/sub-admin/${seasonId}/tools/swap-requests`} className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", marginLeft: "8px" }}>
-            <i className="fa-solid fa-arrow-right-arrow-left" style={{ marginRight: "6px" }} /> Swaps Tool
+          <Link href={`/sub-admin/${seasonId}/tools/transfer-requests`} className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", marginLeft: "8px" }}>
+            <i className="fa-solid fa-arrow-right-arrow-left" style={{ marginRight: "6px" }} /> Transfers Tool
           </Link>
         </div>
 

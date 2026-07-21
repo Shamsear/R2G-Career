@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import "../../../../solo-tour/admin/admin.css";
-import "../../../../portal.css";
+import "../../../../../portal.css";
 
 import {
   fetchTransferRequestsList,
