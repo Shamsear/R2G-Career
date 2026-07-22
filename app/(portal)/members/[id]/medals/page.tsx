@@ -179,7 +179,15 @@ export default function MemberMedalsPage() {
   }
 
   const { manager, stats, medalStats } = data;
-  const combined = stats.solo;
+  const combined = {
+    matches_played: (Number(stats?.solo?.matches_played) || 0) + (Number(stats?.special?.matches_played) || 0) + (Number(stats?.rws?.matches_played) || 0),
+    wins: (Number(stats?.solo?.wins) || 0) + (Number(stats?.special?.wins) || 0) + (Number(stats?.rws?.wins) || 0),
+    draws: (Number(stats?.solo?.draws) || 0) + (Number(stats?.special?.draws) || 0) + (Number(stats?.rws?.draws) || 0),
+    losses: (Number(stats?.solo?.losses) || 0) + (Number(stats?.special?.losses) || 0) + (Number(stats?.rws?.losses) || 0),
+    goals_scored: (Number(stats?.solo?.goals_scored) || 0) + (Number(stats?.special?.goals_scored) || 0) + (Number(stats?.rws?.goals_scored) || 0),
+    goals_conceded: (Number(stats?.solo?.goals_conceded) || 0) + (Number(stats?.special?.goals_conceded) || 0) + (Number(stats?.rws?.goals_conceded) || 0),
+    clean_sheets: (Number(stats?.solo?.clean_sheets) || 0) + (Number(stats?.special?.clean_sheets) || 0) + (Number(stats?.rws?.clean_sheets) || 0),
+  };
   const medalInfo = medalStats || {
     level: 1,
     medals: [],
