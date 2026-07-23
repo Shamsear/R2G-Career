@@ -5,6 +5,7 @@ import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchActiveSeason,
   fetchRegisteredClubs,
@@ -377,23 +378,23 @@ export default function PlayersManager() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <div className="admin-form-group">
                       <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Position</label>
-                      <select
-                        className="admin-select"
-                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                      <CustomSelect
                         value={playerForm.position}
-                        onChange={(e) => setPlayerForm(prev => ({ ...prev, position: e.target.value }))}
-                      >
-                        <option value="GK">GK</option>
-                        <option value="CB">CB</option>
-                        <option value="LB">LB</option>
-                        <option value="RB">RB</option>
-                        <option value="CM">CM</option>
-                        <option value="DM">DM</option>
-                        <option value="AM">AM</option>
-                        <option value="RW">RW</option>
-                        <option value="LW">LW</option>
-                        <option value="ST">ST</option>
-                      </select>
+                        onChange={(val) => setPlayerForm(prev => ({ ...prev, position: val }))}
+                        options={[
+                          { value: "GK", label: "GK" },
+                          { value: "CB", label: "CB" },
+                          { value: "LB", label: "LB" },
+                          { value: "RB", label: "RB" },
+                          { value: "CM", label: "CM" },
+                          { value: "DM", label: "DM" },
+                          { value: "AM", label: "AM" },
+                          { value: "RW", label: "RW" },
+                          { value: "LW", label: "LW" },
+                          { value: "ST", label: "ST" }
+                        ]}
+                        buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                      />
                     </div>
 
                     <div className="admin-form-group">
@@ -410,15 +411,15 @@ export default function PlayersManager() {
 
                   <div className="admin-form-group">
                     <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "6px", display: "block" }}>Card Type</label>
-                    <select
-                      className="admin-select"
-                      style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.08)" }}
+                    <CustomSelect
                       value={playerForm.star}
-                      onChange={(e) => setPlayerForm(prev => ({ ...prev, star: e.target.value }))}
-                    >
-                      <option value="3-star-standard">Standard</option>
-                      <option value="5-star-legend">Legend</option>
-                    </select>
+                      onChange={(val) => setPlayerForm(prev => ({ ...prev, star: val }))}
+                      options={[
+                        { value: "3-star-standard", label: "Standard" },
+                        { value: "5-star-legend", label: "Legend" }
+                      ]}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                    />
                   </div>
                 </div>
 

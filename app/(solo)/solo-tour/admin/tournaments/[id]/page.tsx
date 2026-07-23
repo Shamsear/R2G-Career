@@ -5,6 +5,7 @@ import Link from "next/link";
 import "../../../../../portal.css";
 import "../../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import { captureElementAsPng, shareOrDownloadBlob } from "@/lib/share-table";
 
 import {
@@ -28,217 +29,6 @@ import {
   fetchTournamentStandings,
   recalculateTournamentStandings
 } from "@/utils/solo/serverActions";
-
-function RoundFilterDropdown({
-  rounds,
-  activeRound,
-  onChange
-}: {
-  rounds: number[];
-  activeRound: number | "all";
-  onChange: (round: number | "all") => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  const [mounted, setMounted] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const updatePosition = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 165;
-      let left = rect.right - menuWidth;
-      if (left < 10) left = rect.left;
-      if (left < 10) left = 10;
-      setDropdownPos({
-        top: rect.bottom + 6,
-        left: left
-      });
-    }
-  };
-
-  const toggleDropdown = () => {
-    if (!isOpen) {
-      updatePosition();
-    }
-    setIsOpen(!isOpen);
-  };
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current && 
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleScroll() {
-      setIsOpen(false);
-    }
-
-    function handleResize() {
-      updatePosition();
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [isOpen]);
-
-  const getLabel = () => {
-    if (activeRound === "all") return "All Rounds";
-    return `Round ${activeRound}`;
-  };
-
-  const menuContent = isOpen && (
-    <div
-      ref={dropdownRef}
-      style={{
-        position: "fixed",
-        top: `${dropdownPos.top}px`,
-        left: `${dropdownPos.left}px`,
-        width: "165px",
-        background: "rgba(15, 12, 27, 0.98)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        border: "1px solid rgba(168, 85, 247, 0.4)",
-        borderRadius: "10px",
-        padding: "5px",
-        boxShadow: "0 12px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(168, 85, 247, 0.2)",
-        zIndex: 999999,
-        display: "flex",
-        flexDirection: "column",
-        gap: "2px"
-      }}
-    >
-      <div
-        onClick={() => {
-          onChange("all");
-          setIsOpen(false);
-        }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justify: "space-between",
-          padding: "7px 10px",
-          borderRadius: "6px",
-          fontSize: "0.78rem",
-          fontWeight: activeRound === "all" ? "bold" : "normal",
-          color: activeRound === "all" ? "#fbbf24" : "#e2e8f0",
-          background: activeRound === "all" ? "rgba(168, 85, 247, 0.25)" : "transparent",
-          cursor: "pointer",
-          transition: "all 0.15s ease"
-        }}
-        onMouseEnter={(e) => {
-          if (activeRound !== "all") e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-        }}
-        onMouseLeave={(e) => {
-          if (activeRound !== "all") e.currentTarget.style.background = "transparent";
-        }}
-      >
-        <span>All Rounds</span>
-        {activeRound === "all" && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
-      </div>
-
-      <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.08)", margin: "3px 0" }} />
-
-      {rounds.map((r) => {
-        const isSelected = activeRound === r;
-        return (
-          <div
-            key={r}
-            onClick={() => {
-              onChange(r);
-              setIsOpen(false);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justify: "space-between",
-              padding: "6px 10px",
-              borderRadius: "6px",
-              fontSize: "0.78rem",
-              fontWeight: isSelected ? "bold" : "normal",
-              color: isSelected ? "#fbbf24" : "#e2e8f0",
-              background: isSelected ? "rgba(168, 85, 247, 0.25)" : "transparent",
-              cursor: "pointer",
-              transition: "all 0.15s ease"
-            }}
-            onMouseEnter={(e) => {
-              if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-            }}
-            onMouseLeave={(e) => {
-              if (!isSelected) e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <span>Round {r}</span>
-            {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <div style={{ display: "inline-block" }}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggleDropdown}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.55rem",
-          background: "linear-gradient(135deg, rgba(25, 18, 45, 0.85) 0%, rgba(12, 9, 24, 0.95) 100%)",
-          border: isOpen ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(168, 85, 247, 0.3)",
-          borderRadius: "8px",
-          padding: "5px 12px",
-          color: "#fff",
-          fontSize: "0.78rem",
-          fontWeight: "bold",
-          cursor: "pointer",
-          boxShadow: isOpen ? "0 0 12px rgba(168, 85, 247, 0.25)" : "0 2px 8px rgba(0, 0, 0, 0.3)",
-          transition: "all 0.2s ease"
-        }}
-      >
-        <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          ROUND:
-        </span>
-        <span style={{ color: "#fbbf24", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-          <i className="fa-solid fa-filter" style={{ fontSize: "0.65rem", color: "#c084fc" }} />
-          {getLabel()}
-        </span>
-        <i
-          className="fa-solid fa-chevron-down"
-          style={{
-            fontSize: "0.65rem",
-            color: "rgba(255, 255, 255, 0.5)",
-            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s ease"
-          }}
-        />
-      </button>
-
-      {mounted && isOpen && createPortal(menuContent, document.body)}
-    </div>
-  );
-}
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -2037,10 +1827,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                 {rounds.length > 0 && (
-                  <RoundFilterDropdown
-                    rounds={rounds}
-                    activeRound={activeRound}
-                    onChange={(r) => setActiveRound(r)}
+                  <CustomSelect
+                    labelPrefix="ROUND:"
+                    icon="fa-solid fa-filter"
+                    value={activeRound}
+                    onChange={(val) => setActiveRound(val)}
+                    options={[
+                      { value: "all", label: "All Rounds" },
+                      ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                    ]}
+                    menuWidth={165}
                   />
                 )}
                 <button
@@ -2336,10 +2132,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </button>
               </div>
               {rounds.length > 0 && (
-                <RoundFilterDropdown
-                  rounds={rounds}
-                  activeRound={activeRound}
-                  onChange={(r) => setActiveRound(r)}
+                <CustomSelect
+                  labelPrefix="ROUND:"
+                  icon="fa-solid fa-filter"
+                  value={activeRound}
+                  onChange={(val) => setActiveRound(val)}
+                  options={[
+                    { value: "all", label: "All Rounds" },
+                    ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                  ]}
+                  menuWidth={165}
                 />
               )}
             </div>
@@ -2690,10 +2492,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     >
                       <i className="fa-solid fa-chevron-left" />
                     </button>
-                    <RoundFilterDropdown
-                      rounds={rounds}
-                      activeRound={activeRound}
-                      onChange={(r) => setActiveRound(r)}
+                    <CustomSelect
+                      labelPrefix="ROUND:"
+                      icon="fa-solid fa-filter"
+                      value={activeRound}
+                      onChange={(val) => setActiveRound(val)}
+                      options={[
+                        { value: "all", label: "All Rounds" },
+                        ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                      ]}
+                      menuWidth={165}
                     />
                     <button
                       type="button"

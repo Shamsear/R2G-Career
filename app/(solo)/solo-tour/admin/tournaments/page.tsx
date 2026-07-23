@@ -4,6 +4,7 @@ import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchActiveSeason,
   fetchTournaments,
@@ -412,12 +413,17 @@ export default function TournamentsManager() {
 
                   <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
                     <label>Tournament Format</label>
-                    <select className="admin-select" value={tourneyForm.formatType} onChange={(e) => setTourneyForm(prev => ({ ...prev, formatType: e.target.value }))}>
-                      <option value="League">League Format</option>
-                      <option value="Knockout">Knockout Format</option>
-                      <option value="Group + Knockout">Group + Knockout Format</option>
-                      <option value="League + Knockout">League + Knockout Format</option>
-                    </select>
+                    <CustomSelect
+                      value={tourneyForm.formatType}
+                      onChange={(val) => setTourneyForm(prev => ({ ...prev, formatType: val }))}
+                      options={[
+                        { value: "League", label: "League Format" },
+                        { value: "Knockout", label: "Knockout Format" },
+                        { value: "Group + Knockout", label: "Group + Knockout Format" },
+                        { value: "League + Knockout", label: "League + Knockout Format" }
+                      ]}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                    />
                   </div>
 
                   {(tourneyForm.formatType === "Group + Knockout" || tourneyForm.formatType === "League + Knockout") && (() => {
@@ -458,17 +464,16 @@ export default function TournamentsManager() {
                         </div>
                         <div className="admin-form-group" style={{ marginBottom: 0 }}>
                           <label>Qualifying Teams / Gp</label>
-                          <select 
-                            className="admin-select" 
-                            value={tourneyForm.qualifiedPerGroup} 
-                            onChange={(e) => setTourneyForm(prev => ({ ...prev, qualifiedPerGroup: e.target.value }))}
-                            required
-                          >
-                            <option value="">-- Choose --</option>
-                            {Array.from({ length: computedTeamsPerGroup }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={num}>{num}</option>
-                            ))}
-                          </select>
+                          <CustomSelect
+                            value={tourneyForm.qualifiedPerGroup}
+                            onChange={(val) => setTourneyForm(prev => ({ ...prev, qualifiedPerGroup: val }))}
+                            placeholder="-- Choose --"
+                            options={Array.from({ length: computedTeamsPerGroup }, (_, i) => i + 1).map(num => ({
+                              value: String(num),
+                              label: String(num)
+                            }))}
+                            buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                          />
                         </div>
                       </div>
                     );
@@ -476,11 +481,15 @@ export default function TournamentsManager() {
 
                   <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
                     <label>Tournament Type</label>
-                    <select className="admin-select" value={tourneyForm.tournamentType} onChange={(e) => setTourneyForm(prev => ({ ...prev, tournamentType: e.target.value }))}>
-                      {tournamentTypes.map(t => (
-                        <option key={t.name} value={t.name}>{t.display_name}</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                      value={tourneyForm.tournamentType}
+                      onChange={(val) => setTourneyForm(prev => ({ ...prev, tournamentType: val }))}
+                      options={tournamentTypes.map(t => ({
+                        value: t.name,
+                        label: t.display_name
+                      }))}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                    />
                   </div>
 
                    <div className="admin-form-group">
@@ -491,12 +500,19 @@ export default function TournamentsManager() {
                         Not applicable — RWS &amp; Special Tour have no financial rewards
                       </div>
                     ) : (
-                    <select className="admin-select" value={tourneyForm.financialRuleId} onChange={(e) => setTourneyForm(prev => ({ ...prev, financialRuleId: e.target.value }))}>
-                      <option value="">-- Select Rule Template --</option>
-                      {financialRules.map(rule => (
-                        <option key={rule.id} value={rule.id}>{rule.name}</option>
-                      ))}
-                    </select>
+                      <CustomSelect
+                        value={tourneyForm.financialRuleId}
+                        onChange={(val) => setTourneyForm(prev => ({ ...prev, financialRuleId: val }))}
+                        placeholder="-- Select Rule Template --"
+                        options={[
+                          { value: "", label: "-- Select Rule Template --" },
+                          ...financialRules.map(rule => ({
+                            value: String(rule.id),
+                            label: rule.name
+                          }))
+                        ]}
+                        buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                      />
                     )}
                   </div>
 

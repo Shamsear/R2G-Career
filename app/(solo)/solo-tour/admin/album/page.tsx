@@ -5,6 +5,8 @@ import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
+
 import {
   fetchRwsAlbumPhotos,
   addRwsAlbumPhoto,
@@ -153,14 +155,19 @@ export default function RwsAlbumManager() {
                 </div>
                 <div className="admin-form-group">
                   <label><i className="fa-solid fa-tag" /> Tag (Category)</label>
-                  <select className="admin-select" value={photoForm.tag} onChange={(e) => setPhotoForm(prev => ({ ...prev, tag: e.target.value }))}>
-                    <option value="Ceremony">Ceremony</option>
-                    <option value="Matchday">Matchday</option>
-                    <option value="Banquet">Banquet</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Stadium">Stadium</option>
-                    <option value="Trophy">Trophy</option>
-                  </select>
+                  <CustomSelect
+                    value={photoForm.tag}
+                    onChange={(val) => setPhotoForm(prev => ({ ...prev, tag: val }))}
+                    options={[
+                      { value: "Ceremony", label: "Ceremony" },
+                      { value: "Matchday", label: "Matchday" },
+                      { value: "Banquet", label: "Banquet" },
+                      { value: "Draft", label: "Draft" },
+                      { value: "Stadium", label: "Stadium" },
+                      { value: "Trophy", label: "Trophy" }
+                    ]}
+                    buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                  />
                 </div>
               </div>
               <div className="admin-form-grid" style={{ marginTop: "0.5rem" }}>

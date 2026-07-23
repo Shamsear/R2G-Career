@@ -5,6 +5,7 @@ import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchActiveSeason,
   fetchManagers,
@@ -845,11 +846,9 @@ export default function ClubsManager() {
                     
                     <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
                       <label>Select Associated Club</label>
-                      <select 
-                        className="admin-select"
+                      <CustomSelect
                         value={clubForm.clubId}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                        onChange={(val) => {
                           const selected = allClubs.find(c => c.id.toString() === val);
                           setClubForm(prev => ({
                             ...prev,
@@ -858,12 +857,13 @@ export default function ClubsManager() {
                             logoPath: selected ? selected.logo_path : ""
                           }));
                         }}
-                      >
-                        <option value="">-- No Associated Club --</option>
-                        {allClubs.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                        placeholder="-- No Associated Club --"
+                        options={[
+                          { value: "", label: "-- No Associated Club --" },
+                          ...allClubs.map(c => ({ value: String(c.id), label: c.name }))
+                        ]}
+                        buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                      />
                     </div>
 
                     {clubForm.id && (

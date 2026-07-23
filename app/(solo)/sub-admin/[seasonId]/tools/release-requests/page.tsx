@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import "../../../../solo-tour/admin/admin.css";
 import "../../../../../portal.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchReleaseRequestsList,
   fetchReleaseWindows,
@@ -159,115 +160,122 @@ export default function AdminReleaseRequestsPage() {
   };
 
   return (
-    <div className="portal-root-wrapper">
+    <div className="portal-root-wrapper" data-module="tournaments">
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
       {toast && (
-        <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 9999, background: "rgba(168,85,247,0.95)", color: "#fff", padding: "12px 24px", borderRadius: "12px", fontWeight: 600, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
-          <i className="fa-solid fa-circle-check" style={{ marginRight: "8px" }} /> {toast}
+        <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 9999, background: "rgba(168,85,247,0.95)", backdropFilter: "blur(12px)", color: "#fff", padding: "12px 24px", borderRadius: "12px", fontWeight: 600, boxShadow: "0 10px 30px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", gap: "10px" }}>
+          <i className="fa-solid fa-circle-check" style={{ color: "#fbbf24" }} /> {toast}
         </div>
       )}
 
-      <div className="portal-container" style={{ maxWidth: "1200px" }}>
+      <div className="portal-container" style={{ maxWidth: "1600px", width: "100%", margin: "0 auto", padding: "1.5rem 1.5rem" }}>
         
         {/* Navigation Breadcrumbs */}
-        <div className="portal-breadcrumb" style={{ marginBottom: "1rem" }}>
-          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+        <div className="portal-breadcrumb" style={{ marginBottom: "1.25rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "7px 14px", borderRadius: "8px" }}>
             <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
           </Link>
-          <Link href={`/sub-admin/${seasonId}/tools/transfer-requests`} className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", marginLeft: "8px" }}>
-            <i className="fa-solid fa-arrow-right-arrow-left" style={{ marginRight: "6px" }} /> Transfers Tool
+          <Link href={`/sub-admin/${seasonId}/tools/transfer-requests`} className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "7px 14px", borderRadius: "8px" }}>
+            <i className="fa-solid fa-arrow-right-arrow-left" style={{ marginRight: "6px", color: "#eab308" }} /> Transfers Tool
           </Link>
         </div>
 
         {/* Hero Banner */}
-        <div className="rws-page-hero" style={{ marginBottom: "2rem" }}>
-          <div className="portal-page-badge" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}>
+        <div className="rws-page-hero" style={{ marginBottom: "2rem", padding: "1.75rem 2rem", background: "linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(15,12,27,0.9) 100%)", borderRadius: "16px", border: "1px solid rgba(168,85,247,0.25)", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+          <div className="portal-page-badge" style={{ background: "rgba(168,85,247,0.15)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.3)", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "0.75rem", padding: "4px 12px", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 700 }}>
             <i className="fa-solid fa-angles-down" />
-            Admin Release Control Center
+            Season {activeSeason?.season_number || seasonId} Control Center
           </div>
-          <h1 className="rws-hero-title">
+          <h1 className="rws-hero-title" style={{ fontSize: "clamp(1.6rem, 4vw, 2.5rem)", fontWeight: 900, background: "linear-gradient(135deg, #fff 0%, #c084fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: "0 0 0.5rem 0" }}>
             RELEASE REQUESTS TOOL
           </h1>
-          <p className="rws-hero-sub">
-            Open or close release window stages (Start/Mid-Season), configure request limits or unlimited status, and approve/decline player decommit requests.
+          <p className="rws-hero-sub" style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.92rem", maxWidth: "900px", margin: 0, lineHeight: 1.5 }}>
+            Open or close release window stages (Season Start / Mid-Season), configure quota limits or enable unlimited player releases, and approve or decline manager decommit requests.
           </p>
         </div>
 
-        <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "2rem", alignItems: "start" }}>
+        {/* Responsive 2-Column Responsive Layout Optimized for Large Screens */}
+        <div className="admin-tools-grid" style={{ display: "grid", gridTemplateColumns: "minmax(320px, 1fr) minmax(400px, 1.35fr)", gap: "2rem", alignItems: "start" }}>
           
           {/* Left Column: Manage Release Windows */}
-          <div>
-            {/* Create window form */}
-            <div className="admin-card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-              <h3 style={{ fontSize: "1rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <i className="fa-solid fa-calendar-plus" style={{ color: "#a855f7" }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            
+            {/* Create window form card */}
+            <div className="admin-card" style={{ padding: "1.5rem", borderRadius: "16px" }}>
+              <h3 className="admin-card-title" style={{ fontSize: "1.05rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                <i className="fa-solid fa-calendar-plus" style={{ color: "#c084fc" }} />
                 Create Release Window Stage
               </h3>
 
-              <form onSubmit={handleCreateReleaseWindow} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <form onSubmit={handleCreateReleaseWindow} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Window Name</label>
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>Window Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. S9 Start Release Window"
+                    placeholder="e.g. Season 9 Start Release Window"
                     value={windowName}
                     onChange={(e) => setWindowName(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.85rem", boxSizing: "border-box" }}
+                    className="admin-input"
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.85rem", boxSizing: "border-box" }}
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem" }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Window Stage</label>
-                    <select
+                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>Window Stage</label>
+                    <CustomSelect
                       value={windowType}
-                      onChange={(e) => setWindowType(e.target.value as any)}
-                      style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.85rem" }}
-                    >
-                      <option value="start">Season Start</option>
-                      <option value="mid">Mid-Season</option>
-                    </select>
+                      onChange={(val) => setWindowType(val as any)}
+                      options={[
+                        { value: "start", label: "Season Start" },
+                        { value: "mid", label: "Mid-Season" }
+                      ]}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between", height: "42px" }}
+                    />
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Request Limits</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>Request Limits</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", height: "42px" }}>
                       <input
                         type="number"
                         disabled={isUnlimited}
                         value={releaseLimit}
                         onChange={(e) => setReleaseLimit(Math.max(1, parseInt(e.target.value) || 0))}
-                        style={{ width: "60px", padding: "9px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.85rem", opacity: isUnlimited ? 0.3 : 1 }}
+                        className="admin-input"
+                        style={{ width: "65px", padding: "8px 10px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.85rem", textAlign: "center", opacity: isUnlimited ? 0.3 : 1 }}
                       />
-                      <label style={{ fontSize: "0.75rem", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                        <input type="checkbox" checked={isUnlimited} onChange={(e) => setIsUnlimited(e.target.checked)} style={{ accentColor: "#a855f7" }} />
+                      <label style={{ fontSize: "0.78rem", color: "#fff", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", userSelect: "none" }}>
+                        <input type="checkbox" checked={isUnlimited} onChange={(e) => setIsUnlimited(e.target.checked)} style={{ accentColor: "#a855f7", width: "15px", height: "15px" }} />
                         Unlimited
                       </label>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem" }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Start Date</label>
+                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>Start Date</label>
                     <input
                       type="datetime-local"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      style={{ width: "100%", padding: "8px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" }}
+                      className="admin-input"
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: "10px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" }}
                     />
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>End Date</label>
+                    <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>End Date</label>
                     <input
                       type="datetime-local"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      style={{ width: "100%", padding: "8px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" }}
+                      className="admin-input"
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: "10px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" }}
                     />
                   </div>
                 </div>
@@ -275,35 +283,48 @@ export default function AdminReleaseRequestsPage() {
                 <button
                   type="submit"
                   disabled={isPending}
+                  className="portal-btn btn-primary"
                   style={{
-                    padding: "11px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
+                    marginTop: "0.5rem",
+                    padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
                     fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase",
-                    background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff"
+                    background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff",
+                    boxShadow: "0 4px 15px rgba(168, 85, 247, 0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px"
                   }}
                 >
-                  Create & Activate Window
+                  <i className="fa-solid fa-plus-circle" /> Create &amp; Activate Window
                 </button>
               </form>
             </div>
 
             {/* Created windows history list */}
-            <div className="admin-card" style={{ padding: "1.5rem" }}>
-              <h3 style={{ fontSize: "1rem", color: "#fff", marginBottom: "1rem" }}>Created Release Windows</h3>
+            <div className="admin-card" style={{ padding: "1.5rem", borderRadius: "16px" }}>
+              <h3 className="admin-card-title" style={{ fontSize: "1.05rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                <i className="fa-solid fa-clock-rotate-left" style={{ color: "#c084fc" }} />
+                Release Windows History
+              </h3>
 
               {loading ? (
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>Loading...</div>
+                <div style={{ padding: "1.5rem", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "8px" }} /> Loading windows...
+                </div>
               ) : windows.length === 0 ? (
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>No release windows have been created.</div>
+                <div style={{ padding: "1.5rem", textAlign: "center", background: "rgba(0,0,0,0.2)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>
+                  <i className="fa-solid fa-calendar-xmark" style={{ display: "block", fontSize: "1.5rem", marginBottom: "8px", opacity: 0.5 }} />
+                  No release windows created yet.
+                </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
                   {windows.map(w => {
                     const isActive = w.status === "ACTIVE";
                     return (
-                      <div key={w.id} style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "10px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div key={w.id} style={{ background: isActive ? "rgba(168,85,247,0.08)" : "rgba(0,0,0,0.25)", border: isActive ? "1px solid rgba(168,85,247,0.3)" : "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
                         <div>
-                          <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.85rem" }}>{w.name}</div>
-                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                            Stage: {w.window_type} &bull; Limits: {w.is_unlimited ? "Unlimited" : `Max ${w.release_limit}`}
+                          <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                            {w.name}
+                          </div>
+                          <span style={{ fontSize: "0.74rem", color: "rgba(255,255,255,0.5)", display: "inline-block", marginTop: "2px" }}>
+                            Stage: <strong style={{ color: "#c084fc" }}>{w.window_type}</strong> &bull; Quota: <strong style={{ color: "#fbbf24" }}>{w.is_unlimited ? "Unlimited" : `Max ${w.release_limit}`}</strong>
                           </span>
                         </div>
 
@@ -311,11 +332,14 @@ export default function AdminReleaseRequestsPage() {
                           type="button"
                           onClick={() => handleToggleWindow(w.id, w.status)}
                           style={{
-                            padding: "4px 12px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700,
-                            background: isActive ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)",
-                            color: isActive ? "#34d399" : "rgba(255,255,255,0.4)"
+                            padding: "6px 14px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700,
+                            background: isActive ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.08)",
+                            color: isActive ? "#34d399" : "rgba(255,255,255,0.5)",
+                            boxShadow: isActive ? "0 0 10px rgba(16,185,129,0.2)" : "none",
+                            transition: "all 0.2s ease"
                           }}
                         >
+                          {isActive ? <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }} /> : <i className="fa-solid fa-circle-pause" style={{ marginRight: "4px" }} />}
                           {w.status}
                         </button>
                       </div>
@@ -328,77 +352,98 @@ export default function AdminReleaseRequestsPage() {
           </div>
 
           {/* Right Column: Submitted Request List */}
-          <div className="admin-card" style={{ padding: "1.5rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
-              <h3 style={{ fontSize: "1rem", color: "#fff", margin: 0 }}>Submitted Release Requests</h3>
+          <div className="admin-card" style={{ padding: "1.5rem", borderRadius: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>
+              <h3 className="admin-card-title" style={{ fontSize: "1.05rem", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                <i className="fa-solid fa-list-check" style={{ color: "#c084fc" }} />
+                Submitted Release Requests
+              </h3>
               
-              <select
+              <CustomSelect
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                style={{ padding: "6px 12px", borderRadius: "6px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontSize: "0.78rem" }}
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="all">All Requests</option>
-              </select>
+                onChange={(val) => setStatusFilter(val as any)}
+                options={[
+                  { value: "pending", label: "Pending Requests" },
+                  { value: "approved", label: "Approved Releases" },
+                  { value: "rejected", label: "Rejected Requests" },
+                  { value: "all", label: "All Statuses" }
+                ]}
+                menuWidth={180}
+              />
             </div>
 
             {loading ? (
-              <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>Loading requests...</div>
+              <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
+                <i className="fa-solid fa-spinner fa-spin fa-2x" style={{ display: "block", marginBottom: "12px", color: "#c084fc" }} />
+                Loading release requests...
+              </div>
             ) : filteredRequests.length === 0 ? (
-              <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>
-                No release requests found with status: {statusFilter}.
+              <div style={{ padding: "3rem 1.5rem", textAlign: "center", background: "rgba(0,0,0,0.2)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>
+                <i className="fa-solid fa-folder-open" style={{ display: "block", fontSize: "2rem", marginBottom: "10px", color: "rgba(168,85,247,0.4)" }} />
+                No release requests found with status filter: <strong style={{ color: "#fbbf24" }}>{statusFilter}</strong>.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 {filteredRequests.map(r => {
                   const isPendingStatus = r.status === "pending";
+                  const isApproved = r.status === "approved";
                   return (
-                    <div key={r.id} style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "12px", padding: "1rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "0.5rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          {r.club_logo && <img src={r.club_logo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                          <strong style={{ color: "#fff", fontSize: "0.82rem" }}>{r.club_name}</strong>
+                    <div key={r.id} style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.3) 100%)", border: isApproved ? "1px solid rgba(16,185,129,0.25)" : "1px solid rgba(255,255,255,0.07)", borderRadius: "14px", padding: "1.2rem", boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          {r.club_logo && <img src={r.club_logo} alt="" style={{ width: "22px", height: "22px", objectFit: "contain" }} />}
+                          <strong style={{ color: "#fff", fontSize: "0.9rem" }}>{r.club_name}</strong>
                         </div>
-                        <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)" }}>
-                          Window: {r.window_name}
+                        <span style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: "6px", background: "rgba(168,85,247,0.15)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.2)" }}>
+                          <i className="fa-solid fa-calendar-days" style={{ marginRight: "4px" }} /> {r.window_name}
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", background: "rgba(0,0,0,0.25)", padding: "10px 14px", borderRadius: "10px" }}>
                         <div>
-                          <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.88rem" }}>{r.player_name}</div>
-                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                            Stage: {r.window_type}
+                          <div style={{ fontWeight: 800, color: "#fff", fontSize: "0.95rem" }}>{r.player_name}</div>
+                          <span style={{ fontSize: "0.73rem", color: "rgba(255,255,255,0.5)" }}>
+                            Stage: <strong style={{ color: "#c084fc" }}>{r.window_type}</strong>
                           </span>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#34d399" }}>
-                            {r.refund_amount} Coins
+                          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#34d399", display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" }}>
+                            <i className="fa-solid fa-coins" style={{ color: "#fbbf24", fontSize: "0.8rem" }} />
+                            +{r.refund_amount} Coins
                           </span>
-                          <span style={{ display: "block", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Refund Amount</span>
+                          <span style={{ display: "block", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Wallet Refund</span>
                         </div>
                       </div>
 
-                      {isPendingStatus && (
-                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                      {isPendingStatus ? (
+                        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px" }}>
                           <button
                             type="button"
                             onClick={() => handleReject(r.id)}
                             disabled={isPending}
-                            style={{ padding: "5px 12px", borderRadius: "6px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600 }}
+                            style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.12)", color: "#f87171", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, transition: "all 0.2s ease" }}
                           >
-                            Decline
+                            <i className="fa-solid fa-xmark" style={{ marginRight: "4px" }} /> Decline
                           </button>
                           <button
                             type="button"
                             onClick={() => handleApprove(r.id)}
                             disabled={isPending}
-                            style={{ padding: "5px 12px", borderRadius: "6px", border: "1px solid rgba(16,185,129,0.2)", background: "rgba(16,185,129,0.08)", color: "#34d399", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600 }}
+                            style={{ padding: "7px 16px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#fff", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, boxShadow: "0 4px 12px rgba(16,185,129,0.3)", transition: "all 0.2s ease" }}
                           >
-                            Approve Release
+                            <i className="fa-solid fa-check" style={{ marginRight: "4px" }} /> Approve Release
                           </button>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "right", marginTop: "6px" }}>
+                          <span style={{
+                            fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", padding: "3px 10px", borderRadius: "6px",
+                            background: r.status === "approved" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                            color: r.status === "approved" ? "#34d399" : "#f87171"
+                          }}>
+                            {r.status === "approved" ? <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }} /> : <i className="fa-solid fa-circle-xmark" style={{ marginRight: "4px" }} />}
+                            {r.status}
+                          </span>
                         </div>
                       )}
                     </div>

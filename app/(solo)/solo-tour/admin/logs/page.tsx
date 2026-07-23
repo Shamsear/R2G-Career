@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { fetchSoloAdminLogs } from "@/utils/solo/serverActions";
 
 export default function AdminLogsPage() {
@@ -117,32 +118,30 @@ export default function AdminLogsPage() {
 
             <div>
               <label style={{ fontSize: "0.7rem", textTransform: "uppercase", color: "var(--text-secondary)" }}>Admin Username</label>
-              <select
-                className="admin-select"
+              <CustomSelect
                 value={filterUser}
-                onChange={(e) => setFilterUser(e.target.value)}
-                style={{ marginTop: "0.25rem", width: "100%", height: "38px" }}
-              >
-                <option value="">All Admins</option>
-                {uniqueUsers.map(user => (
-                  <option key={user} value={user}>{user}</option>
-                ))}
-              </select>
+                onChange={(val) => setFilterUser(val)}
+                placeholder="All Admins"
+                options={[
+                  { value: "", label: "All Admins" },
+                  ...uniqueUsers.map(user => ({ value: user, label: user }))
+                ]}
+                buttonStyle={{ width: "100%", justifyContent: "space-between", marginTop: "0.25rem", height: "38px" }}
+              />
             </div>
 
             <div>
               <label style={{ fontSize: "0.7rem", textTransform: "uppercase", color: "var(--text-secondary)" }}>Action Type</label>
-              <select
-                className="admin-select"
+              <CustomSelect
                 value={filterAction}
-                onChange={(e) => setFilterAction(e.target.value)}
-                style={{ marginTop: "0.25rem", width: "100%", height: "38px" }}
-              >
-                <option value="">All Action Types</option>
-                {uniqueActions.map(action => (
-                  <option key={action} value={action}>{action}</option>
-                ))}
-              </select>
+                onChange={(val) => setFilterAction(val)}
+                placeholder="All Action Types"
+                options={[
+                  { value: "", label: "All Action Types" },
+                  ...uniqueActions.map(action => ({ value: action, label: action }))
+                ]}
+                buttonStyle={{ width: "100%", justifyContent: "space-between", marginTop: "0.25rem", height: "38px" }}
+              />
             </div>
 
           </div>

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchTournamentsByType,
   fetchSpecialTourAlbumPhotos,
@@ -158,17 +159,16 @@ function SpecialAlbumManagerContent() {
             <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "#fff", marginBottom: "0.5rem", display: "block" }}>
               <i className="fa-solid fa-trophy" style={{ color: "#c084fc", marginRight: "6px" }} /> Select Special Tournament
             </label>
-            <select
-              className="admin-select"
+            <CustomSelect
               value={selectedTourneyId || ""}
-              onChange={(e) => setSelectedTourneyId(parseInt(e.target.value, 10))}
-              style={{ fontSize: "0.9rem", padding: "10px 14px", borderRadius: "10px" }}
-            >
-              {tournaments.length === 0 && <option value="">No Special Tournaments available</option>}
-              {tournaments.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedTourneyId(parseInt(val, 10))}
+              placeholder={tournaments.length === 0 ? "No Special Tournaments available" : "Select Tournament..."}
+              options={tournaments.map(t => ({
+                value: t.id,
+                label: t.name
+              }))}
+              buttonStyle={{ width: "100%", justifyContent: "space-between", padding: "10px 14px" }}
+            />
           </div>
         </div>
 
@@ -195,19 +195,20 @@ function SpecialAlbumManagerContent() {
                   </div>
                   <div className="admin-form-group">
                     <label><i className="fa-solid fa-tag" /> Tag (Category)</label>
-                    <select
-                      className="admin-select"
+                    <CustomSelect
                       value={photoForm.tag}
-                      onChange={(e) => setPhotoForm(prev => ({ ...prev, tag: e.target.value }))}
-                    >
-                      <option value="Ceremony">Ceremony</option>
-                      <option value="Matchday">Matchday</option>
-                      <option value="Highlights">Highlights</option>
-                      <option value="Banquet">Banquet</option>
-                      <option value="Draft">Draft</option>
-                      <option value="Stadium">Stadium</option>
-                      <option value="Trophy">Trophy</option>
-                    </select>
+                      onChange={(val) => setPhotoForm(prev => ({ ...prev, tag: val }))}
+                      options={[
+                        { value: "Ceremony", label: "Ceremony" },
+                        { value: "Matchday", label: "Matchday" },
+                        { value: "Highlights", label: "Highlights" },
+                        { value: "Banquet", label: "Banquet" },
+                        { value: "Draft", label: "Draft" },
+                        { value: "Stadium", label: "Stadium" },
+                        { value: "Trophy", label: "Trophy" }
+                      ]}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                    />
                   </div>
                 </div>
                 <div className="admin-form-grid" style={{ marginTop: "0.5rem" }}>

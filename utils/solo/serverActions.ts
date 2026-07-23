@@ -2618,8 +2618,43 @@ export async function fetchPlayerAwards(seasonId: string | number, tournamentId?
   }
 }
 
+export async function migratePlayerAwardsSchema() {
+  try {
+    await pool.query(`ALTER TABLE player_awards ADD COLUMN IF NOT EXISTS tournament_id VARCHAR(255)`);
+    await pool.query(`ALTER TABLE player_awards ADD COLUMN IF NOT EXISTS reward_rc INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE player_awards ADD COLUMN IF NOT EXISTS reward_rt INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE player_awards ADD COLUMN IF NOT EXISTS reward_voucher INTEGER DEFAULT 0`);
+
+    const { rows: constraints } = await pool.query(`
+      SELECT conname 
+      FROM pg_constraint 
+      WHERE conrelid = 'player_awards'::regclass AND contype = 'u'
+    `);
+    
+    let hasNewUnique = false;
+    for (const row of constraints) {
+      if (row.conname === 'player_awards_new_unique') {
+        hasNewUnique = true;
+      } else {
+        await pool.query(`ALTER TABLE player_awards DROP CONSTRAINT IF EXISTS "${row.conname}" CASCADE`);
+      }
+    }
+
+    if (!hasNewUnique) {
+      await pool.query(`
+        ALTER TABLE player_awards 
+        ADD CONSTRAINT player_awards_new_unique 
+        UNIQUE (player_id, season_id, tournament_id, award_category, award_type, award_position)
+      `);
+    }
+  } catch (err) {
+    console.error("Failed to migrate player_awards schema:", err);
+  }
+}
+
 export async function givePlayerAward(data: any) {
   try {
+    await migratePlayerAwardsSchema();
     await pool.query('BEGIN');
     
     const { rows } = await pool.query(`
@@ -2628,7 +2663,7 @@ export async function givePlayerAward(data: any) {
         award_category, award_type, award_position, notes,
         reward_rc, reward_rt, reward_voucher
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      ON CONFLICT (player_id, season_id, tournament_id, award_category, award_type, award_position) 
+      ON CONFLICT ON CONSTRAINT player_awards_new_unique
       DO UPDATE SET notes = EXCLUDED.notes, reward_rc = EXCLUDED.reward_rc, reward_rt = EXCLUDED.reward_rt, reward_voucher = EXCLUDED.reward_voucher
       RETURNING *
     `, [
@@ -2637,15 +2672,29 @@ export async function givePlayerAward(data: any) {
       data.rewardRc || 0, data.rewardRt || 0, data.rewardVoucher || 0
     ]);
     
-    const { rows: contractRows } = await pool.query(`
-      SELECT current_club_id 
-      FROM player_contracts 
-      WHERE player_id = $1 AND LOWER(status) = 'active'
-      LIMIT 1
-    `, [data.playerId]);
+    let clubId = null;
+    if (data.recipientType === 'team') {
+      clubId = Number(data.playerId) || null;
+    } else {
+      const { rows: contractRows } = await pool.query(`
+        SELECT current_club_id 
+        FROM player_contracts 
+        WHERE player_id = $1 AND LOWER(status) = 'active'
+          AND season_id = $2
+        LIMIT 1
+      `, [data.playerId, data.seasonId.toString()]);
+      
+      if (contractRows.length > 0) {
+        clubId = contractRows[0].current_club_id;
+      }
+    }
+
+    const { rows: seasonRows } = await pool.query(`
+      SELECT is_active FROM seasons WHERE id = $1
+    `, [data.seasonId.toString()]);
+    const isSeasonActive = seasonRows.length > 0 ? seasonRows[0].is_active : false;
     
-    if (contractRows.length > 0) {
-      const clubId = contractRows[0].current_club_id;
+    if (clubId && isSeasonActive) {
       const rc = Number(data.rewardRc) || 0;
       const rt = Number(data.rewardRt) || 0;
       const voucher = Number(data.rewardVoucher) || 0;
@@ -2657,28 +2706,30 @@ export async function givePlayerAward(data: any) {
               r2g_token_balance = r2g_token_balance + $2,
               r2g_voucher_balance = r2g_voucher_balance + $3
           WHERE manager_id = $4 AND season_id = $5
-        `, [rc, rt, voucher, clubId, data.seasonId]);
+        `, [rc, rt, voucher, clubId, data.seasonId.toString()]);
 
         await pool.query(`
           UPDATE manager_seasons
           SET team_income = team_income + $1,
               team_profit = team_profit + $1
           WHERE manager_id = $2 AND season_id = $3
-        `, [rc, clubId, data.seasonId]);
+        `, [rc, clubId, data.seasonId.toString()]);
 
-        const { rows: playerRows } = await pool.query('SELECT name FROM players WHERE id = $1', [data.playerId]);
-        const playerName = playerRows.length > 0 ? playerRows[0].name : `Player #${data.playerId}`;
+        const awardName = data.type || "Award";
+        const nameForLog = data.recipientType === 'team' ? `${awardName} Award - Team` : `${awardName} Award - ${data.playerName}`;
 
         if (rc > 0) {
-          await logTransaction(clubId, data.seasonId, 'coin', rc, 'award', `${data.awardName} Award - ${playerName}`);
+          await logTransaction(clubId, data.seasonId.toString(), 'coin', rc, 'award', nameForLog);
         }
         if (rt > 0) {
-          await logTransaction(clubId, data.seasonId, 'token', rt, 'award', `${data.awardName} Award - ${playerName}`);
+          await logTransaction(clubId, data.seasonId.toString(), 'token', rt, 'award', nameForLog);
         }
         if (voucher > 0) {
-          await logTransaction(clubId, data.seasonId, 'voucher', voucher, 'award', `${data.awardName} Award - ${playerName}`);
+          await logTransaction(clubId, data.seasonId.toString(), 'voucher', voucher, 'award', nameForLog);
         }
       }
+      
+      await syncManagerSeasonsAwards(clubId, data.seasonId);
     }
     
     await pool.query('COMMIT');
@@ -2690,9 +2741,71 @@ export async function givePlayerAward(data: any) {
   }
 }
 
+export async function syncManagerSeasonsAwards(managerId: string | number, seasonId: string | number) {
+  try {
+    const { rows: awardsRows } = await pool.query(`
+      SELECT DISTINCT award_type, award_position 
+      FROM player_awards 
+      WHERE season_id = $1 AND (
+        player_id = $2::text
+        OR player_id IN (
+          SELECT player_id 
+          FROM player_contracts 
+          WHERE current_club_id = $3
+            AND season_id = $1
+        )
+      )
+    `, [seasonId.toString(), managerId.toString(), Number(managerId)]);
+
+    const awardsArray = awardsRows.map(row => {
+      if (row.award_position === 'Nominee') {
+        return `${row.award_type} Nominee`;
+      }
+      return row.award_type;
+    });
+
+    await pool.query(`
+      UPDATE manager_seasons 
+      SET awards = $1::jsonb
+      WHERE manager_id = $2 AND season_id = $3
+    `, [JSON.stringify(awardsArray), Number(managerId), seasonId.toString()]);
+  } catch (error) {
+    console.error("Error syncing manager seasons awards:", error);
+  }
+}
+
 export async function revokePlayerAward(id: number) {
   try {
+    const { rows: awardRows } = await pool.query(`
+      SELECT player_id, season_id, award_category
+      FROM player_awards
+      WHERE id = $1
+    `, [id]);
+    
     await pool.query(`DELETE FROM player_awards WHERE id = $1`, [id]);
+
+    if (awardRows.length > 0) {
+      const award = awardRows[0];
+      let clubId = null;
+      if (award.award_category === 'team') {
+        clubId = Number(award.player_id) || null;
+      } else {
+        const { rows: contractRows } = await pool.query(`
+          SELECT current_club_id 
+          FROM player_contracts 
+          WHERE player_id = $1 AND LOWER(status) = 'active'
+            AND season_id = $2
+          LIMIT 1
+        `, [award.player_id, award.season_id]);
+        if (contractRows.length > 0) {
+          clubId = contractRows[0].current_club_id;
+        }
+      }
+      if (clubId) {
+        await syncManagerSeasonsAwards(clubId, award.season_id);
+      }
+    }
+    
     return { success: true };
   } catch (e) {
     console.error("Error revoking award:", e);
@@ -6591,6 +6704,25 @@ export async function rejectTransferRequest(requestId: number, reason?: string) 
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+export async function fetchRegisteredClubsForSeason(seasonId: string | number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image
+      FROM managers m
+      JOIN manager_seasons ms ON m.id = ms.manager_id
+      LEFT JOIN clubs c ON ms.club_id = c.id
+      WHERE ms.season_id = $1 AND m.is_active IS NOT FALSE
+    `, [seasonId.toString()]);
+    if (rows.length === 0) {
+      return fetchRegisteredClubs(false);
+    }
+    return rows;
+  } catch (e) {
+    console.error("Error fetching registered clubs for season:", e);
+    return [];
   }
 }
 

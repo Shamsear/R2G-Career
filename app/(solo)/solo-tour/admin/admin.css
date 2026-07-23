@@ -1394,3 +1394,12 @@ select option,
   font-size: 0.875rem !important;
 }
 
+/* Sub-Admin Tools Responsive Grid */
+@media (max-width: 992px) {
+  .admin-tools-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
+
+

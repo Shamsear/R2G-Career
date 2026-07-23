@@ -5,6 +5,7 @@ import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
 
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   fetchActiveSeason,
   fetchRegisteredClubs,
@@ -234,11 +235,16 @@ export default function FinancialOperations() {
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
               <div className="admin-form-group" style={{ width: "200px", opacity: 0.5 }}>
                 <label>Select Matchday</label>
-                <select className="admin-select" value={finOp.matchday} disabled onChange={(e) => setFinOp(prev => ({ ...prev, matchday: parseInt(e.target.value) || 1 }))}>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map(md => (
-                    <option key={md} value={md}>Matchday {md}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={finOp.matchday}
+                  disabled
+                  onChange={(val) => setFinOp(prev => ({ ...prev, matchday: parseInt(val) || 1 }))}
+                  options={Array.from({ length: 10 }, (_, i) => i + 1).map(md => ({
+                    value: md,
+                    label: `Matchday ${md}`
+                  }))}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <button className="portal-btn btn-secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>
                 <i className="fa-solid fa-lock" /> Deduct Matchday {finOp.matchday} Salaries (Automated)
@@ -255,12 +261,16 @@ export default function FinancialOperations() {
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
               <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
                 <label>Select Tournament</label>
-                <select className="admin-select" value={finOp.targetTournamentId} onChange={(e) => setFinOp(prev => ({ ...prev, targetTournamentId: e.target.value }))}>
-                  <option value="">-- Select Tournament --</option>
-                  {tournaments.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={finOp.targetTournamentId}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, targetTournamentId: val }))}
+                  placeholder="-- Select Tournament --"
+                  options={[
+                    { value: "", label: "-- Select Tournament --" },
+                    ...tournaments.map(t => ({ value: String(t.id), label: t.name }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <button className="portal-btn btn-primary" onClick={handleProcessMatchBonuses} disabled={isPending}>
                 Process &amp; Payout Match Bonuses
@@ -277,28 +287,41 @@ export default function FinancialOperations() {
             <div className="admin-form-grid">
               <div className="admin-form-group">
                 <label>Target Tournament (to read Template)</label>
-                <select className="admin-select" value={finOp.targetTournamentId} onChange={(e) => setFinOp(prev => ({ ...prev, targetTournamentId: e.target.value }))}>
-                  <option value="">-- Select Tournament --</option>
-                  {tournaments.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={finOp.targetTournamentId}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, targetTournamentId: val }))}
+                  placeholder="-- Select Tournament --"
+                  options={[
+                    { value: "", label: "-- Select Tournament --" },
+                    ...tournaments.map(t => ({ value: String(t.id), label: t.name }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <div className="admin-form-group">
                 <label>Target Manager / Club</label>
-                <select className="admin-select" value={finOp.targetManagerId} onChange={(e) => setFinOp(prev => ({ ...prev, targetManagerId: e.target.value }))}>
-                  <option value="">-- Select Club --</option>
-                  {clubs.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.manager})</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={finOp.targetManagerId}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, targetManagerId: val }))}
+                  placeholder="-- Select Club --"
+                  options={[
+                    { value: "", label: "-- Select Club --" },
+                    ...clubs.map(c => ({ value: String(c.id), label: `${c.name} (${c.manager})` }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <div className="admin-form-group">
                 <label>Adjustment Action</label>
-                <select className="admin-select" value={finOp.adjustmentType} onChange={(e) => setFinOp(prev => ({ ...prev, adjustmentType: e.target.value }))}>
-                  <option value="tournament_bonus">Apply Tournament Winner Bonus</option>
-                  <option value="season_bonus">Apply Season Finale Bonus</option>
-                </select>
+                <CustomSelect
+                  value={finOp.adjustmentType}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, adjustmentType: val }))}
+                  options={[
+                    { value: "tournament_bonus", label: "Apply Tournament Winner Bonus" },
+                    { value: "season_bonus", label: "Apply Season Finale Bonus" }
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
             </div>
             <button className="portal-btn btn-primary" onClick={handleApplyTemplateAdj} disabled={isPending}>
@@ -318,20 +341,19 @@ export default function FinancialOperations() {
             <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
               <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
                 <label>Select Tournament</label>
-                <select
-                  className="admin-select"
+                <CustomSelect
                   value={selectedDisburseTourneyId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedDisburseTourneyId(id);
-                    loadTourneyPreview(id);
+                  onChange={(val) => {
+                    setSelectedDisburseTourneyId(val);
+                    loadTourneyPreview(val);
                   }}
-                >
-                  <option value="">-- Select Tournament --</option>
-                  {tournaments.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  placeholder="-- Select Tournament --"
+                  options={[
+                    { value: "", label: "-- Select Tournament --" },
+                    ...tournaments.map(t => ({ value: String(t.id), label: t.name }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <button
                 className="portal-btn btn-primary"
@@ -397,20 +419,19 @@ export default function FinancialOperations() {
             <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
               <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
                 <label>Division Standings Source Tournament</label>
-                <select
-                  className="admin-select"
+                <CustomSelect
                   value={selectedSeasonTourneyId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedSeasonTourneyId(id);
-                    loadSeasonPreview(id);
+                  onChange={(val) => {
+                    setSelectedSeasonTourneyId(val);
+                    loadSeasonPreview(val);
                   }}
-                >
-                  <option value="">-- Auto Detect (Division Tier 1) --</option>
-                  {tournaments.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  placeholder="-- Auto Detect (Division Tier 1) --"
+                  options={[
+                    { value: "", label: "-- Auto Detect (Division Tier 1) --" },
+                    ...tournaments.map(t => ({ value: String(t.id), label: t.name }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <button
                 className="portal-btn btn-primary"
@@ -474,20 +495,22 @@ export default function FinancialOperations() {
             <div className="admin-form-grid">
               <div className="admin-form-group">
                 <label>Target Manager / Club</label>
-                <select className="admin-select" value={finOp.targetManagerId} onChange={(e) => setFinOp(prev => ({ ...prev, targetManagerId: e.target.value }))}>
-                  <option value="">-- Select Club --</option>
-                  {clubs.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.manager})</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={finOp.targetManagerId}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, targetManagerId: val }))}
+                  placeholder="-- Select Club --"
+                  options={[
+                    { value: "", label: "-- Select Club --" },
+                    ...clubs.map(c => ({ value: String(c.id), label: `${c.name} (${c.manager})` }))
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
               <div className="admin-form-group">
                 <label>Override Transaction Type</label>
-                <select
-                  className="admin-select"
+                <CustomSelect
                   value={finOp.customType}
-                  onChange={(e) => {
-                    const type = e.target.value;
+                  onChange={(type) => {
                     let rc = finOp.customRc;
                     let rt = finOp.customRt;
                     let v = finOp.customVoucher;
@@ -512,13 +535,15 @@ export default function FinancialOperations() {
                       customNotes: notes
                     }));
                   }}
-                >
-                  <option value="reg_bonus">Season Registration Bonus (Credit RC & RT)</option>
-                  <option value="season_reward">Season Reward / Standing Payout</option>
-                  <option value="ballon_dor_ceremony">Ballon d'Or Ceremony (Tokens RT only)</option>
-                  <option value="custom_credit">Custom Manual Credit (Add coins/tokens)</option>
-                  <option value="custom_debit">Custom Manual Debit (Deduct coins/tokens)</option>
-                </select>
+                  options={[
+                    { value: "reg_bonus", label: "Season Registration Bonus (Credit RC & RT)" },
+                    { value: "season_reward", label: "Season Reward / Standing Payout" },
+                    { value: "ballon_dor_ceremony", label: "Ballon d'Or Ceremony (Tokens RT only)" },
+                    { value: "custom_credit", label: "Custom Manual Credit (Add coins/tokens)" },
+                    { value: "custom_debit", label: "Custom Manual Debit (Deduct coins/tokens)" }
+                  ]}
+                  buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                />
               </div>
             </div>
             

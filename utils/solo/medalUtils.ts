@@ -155,8 +155,8 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   let goldGloveCount = 0;
   let goldBallCount = 0;
   let maldiniTrophyCount = 0;
-  let ballonDorWinnerCount = 0;
   let r2gBestCount = 0;
+  let ballonDorNomineeCount = 0;
 
   let seasonsInDiv5 = 0;
   let seasonsInDiv4 = 0;
@@ -195,7 +195,11 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
         if (lower.includes('glove')) goldGloveCount++;
         if (lower.includes('ball') && !lower.includes('best') && !lower.includes('nominee')) goldBallCount++;
         if (lower.includes('maldini')) maldiniTrophyCount++;
-        if (lower.includes('nominee')) {} // Handled separately
+        if (lower.includes('nominee')) {
+          if (lower.includes("ballon")) {
+            ballonDorNomineeCount++;
+          }
+        }
         if (lower.includes("ballon d'or") || (lower.includes('ballon') && !lower.includes('nominee'))) ballonDorWinnerCount++;
         if (lower.includes('best') || lower.includes('pots') || lower.includes('player of season')) r2gBestCount++;
         totalRankAwards++;
@@ -353,8 +357,8 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
         case 'claim_maldini_trophy': stat = maldiniTrophyCount; break;
         case 'runner_up_finish': stat = runnerUpCount; break;
         case 'season_goals': stat = maxGoalsInSeason; break;
-        case 'season_cs': stat = maxCsInSeason; break;
         case 'claim_ballon_dor': stat = ballonDorWinnerCount; break;
+        case 'ballon_dor_nominee': stat = ballonDorNomineeCount; break;
         case 'claim_r2g_best': stat = r2gBestCount; break;
         case 'claim_career_ucl': stat = uclChampionCount; break;
         case 'participate_rws': stat = rwsParticipations > 0 ? 1 : 0; break; // RWS seasons count

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "./appearances.css";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { 
   fetchRegisteredClubs, 
   fetchClubPlayers, 
@@ -387,32 +388,32 @@ export default function AppearancesLedgerPage() {
 
                 <div className="filter-select-group">
                   <span className="filter-label">Tournament</span>
-                  <select
-                    className="filter-select"
+                  <CustomSelect
                     value={filterTournament}
-                    onChange={(e) => { setFilterTournament(e.target.value); setFilterMatch("all"); }}
-                  >
-                    <option value="all">All Tournaments</option>
-                    {tournaments.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => { setFilterTournament(val); setFilterMatch("all"); }}
+                    options={[
+                      { value: "all", label: "All Tournaments" },
+                      ...tournaments.map(t => ({ value: String(t.id), label: t.name }))
+                    ]}
+                    menuWidth={200}
+                  />
                 </div>
 
                 <div className="filter-select-group">
                   <span className="filter-label">Match</span>
-                  <select
-                    className="filter-select"
+                  <CustomSelect
                     value={filterMatch}
-                    onChange={(e) => setFilterMatch(e.target.value)}
-                  >
-                    <option value="all">All Matches</option>
-                    {availableMatches.map(f => {
-                      const opponent = f.homeClubId === selectedClubId ? f.awayClubName : f.homeClubName;
-                      const label = `R${f.roundNumber} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
-                      return <option key={f.id} value={f.id}>{label}</option>;
-                    })}
-                  </select>
+                    onChange={(val) => setFilterMatch(val)}
+                    options={[
+                      { value: "all", label: "All Matches" },
+                      ...availableMatches.map(f => {
+                        const opponent = f.homeClubId === selectedClubId ? f.awayClubName : f.homeClubName;
+                        const label = `R${f.roundNumber} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
+                        return { value: String(f.id), label };
+                      })
+                    ]}
+                    menuWidth={240}
+                  />
                 </div>
 
                 {hasActiveFilters && (
