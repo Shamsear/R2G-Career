@@ -83,17 +83,21 @@ function RoundFilterDropdown({
       }
     }
 
-    function handleResizeOrScroll() {
+    function handleScroll() {
+      setIsOpen(false);
+    }
+
+    function handleResize() {
       updatePosition();
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("resize", handleResizeOrScroll);
-    window.addEventListener("scroll", handleResizeOrScroll, true);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("resize", handleResizeOrScroll);
-      window.removeEventListener("scroll", handleResizeOrScroll, true);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [isOpen]);
 
