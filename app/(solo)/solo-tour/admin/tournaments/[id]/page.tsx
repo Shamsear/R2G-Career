@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useTransition, use, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../../portal.css";
 import "../../admin.css";
@@ -38,28 +39,164 @@ function RoundFilterDropdown({
   onChange: (round: number | "all") => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [mounted, setMounted] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updatePosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = 165;
+      let left = rect.right - menuWidth;
+      if (left < 10) left = rect.left;
+      if (left < 10) left = 10;
+      setDropdownPos({
+        top: rect.bottom + 6,
+        left: left
+      });
+    }
+  };
+
+  const toggleDropdown = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
+
+    function handleResizeOrScroll() {
+      updatePosition();
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    window.addEventListener("resize", handleResizeOrScroll);
+    window.addEventListener("scroll", handleResizeOrScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", handleResizeOrScroll);
+      window.removeEventListener("scroll", handleResizeOrScroll, true);
+    };
+  }, [isOpen]);
 
   const getLabel = () => {
     if (activeRound === "all") return "All Rounds";
     return `Round ${activeRound}`;
   };
 
+  const menuContent = isOpen && (
+    <div
+      ref={dropdownRef}
+      style={{
+        position: "fixed",
+        top: `${dropdownPos.top}px`,
+        left: `${dropdownPos.left}px`,
+        width: "165px",
+        background: "rgba(15, 12, 27, 0.98)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        border: "1px solid rgba(168, 85, 247, 0.4)",
+        borderRadius: "10px",
+        padding: "5px",
+        boxShadow: "0 12px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(168, 85, 247, 0.2)",
+        zIndex: 999999,
+        display: "flex",
+        flexDirection: "column",
+        gap: "2px"
+      }}
+    >
+      <div
+        onClick={() => {
+          onChange("all");
+          setIsOpen(false);
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justify: "space-between",
+          padding: "7px 10px",
+          borderRadius: "6px",
+          fontSize: "0.78rem",
+          fontWeight: activeRound === "all" ? "bold" : "normal",
+          color: activeRound === "all" ? "#fbbf24" : "#e2e8f0",
+          background: activeRound === "all" ? "rgba(168, 85, 247, 0.25)" : "transparent",
+          cursor: "pointer",
+          transition: "all 0.15s ease"
+        }}
+        onMouseEnter={(e) => {
+          if (activeRound !== "all") e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+        }}
+        onMouseLeave={(e) => {
+          if (activeRound !== "all") e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <span>All Rounds</span>
+        {activeRound === "all" && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
+      </div>
+
+      <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.08)", margin: "3px 0" }} />
+
+      {rounds.map((r) => {
+        const isSelected = activeRound === r;
+        return (
+          <div
+            key={r}
+            onClick={() => {
+              onChange(r);
+              setIsOpen(false);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justify: "space-between",
+              padding: "6px 10px",
+              borderRadius: "6px",
+              fontSize: "0.78rem",
+              fontWeight: isSelected ? "bold" : "normal",
+              color: isSelected ? "#fbbf24" : "#e2e8f0",
+              background: isSelected ? "rgba(168, 85, 247, 0.25)" : "transparent",
+              cursor: "pointer",
+              transition: "all 0.15s ease"
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected) e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <span>Round {r}</span>
+            {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div ref={dropdownRef} style={{ position: "relative", display: "inline-block" }}>
+    <div style={{ display: "inline-block" }}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleDropdown}
         style={{
           display: "flex",
           alignItems: "center",
@@ -94,93 +231,7 @@ function RoundFilterDropdown({
         />
       </button>
 
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            right: 0,
-            width: "165px",
-            background: "rgba(15, 12, 27, 0.96)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(168, 85, 247, 0.35)",
-            borderRadius: "10px",
-            padding: "5px",
-            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(168, 85, 247, 0.15)",
-            zIndex: 100,
-            display: "flex",
-            flexDirection: "column",
-            gap: "2px"
-          }}
-        >
-          <div
-            onClick={() => {
-              onChange("all");
-              setIsOpen(false);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justify: "space-between",
-              padding: "7px 10px",
-              borderRadius: "6px",
-              fontSize: "0.78rem",
-              fontWeight: activeRound === "all" ? "bold" : "normal",
-              color: activeRound === "all" ? "#fbbf24" : "#e2e8f0",
-              background: activeRound === "all" ? "rgba(168, 85, 247, 0.2)" : "transparent",
-              cursor: "pointer",
-              transition: "all 0.15s ease"
-            }}
-            onMouseEnter={(e) => {
-              if (activeRound !== "all") e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-            }}
-            onMouseLeave={(e) => {
-              if (activeRound !== "all") e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <span>All Rounds</span>
-            {activeRound === "all" && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
-          </div>
-
-          <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.06)", margin: "3px 0" }} />
-
-          {rounds.map((r) => {
-            const isSelected = activeRound === r;
-            return (
-              <div
-                key={r}
-                onClick={() => {
-                  onChange(r);
-                  setIsOpen(false);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justify: "space-between",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  fontSize: "0.78rem",
-                  fontWeight: isSelected ? "bold" : "normal",
-                  color: isSelected ? "#fbbf24" : "#e2e8f0",
-                  background: isSelected ? "rgba(168, 85, 247, 0.2)" : "transparent",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease"
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.background = "transparent";
-                }}
-              >
-                <span>Round {r}</span>
-                {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {mounted && isOpen && createPortal(menuContent, document.body)}
     </div>
   );
 }
