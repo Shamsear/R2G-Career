@@ -44,11 +44,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [sharing, setSharing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const posterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setViewMode(mobile ? "card" : "table");
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -1822,13 +1825,50 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
 
             {/* Recalculate Standings Action Bar */}
-            {/* Recalculate Standings Action Bar */}
             <div className="admin-card" style={{ marginTop: 0, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-secondary)", fontSize: "0.82rem" }}>
                 <i className="fa-solid fa-circle-info" style={{ color: "#fbbf24" }} />
                 Standings are dynamically filtered up to the selected round.
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                {/* View Mode Toggle Switch */}
+                <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,0.04)", padding: "2px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: "pointer",
+                      background: viewMode === "table" ? "rgba(251, 191, 36, 0.85)" : "transparent",
+                      color: viewMode === "table" ? "#000" : "rgba(255,255,255,0.45)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-table" style={{ marginRight: "4px" }} /> Table
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("card")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: "pointer",
+                      background: viewMode === "card" ? "rgba(251, 191, 36, 0.85)" : "transparent",
+                      color: viewMode === "card" ? "#000" : "rgba(255,255,255,0.45)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-grip" style={{ marginRight: "4px" }} /> Cards
+                  </button>
+                </div>
+
                 {rounds.length > 0 && (
                   <CustomSelect
                     labelPrefix="ROUND:"
@@ -1870,7 +1910,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     <div key={groupLetter} className="admin-card" style={{ marginTop: 0 }}>
                       <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Group {groupLetter}</h3>
                       <div className="table-responsive" style={{ overflowX: "visible" }}>
-                        {isMobile ? (
+                        {viewMode === "card" ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
                             {rows.map((row, idx) => {
                               const isPodium = idx < 3;
@@ -1986,7 +2026,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               <div className="admin-card" style={{ marginTop: 0 }}>
                 <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Standings Table</h3>
                 <div className="table-responsive" style={{ overflowX: "visible" }}>
-                  {isMobile ? (
+                  {viewMode === "card" ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
                       {standingsWithStats.map((row, idx) => {
                         const isPodium = idx < 3;

@@ -88,6 +88,7 @@ export default function RwsYearTournament() {
   // Tab selections
   const [activeTab, setActiveTab] = useState<string>("table");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
   
   // Fixtures filtering states
@@ -184,11 +185,62 @@ export default function RwsYearTournament() {
     });
   }, [fixtures, activeRound, activeGroup]);
 
+  // Dynamically calculate wins, draws, losses, goals for/against on client side
+  const standingsWithStats = useMemo(() => {
+    if (!standings || !fixtures) return [];
+    
+    // Build stats map
+    const stats: Record<string, { wins: number; draws: number; losses: number; goals_for: number; goals_against: number }> = {};
+    
+    standings.forEach(row => {
+      stats[row.club_id] = { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+    });
+    
+    fixtures.forEach(match => {
+      if (match.homeScore === null || match.awayScore === null || match.match_status === 'void') return;
+      
+      const homeId = match.homeClubId;
+      const awayId = match.awayClubId;
+      const hs = Number(match.homeScore);
+      const as_ = Number(match.awayScore);
+      
+      if (stats[homeId]) {
+        stats[homeId].goals_for += hs;
+        stats[homeId].goals_against += as_;
+        if (hs > as_) stats[homeId].wins += 1;
+        else if (hs === as_) stats[homeId].draws += 1;
+        else stats[homeId].losses += 1;
+      }
+      if (stats[awayId]) {
+        stats[awayId].goals_for += as_;
+        stats[awayId].goals_against += hs;
+        if (as_ > hs) stats[awayId].wins += 1;
+        else if (as_ === hs) stats[awayId].draws += 1;
+        else stats[awayId].losses += 1;
+      }
+    });
+    
+    return standings.map(row => {
+      const s = stats[row.club_id] || { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+      return {
+        ...row,
+        matches_played: row.matches_played || (s.wins + s.draws + s.losses),
+        wins: s.wins,
+        draws: s.draws,
+        losses: s.losses,
+        goals_for: row.goals_scored || s.goals_for,
+        goals_against: row.goals_against || s.goals_against,
+        goal_difference: row.goal_difference !== undefined ? row.goal_difference : (s.goals_for - s.goals_against),
+        points: row.points !== undefined ? row.points : (s.wins * 3 + s.draws)
+      };
+    });
+  }, [standings, fixtures]);
+
   // Group standings by group name if applicable
   const groupedStandings = useMemo(() => {
-    if (!standings || standings.length === 0) return {};
+    if (!standingsWithStats || standingsWithStats.length === 0) return {};
     const groups: Record<string, any[]> = {};
-    standings.forEach(row => {
+    standingsWithStats.forEach(row => {
       const gName = row.group_name || "A";
       if (!groups[gName]) groups[gName] = [];
       groups[gName].push(row);
@@ -197,55 +249,66 @@ export default function RwsYearTournament() {
       acc[key] = groups[key].sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
       return acc;
     }, {} as Record<string, any[]>);
-  }, [standings]);
+  }, [standingsWithStats]);
 
   // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
-    const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
-    const goalDiff: Record<string, { logo: string; manager: string; value: number }> = {};
-    const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
-    const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
+    const goalsScored: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const goalDiff: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const cleanSheets: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const defensiveStats: Record<string, { name: string; logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
+    // Initialize all participating teams
     tournamentClubs.forEach(tc => {
+      const id = tc.club_id;
       const name = tc.name;
       const logo = tc.logo_path || "";
       const manager = tc.manager || "Unknown";
-      goalsScored[name] = { logo, manager, value: 0 };
-      goalDiff[name] = { logo, manager, value: 0 };
-      cleanSheets[name] = { logo, manager, value: 0 };
-      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
+      goalsScored[id] = { name, logo, manager, value: 0 };
+      goalDiff[id] = { name, logo, manager, value: 0 };
+      cleanSheets[id] = { name, logo, manager, value: 0 };
+      defensiveStats[id] = { name, logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
+    // Parse standings for goals and goal difference (already calculated)
     standings.forEach(row => {
+      const id = row.club_id;
       const name = row.club_name;
       const logo = row.club_logo || "";
       const manager = row.manager || "Unknown";
-      goalsScored[name] = { logo, manager, value: row.goals_scored || 0 };
-      goalDiff[name] = { logo, manager, value: row.goal_difference || 0 };
+      if (goalsScored[id]) {
+        goalsScored[id].value = row.goals_scored || 0;
+      }
+      if (goalDiff[id]) {
+        goalDiff[id].value = row.goal_difference || 0;
+      }
     });
 
+    // Parse fixtures for clean sheets and concedes
     fixtures.forEach(f => {
       const isFinished = f.homeScore !== null && f.awayScore !== null;
       if (isFinished) {
         const hs = f.homeScore || 0;
         const as = f.awayScore || 0;
+        const homeId = f.homeClubId;
+        const awayId = f.awayClubId;
 
         // Clean Sheets
         if (hs === 0) {
-          if (cleanSheets[f.awayClub]) cleanSheets[f.awayClub].value += 1;
+          if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
         }
         if (as === 0) {
-          if (cleanSheets[f.homeClub]) cleanSheets[f.homeClub].value += 1;
+          if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
         }
 
         // Conceded and matches count
-        if (defensiveStats[f.homeClub]) {
-          defensiveStats[f.homeClub].conceded += as;
-          defensiveStats[f.homeClub].matches += 1;
+        if (defensiveStats[homeId]) {
+          defensiveStats[homeId].conceded += as;
+          defensiveStats[homeId].matches += 1;
         }
-        if (defensiveStats[f.awayClub]) {
-          defensiveStats[f.awayClub].conceded += hs;
-          defensiveStats[f.awayClub].matches += 1;
+        if (defensiveStats[awayId]) {
+          defensiveStats[awayId].conceded += hs;
+          defensiveStats[awayId].matches += 1;
         }
       }
     });
@@ -260,23 +323,26 @@ export default function RwsYearTournament() {
     });
 
     const sortedBoot = Object.entries(goalsScored)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedBall = Object.entries(goalDiff)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedGlove = Object.entries(cleanSheets)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedDefender = Object.values(defensiveStats)
-      .map(ds => {
-        const name = ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "";
-        return { name, ...ds };
-      })
-      .filter(item => item.name !== "")
+      .map(ds => ({
+        name: ds.name,
+        logo: ds.logo,
+        manager: ds.manager,
+        conceded: ds.conceded,
+        matches: ds.matches,
+        value: ds.value
+      }))
       .sort((a, b) => {
         if (a.matches === 0 && b.matches === 0) return 0;
         if (a.matches === 0) return 1;
@@ -414,104 +480,309 @@ export default function RwsYearTournament() {
                 <i className="fa-solid fa-chart-bar" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block", opacity: 0.3 }} />
                 No standings data available yet.
               </div>
-            ) : tournament?.num_groups && tournament.num_groups > 0 ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.25rem" }}>
-                {Object.entries(groupedStandings).map(([groupName, rows]) => (
-                  <div key={groupName} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
-                    <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
-                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.9rem", color: "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>Group {groupName}</span>
-                    </div>
-                    <div style={{ padding: "0.5rem 0" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
-                        <thead>
-                          <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                            <th style={{ padding: "0.5rem 1rem", textAlign: "left", width: "36px" }}>#</th>
-                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "left" }}>Club</th>
-                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "36px" }}>MP</th>
-                            <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "40px" }}>GD</th>
-                            <th style={{ padding: "0.5rem 1rem", textAlign: "center", width: "40px" }}>Pts</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row, idx) => (
-                            <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                              <td style={{ padding: "0.6rem 1rem" }}>
-                                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "22px", height: "22px", borderRadius: "6px", fontSize: "0.7rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
-                              </td>
-                              <td style={{ padding: "0.6rem 0.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                  {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "4px" }} />}
-                                  <div>
-                                    <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem" }}>{row.club_name}</div>
-                                    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: "1px" }}>{row.manager || "Unknown"}</div>
+            ) : (
+              <>
+                {/* View Mode Toggle Switch */}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1.25rem" }}>
+                  <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,0.04)", padding: "3px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("table")}
+                      style={{
+                        padding: "5px 14px",
+                        borderRadius: "6px",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        border: "none",
+                        cursor: "pointer",
+                        background: viewMode === "table" ? "rgba(168,85,247,0.85)" : "transparent",
+                        color: viewMode === "table" ? "#fff" : "rgba(255,255,255,0.45)",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <i className="fa-solid fa-table" style={{ marginRight: "4px" }} /> Table
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("card")}
+                      style={{
+                        padding: "5px 14px",
+                        borderRadius: "6px",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        border: "none",
+                        cursor: "pointer",
+                        background: viewMode === "card" ? "rgba(168,85,247,0.85)" : "transparent",
+                        color: viewMode === "card" ? "#fff" : "rgba(255,255,255,0.45)",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <i className="fa-solid fa-grip" style={{ marginRight: "4px" }} /> Cards
+                    </button>
+                  </div>
+                </div>
+
+                {tournament?.num_groups && tournament.num_groups > 0 ? (
+                  viewMode === "card" ? (
+                    /* Group Stage - Card View */
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.25rem" }}>
+                      {Object.entries(groupedStandings).map(([groupName, rows]) => (
+                        <div key={groupName} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.25rem" }}>
+                          <div style={{ paddingBottom: "0.85rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+                            <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
+                            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.9rem", color: "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>Group {groupName}</span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            {rows.map((row, idx) => {
+                              const isPodium = idx < 2;
+                              const rankColor = idx === 0 ? "#fbbf24" : idx === 1 ? "#cbd5e1" : "rgba(255,255,255,0.4)";
+                              const cardBorder = idx === 0 ? "1px solid rgba(251, 191, 36, 0.3)" : idx === 1 ? "1px solid rgba(226, 232, 240, 0.25)" : "1px solid rgba(255, 255, 255, 0.06)";
+                              const cardBg = idx === 0 ? "linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(10, 8, 20, 0.8) 100%)" : "linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(10, 8, 20, 0.8) 100%)";
+                              
+                              return (
+                                <div key={row.club_id} style={{ background: cardBg, border: cardBorder, borderRadius: "10px", padding: "0.85rem" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.5rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                      <span style={{ fontWeight: "bold", color: rankColor, fontSize: "0.9rem" }}>#{idx + 1}</span>
+                                      {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "4px" }} />}
+                                      <div>
+                                        <span style={{ fontWeight: "bold", color: "#fff", fontSize: "0.82rem" }}>{row.club_name}</span>
+                                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>{row.manager || "Unknown"}</div>
+                                      </div>
+                                    </div>
+                                    <div style={{ textAlign: "right" }}>
+                                      <span style={{ fontWeight: "800", color: "#fbbf24", fontSize: "0.95rem" }}>{row.points}</span>
+                                      <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", marginLeft: "2px" }}>PTS</span>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.35rem", fontSize: "0.7rem", textAlign: "center" }}>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px" }}>
+                                      <span style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.4)", display: "block" }}>PLAYED</span>
+                                      <strong style={{ color: "#fff" }}>{row.matches_played}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(34, 197, 94, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                      <span style={{ fontSize: "0.58rem", color: "#86efac", display: "block" }}>W</span>
+                                      <strong style={{ color: "#22c55e" }}>{row.wins}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(148, 163, 184, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                      <span style={{ fontSize: "0.58rem", color: "#cbd5e1", display: "block" }}>D</span>
+                                      <strong style={{ color: "#cbd5e1" }}>{row.draws}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                      <span style={{ fontSize: "0.58rem", color: "#fca5a5", display: "block" }}>L</span>
+                                      <strong style={{ color: "#ef4444" }}>{row.losses}</strong>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: "0.35rem", fontSize: "0.68rem", marginTop: "0.4rem" }}>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                      <span style={{ color: "rgba(255,255,255,0.4)" }}>GF:</span>
+                                      <strong style={{ color: "#fff" }}>{row.goals_for}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                      <span style={{ color: "rgba(255,255,255,0.4)" }}>GA:</span>
+                                      <strong style={{ color: "#fff" }}>{row.goals_against}</strong>
+                                    </div>
+                                    <div style={{ background: row.goal_difference > 0 ? "rgba(34, 197, 94, 0.08)" : row.goal_difference < 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                      <span style={{ color: "rgba(255,255,255,0.4)" }}>DIFF:</span>
+                                      <strong style={{ color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "#fff" }}>
+                                        {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                      </strong>
+                                    </div>
                                   </div>
                                 </div>
-                              </td>
-                              <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.6rem 0.5rem" }}>{row.matches_played}</td>
-                              <td style={{ textAlign: "center", padding: "0.6rem 0.5rem", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)" }}>
-                                {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
-                              </td>
-                              <td style={{ textAlign: "center", padding: "0.6rem 1rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.85rem" }}>{row.points}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
-                <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <i className="fa-solid fa-list-ol" style={{ color: "#a855f7", fontSize: "0.85rem" }} />
-                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>League Standings</span>
-                </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      <th style={{ padding: "0.75rem 1.25rem", textAlign: "left", width: "40px" }}>#</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Club</th>
-                      {tournament?.num_groups && <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "70px" }}>Group</th>}
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>MP</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GF</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GA</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>GD</th>
-                      <th style={{ padding: "0.75rem 1.25rem", textAlign: "center", width: "50px" }}>Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((row, idx) => (
-                      <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        <td style={{ padding: "0.7rem 1.25rem" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : idx === 1 ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : idx === 1 ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
-                        </td>
-                        <td style={{ padding: "0.7rem 0.5rem" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                            {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} />}
-                            <div>
-                              <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.85rem" }}>{row.club_name}</div>
-                              <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: "1px" }}>{row.manager || "Unknown"}</div>
+                  ) : (
+                    /* Group Stage - Table View */
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.25rem" }}>
+                      {Object.entries(groupedStandings).map(([groupName, rows]) => (
+                        <div key={groupName} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+                          <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
+                            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.9rem", color: "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>Group {groupName}</span>
+                          </div>
+                          <div style={{ padding: "0.5rem 0", overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: "320px" }}>
+                              <thead>
+                                <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", width: "30px" }}>#</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "left" }}>Club</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "30px" }}>MP</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "25px" }}>W</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "25px" }}>D</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "25px" }}>L</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "30px" }}>GF</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "30px" }}>GA</th>
+                                  <th style={{ padding: "0.5rem 0.5rem", textAlign: "center", width: "35px" }}>GD</th>
+                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "center", width: "35px" }}>Pts</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row, idx) => (
+                                  <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                                    <td style={{ padding: "0.6rem 0.75rem" }}>
+                                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
+                                    </td>
+                                    <td style={{ padding: "0.6rem 0.5rem" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                        {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "4px" }} />}
+                                        <div>
+                                          <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.8rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90px" }}>{row.club_name}</div>
+                                          <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>{row.manager || "Unknown"}</div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.6rem 0.5rem" }}>{row.matches_played}</td>
+                                    <td style={{ textAlign: "center", color: "#22c55e", padding: "0.6rem 0.5rem" }}>{row.wins}</td>
+                                    <td style={{ textAlign: "center", color: "#cbd5e1", padding: "0.6rem 0.5rem" }}>{row.draws}</td>
+                                    <td style={{ textAlign: "center", color: "#ef4444", padding: "0.6rem 0.5rem" }}>{row.losses}</td>
+                                    <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.6rem 0.5rem" }}>{row.goals_for}</td>
+                                    <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.6rem 0.5rem" }}>{row.goals_against}</td>
+                                    <td style={{ textAlign: "center", padding: "0.6rem 0.5rem", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)" }}>
+                                      {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                    </td>
+                                    <td style={{ textAlign: "center", padding: "0.6rem 0.75rem", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.82rem" }}>{row.points}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  /* League Standings */
+                  viewMode === "card" ? (
+                    /* League - Card View */
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "1.25rem", width: "100%" }}>
+                      {standingsWithStats.map((row, idx) => {
+                        const isPodium = idx < 3;
+                        const rankColor = idx === 0 ? "#fbbf24" : idx === 1 ? "#cbd5e1" : idx === 2 ? "#d97706" : "rgba(255,255,255,0.4)";
+                        const cardBorder = idx === 0 ? "1px solid rgba(251, 191, 36, 0.3)" : idx === 1 ? "1px solid rgba(226, 232, 240, 0.25)" : idx === 2 ? "1px solid rgba(205, 127, 50, 0.25)" : "1px solid rgba(255, 255, 255, 0.06)";
+                        const cardBg = idx === 0 ? "linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(10, 8, 20, 0.8) 100%)" : "linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(10, 8, 20, 0.8) 100%)";
+                        
+                        return (
+                          <div key={row.club_id} style={{ background: cardBg, border: cardBorder, borderRadius: "12px", padding: "1rem", boxShadow: idx === 0 ? "0 4px 12px rgba(251, 191, 36, 0.05)" : "none" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.5rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <span style={{ fontWeight: "bold", color: rankColor, fontSize: "0.95rem" }}>#{idx + 1}</span>
+                                {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "4px" }} />}
+                                <div>
+                                  <span style={{ fontWeight: "bold", color: "#fff", fontSize: "0.85rem" }}>{row.club_name}</span>
+                                  <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>{row.manager || "Unknown"}</div>
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ fontWeight: "800", color: "#fbbf24", fontSize: "1rem" }}>{row.points}</span>
+                                <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", marginLeft: "2px" }}>PTS</span>
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.35rem", fontSize: "0.75rem", textAlign: "center" }}>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.4)", display: "block" }}>PLAYED</span>
+                                <strong style={{ color: "#fff" }}>{row.matches_played}</strong>
+                              </div>
+                              <div style={{ background: "rgba(34, 197, 94, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "0.58rem", color: "#86efac", display: "block" }}>W</span>
+                                <strong style={{ color: "#22c55e" }}>{row.wins}</strong>
+                              </div>
+                              <div style={{ background: "rgba(148, 163, 184, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "0.58rem", color: "#cbd5e1", display: "block" }}>D</span>
+                                <strong style={{ color: "#cbd5e1" }}>{row.draws}</strong>
+                              </div>
+                              <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "4px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "0.58rem", color: "#fca5a5", display: "block" }}>L</span>
+                                <strong style={{ color: "#ef4444" }}>{row.losses}</strong>
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: "0.35rem", fontSize: "0.7rem", marginTop: "0.4rem" }}>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                <span style={{ color: "rgba(255,255,255,0.4)" }}>GF:</span>
+                                <strong style={{ color: "#fff" }}>{row.goals_for}</strong>
+                              </div>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                <span style={{ color: "rgba(255,255,255,0.4)" }}>GA:</span>
+                                <strong style={{ color: "#fff" }}>{row.goals_against}</strong>
+                              </div>
+                              <div style={{ background: row.goal_difference > 0 ? "rgba(34, 197, 94, 0.08)" : row.goal_difference < 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)", padding: "4px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "8px", paddingRight: "8px" }}>
+                                <span style={{ color: "rgba(255,255,255,0.4)" }}>DIFF:</span>
+                                <strong style={{ color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "#fff" }}>
+                                  {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                </strong>
+                              </div>
                             </div>
                           </div>
-                        </td>
-                        {tournament?.num_groups && (
-                          <td style={{ textAlign: "center", fontSize: "0.72rem", fontWeight: 600, color: "#fbbf24", padding: "0.7rem 0.5rem" }}>
-                            {row.group_name ? `Grp ${row.group_name}` : "—"}
-                          </td>
-                        )}
-                        <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.matches_played}</td>
-                        <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_scored}</td>
-                        <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_against}</td>
-                        <td style={{ textAlign: "center", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)", padding: "0.7rem 0.5rem" }}>
-                          {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
-                        </td>
-                        <td style={{ textAlign: "center", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.95rem", padding: "0.7rem 1.25rem" }}>{row.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* League - Table View */
+                    <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+                      <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <i className="fa-solid fa-list-ol" style={{ color: "#a855f7", fontSize: "0.85rem" }} />
+                        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>League Standings</span>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "550px" }}>
+                          <thead>
+                            <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                              <th style={{ padding: "0.75rem 1.25rem", textAlign: "left", width: "40px" }}>#</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Club</th>
+                              {tournament?.num_groups && <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "70px" }}>Group</th>}
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>MP</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "36px" }}>W</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "36px" }}>D</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "36px" }}>L</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GF</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "40px" }}>GA</th>
+                              <th style={{ padding: "0.75rem 0.5rem", textAlign: "center", width: "44px" }}>GD</th>
+                              <th style={{ padding: "0.75rem 1.25rem", textAlign: "center", width: "50px" }}>Pts</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {standingsWithStats.map((row, idx) => (
+                              <tr key={row.club_id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)", transition: "background 0.2s" }} onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                                <td style={{ padding: "0.7rem 1.25rem" }}>
+                                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, background: idx === 0 ? "rgba(168,85,247,0.15)" : idx === 1 ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.04)", color: idx === 0 ? "#c084fc" : idx === 1 ? "#60a5fa" : "rgba(255,255,255,0.5)" }}>{idx + 1}</span>
+                                </td>
+                                <td style={{ padding: "0.7rem 0.5rem" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                    {row.club_logo && <img src={row.club_logo} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} />}
+                                    <div>
+                                      <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.85rem" }}>{row.club_name}</div>
+                                      <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: "1px" }}>{row.manager || "Unknown"}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                {tournament?.num_groups && (
+                                  <td style={{ textAlign: "center", fontSize: "0.72rem", fontWeight: 600, color: "#fbbf24", padding: "0.7rem 0.5rem" }}>
+                                    {row.group_name ? `Grp ${row.group_name}` : "—"}
+                                  </td>
+                                )}
+                                <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.matches_played}</td>
+                                <td style={{ textAlign: "center", color: "#22c55e", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.wins}</td>
+                                <td style={{ textAlign: "center", color: "#cbd5e1", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.draws}</td>
+                                <td style={{ textAlign: "center", color: "#ef4444", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.losses}</td>
+                                <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_for}</td>
+                                <td style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", padding: "0.7rem 0.5rem", fontSize: "0.82rem" }}>{row.goals_against}</td>
+                                <td style={{ textAlign: "center", fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: row.goal_difference > 0 ? "#4ade80" : row.goal_difference < 0 ? "#f87171" : "rgba(255,255,255,0.35)", padding: "0.7rem 0.5rem" }}>
+                                  {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                </td>
+                                <td style={{ textAlign: "center", fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fbbf24", fontSize: "0.95rem", padding: "0.7rem 1.25rem" }}>{row.points}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                )}
+              </>
             )}
           </div>
         )}
