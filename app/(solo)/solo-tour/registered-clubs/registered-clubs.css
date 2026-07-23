@@ -191,3 +191,20 @@
   border: none;
   padding: 0;
 }
+
+/* Custom logo display override - remove container/background */
+.club-manager-img {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+}
+
+.club-manager-img img {
+  object-fit: contain !important;
+  border-radius: 0 !important;
+}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import "../../../portal.css";
+import "./registered-clubs.css";
 import { fetchRegisteredClubs } from "@/utils/solo/serverActions";
 
 export default function RegisteredClubs() {

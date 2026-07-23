@@ -266,54 +266,256 @@ export async function fetchManagerByName(name: string) {
                 ms.manager_rank, ms.rank_points, ms.team_income, ms.team_expense, ms.team_profit, ms.session_rewards,
                 ms.matches_played, ms.wins, ms.draws, ms.losses, ms.goals_scored, ms.goals_conceded, ms.clean_sheets,
                 ms.awards, ms.competitions,
-                s.season_number
+                s.id as season_id, s.season_number
             FROM manager_seasons ms
             JOIN seasons s ON ms.season_id = s.id
             WHERE ms.manager_id = $1
             ORDER BY s.season_number DESC
         `, [m.id]);
 
-        const seasons = seasonsResult.map((s: any) => ({
-            number: s.season_number,
-            manager_rank: s.manager_rank || 0,
-            rank_point: s.rank_points || 0,
-            team_income: s.team_income || 0,
-            team_expense: s.team_expense || 0,
-            team_profit: s.team_profit || 0,
-            session_rewards: s.session_rewards || 0,
-            sp_tour_stats: {
-                matches: s.matches_played || 0,
-                wins: s.wins || 0,
-                draws: s.draws || 0,
-                losses: s.losses || 0,
-                goals_scored: s.goals_scored || 0,
-                goals_conceded: s.goals_conceded || 0,
-                goal_difference: (s.goals_scored || 0) - (s.goals_conceded || 0),
-                clean_sheets: s.clean_sheets || 0
-            },
-            season_stats: {
-                matches: s.matches_played || 0,
-                wins: s.wins || 0,
-                draws: s.draws || 0,
-                losses: s.losses || 0,
-                goals_scored: s.goals_scored || 0,
-                goals_conceded: s.goals_conceded || 0,
-                goal_difference: (s.goals_scored || 0) - (s.goals_conceded || 0),
-                clean_sheets: s.clean_sheets || 0
-            },
-            competitions: (() => {
-                try {
-                    if (!s.competitions) return {};
-                    return typeof s.competitions === 'string' ? JSON.parse(s.competitions) : s.competitions;
-                } catch { return {}; }
-            })(),
-            awards: (() => {
+        const normSeason = (val: any) => val ? String(val).toLowerCase().replace(/[^0-9]/g, '') : '';
+        const mgrIdStr = String(m.id || '').trim();
+        const r2gIdStr = String(m.r2g_id || '').trim();
+        const clubIdStr = String(m.club_id || '').trim();
+        const mgrNameStr = String(m.name || '').trim();
+        const clubNameStr = String(m.club_name || '').trim();
+
+        const mgrIdInt = parseInt(mgrIdStr, 10);
+        const clubIdInt = parseInt(clubIdStr, 10);
+        const r2gIdInt = parseInt(r2gIdStr, 10);
+        const r2gIdNum = isNaN(r2gIdInt) ? null : r2gIdInt;
+
+        const mgrIdVal = isNaN(mgrIdInt) ? null : mgrIdInt;
+        const clubIdVal = isNaN(clubIdInt) ? null : clubIdInt;
+
+        // Fetch all player_awards entries for this manager ID, R2G ID, club ID, manager name, club name, or squad players
+        let allPlayerAwards: any[] = [];
+        try {
+            const { rows: paRows } = await pool.query(`
+                SELECT pa.id, pa.season_id, pa.award_type, pa.award_position, pa.player_name, pa.award_category
+                FROM player_awards pa
+                WHERE pa.player_id = $1
+                   OR pa.player_id = $2
+                   OR pa.player_id = $3
+                   OR LOWER(pa.player_name) = LOWER($4)
+                   OR LOWER(pa.player_name) = LOWER($5)
+                   OR pa.player_id IN (
+                     SELECT pc.player_id::text 
+                     FROM player_contracts pc
+                     WHERE pc.current_club_id = $6
+                        OR pc.current_club_id = $7
+                   )
+            `, [mgrIdStr, r2gIdStr, clubIdStr, mgrNameStr, clubNameStr, mgrIdVal, clubIdVal]);
+            allPlayerAwards = paRows;
+        } catch (e) {
+            console.error("Error querying player_awards:", e);
+        }
+
+        // Fetch from new awards table if present
+        let newAwards: any[] = [];
+        try {
+            const { rows: newAwdRows } = await pool.query(`
+                SELECT a.id, a.season_id, a.award_type, a.player_name, a.team_name
+                FROM awards a
+                WHERE a.team_id = $6
+                   OR a.team_id = $7
+                   OR a.player_id = $6
+                   OR (a.player_id = $8 AND $8 IS NOT NULL)
+                   OR LOWER(a.team_name) = LOWER($4)
+                   OR LOWER(a.team_name) = LOWER($5)
+                   OR LOWER(a.player_name) = LOWER($4)
+                   OR a.player_id IN (
+                     SELECT pc.player_id 
+                     FROM player_contracts pc
+                     WHERE pc.current_club_id = $6
+                        OR pc.current_club_id = $7
+                   )
+            `, [mgrIdStr, r2gIdStr, clubIdStr, mgrNameStr, clubNameStr, mgrIdVal, clubIdVal, r2gIdNum]);
+            newAwards = newAwdRows;
+        } catch (e) {
+            // Fallback if table doesn't exist
+        }
+
+        const knownSeasonNumbers = new Set(seasonsResult.map((s: any) => normSeason(s.season_number)));
+        const knownSeasonIds = new Set(seasonsResult.map((s: any) => normSeason(s.season_id)));
+
+        const seasons = seasonsResult.map((s: any, idx: number) => {
+            const seasonDbAwards = (() => {
                 try {
                     if (!s.awards) return [];
                     return typeof s.awards === 'string' ? JSON.parse(s.awards) : s.awards;
                 } catch { return []; }
-            })()
-        }));
+            })();
+
+            const sNumNorm = normSeason(s.season_number);
+            const sIdNorm = normSeason(s.season_id);
+
+            const paAwards = allPlayerAwards
+                .filter((pa: any) => {
+                    const aNorm = normSeason(pa.season_id);
+                    if (!aNorm) return idx === 0; // attach unassigned season awards to latest season
+                    const isKnown = knownSeasonNumbers.has(aNorm) || knownSeasonIds.has(aNorm);
+                    if (!isKnown && idx === 0) return true;
+                    return aNorm === sNumNorm || aNorm === sIdNorm;
+                })
+                .map((pa: any) => {
+                    const nameSuffix = pa.player_name && pa.player_name.toLowerCase() !== mgrNameStr.toLowerCase() ? ` (${pa.player_name})` : '';
+                    if (pa.award_position === 'Nominee') {
+                        return `${pa.award_type} Nominee${nameSuffix}`;
+                    }
+                    return `${pa.award_type}${nameSuffix}`;
+                });
+
+            const newAwdFormatted = newAwards
+                .filter((a: any) => {
+                    const aNorm = normSeason(a.season_id);
+                    if (!aNorm) return idx === 0;
+                    const isKnown = knownSeasonNumbers.has(aNorm) || knownSeasonIds.has(aNorm);
+                    if (!isKnown && idx === 0) return true;
+                    return aNorm === sNumNorm || aNorm === sIdNorm;
+                })
+                .map((a: any) => {
+                    const nameSuffix = a.player_name && a.player_name.toLowerCase() !== mgrNameStr.toLowerCase() ? ` (${a.player_name})` : '';
+                    return `${a.award_type}${nameSuffix}`;
+                });
+
+            const combinedAwards = [...seasonDbAwards, ...paAwards, ...newAwdFormatted];
+
+            return {
+                number: s.season_number,
+                manager_rank: s.manager_rank || 0,
+                rank_point: s.rank_points || 0,
+                team_income: s.team_income || 0,
+                team_expense: s.team_expense || 0,
+                team_profit: s.team_profit || 0,
+                session_rewards: s.session_rewards || 0,
+                sp_tour_stats: {
+                    matches: s.matches_played || 0,
+                    wins: s.wins || 0,
+                    draws: s.draws || 0,
+                    losses: s.losses || 0,
+                    goals_scored: s.goals_scored || 0,
+                    goals_conceded: s.goals_conceded || 0,
+                    goal_difference: (s.goals_scored || 0) - (s.goals_conceded || 0),
+                    clean_sheets: s.clean_sheets || 0
+                },
+                season_stats: {
+                    matches: s.matches_played || 0,
+                    wins: s.wins || 0,
+                    draws: s.draws || 0,
+                    losses: s.losses || 0,
+                    goals_scored: s.goals_scored || 0,
+                    goals_conceded: s.goals_conceded || 0,
+                    goal_difference: (s.goals_scored || 0) - (s.goals_conceded || 0),
+                    clean_sheets: s.clean_sheets || 0
+                },
+                competitions: (() => {
+                    try {
+                        if (!s.competitions) return {};
+                        return typeof s.competitions === 'string' ? JSON.parse(s.competitions) : s.competitions;
+                    } catch { return {}; }
+                })(),
+                awards: combinedAwards
+            };
+        });
+
+        // Aggregate Solo Tournament Fixture Statistics
+        const { rows: fixturePerfRows } = await pool.query(`
+            SELECT 
+              COUNT(*)::int as matches,
+              SUM(CASE 
+                WHEN f.home_club_id = $1 AND f.home_score > f.away_score THEN 1
+                WHEN f.away_club_id = $1 AND f.away_score > f.home_score THEN 1
+                ELSE 0 END)::int as wins,
+              SUM(CASE 
+                WHEN f.home_score = f.away_score THEN 1
+                ELSE 0 END)::int as draws,
+              SUM(CASE 
+                WHEN f.home_club_id = $1 AND f.home_score < f.away_score THEN 1
+                WHEN f.away_club_id = $1 AND f.away_score < f.home_score THEN 1
+                ELSE 0 END)::int as losses,
+              SUM(CASE 
+                WHEN f.home_club_id = $1 THEN COALESCE(f.home_score, 0)
+                ELSE COALESCE(f.away_score, 0) END)::int as goals_scored,
+              SUM(CASE 
+                WHEN f.home_club_id = $1 THEN COALESCE(f.away_score, 0)
+                ELSE COALESCE(f.home_score, 0) END)::int as goals_conceded,
+              SUM(CASE 
+                WHEN f.home_club_id = $1 AND f.away_score = 0 THEN 1
+                WHEN f.away_club_id = $1 AND f.home_score = 0 THEN 1
+                ELSE 0 END)::int as clean_sheets
+            FROM fixtures f
+            JOIN tournaments t ON f.tournament_id = t.id
+            WHERE (f.home_club_id = $1 OR f.away_club_id = $1)
+              AND f.home_score IS NOT NULL 
+              AND f.away_score IS NOT NULL
+              AND (t.tournament_type = 'solo' OR t.tournament_type IS NULL)
+        `, [m.id]);
+
+        // Aggregate Manager Seasons Statistics
+        const { rows: seasonPerfRows } = await pool.query(`
+            SELECT 
+              COALESCE(SUM(ms.matches_played), 0)::int as matches,
+              COALESCE(SUM(ms.wins), 0)::int as wins,
+              COALESCE(SUM(ms.draws), 0)::int as draws,
+              COALESCE(SUM(ms.losses), 0)::int as losses,
+              COALESCE(SUM(ms.goals_scored), 0)::int as goals_scored,
+              COALESCE(SUM(ms.goals_conceded), 0)::int as goals_conceded,
+              COALESCE(SUM(ms.clean_sheets), 0)::int as clean_sheets
+            FROM manager_seasons ms
+            WHERE ms.manager_id = $1
+        `, [m.id]);
+
+        const fixPerf = fixturePerfRows[0] || {};
+        const seaPerf = seasonPerfRows[0] || {};
+
+        const matchesCount = Math.max(fixPerf.matches || 0, seaPerf.matches || 0, m.matches_played || 0);
+        const useFix = (fixPerf.matches || 0) >= (seaPerf.matches || 0) && (fixPerf.matches || 0) > 0;
+        
+        const winsCount = useFix ? (fixPerf.wins || 0) : Math.max(seaPerf.wins || 0, m.wins || 0);
+        const drawsCount = useFix ? (fixPerf.draws || 0) : Math.max(seaPerf.draws || 0, m.draws || 0);
+        const lossesCount = useFix ? (fixPerf.losses || 0) : Math.max(seaPerf.losses || 0, m.losses || 0);
+        const gsCount = useFix ? (fixPerf.goals_scored || 0) : Math.max(seaPerf.goals_scored || 0, m.goals_scored || 0);
+        const gcCount = useFix ? (fixPerf.goals_conceded || 0) : Math.max(seaPerf.goals_conceded || 0, m.goals_conceded || 0);
+        const csCount = useFix ? (fixPerf.clean_sheets || 0) : Math.max(seaPerf.clean_sheets || 0, m.clean_sheets || 0);
+        const gdCount = gsCount - gcCount;
+
+        const performanceData = {
+            matches: matchesCount,
+            wins: winsCount,
+            draws: drawsCount,
+            losses: lossesCount,
+            goals_scored: gsCount,
+            goals_conceded: gcCount,
+            goal_difference: gdCount,
+            clean_sheets: csCount
+        };
+
+        // Aggregate Total Individual/Team Awards from player_awards table and manager_seasons
+        let directAwardsCount = 0;
+        try {
+            const { rows: awardsCountRows } = await pool.query(`
+                SELECT COUNT(DISTINCT id)::int as total_awards
+                FROM player_awards pa
+                WHERE pa.player_id = $1
+                   OR pa.player_id = $2
+                   OR pa.player_id = $3
+                   OR LOWER(pa.player_name) = LOWER($4)
+                   OR LOWER(pa.player_name) = LOWER($5)
+                   OR pa.player_id IN (
+                     SELECT DISTINCT pc.player_id::text 
+                     FROM player_contracts pc
+                     WHERE pc.current_club_id::text = $1
+                        OR pc.current_club_id::text = $3
+                   )
+            `, [mgrIdStr, r2gIdStr, clubIdStr, mgrNameStr, clubNameStr]);
+            directAwardsCount = awardsCountRows[0]?.total_awards || 0;
+        } catch (e) {
+            console.error("Error calculating direct awards count:", e);
+        }
+
+        const seasonsAwardsCount = seasons.reduce((acc: number, s: any) => acc + (Array.isArray(s.awards) ? s.awards.length : 0), 0);
+        const totalAwardsCount = Math.max(directAwardsCount, seasonsAwardsCount, allPlayerAwards.length + newAwards.length);
 
         return {
             id: m.id,
@@ -325,18 +527,22 @@ export async function fetchManagerByName(name: string) {
             overall_rating: m.overall_rating || 0,
             star_rating: m.star_rating || 0,
             balance: (Number(m.r2g_coin_balance) || 0) + (Number(m.r2g_token_balance) || 0),
+            r2g_coin_balance: m.r2g_coin_balance || 0,
+            r2g_token_balance: m.r2g_token_balance || 0,
+            r2g_voucher_balance: m.r2g_voucher_balance || 0,
             total_earnings: m.total_earnings || 0,
             bio: "Experienced tactician.",
             favorite_formation: "4-3-3",
             play_style: "Attacking",
+            performance: performanceData,
             stats: {
-                matches: m.matches_played || 0,
-                wins: m.wins || 0,
-                draws: m.draws || 0,
-                losses: m.losses || 0,
-                goalsFor: m.goals_scored || 0,
-                goalsAgainst: m.goals_conceded || 0,
-                cleanSheets: m.clean_sheets || 0
+                matches: matchesCount,
+                wins: winsCount,
+                draws: drawsCount,
+                losses: lossesCount,
+                goalsFor: gsCount,
+                goalsAgainst: gcCount,
+                cleanSheets: csCount
             },
             trophies: (() => {
                 try {
@@ -345,21 +551,17 @@ export async function fetchManagerByName(name: string) {
                     return Array.isArray(comp) ? comp.length : Object.keys(comp).length;
                 } catch { return 0; }
             })(),
-            awards: (() => {
-                try {
-                    if (!m.awards) return 0;
-                    const awds = typeof m.awards === 'string' ? JSON.parse(m.awards) : m.awards;
-                    return Array.isArray(awds) ? awds.length : Object.keys(awds).length;
-                } catch { return 0; }
-            })(),
-            players: playersResult.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                position: p.position,
-                value: p.value || 0,
-                star: p.star || '3-star-standard',
-                imagePath: resolvePlayerImageUrl(p.imagepath, p.id)
-            })),
+            awards: totalAwardsCount,
+            squad: {
+                players: playersResult.map((p: any) => ({
+                    id: p.id,
+                    player_name: p.name,
+                    position: p.position,
+                    value: p.value || 0,
+                    player_type: p.star || '3-star-standard',
+                    imagePath: resolvePlayerImageUrl(p.imagepath, p.id)
+                }))
+            },
             seasons: seasons
         };
     } catch (error) {
