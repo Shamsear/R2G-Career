@@ -3,7 +3,7 @@
 import { toPng } from "html-to-image";
 
 function makeStyleSheetsSafe() {
-  const safeStyleSheets: { element: CSSStyleSheet; parent: HTMLElement | null }[] = [];
+  const removedNodes: { node: HTMLElement; parent: HTMLElement; nextSibling: Node | null }[] = [];
   const docSheets = Array.from(document.styleSheets);
   
   for (const sheet of docSheets) {
@@ -11,22 +11,27 @@ function makeStyleSheetsSafe() {
       // Test if accessing rules throws a SecurityError
       const rules = sheet.cssRules;
     } catch (e) {
-      // If it throws, temporarily disable it to prevent security issues in canvas rendering
-      if (sheet.ownerNode instanceof HTMLElement) {
-        const parent = sheet.ownerNode.parentElement;
-        sheet.ownerNode.setAttribute("data-temp-disabled", "true");
-        sheet.disabled = true;
-        safeStyleSheets.push({ element: sheet, parent });
+      // If it throws, temporarily remove it from DOM to prevent security issues in canvas rendering
+      if (sheet.ownerNode instanceof HTMLElement && sheet.ownerNode.parentElement) {
+        const node = sheet.ownerNode;
+        const parent = node.parentElement;
+        const nextSibling = node.nextSibling;
+        
+        node.setAttribute("data-temp-removed", "true");
+        parent.removeChild(node);
+        removedNodes.push({ node, parent, nextSibling });
       }
     }
   }
   
   return () => {
-    // Restore disabled stylesheets
-    for (const entry of safeStyleSheets) {
-      entry.element.disabled = false;
-      if (entry.element.ownerNode instanceof HTMLElement) {
-        entry.element.ownerNode.removeAttribute("data-temp-disabled");
+    // Restore removed stylesheets in their original order/position
+    for (const entry of removedNodes) {
+      entry.node.removeAttribute("data-temp-removed");
+      if (entry.nextSibling && entry.nextSibling.parentNode === entry.parent) {
+        entry.parent.insertBefore(entry.node, entry.nextSibling);
+      } else {
+        entry.parent.appendChild(entry.node);
       }
     }
   };

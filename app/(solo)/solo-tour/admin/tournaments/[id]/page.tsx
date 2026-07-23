@@ -36,27 +36,76 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [financialRules, setFinancialRules] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
-  const [activeRound, setActiveRound] = useState<number>(1);
+  const [activeRound, setActiveRound] = useState<number | "all">("all");
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
   const [sharing, setSharing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
-  const handleSharePoster = async () => {
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleSharePoster = async (tab?: string, subTab?: string) => {
     if (!posterRef.current) return;
     setSharing(true);
+    const originalTab = activeTab;
+    const originalSubTab = activeSubTab;
     try {
+      if (tab) setActiveTab(tab);
+      if (subTab) setActiveSubTab(subTab);
+      await new Promise(resolve => setTimeout(resolve, 150));
       const blob = await captureElementAsPng(posterRef.current);
       if (blob) {
         const title = tournament?.name 
-          ? `${tournament.name.replace(/\s+/g, "_")}_update.png` 
+          ? `${tournament.name.replace(/\s+/g, "_")}_${tab || activeTab}_${subTab || activeSubTab}.png` 
           : "tournament_update.png";
         await shareOrDownloadBlob(blob, title);
       }
     } catch (e) {
       console.error("Failed to share poster:", e);
     } finally {
+      if (tab) setActiveTab(originalTab);
+      if (subTab) setActiveSubTab(originalSubTab);
+      setSharing(false);
+    }
+  };
+
+  const handleDownloadPoster = async (tab?: string, subTab?: string) => {
+    if (!posterRef.current) return;
+    setSharing(true);
+    const originalTab = activeTab;
+    const originalSubTab = activeSubTab;
+    try {
+      if (tab) setActiveTab(tab);
+      if (subTab) setActiveSubTab(subTab);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const blob = await captureElementAsPng(posterRef.current);
+      if (blob) {
+        const title = tournament?.name 
+          ? `${tournament.name.replace(/\s+/g, "_")}_${tab || activeTab}_${subTab || activeSubTab}.png` 
+          : "tournament_update.png";
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = title;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (e) {
+      console.error("Failed to download poster:", e);
+    } finally {
+      if (tab) setActiveTab(originalTab);
+      if (subTab) setActiveSubTab(originalSubTab);
       setSharing(false);
     }
   };
@@ -185,11 +234,67 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     return { scorers: sortedScorers, playmakers: sortedPlaymakers, cards: sortedDiscipline };
   }, [fixtures]);
 
+  // Dynamically calculate wins, draws, losses, goals for/against on client side
+  const standingsWithStats = useMemo(() => {
+    if (!standings || !fixtures) return [];
+    
+    // Build stats map
+    const stats: Record<string, { wins: number; draws: number; losses: number; goals_for: number; goals_against: number }> = {};
+    
+    standings.forEach(row => {
+      stats[row.club_name] = { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+    });
+    
+    fixtures.forEach(match => {
+      if (match.homeScore === null || match.awayScore === null || match.match_status === 'void') return;
+      
+      // ONLY include matches up to and including activeRound!
+      if ((match.roundNumber || 1) > activeRound) return;
+      
+      const homeName = match.homeClub;
+      const awayName = match.awayClub;
+      const hs = Number(match.homeScore);
+      const as_ = Number(match.awayScore);
+      
+      if (stats[homeName]) {
+        stats[homeName].goals_for += hs;
+        stats[homeName].goals_against += as_;
+        if (hs > as_) stats[homeName].wins += 1;
+        else if (hs === as_) stats[homeName].draws += 1;
+        else stats[homeName].losses += 1;
+      }
+      if (stats[awayName]) {
+        stats[awayName].goals_for += as_;
+        stats[awayName].goals_against += hs;
+        if (as_ > hs) stats[awayName].wins += 1;
+        else if (as_ === hs) stats[awayName].draws += 1;
+        else stats[awayName].losses += 1;
+      }
+    });
+    
+    return standings.map(row => {
+      const s = stats[row.club_name] || { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+      const gd = s.goals_for - s.goals_against;
+      const pts = s.wins * 3 + s.draws * 1;
+      return {
+        ...row,
+        matches_played: s.wins + s.draws + s.losses,
+        wins: s.wins,
+        draws: s.draws,
+        losses: s.losses,
+        goals_for: s.goals_for,
+        goals_against: s.goals_against,
+        goal_difference: gd,
+        points: pts
+      };
+    }).sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_for - a.goals_for);
+  }, [standings, fixtures, activeRound]);
+
   // Group standings by group name if applicable
   const groupedStandings = useMemo(() => {
-    if (!standings || standings.length === 0) return {};
+    if (!standingsWithStats || standingsWithStats.length === 0) return {};
     const groups: Record<string, any[]> = {};
-    standings.forEach(row => {
+    standingsWithStats.forEach(row => {
       const gName = row.group_name || "A";
       if (!groups[gName]) groups[gName] = [];
       groups[gName].push(row);
@@ -199,7 +304,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       acc[key] = groups[key].sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
       return acc;
     }, {} as Record<string, any[]>);
-  }, [standings]);
+  }, [standingsWithStats]);
 
   // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
@@ -219,15 +324,15 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
-    // Parse standings for goals and goal difference
-    standings.forEach(row => {
+    // Parse standingsWithStats for goals and goal difference (already calculated and filtered up to activeRound)
+    standingsWithStats.forEach(row => {
       const name = row.club_name;
       const logo = row.club_logo || "";
       const manager = row.manager || "Unknown";
       goalsScored[name] = { 
         logo, 
         manager, 
-        value: row.goals_scored || 0 
+        value: row.goals_for || 0 
       };
       goalDiff[name] = {
         logo,
@@ -236,8 +341,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       };
     });
 
-    // Parse fixtures for clean sheets and concedes
+    // Parse fixtures for clean sheets and concedes (filtered up to activeRound)
     fixtures.forEach(f => {
+      if ((f.roundNumber || 1) > activeRound) return;
+      
       const isFinished = f.homeScore !== null && f.awayScore !== null;
       if (isFinished) {
         const hs = f.homeScore || 0;
@@ -298,7 +405,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       });
 
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
-  }, [fixtures, standings, tournamentClubs]);
+  }, [fixtures, standingsWithStats, tournamentClubs, activeRound]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -781,7 +888,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   // Find unique rounds and filter matches
   const rounds = Array.from(new Set(fixtures.map(f => f.roundNumber || 1))).sort((a, b) => a - b);
-  const roundFixtures = fixtures.filter(f => (f.roundNumber || 1) === activeRound);
+  const roundFixtures = activeRound === "all" ? fixtures : fixtures.filter(f => (f.roundNumber || 1) === activeRound);
 
   return (
     <div className="portal-root-wrapper" data-module="tournaments">
@@ -864,31 +971,57 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             )}
           </div>
 
-          {(activeTab === "table" || activeTab === "fixtures" || activeTab === "stats") && (
-            <button
-              type="button"
-              onClick={handleSharePoster}
-              disabled={sharing}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 18px",
-                borderRadius: "12px",
-                border: "1px solid rgba(168, 85, 247, 0.4)",
-                cursor: "pointer",
-                fontSize: "0.82rem",
-                fontWeight: 700,
-                fontFamily: "var(--font-display)",
-                background: "rgba(168, 85, 247, 0.08)",
-                color: "#c084fc",
-                boxShadow: "0 4px 12px rgba(168,85,247,0.15)",
-                transition: "all 0.2s ease"
-              }}
-            >
-              <i className={sharing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-share-nodes"} />
-              {sharing ? "GENERATING..." : "SHARE POSTER"}
-            </button>
+          {(activeTab === "table" || activeTab === "fixtures") && (
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={() => handleSharePoster()}
+                disabled={sharing}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 18px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(168, 85, 247, 0.4)",
+                  cursor: "pointer",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-display)",
+                  background: "rgba(168, 85, 247, 0.08)",
+                  color: "#c084fc",
+                  boxShadow: "0 4px 12px rgba(168,85,247,0.15)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <i className={sharing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-share-nodes"} />
+                {sharing ? "GENERATING..." : "SHARE POSTER"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadPoster()}
+                disabled={sharing}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 18px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(59, 130, 246, 0.4)",
+                  cursor: "pointer",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-display)",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  color: "#60a5fa",
+                  boxShadow: "0 4px 12px rgba(59,130,246,0.15)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <i className={sharing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-download"} />
+                {sharing ? "GENERATING..." : "DOWNLOAD POSTER"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -1684,23 +1817,55 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
 
             {/* Recalculate Standings Action Bar */}
+            {/* Recalculate Standings Action Bar */}
             <div className="admin-card" style={{ marginTop: 0, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text-secondary)", fontSize: "0.82rem" }}>
                 <i className="fa-solid fa-circle-info" style={{ color: "#fbbf24" }} />
-                Standings are auto-updated when results are entered. Use this to fix any historical inconsistencies.
+                Standings are dynamically filtered up to the selected round.
               </div>
-              <button
-                type="button"
-                className="portal-btn btn-secondary"
-                style={{ padding: "6px 14px", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "6px" }}
-                onClick={handleRecalcStandings}
-                disabled={isRecalculating}
-              >
-                {isRecalculating
-                  ? <><i className="fa-solid fa-spinner fa-spin" /> Recalculating...</>
-                  : <><i className="fa-solid fa-rotate" /> Recalculate Standings</>
-                }
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                {rounds.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(15, 12, 27, 0.45)", padding: "5px 12px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.25)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)" }}>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "bold", letterSpacing: "0.5px" }}>FILTER BY ROUND:</span>
+                    <select
+                      className="admin-select"
+                      style={{ 
+                        textAlign: "center", 
+                        fontSize: "0.75rem", 
+                        padding: "2px 24px 2px 8px", 
+                        margin: 0, 
+                        fontWeight: "bold", 
+                        color: "#fbbf24", 
+                        cursor: "pointer", 
+                        height: "26px", 
+                        background: "none", 
+                        border: "none", 
+                        width: "115px",
+                        outline: "none"
+                      }}
+                      value={activeRound}
+                      onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                    >
+                      <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
+                      {rounds.map(r => (
+                        <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="portal-btn btn-secondary"
+                  style={{ padding: "6px 14px", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "6px" }}
+                  onClick={handleRecalcStandings}
+                  disabled={isRecalculating}
+                >
+                  {isRecalculating
+                    ? <><i className="fa-solid fa-spinner fa-spin" /> Recalculating...</>
+                    : <><i className="fa-solid fa-rotate" /> Recalculate Standings</>
+                  }
+                </button>
+              </div>
             </div>
 
             {standings.length === 0 ? (
@@ -1708,54 +1873,120 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 No standings data available. Add teams and play matches to see standings.
               </div>
             ) : (tournament.format_type === "Group + Knockout" || tournament.format_type === "League + Knockout") && tournament.num_groups ? (
-              // Grouped Standings (separated by Group A, Group B, etc.)
-              <div className="portal-grid cols-2" style={{ gap: "1.5rem" }}>
+              // Grouped Standings (separated by Group A, Group B, etc.) - stacked vertically to prevent 10-column table overflow
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
                 {Array.from({ length: tournament.num_groups }, (_, i) => String.fromCharCode(65 + i)).map(groupLetter => {
-                  const rows = standings.filter(row => row.group_name === groupLetter);
+                  const rows = standingsWithStats.filter(row => row.group_name === groupLetter);
                   return (
                     <div key={groupLetter} className="admin-card" style={{ marginTop: 0 }}>
                       <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Group {groupLetter}</h3>
-                      <div className="table-responsive">
-                        <table className="admin-list-table" style={{ fontSize: "0.8rem" }}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: "40px" }}>Pos</th>
-                              <th>Club</th>
-                              <th style={{ textAlign: "center" }}>MP</th>
-                              <th style={{ textAlign: "center" }}>GD</th>
-                              <th style={{ textAlign: "center", width: "50px" }}>Pts</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} style={{ textAlign: "center", color: "var(--text-secondary)", padding: "1rem" }}>
-                                  No teams assigned to this group yet.
-                                </td>
+                      <div className="table-responsive" style={{ overflowX: "visible" }}>
+                        {isMobile ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
+                            {rows.map((row, idx) => {
+                              const isPodium = idx < 3;
+                              const rankColor = idx === 0 ? "#fbbf24" : idx === 1 ? "#cbd5e1" : idx === 2 ? "#d97706" : "#94a3b8";
+                              const cardBorder = idx === 0 ? "1px solid rgba(251, 191, 36, 0.3)" : idx === 1 ? "1px solid rgba(226, 232, 240, 0.25)" : idx === 2 ? "1px solid rgba(205, 127, 50, 0.25)" : "1px solid rgba(255, 255, 255, 0.06)";
+                              const cardBg = idx === 0 ? "linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(10, 8, 20, 0.8) 100%)" : "linear-gradient(135deg, rgba(20, 15, 38, 0.6) 0%, rgba(10, 8, 20, 0.8) 100%)";
+                              
+                              return (
+                                <div key={row.club_id} style={{ background: cardBg, border: cardBorder, borderRadius: "10px", padding: "0.85rem", boxShadow: idx === 0 ? "0 4px 12px rgba(251, 191, 36, 0.05)" : "none" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.5rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                      <span style={{ fontWeight: "bold", color: rankColor, fontSize: "0.95rem", background: isPodium ? "rgba(255,255,255,0.03)" : "none", padding: isPodium ? "2px 8px" : "0", borderRadius: "4px" }}>#{idx + 1}</span>
+                                      {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                                      <span style={{ fontWeight: "bold", color: "#fff", fontSize: "0.9rem" }}>{row.club_name}</span>
+                                    </div>
+                                    <div style={{ textAlign: "right" }}>
+                                      <span style={{ fontWeight: "800", color: "#fbbf24", fontSize: "0.95rem", textShadow: "0 0 10px rgba(251,191,36,0.2)" }}>{row.points}</span>
+                                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "2px" }}>PTS</span>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Played</span>
+                                      <strong style={{ color: "#fff", fontSize: "0.8rem", marginTop: "2px" }}>{row.matches_played}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(22, 163, 74, 0.05)", border: "1px solid rgba(22, 163, 74, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "#86efac", textTransform: "uppercase" }}>Wins</span>
+                                      <strong style={{ color: "#22c55e", fontSize: "0.8rem", marginTop: "2px" }}>{row.wins}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(148, 163, 184, 0.05)", border: "1px solid rgba(148, 163, 184, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "#cbd5e1", textTransform: "uppercase" }}>Draws</span>
+                                      <strong style={{ color: "#cbd5e1", fontSize: "0.8rem", marginTop: "2px" }}>{row.draws}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "#fca5a5", textTransform: "uppercase" }}>Losses</span>
+                                      <strong style={{ color: "#ef4444", fontSize: "0.8rem", marginTop: "2px" }}>{row.losses}</strong>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.4rem" }}>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "10px", paddingRight: "10px", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>GF:</span>
+                                      <strong style={{ color: "#fff" }}>{row.goals_for}</strong>
+                                    </div>
+                                    <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "10px", paddingRight: "10px", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>GA:</span>
+                                      <strong style={{ color: "#fff" }}>{row.goals_against}</strong>
+                                    </div>
+                                    <div style={{ background: row.goal_difference > 0 ? "rgba(34, 197, 94, 0.08)" : row.goal_difference < 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)", border: row.goal_difference > 0 ? "1px solid rgba(34, 197, 94, 0.15)" : row.goal_difference < 0 ? "1px solid rgba(239, 68, 68, 0.15)" : "none", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "12px", paddingRight: "12px", alignItems: "center" }}>
+                                      <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>DIFF:</span>
+                                      <strong style={{ color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "#fff" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <table className="admin-list-table" style={{ fontSize: "0.74rem", width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ fontSize: "0.7rem" }}>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>Pos</th>
+                                <th style={{ padding: "8px 4px", textAlign: "left", width: "30%" }}>Club</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>MP</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>W</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>D</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>L</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GF</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GA</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GD</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%", fontWeight: "bold", color: "#fbbf24" }}>Pts</th>
                               </tr>
-                            ) : (
-                              rows.map((row, idx) => (
-                                <tr key={row.club_id}>
-                                  <td>{idx + 1}</td>
-                                  <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
-                                    <strong>{row.club_name}</strong>
-                                    {tournament?.tournament_type === 'special' ? (
-                                      row.manager_r2g_id && <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager_r2g_id})</span>
-                                    ) : (
-                                      <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
-                                    )}
+                            </thead>
+                            <tbody>
+                              {rows.length === 0 ? (
+                                <tr>
+                                  <td colSpan={10} style={{ textAlign: "center", color: "var(--text-secondary)", padding: "1rem" }}>
+                                    No teams assigned to this group yet.
                                   </td>
-                                  <td style={{ textAlign: "center" }}>{row.matches_played}</td>
-                                  <td style={{ textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
-                                    {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
-                                  </td>
-                                  <td style={{ textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
+                              ) : (
+                                rows.map((row, idx) => (
+                                  <tr key={row.club_id}>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{idx + 1}</td>
+                                    <td style={{ padding: "8px 4px", display: "flex", alignItems: "center", gap: "0.4rem", borderBottom: "none" }}>
+                                      {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "18px", height: "18px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "14px", height: "14px", objectFit: "contain" }} />}
+                                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90px" }}>
+                                        <strong title={row.club_name}>{row.club_name}</strong>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.matches_played}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.wins}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.draws}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.losses}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_for}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_against}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
+                                      {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                    </td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     </div>
                   );
@@ -1765,47 +1996,110 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               // Single League Table
               <div className="admin-card" style={{ marginTop: 0 }}>
                 <h3 className="sub-card-title"><i className="fa-solid fa-list-ol" /> Standings Table</h3>
-                <div className="table-responsive">
-                  <table className="admin-list-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: "50px" }}>Pos</th>
-                        <th>{tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}</th>
-                        <th style={{ textAlign: "center", width: "80px" }}>Group</th>
-                        <th style={{ textAlign: "center", width: "60px" }}>MP</th>
-                        <th style={{ textAlign: "center", width: "50px" }}>GF</th>
-                        <th style={{ textAlign: "center", width: "50px" }}>GA</th>
-                        <th style={{ textAlign: "center", width: "60px" }}>GD</th>
-                        <th style={{ textAlign: "center", width: "80px" }}>Points</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {standings.map((row, idx) => (
-                        <tr key={row.club_id}>
-                          <td><strong>{idx + 1}</strong></td>
-                          <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
-                            <strong>{row.club_name}</strong>
-                            {tournament?.tournament_type === 'special' ? (
-                              row.manager_r2g_id && <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager_r2g_id})</span>
-                            ) : (
-                              <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", fontWeight: "normal", marginLeft: "0.2rem" }}>({row.manager || "Unknown"})</span>
-                            )}
-                          </td>
-                          <td style={{ textAlign: "center", color: "#fbbf24", fontWeight: "bold" }}>
-                            {row.group_name ? `Group ${row.group_name}` : "—"}
-                          </td>
-                          <td style={{ textAlign: "center" }}>{row.matches_played}</td>
-                          <td style={{ textAlign: "center" }}>{row.goals_scored}</td>
-                          <td style={{ textAlign: "center" }}>{row.goals_against}</td>
-                          <td style={{ textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
-                            {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
-                          </td>
-                          <td style={{ textAlign: "center", fontWeight: "bold", color: "#fbbf24", fontSize: "1rem" }}>{row.points}</td>
+                <div className="table-responsive" style={{ overflowX: "visible" }}>
+                  {isMobile ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
+                      {standingsWithStats.map((row, idx) => {
+                        const isPodium = idx < 3;
+                        const rankColor = idx === 0 ? "#fbbf24" : idx === 1 ? "#cbd5e1" : idx === 2 ? "#d97706" : "#94a3b8";
+                        const cardBorder = idx === 0 ? "1px solid rgba(251, 191, 36, 0.3)" : idx === 1 ? "1px solid rgba(226, 232, 240, 0.25)" : idx === 2 ? "1px solid rgba(205, 127, 50, 0.25)" : "1px solid rgba(255, 255, 255, 0.06)";
+                        const cardBg = idx === 0 ? "linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(10, 8, 20, 0.8) 100%)" : "linear-gradient(135deg, rgba(20, 15, 38, 0.6) 0%, rgba(10, 8, 20, 0.8) 100%)";
+                        
+                        return (
+                          <div key={row.club_id} style={{ background: cardBg, border: cardBorder, borderRadius: "10px", padding: "0.85rem", boxShadow: idx === 0 ? "0 4px 12px rgba(251, 191, 36, 0.05)" : "none" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.5rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <span style={{ fontWeight: "bold", color: rankColor, fontSize: "0.95rem", background: isPodium ? "rgba(255,255,255,0.03)" : "none", padding: isPodium ? "2px 8px" : "0", borderRadius: "4px" }}>#{idx + 1}</span>
+                                {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                                <span style={{ fontWeight: "bold", color: "#fff", fontSize: "0.9rem" }}>{row.club_name}</span>
+                                {row.group_name && <span style={{ fontSize: "0.7rem", padding: "1px 6px", background: "rgba(251,191,36,0.15)", color: "#fbbf24", borderRadius: "4px", fontWeight: "bold" }}>G: {row.group_name}</span>}
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <span style={{ fontWeight: "800", color: "#fbbf24", fontSize: "0.95rem", textShadow: "0 0 10px rgba(251,191,36,0.2)" }}>{row.points}</span>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "2px" }}>PTS</span>
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Played</span>
+                                <strong style={{ color: "#fff", fontSize: "0.8rem", marginTop: "2px" }}>{row.matches_played}</strong>
+                              </div>
+                              <div style={{ background: "rgba(22, 163, 74, 0.05)", border: "1px solid rgba(22, 163, 74, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "#86efac", textTransform: "uppercase" }}>Wins</span>
+                                <strong style={{ color: "#22c55e", fontSize: "0.8rem", marginTop: "2px" }}>{row.wins}</strong>
+                              </div>
+                              <div style={{ background: "rgba(148, 163, 184, 0.05)", border: "1px solid rgba(148, 163, 184, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "#cbd5e1", textTransform: "uppercase" }}>Draws</span>
+                                <strong style={{ color: "#cbd5e1", fontSize: "0.8rem", marginTop: "2px" }}>{row.draws}</strong>
+                              </div>
+                              <div style={{ background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.1)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "#fca5a5", textTransform: "uppercase" }}>Losses</span>
+                                <strong style={{ color: "#ef4444", fontSize: "0.8rem", marginTop: "2px" }}>{row.losses}</strong>
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.4rem" }}>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "10px", paddingRight: "10px", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>GF:</span>
+                                <strong style={{ color: "#fff" }}>{row.goals_for}</strong>
+                              </div>
+                              <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "10px", paddingRight: "10px", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>GA:</span>
+                                <strong style={{ color: "#fff" }}>{row.goals_against}</strong>
+                              </div>
+                              <div style={{ background: row.goal_difference > 0 ? "rgba(34, 197, 94, 0.08)" : row.goal_difference < 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)", border: row.goal_difference > 0 ? "1px solid rgba(34, 197, 94, 0.15)" : row.goal_difference < 0 ? "1px solid rgba(239, 68, 68, 0.15)" : "none", padding: "6px", borderRadius: "6px", display: "flex", justifyContent: "space-between", paddingLeft: "12px", paddingRight: "12px", alignItems: "center" }}>
+                                <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>DIFF:</span>
+                                <strong style={{ color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "#fff" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <table className="admin-list-table" style={{ fontSize: "0.74rem", width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ fontSize: "0.7rem" }}>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "5%" }}>Pos</th>
+                          <th style={{ padding: "8px 4px", textAlign: "left", width: "25%" }}>{tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "10%" }}>Group</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>MP</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>W</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>D</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>L</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GF</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GA</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>GD</th>
+                          <th style={{ padding: "8px 4px", textAlign: "center", width: "8%", fontWeight: "bold", color: "#fbbf24" }}>Pts</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {standingsWithStats.map((row, idx) => (
+                          <tr key={row.club_id}>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}><strong>{idx + 1}</strong></td>
+                            <td style={{ padding: "8px 4px", display: "flex", alignItems: "center", gap: "0.4rem", borderBottom: "none" }}>
+                              {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "18px", height: "18px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "14px", height: "14px", objectFit: "contain" }} />}
+                              <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" }}>
+                                <strong title={row.club_name}>{row.club_name}</strong>
+                              </div>
+                            </td>
+                            <td style={{ padding: "8px 4px", textAlign: "center", color: "#fbbf24", fontWeight: "bold" }}>
+                              {row.group_name ? `Group ${row.group_name}` : "—"}
+                            </td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.matches_played}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.wins}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.draws}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.losses}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_for}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_against}</td>
+                            <td style={{ padding: "8px 4px", textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
+                              {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                            </td>
+                            <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             )}
@@ -1816,47 +2110,124 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         {activeTab === "stats" && (
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
             {/* Stats Sub-Tabs */}
-            <div className="tabs-filter" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", width: "100%", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className={`tab-btn ${activeSubTab === "boot" ? "active" : ""}`}
-                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
-                onClick={() => setActiveSubTab("boot")}
-              >
-                <i className="fa-solid fa-futbol" style={{ marginRight: "6px", color: "#fbbf24" }} /> Golden Boot
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${activeSubTab === "ball" ? "active" : ""}`}
-                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
-                onClick={() => setActiveSubTab("ball")}
-              >
-                <i className="fa-solid fa-award" style={{ marginRight: "6px", color: "#38bdf8" }} /> Golden Ball
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${activeSubTab === "glove" ? "active" : ""}`}
-                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
-                onClick={() => setActiveSubTab("glove")}
-              >
-                <i className="fa-solid fa-shield-halved" style={{ marginRight: "6px", color: "#a855f7" }} /> Golden Glove
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${activeSubTab === "defender" ? "active" : ""}`}
-                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
-                onClick={() => setActiveSubTab("defender")}
-              >
-                <i className="fa-solid fa-user-shield" style={{ marginRight: "6px", color: "#10b981" }} /> Best Defender
-              </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+              <div className="tabs-filter" style={{ display: "flex", gap: "0.5rem", margin: 0, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeSubTab === "boot" ? "active" : ""}`}
+                  style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+                  onClick={() => setActiveSubTab("boot")}
+                >
+                  <i className="fa-solid fa-futbol" style={{ marginRight: "6px", color: "#fbbf24" }} /> Golden Boot
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeSubTab === "ball" ? "active" : ""}`}
+                  style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+                  onClick={() => setActiveSubTab("ball")}
+                >
+                  <i className="fa-solid fa-award" style={{ marginRight: "6px", color: "#38bdf8" }} /> Golden Ball
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeSubTab === "glove" ? "active" : ""}`}
+                  style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+                  onClick={() => setActiveSubTab("glove")}
+                >
+                  <i className="fa-solid fa-shield-halved" style={{ marginRight: "6px", color: "#a855f7" }} /> Golden Glove
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${activeSubTab === "defender" ? "active" : ""}`}
+                  style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+                  onClick={() => setActiveSubTab("defender")}
+                >
+                  <i className="fa-solid fa-user-shield" style={{ marginRight: "6px", color: "#10b981" }} /> Best Defender
+                </button>
+              </div>
+              {rounds.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(15, 12, 27, 0.45)", padding: "5px 12px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.25)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)" }}>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "bold", letterSpacing: "0.5px" }}>FILTER BY ROUND:</span>
+                  <select
+                    className="admin-select"
+                    style={{ 
+                      textAlign: "center", 
+                      fontSize: "0.75rem", 
+                      padding: "2px 24px 2px 8px", 
+                      margin: 0, 
+                      fontWeight: "bold", 
+                      color: "#fbbf24", 
+                      cursor: "pointer", 
+                      height: "26px", 
+                      background: "none", 
+                      border: "none", 
+                      width: "115px",
+                      outline: "none"
+                    }}
+                    value={activeRound}
+                    onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                  >
+                    <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
+                    {rounds.map(r => (
+                      <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Sub-Tab 1: Golden Boot (Top Goals) */}
             {activeSubTab === "boot" && (
               <div className="admin-card" style={{ marginTop: 0 }}>
-                <h3 className="sub-card-title">
-                  <i className="fa-solid fa-futbol" style={{ marginRight: "0.5rem", color: "#fbbf24" }} /> Golden Boot (Most Goals Scored by Team)
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <h3 className="sub-card-title" style={{ margin: 0 }}>
+                    <i className="fa-solid fa-futbol" style={{ marginRight: "0.5rem", color: "#fbbf24" }} /> Golden Boot (Most Goals Scored by Team)
+                  </h3>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSharePoster("stats", "boot")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(168, 85, 247, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(168, 85, 247, 0.05)",
+                        color: "#c084fc",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-share-nodes" /> Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadPoster("stats", "boot")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(59, 130, 246, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(59, 130, 246, 0.05)",
+                        color: "#60a5fa",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-download" /> Download
+                    </button>
+                  </div>
+                </div>
                 {teamStats.boot.length === 0 ? (
                   <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No goals recorded yet.</div>
                 ) : (
@@ -1881,9 +2252,55 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {/* Sub-Tab 2: Golden Ball (Goal Difference) */}
             {activeSubTab === "ball" && (
               <div className="admin-card" style={{ marginTop: 0 }}>
-                <h3 className="sub-card-title">
-                  <i className="fa-solid fa-award" style={{ marginRight: "0.5rem", color: "#38bdf8" }} /> Golden Ball (Best Goal Difference)
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <h3 className="sub-card-title" style={{ margin: 0 }}>
+                    <i className="fa-solid fa-award" style={{ marginRight: "0.5rem", color: "#38bdf8" }} /> Golden Ball (Best Goal Difference)
+                  </h3>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSharePoster("stats", "ball")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(168, 85, 247, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(168, 85, 247, 0.05)",
+                        color: "#c084fc",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-share-nodes" /> Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadPoster("stats", "ball")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(59, 130, 246, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(59, 130, 246, 0.05)",
+                        color: "#60a5fa",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-download" /> Download
+                    </button>
+                  </div>
+                </div>
                 {teamStats.ball.length === 0 ? (
                   <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No standings recorded yet.</div>
                 ) : (
@@ -1908,9 +2325,55 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {/* Sub-Tab 3: Golden Glove (Most Clean Sheets) */}
             {activeSubTab === "glove" && (
               <div className="admin-card" style={{ marginTop: 0 }}>
-                <h3 className="sub-card-title">
-                  <i className="fa-solid fa-shield-halved" style={{ marginRight: "0.5rem", color: "#a855f7" }} /> Golden Glove (Most Clean Sheets by Team)
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <h3 className="sub-card-title" style={{ margin: 0 }}>
+                    <i className="fa-solid fa-shield-halved" style={{ marginRight: "0.5rem", color: "#a855f7" }} /> Golden Glove (Most Clean Sheets by Team)
+                  </h3>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSharePoster("stats", "glove")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(168, 85, 247, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(168, 85, 247, 0.05)",
+                        color: "#c084fc",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-share-nodes" /> Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadPoster("stats", "glove")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(59, 130, 246, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(59, 130, 246, 0.05)",
+                        color: "#60a5fa",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-download" /> Download
+                    </button>
+                  </div>
+                </div>
                 {teamStats.glove.length === 0 ? (
                   <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No clean sheets kept yet.</div>
                 ) : (
@@ -1935,9 +2398,55 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {/* Sub-Tab 4: Best Defender (Concedes Less Per Match) */}
             {activeSubTab === "defender" && (
               <div className="admin-card" style={{ marginTop: 0 }}>
-                <h3 className="sub-card-title">
-                  <i className="fa-solid fa-user-shield" style={{ marginRight: "0.5rem", color: "#10b981" }} /> Best Defender (Lowest Goals Conceded per Match)
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <h3 className="sub-card-title" style={{ margin: 0 }}>
+                    <i className="fa-solid fa-user-shield" style={{ marginRight: "0.5rem", color: "#10b981" }} /> Best Defender (Lowest Goals Conceded per Match)
+                  </h3>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSharePoster("stats", "defender")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(168, 85, 247, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(168, 85, 247, 0.05)",
+                        color: "#c084fc",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-share-nodes" /> Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadPoster("stats", "defender")}
+                      disabled={sharing}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(59, 130, 246, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        background: "rgba(59, 130, 246, 0.05)",
+                        color: "#60a5fa",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <i className="fa-solid fa-download" /> Download
+                    </button>
+                  </div>
+                </div>
                 {!teamStats.defender || teamStats.defender.length === 0 ? (
                   <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "1rem 0" }}>No matches played yet.</div>
                 ) : (
@@ -2003,32 +2512,46 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
                 <h3 className="sub-card-title" style={{ margin: 0 }}><i className="fa-solid fa-calendar-days" /> Scheduled Fixtures</h3>
                 {rounds.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(0,0,0,0.2)", padding: "4px 8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(15, 12, 27, 0.45)", padding: "4px 8px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.25)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)" }}>
                     <button
                       type="button"
                       className="portal-btn btn-secondary"
-                      style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem" }}
-                      onClick={() => setActiveRound(prev => Math.max(1, prev - 1))}
-                      disabled={activeRound <= 1}
+                      style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
+                      onClick={() => setActiveRound(prev => prev === "all" ? 1 : Math.max(1, prev - 1))}
+                      disabled={activeRound === "all" || activeRound <= 1}
                     >
                       <i className="fa-solid fa-chevron-left" />
                     </button>
                     <select
                       className="admin-select"
-                      style={{ textAlign: "center", fontSize: "0.75rem", padding: "2px 24px 2px 8px", margin: 0, fontWeight: "bold", color: "#fbbf24", cursor: "pointer", height: "26px", background: "none", border: "none", width: "110px" }}
+                      style={{ 
+                        textAlign: "center", 
+                        fontSize: "0.75rem", 
+                        padding: "2px 24px 2px 8px", 
+                        margin: 0, 
+                        fontWeight: "bold", 
+                        color: "#fbbf24", 
+                        cursor: "pointer", 
+                        height: "26px", 
+                        background: "none", 
+                        border: "none", 
+                        width: "115px",
+                        outline: "none"
+                      }}
                       value={activeRound}
-                      onChange={(e) => setActiveRound(parseInt(e.target.value))}
+                      onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
                     >
+                      <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
                       {rounds.map(r => (
-                        <option key={r} value={r}>Round {r}</option>
+                        <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
                       ))}
                     </select>
                     <button
                       type="button"
                       className="portal-btn btn-secondary"
-                      style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem" }}
-                      onClick={() => setActiveRound(prev => Math.min(rounds[rounds.length - 1], prev + 1))}
-                      disabled={activeRound >= rounds[rounds.length - 1]}
+                      style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
+                      onClick={() => setActiveRound(prev => prev === "all" ? rounds[0] : Math.min(rounds[rounds.length - 1], prev + 1))}
+                      disabled={activeRound === "all" || activeRound >= rounds[rounds.length - 1]}
                     >
                       <i className="fa-solid fa-chevron-right" />
                     </button>
@@ -2046,7 +2569,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </div>
               ) : roundFixtures.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                  No matches scheduled in Round {activeRound}.
+                  {activeRound === "all" ? "No matches scheduled." : `No matches scheduled in Round ${activeRound}.`}
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -2131,7 +2654,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 {tournament?.name || "TOURNAMENT DETAILS"}
               </h1>
               <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                Official tournament standings and statistics captured on {new Date().toLocaleDateString()}
+                {activeRound === "all" ? "Official tournament standings and statistics" : `Official standings and statistics up to Round ${activeRound}`} // Captured on {new Date().toLocaleDateString()}
               </p>
             </div>
             {/* Table Tab */}
@@ -2140,36 +2663,41 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
                   OFFICIAL STANDINGS TABLE
                 </div>
-                {standings.length === 0 ? (
+                {standingsWithStats.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
                     No standings data available.
                   </div>
                 ) : (tournament.format_type === "Group + Knockout" || tournament.format_type === "League + Knockout") && tournament.num_groups ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
                     {Array.from({ length: tournament.num_groups }, (_, i) => String.fromCharCode(65 + i)).map(groupLetter => {
-                      const rows = standings.filter(row => row.group_name === groupLetter);
+                      const rows = standingsWithStats.filter(row => row.group_name === groupLetter);
                       return (
-                        <div key={groupLetter} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "auto", WebkitOverflowScrolling: "touch" as any }}>
+                        <div key={groupLetter} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "visible", WebkitOverflowScrolling: "touch" as any }}>
                           <div style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", fontWeight: "bold", color: "#c084fc", textTransform: "uppercase" }}>
                             Group {groupLetter}
                           </div>
-                          <table style={{ width: "100%", minWidth: "400px", borderCollapse: "collapse", color: "#fff" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
                             <thead>
-                              <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                                <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                                <th style={{ padding: "12px", textAlign: "left" }}>
-                                  {tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}
+                              <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "6%" }}>#</th>
+                                <th style={{ padding: "10px 4px", textAlign: "left", width: "26%" }}>
+                                  {tournament?.tournament_type === 'special' ? "Participant" : "Club"}
                                 </th>
-                                <th style={{ padding: "12px", textAlign: "center" }}>P</th>
-                                <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
-                                <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>MP</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>W</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>D</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>L</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GF</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GA</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GD</th>
+                                <th style={{ padding: "10px 4px", textAlign: "center", width: "8%", fontWeight: "bold", color: "#fbbf24" }}>PTS</th>
                               </tr>
                             </thead>
                             <tbody>
                               {rows.map((row: any, idx: number) => (
-                                <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                  <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
-                                  <td style={{ padding: "12px", textAlign: "left" }}>
+                                <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: "0.78rem" }}>
+                                  <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "left" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                       {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                       <div>
@@ -2182,9 +2710,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                       </div>
                                     </div>
                                   </td>
-                                  <td style={{ padding: "12px", textAlign: "center" }}>{row.matches_played}</td>
-                                  <td style={{ padding: "12px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
-                                  <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.matches_played}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.wins}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.draws}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.losses}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goals_for}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goals_against}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                                  <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2194,26 +2727,29 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     })}
                   </div>
                 ) : (
-                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "auto", WebkitOverflowScrolling: "touch" as any }}>
-                    <table style={{ width: "100%", minWidth: "400px", borderCollapse: "collapse", color: "#fff" }}>
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "visible", WebkitOverflowScrolling: "touch" as any }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
                       <thead>
-                        <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
-                          <th style={{ padding: "12px", textAlign: "center" }}>Rank</th>
-                          <th style={{ padding: "12px", textAlign: "left" }}>
-                            {tournament?.tournament_type === 'special' ? "Participant Manager" : "Club"}
+                        <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "6%" }}>#</th>
+                          <th style={{ padding: "10px 4px", textAlign: "left", width: "26%" }}>
+                            {tournament?.tournament_type === 'special' ? "Participant" : "Club"}
                           </th>
-                          <th style={{ padding: "12px", textAlign: "center" }}>P</th>
-                          <th style={{ padding: "12px", textAlign: "center" }}>GF</th>
-                          <th style={{ padding: "12px", textAlign: "center" }}>GA</th>
-                          <th style={{ padding: "12px", textAlign: "center" }}>GD</th>
-                          <th style={{ padding: "12px", textAlign: "center" }}>PTS</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>MP</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>W</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>D</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>L</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GF</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GA</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%" }}>GD</th>
+                          <th style={{ padding: "10px 4px", textAlign: "center", width: "8%", fontWeight: "bold", color: "#fbbf24" }}>PTS</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {standings.map((row: any, idx: number) => (
-                          <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                            <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
-                            <td style={{ padding: "12px", textAlign: "left" }}>
+                        {standingsWithStats.map((row: any, idx: number) => (
+                          <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: "0.78rem" }}>
+                            <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: "bold" }}>{idx + 1}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "left" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 {row.club_logo && <img src={row.club_logo} alt="" style={tournament?.tournament_type === 'special' ? { width: "24px", height: "24px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "20px", height: "20px", objectFit: "contain" }} />}
                                 <div>
@@ -2226,11 +2762,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 </div>
                               </div>
                             </td>
-                            <td style={{ padding: "12px", textAlign: "center" }}>{row.matches_played}</td>
-                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_scored}</td>
-                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goals_against}</td>
-                            <td style={{ padding: "12px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
-                            <td style={{ padding: "12px", textAlign: "center", fontWeight: "bold", color: "#c084fc" }}>{row.points}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.matches_played}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.wins}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.draws}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.losses}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goals_for}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goals_against}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center" }}>{row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}</td>
+                            <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2244,7 +2783,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {activeTab === "fixtures" && (
               <div>
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                  ROUND {activeRound} MATCH CALENDAR
+                  {activeRound === "all" ? "ALL ROUNDS MATCH CALENDAR" : `ROUND ${activeRound} MATCH CALENDAR`}
                 </div>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
@@ -2252,7 +2791,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 ) : roundFixtures.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                    No matches scheduled for Round {activeRound}.
+                    {activeRound === "all" ? "No matches scheduled." : `No matches scheduled for Round ${activeRound}.`}
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
