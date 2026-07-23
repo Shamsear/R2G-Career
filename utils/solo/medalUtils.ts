@@ -211,12 +211,28 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
     if (s.competitions && typeof s.competitions === 'object') {
       Object.keys(s.competitions).forEach(comp => {
         const lower = comp.toLowerCase();
-        // Division check
-        if (lower.includes('division 5')) seasonsInDiv5++;
-        if (lower.includes('division 4')) seasonsInDiv4++;
-        if (lower.includes('division 3')) seasonsInDiv3++;
-        if (lower.includes('division 2')) seasonsInDiv2++;
-        if (lower.includes('division 1')) seasonsInDiv1++;
+        // Division check - higher divisions automatically credit/include all lower divisions
+        if (lower.includes('division 1')) {
+          seasonsInDiv1++;
+          seasonsInDiv2++;
+          seasonsInDiv3++;
+          seasonsInDiv4++;
+          seasonsInDiv5++;
+        } else if (lower.includes('division 2')) {
+          seasonsInDiv2++;
+          seasonsInDiv3++;
+          seasonsInDiv4++;
+          seasonsInDiv5++;
+        } else if (lower.includes('division 3')) {
+          seasonsInDiv3++;
+          seasonsInDiv4++;
+          seasonsInDiv5++;
+        } else if (lower.includes('division 4')) {
+          seasonsInDiv4++;
+          seasonsInDiv5++;
+        } else if (lower.includes('division 5')) {
+          seasonsInDiv5++;
+        }
 
         if (lower.includes('ucl') || lower.includes('ucel')) {
           uclParticipations++;

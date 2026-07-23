@@ -42,6 +42,7 @@ export default function CustomSelect({
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 180 });
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +84,21 @@ export default function CustomSelect({
     setIsOpen(!isOpen);
   };
 
+  const filteredOptions = showSearch
+    ? options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : options;
+
+  // Initialize and reset focusedIndex when dropdown opens or query changes
+  useEffect(() => {
+    if (isOpen) {
+      const idx = filteredOptions.findIndex((opt) => String(opt.value) === String(value));
+      setFocusedIndex(idx >= 0 ? idx : 0);
+    } else {
+      setFocusedIndex(-1);
+    }
+  }, [isOpen, searchQuery, value]);
+
+  // Click outside, scroll, resize, and keyboard listeners
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery("");
@@ -108,19 +124,69 @@ export default function CustomSelect({
       updatePosition();
     }
 
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsOpen(false);
+        buttonRef.current?.focus();
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (filteredOptions.length === 0) return -1;
+          const next = prev + 1;
+          return next >= filteredOptions.length ? 0 : next;
+        });
+        return;
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (filteredOptions.length === 0) return -1;
+          const next = prev - 1;
+          return next < 0 ? filteredOptions.length - 1 : next;
+        });
+        return;
+      }
+
+      if (e.key === "Enter") {
+        if (focusedIndex >= 0 && focusedIndex < filteredOptions.length) {
+          e.preventDefault();
+          const opt = filteredOptions[focusedIndex];
+          if (!opt.disabled) {
+            onChange(opt.value);
+            setIsOpen(false);
+            buttonRef.current?.focus();
+          }
+        }
+        return;
+      }
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
     window.addEventListener("resize", handleResize);
     window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, filteredOptions, focusedIndex]);
 
-  const filteredOptions = showSearch
-    ? options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
-    : options;
+  // Scroll focused option into view automatically
+  useEffect(() => {
+    if (isOpen && focusedIndex >= 0 && dropdownRef.current) {
+      const el = dropdownRef.current.querySelector(`[data-index="${focusedIndex}"]`);
+      if (el) {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [focusedIndex, isOpen]);
 
   const menuContent = isOpen && (
     <div
@@ -188,15 +254,23 @@ export default function CustomSelect({
           No options found
         </div>
       ) : (
-        filteredOptions.map((opt) => {
+        filteredOptions.map((opt, index) => {
           const isSelected = String(opt.value) === String(value);
+          const isFocused = index === focusedIndex;
           return (
             <div
               key={String(opt.value)}
+              data-index={index}
               onClick={() => {
                 if (opt.disabled) return;
                 onChange(opt.value);
                 setIsOpen(false);
+                buttonRef.current?.focus();
+              }}
+              onMouseEnter={() => {
+                if (!opt.disabled) {
+                  setFocusedIndex(index);
+                }
               }}
               style={{
                 display: "flex",
@@ -207,16 +281,14 @@ export default function CustomSelect({
                 fontSize: "0.78rem",
                 fontWeight: isSelected ? "bold" : "normal",
                 color: opt.disabled ? "rgba(255, 255, 255, 0.3)" : isSelected ? "#fbbf24" : "#e2e8f0",
-                background: isSelected ? "rgba(168, 85, 247, 0.25)" : "transparent",
+                background: isSelected 
+                  ? "rgba(168, 85, 247, 0.25)" 
+                  : isFocused 
+                    ? "rgba(255, 255, 255, 0.08)" 
+                    : "transparent",
                 cursor: opt.disabled ? "not-allowed" : "pointer",
                 transition: "all 0.15s ease",
                 opacity: opt.disabled ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (!isSelected && !opt.disabled) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-              }}
-              onMouseLeave={(e) => {
-                if (!isSelected && !opt.disabled) e.currentTarget.style.background = "transparent";
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -238,6 +310,13 @@ export default function CustomSelect({
         type="button"
         onClick={toggleDropdown}
         disabled={disabled}
+        onKeyDown={(e) => {
+          if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            setIsOpen(true);
+            updatePosition();
+          }
+        }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -277,8 +356,7 @@ export default function CustomSelect({
           }}
         />
       </button>
-
-      {mounted && isOpen && createPortal(menuContent, document.body)}
+      {mounted && createPortal(menuContent, document.body)}
     </div>
   );
 }

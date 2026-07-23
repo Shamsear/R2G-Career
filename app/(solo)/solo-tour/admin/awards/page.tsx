@@ -35,6 +35,7 @@ export default function PlayerAwardsManager() {
 
   // Multiple nominees selection state
   const [selectedNominees, setSelectedNominees] = useState<string[]>([]);
+  const [nomineeSearch, setNomineeSearch] = useState("");
 
   const [awardForm, setAwardForm] = useState({
     playerId: "", // holds the club ID for Winner/Runner Up
@@ -163,6 +164,7 @@ export default function PlayerAwardsManager() {
           rewardVoucher: 0
         }));
         setSelectedNominees([]);
+        setNomineeSearch("");
         setCustomTypeVal("");
         setIsCustomType(false);
         loadSeasonData();
@@ -438,6 +440,46 @@ export default function PlayerAwardsManager() {
                     {awardForm.position === "Nominee" ? (
                       <div className="admin-form-group">
                         <label><i className="fa-solid fa-list-check" /> Select Nominated Teams (Season {selectedSeasonNumber})</label>
+                        
+                        {/* Checklist Search Input */}
+                        <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: "0.5rem" }}>
+                          <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />
+                          <input
+                            type="text"
+                            placeholder="Type to filter teams..."
+                            value={nomineeSearch}
+                            onChange={(e) => setNomineeSearch(e.target.value)}
+                            style={{
+                              width: "100%",
+                              background: "rgba(0, 0, 0, 0.4)",
+                              border: "1px solid rgba(168, 85, 247, 0.3)",
+                              borderRadius: "6px",
+                              padding: "6px 10px 6px 30px",
+                              fontSize: "0.8rem",
+                              color: "#fff",
+                              outline: "none",
+                              transition: "all 0.2s ease"
+                            }}
+                          />
+                          {nomineeSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setNomineeSearch("")}
+                              style={{
+                                position: "absolute",
+                                right: "10px",
+                                background: "transparent",
+                                border: "none",
+                                color: "rgba(255,255,255,0.4)",
+                                cursor: "pointer",
+                                fontSize: "0.8rem"
+                              }}
+                            >
+                              <i className="fa-solid fa-xmark" />
+                            </button>
+                          )}
+                        </div>
+
                         <div style={{
                           display: "grid",
                           gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
@@ -447,44 +489,49 @@ export default function PlayerAwardsManager() {
                           background: "rgba(0, 0, 0, 0.4)",
                           border: "1px solid rgba(168, 85, 247, 0.2)",
                           borderRadius: "8px",
-                          padding: "1rem",
-                          marginTop: "0.5rem"
+                          padding: "1rem"
                         }}>
-                          {clubs.map(c => {
-                            const isChecked = selectedNominees.includes(String(c.id));
-                            return (
-                              <label
-                                key={c.id}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "0.5rem",
-                                  cursor: "pointer",
-                                  fontSize: "0.78rem",
-                                  color: isChecked ? "#fbbf24" : "#e2e8f0",
-                                  padding: "6px 10px",
-                                  borderRadius: "6px",
-                                  background: isChecked ? "rgba(168, 85, 247, 0.15)" : "transparent",
-                                  border: isChecked ? "1px solid rgba(168, 85, 247, 0.2)" : "1px solid transparent",
-                                  transition: "all 0.2s ease"
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedNominees(prev => [...prev, String(c.id)]);
-                                    } else {
-                                      setSelectedNominees(prev => prev.filter(x => x !== String(c.id)));
-                                    }
+                          {clubs
+                            .filter(c => 
+                              c.name.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                              c.manager.toLowerCase().includes(nomineeSearch.toLowerCase()) ||
+                              (c.r2g_id && c.r2g_id.toLowerCase().includes(nomineeSearch.toLowerCase()))
+                            )
+                            .map(c => {
+                              const isChecked = selectedNominees.includes(String(c.id));
+                              return (
+                                <label
+                                  key={c.id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.5rem",
+                                    cursor: "pointer",
+                                    fontSize: "0.78rem",
+                                    color: isChecked ? "#fbbf24" : "#e2e8f0",
+                                    padding: "6px 10px",
+                                    borderRadius: "6px",
+                                    background: isChecked ? "rgba(168, 85, 247, 0.15)" : "transparent",
+                                    border: isChecked ? "1px solid rgba(168, 85, 247, 0.2)" : "1px solid transparent",
+                                    transition: "all 0.2s ease"
                                   }}
-                                  style={{ accentColor: "#eab308" }}
-                                />
-                                <span>{c.name} ({c.manager} - {c.r2g_id || 'N/A'})</span>
-                              </label>
-                            );
-                          })}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedNominees(prev => [...prev, String(c.id)]);
+                                      } else {
+                                        setSelectedNominees(prev => prev.filter(x => x !== String(c.id)));
+                                      }
+                                    }}
+                                    style={{ accentColor: "#eab308" }}
+                                  />
+                                  <span>{c.name} ({c.manager} - {c.r2g_id || 'N/A'})</span>
+                                </label>
+                              );
+                            })}
                         </div>
                       </div>
                     ) : (
