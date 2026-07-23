@@ -44,6 +44,17 @@ export default function SpecialTourFixtures() {
   const [activeTab, setActiveTab] = useState<string>("table");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const viewModeToggled = useRef(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (viewModeToggled.current) return;
+      setViewMode(window.innerWidth < 992 ? "card" : "table");
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Fixtures filtering states
   const [activeRound, setActiveRound] = useState<number>(1);
@@ -433,7 +444,10 @@ export default function SpecialTourFixtures() {
                   <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,0.04)", padding: "3px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
                     <button
                       type="button"
-                      onClick={() => setViewMode("table")}
+                      onClick={() => {
+                        viewModeToggled.current = true;
+                        setViewMode("table");
+                      }}
                       style={{
                         padding: "5px 14px",
                         borderRadius: "6px",
@@ -450,7 +464,10 @@ export default function SpecialTourFixtures() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setViewMode("card")}
+                      onClick={() => {
+                        viewModeToggled.current = true;
+                        setViewMode("card");
+                      }}
                       style={{
                         padding: "5px 14px",
                         borderRadius: "6px",

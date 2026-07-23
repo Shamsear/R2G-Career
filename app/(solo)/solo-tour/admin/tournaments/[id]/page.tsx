@@ -45,13 +45,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const viewModeToggled = useRef(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      setViewMode(mobile ? "card" : "table");
+      if (!viewModeToggled.current) {
+        setViewMode(window.innerWidth < 992 ? "card" : "table");
+      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -1835,7 +1838,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,0.04)", padding: "2px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
                   <button
                     type="button"
-                    onClick={() => setViewMode("table")}
+                    onClick={() => {
+                      viewModeToggled.current = true;
+                      setViewMode("table");
+                    }}
                     style={{
                       padding: "4px 10px",
                       borderRadius: "6px",
@@ -1852,7 +1858,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </button>
                   <button
                     type="button"
-                    onClick={() => setViewMode("card")}
+                    onClick={() => {
+                      viewModeToggled.current = true;
+                      setViewMode("card");
+                    }}
                     style={{
                       padding: "4px 10px",
                       borderRadius: "6px",
