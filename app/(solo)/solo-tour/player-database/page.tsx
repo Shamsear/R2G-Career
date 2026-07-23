@@ -301,14 +301,20 @@ export default function PlayerStatus() {
         }
         .filter-toolbar {
           position: relative !important;
-          z-index: 100 !important;
+          z-index: 150 !important;
           overflow: visible !important;
           margin-bottom: 0.4rem !important;
         }
+        .filter-toolbar.dropdown-active {
+          z-index: 10000 !important;
+        }
         .filter-toolbar-row {
           position: relative !important;
-          z-index: 100 !important;
+          z-index: 150 !important;
           overflow: visible !important;
+        }
+        .filter-toolbar-row.dropdown-active {
+          z-index: 10000 !important;
         }
         .active-filters {
           margin-top: 0.2rem !important;
@@ -472,8 +478,8 @@ export default function PlayerStatus() {
         </div>
 
         {/* Filter toolbar */}
-        <div className="filter-toolbar">
-          <div className="filter-toolbar-row" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <div className={`filter-toolbar ${(starDropdownOpen || clubDropdownOpen) ? "dropdown-active" : ""}`}>
+          <div className={`filter-toolbar-row ${(starDropdownOpen || clubDropdownOpen) ? "dropdown-active" : ""}`} style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
             <div className="toolbar-search" style={{ flex: 1.5 }}>
               <input
                 type="text"
