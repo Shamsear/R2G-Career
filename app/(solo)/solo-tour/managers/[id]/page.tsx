@@ -636,7 +636,10 @@ export default function ManagerDetail() {
                                                                 <span className="stat-label">Profit</span>
                                                             </div>
                                                             <div className="stat-card">
-                                                                <span className="stat-value">{season.session_rewards || 0}M RC</span>
+                                                                <span className="stat-value">
+                                                                    {season.session_rewards || 0}M RC
+                                                                    {Number(season.session_rewards_rt) > 0 ? ` / ${season.session_rewards_rt} RT` : ''}
+                                                                </span>
                                                                 <span className="stat-label">Rewards</span>
                                                             </div>
                                                         </div>

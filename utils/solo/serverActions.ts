@@ -273,6 +273,22 @@ export async function fetchManagerByName(name: string) {
             ORDER BY s.season_number DESC
         `, [m.id]);
 
+        // Fetch token rewards per season for this manager
+        const tokenRewardsMap = new Map<number, number>();
+        try {
+            const { rows: tokenRewardsResult } = await pool.query(`
+                SELECT season_id, COALESCE(SUM(amount), 0)::int as total_rt
+                FROM wallet_transactions
+                WHERE manager_id = $1 AND currency_type = 'token' AND amount > 0
+                GROUP BY season_id
+            `, [m.id]);
+            tokenRewardsResult.forEach((row: any) => {
+                tokenRewardsMap.set(Number(row.season_id), Number(row.total_rt));
+            });
+        } catch (e) {
+            console.error("Error querying token rewards per season:", e);
+        }
+
         const normSeason = (val: any) => val ? String(val).toLowerCase().replace(/[^0-9]/g, '') : '';
         const mgrIdStr = String(m.id || '').trim();
         const r2gIdStr = String(m.r2g_id || '').trim();
@@ -381,6 +397,8 @@ export async function fetchManagerByName(name: string) {
 
             const combinedAwards = [...seasonDbAwards, ...paAwards, ...newAwdFormatted];
 
+            const sessionRewardsRt = tokenRewardsMap.get(Number(s.season_id)) || 0;
+
             return {
                 number: s.season_number,
                 manager_rank: s.manager_rank || 0,
@@ -389,6 +407,7 @@ export async function fetchManagerByName(name: string) {
                 team_expense: s.team_expense || 0,
                 team_profit: s.team_profit || 0,
                 session_rewards: s.session_rewards || 0,
+                session_rewards_rt: sessionRewardsRt,
                 sp_tour_stats: {
                     matches: s.matches_played || 0,
                     wins: s.wins || 0,
