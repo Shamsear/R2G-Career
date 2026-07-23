@@ -718,7 +718,14 @@ export async function fetchPlayerAuctionData() {
 
 export async function fetchManagerRanking() {
     try {
-        const { rows: result } = await pool.query(`SELECT m.name, ms.manager_rank as rank, ms.rank_points as score, m.avatar_path as img FROM managers m JOIN manager_seasons ms ON m.id = ms.manager_id WHERE m.is_active IS NOT FALSE ORDER BY ms.manager_rank ASC NULLS LAST`);
+        const { rows: result } = await pool.query(`
+            SELECT m.name, ms.manager_rank as rank, ms.rank_points as score, m.avatar_path as img 
+            FROM managers m 
+            JOIN manager_seasons ms ON m.id = ms.manager_id 
+            WHERE m.is_active IS NOT FALSE 
+              AND ms.season_id = (SELECT id FROM seasons ORDER BY season_number DESC LIMIT 1)
+            ORDER BY ms.manager_rank ASC NULLS LAST
+        `);
         return result;
     } catch (e) { console.error(e); return []; }
 }
@@ -7060,6 +7067,51 @@ export async function fetchRegisteredClubsForSeason(seasonId: string | number) {
   }
 }
 
+export async function fetchSoloTrophyCabinetItems(seasonKey?: string) {
+  try {
+    let queryStr = `SELECT * FROM solo_trophy_cabinet`;
+    const params: any[] = [];
+    if (seasonKey) {
+      queryStr += ` WHERE season_key = $1`;
+      params.push(seasonKey);
+    }
+    queryStr += ` ORDER BY category DESC, display_order ASC, id ASC`;
+    const { rows } = await pool.query(queryStr, params);
+    return rows;
+  } catch (error) {
+    console.error("Error fetching solo trophy cabinet items:", error);
+    return [];
+  }
+}
 
+export async function addSoloTrophyCabinetItem(seasonKey: string, category: 'trophy' | 'award', imageUrl: string) {
+  try {
+    const { rows: orderRows } = await pool.query(`
+      SELECT COALESCE(MAX(display_order), 0) + 1 as next_order 
+      FROM solo_trophy_cabinet 
+      WHERE season_key = $1 AND category = $2
+    `, [seasonKey, category]);
+    const displayOrder = orderRows[0].next_order;
 
+    const { rows } = await pool.query(`
+      INSERT INTO solo_trophy_cabinet (season_key, category, image_url, display_order)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [seasonKey, category, imageUrl, displayOrder]);
+    return { success: true, item: rows[0] };
+  } catch (error: any) {
+    console.error("Error adding solo trophy cabinet item:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteSoloTrophyCabinetItem(id: number) {
+  try {
+    await pool.query(`DELETE FROM solo_trophy_cabinet WHERE id = $1`, [id]);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting solo trophy cabinet item:", error);
+    return { success: false, error: error.message };
+  }
+}
 

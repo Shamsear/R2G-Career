@@ -38,22 +38,6 @@ const NAV_CARDS = [
     delay: 80,
   },
   {
-    href: "/solo-tour/career-mode/special-tours",
-    bgImg: "/assets/images/portal/ranking_bg.png",
-    badge: "Special Tours",
-    badgeIcon: "fa-solid fa-star",
-    title: "SPECIAL TOURS",
-    desc: "Inspect active special tournaments, cup clashes, brackets and exhibition matches.",
-    highlights: [
-      { icon: "fa-solid fa-star", label: "Special Cups" },
-      { icon: "fa-solid fa-award", label: "Exhibition Clashes" },
-      { icon: "fa-solid fa-calendar-days", label: "Match Calendars" },
-    ],
-    action: "Open Tours",
-    target: "_self",
-    delay: 120,
-  },
-  {
     href: "/solo-tour/career-mode/fixtures",
     bgImg: "/assets/images/careerhome/fixtures_bg.png",
     badge: "Fixtures",

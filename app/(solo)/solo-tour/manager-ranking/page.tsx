@@ -107,13 +107,20 @@ export default function ManagerRanking() {
             <ul className="moze-gallery pictures animate-gallery">
               {filteredManagers.map((manager, index) => (
                 <li
-                  key={manager.rank}
+                  key={manager.rank || index}
                   className="manager-card-rank animate-stat"
                   style={{ animationDelay: `${(index % 8) * 0.05}s` }}
                 >
-                  <div className="manager-img-frame">
-                    <img src={manager.img} alt={manager.name} loading="lazy" />
-                  </div>
+                  <Link href={`/solo-tour/managers/${encodeURIComponent(manager.name)}`} style={{ textDecoration: 'none', width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div className="manager-img-frame">
+                      <img src={manager.img} alt={manager.name} loading="lazy" />
+                      <span className="manager-rank-badge">#{manager.rank || index + 1}</span>
+                    </div>
+                    <div className="manager-card-info">
+                      <span className="manager-card-name" title={manager.name}>{manager.name}</span>
+                      <span className="manager-card-score">{manager.score || 0} PTS</span>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -124,18 +131,6 @@ export default function ManagerRanking() {
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              Rankings: Live Update
-            </div>
-            <div className="status-item">R2G Career Mode</div>
-          </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
       </div>
     </div>
   );

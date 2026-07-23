@@ -1,20 +1,20 @@
+const { Pool } = require('pg');
 require('dotenv').config({ path: '.env.local' });
-const { neon } = require('@neondatabase/serverless');
 
-async function checkSeasons() {
-  const sql = neon(process.env.NEON_TOURNAMENT_DB_URL);
+const pool = new Pool({
+  connectionString: process.env.SOLO_DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-  const seasons = await sql`
-    SELECT DISTINCT season_id, COUNT(*) as player_count
-    FROM player_seasons
-    GROUP BY season_id
-    ORDER BY season_id DESC
-  `;
-
-  console.log('Available seasons:');
-  seasons.forEach(s => {
-    console.log(`  ${s.season_id}: ${s.player_count} players`);
-  });
+async function run() {
+  const result = await pool.query(`
+    SELECT id, season_number 
+    FROM seasons 
+    ORDER BY season_number DESC
+  `);
+  console.log('Seasons in database:');
+  result.rows.forEach(r => console.log(`  - ID: ${r.id}, Number: ${r.season_number}`));
+  
+  process.exit(0);
 }
-
-checkSeasons();
+run().catch(console.error);

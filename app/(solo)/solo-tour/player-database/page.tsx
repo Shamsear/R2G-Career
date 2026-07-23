@@ -10,10 +10,10 @@ const STORAGE_KEY = "r2g_solo_player_db_filters";
 
 const TIER_OPTIONS = [
   { value: "all", label: "All Tiers", badge: "ALL" },
-  { value: "legend", label: "Legend (150+ Coins)", badge: "PRIME" },
-  { value: "5-star", label: "5★ Standard (120-149 Coins)", badge: "5★" },
-  { value: "4-star", label: "4★ Standard (100-119 Coins)", badge: "4★" },
-  { value: "3-star", label: "3★ Standard (<100 Coins)", badge: "3★" }
+  { value: "legend", label: "Legend", badge: "PRIME" },
+  { value: "5-star", label: "5★ Standard", badge: "5★" },
+  { value: "4-star", label: "4★ Standard", badge: "4★" },
+  { value: "3-star", label: "3★ Standard", badge: "3★" }
 ];
 
 export default function PlayerStatus() {
@@ -290,6 +290,14 @@ export default function PlayerStatus() {
             min-width: 100% !important;
             flex: none !important;
           }
+          .custom-dropdown-trigger {
+            background: #131824 !important;
+            opacity: 1 !important;
+          }
+          .custom-dropdown-menu {
+            background: #131824 !important;
+            opacity: 1 !important;
+          }
         }
         .filter-toolbar {
           position: relative !important;
@@ -321,15 +329,22 @@ export default function PlayerStatus() {
         .card {
           margin-top: 0 !important;
         }
+        @keyframes adminFadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .custom-filter-dropdown {
           position: relative !important;
           z-index: 110 !important;
           min-width: 170px;
           flex: 1;
         }
+        .custom-filter-dropdown.dropdown-active {
+          z-index: 10000 !important;
+        }
         .custom-dropdown-trigger {
-          background: rgba(16, 21, 31, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: #101524 !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
           border-radius: 10px;
           padding: 9px 14px;
           color: #fff;
@@ -342,10 +357,11 @@ export default function PlayerStatus() {
           gap: 8px;
           user-select: none;
           transition: all 0.2s ease;
+          opacity: 1 !important;
         }
         .custom-dropdown-trigger:hover {
           border-color: var(--solo-primary, #6366f1);
-          background: rgba(255, 255, 255, 0.05);
+          background: #171d30 !important;
         }
         .custom-dropdown-menu {
           position: absolute !important;
@@ -353,13 +369,14 @@ export default function PlayerStatus() {
           left: 0 !important;
           right: 0 !important;
           margin-top: 6px !important;
-          background: #131824 !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          background: #101524 !important;
+          border: 1px solid rgba(255, 255, 255, 0.18) !important;
           border-radius: 12px !important;
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(99, 102, 241, 0.2) !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(99, 102, 241, 0.2) !important;
           z-index: 9999 !important;
           overflow: hidden !important;
           animation: adminFadeIn 0.18s ease !important;
+          opacity: 1 !important;
         }
         .cards-wrapper {
           position: relative !important;
@@ -474,7 +491,7 @@ export default function PlayerStatus() {
             </div>
 
             {/* CUSTOM SEARCHABLE TIER DROPDOWN */}
-            <div className="custom-filter-dropdown" data-star-filter-dropdown="true">
+            <div className={`custom-filter-dropdown ${starDropdownOpen ? "dropdown-active" : ""}`} data-star-filter-dropdown="true">
               <div
                 className="custom-dropdown-trigger"
                 onClick={() => setStarDropdownOpen(prev => !prev)}
@@ -529,7 +546,7 @@ export default function PlayerStatus() {
             </div>
 
             {/* CUSTOM SEARCHABLE CLUB DROPDOWN */}
-            <div className="custom-filter-dropdown" data-club-filter-dropdown="true">
+            <div className={`custom-filter-dropdown ${clubDropdownOpen ? "dropdown-active" : ""}`} data-club-filter-dropdown="true">
               <div
                 className="custom-dropdown-trigger"
                 onClick={() => setClubDropdownOpen(prev => !prev)}

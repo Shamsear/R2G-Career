@@ -1225,31 +1225,75 @@ body {
   gap: 1rem;
   list-style: none;
 }
+.manager-card-rank {
+  background: rgba(14, 16, 26, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+}
+.manager-card-rank:hover {
+  transform: translateY(-4px);
+  border-color: var(--rose-border);
+  box-shadow: 0 8px 24px rgba(244, 63, 94, 0.16);
+}
 .manager-img-frame {
   aspect-ratio: 3/4;
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--bg-elevated);
-  transition: transform 0.3s ease, border-color 0.3s ease;
-  cursor: pointer;
-}
-.manager-img-frame:hover {
-  transform: scale(1.03);
-  border-color: var(--rose-border);
+  width: 100%;
+  position: relative;
 }
 .manager-img-frame img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
-
-.manager-card-rank {
+.manager-rank-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--rose, #f43f5e);
+  color: white;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  z-index: 2;
+}
+.manager-card-info {
   display: flex;
-  align-items: center;
-  justify-content: center;
   flex-direction: column;
-  cursor: pointer;
+  gap: 2px;
+  text-align: center;
+  padding: 0.2rem 0;
+  width: 100%;
+}
+.manager-card-name {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--white, #ffffff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.manager-card-score {
+  font-size: 0.75rem;
+  color: var(--rose-light, #fb7185);
+  font-weight: 800;
+  font-family: var(--font-mono), monospace;
+  text-transform: uppercase;
 }
 .animate-stat { animation: slideUpFade 0.5s var(--ease-out) both; }
 
@@ -1414,38 +1458,100 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 1.1rem 1.5rem;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-soft);
+  padding: 1.25rem 1.75rem;
+  background: rgba(14, 16, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-xl);
   cursor: pointer;
   color: var(--text-primary);
   font-family: var(--font-body);
-  text-align: left;
-  transition: background 0.25s ease, border-color 0.25s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
 }
-.season-box:hover { background: rgba(255,255,255,0.06); border-color: var(--rose-border); }
-.season-box.active { border-color: var(--rose-border); background: var(--rose-dim); }
+.season-box:hover {
+  background: rgba(14, 16, 26, 0.85);
+  border-color: rgba(244, 63, 94, 0.4);
+  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.12);
+}
+.season-box.active {
+  border-color: rgba(244, 63, 94, 0.5);
+  background: rgba(244, 63, 94, 0.08);
+  box-shadow: 0 8px 30px rgba(244, 63, 94, 0.15);
+}
+.season-box-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
 .season-box h1 {
   font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 800;
   color: var(--white);
-  flex: 1;
+  margin: 0;
+  letter-spacing: 0.5px;
 }
 .season-number {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--rose-lighter);
-  background: var(--rose-dim);
-  border: 1px solid var(--rose-border);
-  border-radius: var(--radius-full);
-  padding: 0.2rem 0.6rem;
+  background: rgba(244, 63, 94, 0.2);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0.65rem;
 }
-.season-arrow { color: var(--text-secondary); font-size: 0.85rem; transition: transform 0.3s ease; }
+.season-box-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.season-stats-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+.season-stat-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+.season-stat-badge.trophies-badge i {
+  color: #fbbf24;
+}
+.season-stat-badge.awards-badge i {
+  color: #60a5fa;
+}
+.season-box:hover .season-stat-badge {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+.season-box.active .season-stat-badge {
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.2);
+  color: var(--rose-lighter);
+}
+.season-arrow {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: transform 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
 .fa-chevron-down.rotate-up { transform: rotate(180deg); }
 
 .season-content-wrapper {
@@ -1475,20 +1581,42 @@ body {
 .trophy-gallery { width: 100%; }
 .trophy-gallery .moze-gallery.pictures {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.25rem;
 }
 .trophy-frame {
-  aspect-ratio: 4/3;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   overflow: hidden;
   cursor: zoom-in;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  transition: transform 0.3s ease, border-color 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.01);
+  background: transparent;
+  padding: 0.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
-.trophy-frame:hover { transform: scale(1.04); border-color: var(--gold-border); }
-.trophy-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trophy-frame::before {
+  display: none;
+}
+.trophy-frame:hover {
+  transform: translateY(-4px) scale(1.04);
+}
+.trophy-frame img {
+  width: 100%; height: auto;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+.trophy-frame:hover img {
+  transform: scale(1.03);
+  filter: drop-shadow(0 10px 20px rgba(251, 191, 36, 0.45));
+}
+.trophy-section:last-of-type .trophy-frame:hover img {
+  filter: drop-shadow(0 10px 20px rgba(96, 165, 250, 0.45));
+}
 
 /* ─── Lightbox Modal ─────────────────────────────────────────────────────────── */
 .guide-modal {
@@ -1931,6 +2059,10 @@ body {
   .stats-preview { flex-direction: column; }
   .clubs-header-container { flex-direction: column; }
   .clubs-search-wrapper { max-width: 100%; }
+  .trophy-gallery .moze-gallery.pictures {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.85rem;
+  }
 }
 
 /* Mobile */
@@ -1943,7 +2075,35 @@ body {
   .guide-modal-content { border-radius: var(--radius-lg); }
   .tournament-pair-images { grid-template-columns: 1fr; }
   .moze-gallery.pictures { grid-template-columns: repeat(2, 1fr); }
-  .trophy-gallery .moze-gallery.pictures { grid-template-columns: repeat(2, 1fr); }
+  .trophy-gallery .moze-gallery.pictures {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  .trophy-gallery .trophy-frame {
+    padding: 0.5rem;
+    border-radius: 8px;
+  }
+  .season-box {
+    padding: 0.85rem 1rem;
+    gap: 0.5rem;
+  }
+  .season-box-left {
+    gap: 0.75rem;
+  }
+  .season-box h1 {
+    font-size: 1rem;
+  }
+  .season-number {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+  }
+  .season-stats-badges {
+    gap: 0.25rem;
+  }
+  .season-stat-badge {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.65rem;
+  }
   .managers-container { grid-template-columns: 1fr; }
   .portal-stats-ribbon { padding: 0.4rem 0.75rem; }
   .stat-pill { font-size: 0.72rem; }

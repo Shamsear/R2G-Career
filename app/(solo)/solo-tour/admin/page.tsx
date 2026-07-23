@@ -162,6 +162,13 @@ const ADMIN_MODULES = [
     title: "Appearances Ledger",
     desc: "Log matchday squad appearances, check matches played, and process/revert salary changes.",
   },
+  {
+    href: "/solo-tour/admin/trophies",
+    icon: "fa-solid fa-trophy",
+    accent: "awards",
+    title: "Solo Trophy Cabinet",
+    desc: "Manage and upload legacy trophies, individual awards, and seasonal cups shown in the gallery.",
+  },
 ];
 
 function AdminDashboardContent() {

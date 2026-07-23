@@ -1,14 +1,151 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import "../../../portal.css";
+import { fetchSoloTrophyCabinetItems } from "@/utils/solo/serverActions";
+
+const STATIC_SEASONS_DATA = [
+  {
+    id: "season7",
+    name: "SEASON 7",
+    trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/s7t${i + 1}.webp`),
+    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s7a${i + 1}.webp`),
+  },
+  {
+    id: "season6",
+    name: "SEASON 6",
+    trophies: [
+      "/assets/images/trophy/s6t1.webp",
+      "/assets/images/trophy/s6t12.webp",
+      ...Array.from({ length: 10 }, (_, i) => `/assets/images/trophy/s6t${i + 2}.webp`),
+    ],
+    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s6a${i + 1}.webp`),
+  },
+  {
+    id: "season5",
+    name: "SEASON 5",
+    trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/3t${i + 1}.webp`),
+    awards: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/3a${i + 1}.webp`),
+  },
+  {
+    id: "season4",
+    name: "SEASON 4",
+    trophies: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/t${i + 1}.webp`),
+    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/ta${i + 1}.webp`),
+  },
+  {
+    id: "season2",
+    name: "SEASON 2",
+    trophies: [
+      "/assets/images/trophy/elitet2.webp",
+      "/assets/images/trophy/div1t2.webp",
+      "/assets/images/trophy/div2t2.webp",
+      "/assets/images/trophy/uclt.webp",
+      "/assets/images/trophy/uelt.webp",
+      "/assets/images/trophy/ueclt.webp",
+      "/assets/images/trophy/trio.webp",
+      "/assets/images/trophy/special.webp",
+      "/assets/images/trophy/divcup.webp",
+      "/assets/images/trophy/tos.webp",
+    ],
+    awards: [
+      "/assets/images/trophy/best.webp",
+      "/assets/images/trophy/ballen.webp",
+      "/assets/images/trophy/muller.webp",
+      "/assets/images/trophy/yashin.webp",
+      "/assets/images/trophy/golden.webp",
+      "/assets/images/trophy/maldini.webp",
+    ],
+  },
+  {
+    id: "season1",
+    name: "SEASON 1",
+    trophies: [
+      "/assets/images/trophy/elitet.webp",
+      "/assets/images/trophy/div1t.webp",
+      "/assets/images/trophy/div2t.webp",
+      "/assets/images/trophy/kingt.webp",
+      "/assets/images/trophy/supert.webp",
+      "/assets/images/trophy/divg.webp",
+      "/assets/images/trophy/eurot.webp",
+      "/assets/images/trophy/team.webp",
+    ],
+    awards: [
+      "/assets/images/trophy/a1.webp",
+      "/assets/images/trophy/a2.webp",
+      "/assets/images/trophy/gerd.webp",
+      "/assets/images/trophy/a4.webp",
+      "/assets/images/trophy/a5.webp",
+      "/assets/images/trophy/a6.webp",
+    ],
+  },
+];
 
 export default function TrophyCabinet() {
   const [expandedSeasons, setExpandedSeasons] = useState<Record<string, boolean>>({
     season7: true,
   });
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const [seasonsData, setSeasonsData] = useState<any[]>(STATIC_SEASONS_DATA);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const items = await fetchSoloTrophyCabinetItems();
+        if (items && items.length > 0) {
+          const grouped: Record<string, { trophies: string[], awards: string[] }> = {};
+          items.forEach((item: any) => {
+            const key = item.season_key;
+            if (!grouped[key]) {
+              grouped[key] = { trophies: [], awards: [] };
+            }
+            if (item.category === 'trophy') {
+              grouped[key].trophies.push(item.image_url);
+            } else if (item.category === 'award') {
+              grouped[key].awards.push(item.image_url);
+            }
+          });
+
+          const allSeasonKeys = Array.from(new Set([
+            ...Object.keys(grouped),
+            ...STATIC_SEASONS_DATA.map(s => s.id)
+          ]));
+
+          allSeasonKeys.sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+            const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+            return numB - numA;
+          });
+
+          const formatted = allSeasonKeys.map(key => {
+            const seasonNum = key.replace(/\D/g, "");
+            const name = `SEASON ${seasonNum}`;
+            const staticItem = STATIC_SEASONS_DATA.find(s => s.id === key);
+            
+            return {
+              id: key,
+              name,
+              trophies: grouped[key]?.trophies || staticItem?.trophies || [],
+              awards: grouped[key]?.awards || staticItem?.awards || [],
+            };
+          });
+
+          const filtered = formatted.filter(s => s.trophies.length > 0 || s.awards.length > 0);
+          setSeasonsData(filtered);
+          if (filtered.length > 0) {
+            setExpandedSeasons({ [filtered[0].id]: true });
+          }
+        }
+      } catch (err) {
+        console.error("Error loading dynamic trophies:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   const toggleSeason = (seasonId: string) => {
     setExpandedSeasons((prev) => ({ ...prev, [seasonId]: !prev[seasonId] }));
@@ -16,83 +153,6 @@ export default function TrophyCabinet() {
 
   const openModal = (src: string) => setModalImage(src);
   const closeModal = () => setModalImage(null);
-
-  const seasonsData = [
-    {
-      id: "season7",
-      name: "SEASON 7",
-      trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/s7t${i + 1}.webp`),
-      awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s7a${i + 1}.webp`),
-    },
-    {
-      id: "season6",
-      name: "SEASON 6",
-      trophies: [
-        "/assets/images/trophy/s6t1.webp",
-        "/assets/images/trophy/s6t12.webp",
-        ...Array.from({ length: 10 }, (_, i) => `/assets/images/trophy/s6t${i + 2}.webp`),
-      ],
-      awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s6a${i + 1}.webp`),
-    },
-    {
-      id: "season5",
-      name: "SEASON 5",
-      trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/3t${i + 1}.webp`),
-      awards: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/3a${i + 1}.webp`),
-    },
-    {
-      id: "season4",
-      name: "SEASON 4",
-      trophies: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/t${i + 1}.webp`),
-      awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/ta${i + 1}.webp`),
-    },
-    {
-      id: "season2",
-      name: "SEASON 2",
-      trophies: [
-        "/assets/images/trophy/elitet2.webp",
-        "/assets/images/trophy/div1t2.webp",
-        "/assets/images/trophy/div2t2.webp",
-        "/assets/images/trophy/uclt.webp",
-        "/assets/images/trophy/uelt.webp",
-        "/assets/images/trophy/ueclt.webp",
-        "/assets/images/trophy/trio.webp",
-        "/assets/images/trophy/special.webp",
-        "/assets/images/trophy/divcup.webp",
-        "/assets/images/trophy/tos.webp",
-      ],
-      awards: [
-        "/assets/images/trophy/best.webp",
-        "/assets/images/trophy/ballen.webp",
-        "/assets/images/trophy/muller.webp",
-        "/assets/images/trophy/yashin.webp",
-        "/assets/images/trophy/golden.webp",
-        "/assets/images/trophy/maldini.webp",
-      ],
-    },
-    {
-      id: "season1",
-      name: "SEASON 1",
-      trophies: [
-        "/assets/images/trophy/elitet.webp",
-        "/assets/images/trophy/div1t.webp",
-        "/assets/images/trophy/div2t.webp",
-        "/assets/images/trophy/kingt.webp",
-        "/assets/images/trophy/supert.webp",
-        "/assets/images/trophy/divg.webp",
-        "/assets/images/trophy/eurot.webp",
-        "/assets/images/trophy/team.webp",
-      ],
-      awards: [
-        "/assets/images/trophy/a1.webp",
-        "/assets/images/trophy/a2.webp",
-        "/assets/images/trophy/gerd.webp",
-        "/assets/images/trophy/a4.webp",
-        "/assets/images/trophy/a5.webp",
-        "/assets/images/trophy/a6.webp",
-      ],
-    },
-  ];
 
   return (
     <div className="portal-root-wrapper">
@@ -152,10 +212,27 @@ export default function TrophyCabinet() {
                     onClick={() => toggleSeason(season.id)}
                     aria-expanded={isOpen}
                   >
-                    <div className="season-number">Season</div>
-                    <h1>{season.name}</h1>
-                    <div className="season-arrow">
-                      <i className={`fas fa-chevron-down ${isOpen ? "rotate-up" : ""}`} />
+                    <div className="season-box-left">
+                      <div className="season-number">Season</div>
+                      <h1>{season.name}</h1>
+                    </div>
+                    
+                    <div className="season-box-right">
+                      <div className="season-stats-badges">
+                        {season.trophies.length > 0 && (
+                          <span className="season-stat-badge trophies-badge">
+                            <i className="fa-solid fa-trophy" /> {season.trophies.length} Trophies
+                          </span>
+                        )}
+                        {season.awards.length > 0 && (
+                          <span className="season-stat-badge awards-badge">
+                            <i className="fa-solid fa-award" /> {season.awards.length} Awards
+                          </span>
+                        )}
+                      </div>
+                      <div className="season-arrow">
+                        <i className={`fas fa-chevron-down ${isOpen ? "rotate-up" : ""}`} />
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -221,18 +298,6 @@ export default function TrophyCabinet() {
             );
           })}
         </div>
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              Trophy Archive: Synchronized
-            </div>
-            <div className="status-item">R2G Career Mode</div>
-          </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
       </div>
 
       {/* Lightbox modal */}
