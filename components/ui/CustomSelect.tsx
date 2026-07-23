@@ -164,6 +164,32 @@ export default function CustomSelect({
         }
         return;
       }
+
+      if (e.key.length === 1 && e.key !== " ") {
+        const isTypingInSearch = showSearch && document.activeElement?.tagName === "INPUT";
+        if (!isTypingInSearch) {
+          e.preventDefault();
+          const char = e.key.toLowerCase();
+          
+          const matchingIndices: number[] = [];
+          filteredOptions.forEach((opt, idx) => {
+            if (opt.label.trim().toLowerCase().startsWith(char)) {
+              matchingIndices.push(idx);
+            }
+          });
+
+          if (matchingIndices.length > 0) {
+            const currentMatchIdx = matchingIndices.indexOf(focusedIndex);
+            if (currentMatchIdx !== -1) {
+              const nextMatchIdx = (currentMatchIdx + 1) % matchingIndices.length;
+              setFocusedIndex(matchingIndices[nextMatchIdx]);
+            } else {
+              setFocusedIndex(matchingIndices[0]);
+            }
+          }
+          return;
+        }
+      }
     }
 
     document.addEventListener("mousedown", handleClickOutside);

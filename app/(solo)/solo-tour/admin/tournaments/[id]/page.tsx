@@ -244,7 +244,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     const stats: Record<string, { wins: number; draws: number; losses: number; goals_for: number; goals_against: number }> = {};
     
     standings.forEach(row => {
-      stats[row.club_name] = { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+      stats[row.club_id] = { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
     });
     
     fixtures.forEach(match => {
@@ -253,29 +253,29 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       // ONLY include matches up to and including activeRound!
       if ((match.roundNumber || 1) > activeRound) return;
       
-      const homeName = match.homeClub;
-      const awayName = match.awayClub;
+      const homeId = match.homeClubId;
+      const awayId = match.awayClubId;
       const hs = Number(match.homeScore);
       const as_ = Number(match.awayScore);
       
-      if (stats[homeName]) {
-        stats[homeName].goals_for += hs;
-        stats[homeName].goals_against += as_;
-        if (hs > as_) stats[homeName].wins += 1;
-        else if (hs === as_) stats[homeName].draws += 1;
-        else stats[homeName].losses += 1;
+      if (stats[homeId]) {
+        stats[homeId].goals_for += hs;
+        stats[homeId].goals_against += as_;
+        if (hs > as_) stats[homeId].wins += 1;
+        else if (hs === as_) stats[homeId].draws += 1;
+        else stats[homeId].losses += 1;
       }
-      if (stats[awayName]) {
-        stats[awayName].goals_for += as_;
-        stats[awayName].goals_against += hs;
-        if (as_ > hs) stats[awayName].wins += 1;
-        else if (as_ === hs) stats[awayName].draws += 1;
-        else stats[awayName].losses += 1;
+      if (stats[awayId]) {
+        stats[awayId].goals_for += as_;
+        stats[awayId].goals_against += hs;
+        if (as_ > hs) stats[awayId].wins += 1;
+        else if (as_ === hs) stats[awayId].draws += 1;
+        else stats[awayId].losses += 1;
       }
     });
     
     return standings.map(row => {
-      const s = stats[row.club_name] || { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+      const s = stats[row.club_id] || { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
       const gd = s.goals_for - s.goals_against;
       const pts = s.wins * 3 + s.draws * 1;
       return {
@@ -310,37 +310,35 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
-    const goalsScored: Record<string, { logo: string; manager: string; value: number }> = {};
-    const goalDiff: Record<string, { logo: string; manager: string; value: number }> = {};
-    const cleanSheets: Record<string, { logo: string; manager: string; value: number }> = {};
-    const defensiveStats: Record<string, { logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
+    const goalsScored: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const goalDiff: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const cleanSheets: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
+    const defensiveStats: Record<string, { name: string; logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
     // Initialize all participating teams
     tournamentClubs.forEach(tc => {
+      const id = tc.club_id;
       const name = tc.name;
       const logo = tc.logo_path || "";
       const manager = tc.manager || "Unknown";
-      goalsScored[name] = { logo, manager, value: 0 };
-      goalDiff[name] = { logo, manager, value: 0 };
-      cleanSheets[name] = { logo, manager, value: 0 };
-      defensiveStats[name] = { logo, manager, conceded: 0, matches: 0, value: 0 };
+      goalsScored[id] = { name, logo, manager, value: 0 };
+      goalDiff[id] = { name, logo, manager, value: 0 };
+      cleanSheets[id] = { name, logo, manager, value: 0 };
+      defensiveStats[id] = { name, logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
     // Parse standingsWithStats for goals and goal difference (already calculated and filtered up to activeRound)
     standingsWithStats.forEach(row => {
+      const id = row.club_id;
       const name = row.club_name;
       const logo = row.club_logo || "";
       const manager = row.manager || "Unknown";
-      goalsScored[name] = { 
-        logo, 
-        manager, 
-        value: row.goals_for || 0 
-      };
-      goalDiff[name] = {
-        logo,
-        manager,
-        value: row.goal_difference || 0
-      };
+      if (goalsScored[id]) {
+        goalsScored[id].value = row.goals_for || 0;
+      }
+      if (goalDiff[id]) {
+        goalDiff[id].value = row.goal_difference || 0;
+      }
     });
 
     // Parse fixtures for clean sheets and concedes (filtered up to activeRound)
@@ -351,23 +349,25 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       if (isFinished) {
         const hs = f.homeScore || 0;
         const as = f.awayScore || 0;
+        const homeId = f.homeClubId;
+        const awayId = f.awayClubId;
 
         // Clean Sheets (Golden Glove)
         if (hs === 0) {
-          if (cleanSheets[f.awayClub]) cleanSheets[f.awayClub].value += 1;
+          if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
         }
         if (as === 0) {
-          if (cleanSheets[f.homeClub]) cleanSheets[f.homeClub].value += 1;
+          if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
         }
 
         // Conceded and matches count for Best Defender
-        if (defensiveStats[f.homeClub]) {
-          defensiveStats[f.homeClub].conceded += as;
-          defensiveStats[f.homeClub].matches += 1;
+        if (defensiveStats[homeId]) {
+          defensiveStats[homeId].conceded += as;
+          defensiveStats[homeId].matches += 1;
         }
-        if (defensiveStats[f.awayClub]) {
-          defensiveStats[f.awayClub].conceded += hs;
-          defensiveStats[f.awayClub].matches += 1;
+        if (defensiveStats[awayId]) {
+          defensiveStats[awayId].conceded += hs;
+          defensiveStats[awayId].matches += 1;
         }
       }
     });
@@ -382,23 +382,26 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     });
 
     const sortedBoot = Object.entries(goalsScored)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedBall = Object.entries(goalDiff)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedGlove = Object.entries(cleanSheets)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
       .sort((a, b) => b.value - a.value);
 
     const sortedDefender = Object.values(defensiveStats)
-      .map(ds => {
-        const name = ds.logo ? Object.keys(defensiveStats).find(k => defensiveStats[k] === ds) || "" : "";
-        return { name, ...ds };
-      })
-      .filter(item => item.name !== "")
+      .map(ds => ({
+        name: ds.name,
+        logo: ds.logo,
+        manager: ds.manager,
+        conceded: ds.conceded,
+        matches: ds.matches,
+        value: ds.value
+      }))
       .sort((a, b) => {
         if (a.matches === 0 && b.matches === 0) return 0;
         if (a.matches === 0) return 1;

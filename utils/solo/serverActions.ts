@@ -583,13 +583,11 @@ export async function fetchTournaments() {
     console.error("Error fetching tournaments:", error);
     return [];
   }
-}
-
-export async function fetchFixtures(tournamentId?: number) {
+}export async function fetchFixtures(tournamentId?: number) {
   try {
     let query = `
       SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number,
-             f.match_status, f.match_status_reason, f.group_name,
+             f.match_status, f.match_status_reason, f.group_name, f.home_club_id, f.away_club_id,
              t.name as tournament_name, t.tournament_type,
              hc.name as home_club_name, hc.logo_path as home_club_logo, hm.name as home_manager, hm.avatar_path as home_manager_avatar, hm.r2g_id as home_r2g_id,
              tth.custom_team_name as home_custom_name, tth.use_existing_club as home_use_existing, tth.custom_logo_path as home_custom_logo,
@@ -633,10 +631,12 @@ export async function fetchFixtures(tournamentId?: number) {
         homeLogo: homeLogo,
         homeManager: r.home_manager || "Unknown",
         homeR2gId: r.home_r2g_id,
+        homeClubId: r.home_club_id,
         awayClub: awayName,
         awayLogo: awayLogo,
         awayManager: r.away_manager || "Unknown",
         awayR2gId: r.away_r2g_id,
+        awayClubId: r.away_club_id,
         homeScore: r.home_score,
         awayScore: r.away_score,
         roundNumber: r.round_number,
@@ -2749,7 +2749,7 @@ export async function syncManagerSeasonsAwards(managerId: string | number, seaso
       WHERE season_id = $1 AND (
         player_id = $2::text
         OR player_id IN (
-          SELECT player_id 
+          SELECT player_id::text 
           FROM player_contracts 
           WHERE current_club_id = $3
             AND season_id = $1
@@ -2793,7 +2793,7 @@ export async function revokePlayerAward(id: number) {
         const { rows: contractRows } = await pool.query(`
           SELECT current_club_id 
           FROM player_contracts 
-          WHERE player_id = $1 AND LOWER(status) = 'active'
+          WHERE player_id::text = $1 AND LOWER(status) = 'active'
             AND season_id = $2
           LIMIT 1
         `, [award.player_id, award.season_id]);
@@ -2809,6 +2809,119 @@ export async function revokePlayerAward(id: number) {
     return { success: true };
   } catch (e) {
     console.error("Error revoking award:", e);
+    throw e;
+  }
+}
+
+export async function updatePlayerAward(id: number, data: any) {
+  try {
+    await migratePlayerAwardsSchema();
+    await pool.query('BEGIN');
+    
+    const { rows: oldRows } = await pool.query(`
+      SELECT player_id, season_id, award_category 
+      FROM player_awards 
+      WHERE id = $1
+    `, [id]);
+    const oldAward = oldRows[0];
+
+    const { rows } = await pool.query(`
+      UPDATE player_awards
+      SET player_id = $1, player_name = $2, season_id = $3, tournament_id = $4,
+          award_category = $5, award_type = $6, award_position = $7, notes = $8,
+          reward_rc = $9, reward_rt = $10, reward_voucher = $11, updated_at = NOW()
+      WHERE id = $12
+      RETURNING *
+    `, [
+      data.playerId, data.playerName, data.seasonId.toString(), data.tournamentId ? data.tournamentId.toString() : null,
+      data.category, data.type, data.position, data.notes || '',
+      data.rewardRc || 0, data.rewardRt || 0, data.rewardVoucher || 0,
+      id
+    ]);
+
+    if (oldAward) {
+      let oldClubId = null;
+      if (oldAward.award_category === 'team' || oldAward.award_category === 'award' || oldAward.award_category === 'trophy') {
+        oldClubId = Number(oldAward.player_id) || null;
+      } else {
+        const { rows: contractRows } = await pool.query(`
+          SELECT current_club_id FROM player_contracts 
+          WHERE player_id::text = $1 AND LOWER(status) = 'active' AND season_id = $2 LIMIT 1
+        `, [oldAward.player_id, oldAward.season_id]);
+        if (contractRows.length > 0) oldClubId = contractRows[0].current_club_id;
+      }
+      if (oldClubId) {
+        await syncManagerSeasonsAwards(oldClubId, oldAward.season_id);
+      }
+    }
+
+    let newClubId = Number(data.playerId) || null;
+    if (newClubId) {
+      await syncManagerSeasonsAwards(newClubId, data.seasonId);
+    }
+
+    await pool.query('COMMIT');
+    return rows[0];
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error updating player award:", e);
+    throw e;
+  }
+}
+
+export async function syncNominees(data: {
+  seasonId: string | number;
+  oldAwardType: string;
+  oldTournamentId: string | number | null;
+  awardType: string;
+  category: string;
+  tournamentId: string | number | null;
+  nominees: { id: string; name: string }[];
+}) {
+  try {
+    await migratePlayerAwardsSchema();
+    await pool.query('BEGIN');
+
+    const tIdFilterOld = data.oldTournamentId ? `= $3::text` : `IS NULL`;
+    const qParamsOld = [data.seasonId.toString(), data.oldAwardType];
+    if (data.oldTournamentId) qParamsOld.push(data.oldTournamentId.toString());
+
+    const { rows: oldNominees } = await pool.query(`
+      SELECT DISTINCT player_id FROM player_awards
+      WHERE season_id = $1 AND award_type = $2 AND award_position = 'Nominee'
+        AND tournament_id ${tIdFilterOld}
+    `, qParamsOld);
+    const oldTeamIds = oldNominees.map(n => n.player_id);
+
+    await pool.query(`
+      DELETE FROM player_awards
+      WHERE season_id = $1 AND award_type = $2 AND award_position = 'Nominee'
+        AND tournament_id ${tIdFilterOld}
+    `, qParamsOld);
+
+    for (const team of data.nominees) {
+      await pool.query(`
+        INSERT INTO player_awards (
+          player_id, player_name, season_id, tournament_id,
+          award_category, award_type, award_position, notes,
+          reward_rc, reward_rt, reward_voucher
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 0, 0)
+      `, [
+        team.id, team.name, data.seasonId.toString(), data.tournamentId ? data.tournamentId.toString() : null,
+        data.category, data.awardType, 'Nominee', ''
+      ]);
+    }
+
+    const allAffectedTeams = Array.from(new Set([...oldTeamIds, ...data.nominees.map(t => t.id)]));
+    for (const teamId of allAffectedTeams) {
+      await syncManagerSeasonsAwards(teamId, data.seasonId);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error syncing nominees in bulk:", e);
     throw e;
   }
 }

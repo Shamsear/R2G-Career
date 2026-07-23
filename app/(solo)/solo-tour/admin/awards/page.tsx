@@ -13,7 +13,9 @@ import {
   givePlayerAward,
   revokePlayerAward,
   fetchSeasonsList,
-  fetchRegisteredClubsForSeason
+  fetchRegisteredClubsForSeason,
+  updatePlayerAward,
+  syncNominees
 } from "@/utils/solo/serverActions";
 
 export default function PlayerAwardsManager() {
@@ -36,6 +38,10 @@ export default function PlayerAwardsManager() {
   // Multiple nominees selection state
   const [selectedNominees, setSelectedNominees] = useState<string[]>([]);
   const [nomineeSearch, setNomineeSearch] = useState("");
+
+  // Edit Mode states
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingNomineesKey, setEditingNomineesKey] = useState<{ awardType: string; tournamentId: string | null } | null>(null);
 
   const [awardForm, setAwardForm] = useState({
     playerId: "", // holds the club ID for Winner/Runner Up
@@ -75,10 +81,10 @@ export default function PlayerAwardsManager() {
   }, []);
 
   // Fetch data when selected season changes
-  const loadSeasonData = async () => {
+  const loadSeasonData = async (silent = false) => {
     if (!selectedSeasonId) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [tourneys, clubsData, awardList] = await Promise.all([
         fetchTournaments(),
         fetchRegisteredClubsForSeason(selectedSeasonId),
@@ -92,12 +98,13 @@ export default function PlayerAwardsManager() {
       console.error("Error loading season details:", err);
       showToast("Error loading season details!");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadSeasonData();
+    handleCancelEdit();
   }, [selectedSeasonId]);
 
   const handleSaveAward = (e: React.FormEvent) => {
@@ -118,25 +125,28 @@ export default function PlayerAwardsManager() {
 
     startTransition(async () => {
       try {
-        if (isNominee) {
-          // Loop through all selected nominees and save them
-          for (const teamId of selectedNominees) {
-            const clubObj = clubs.find(c => c.id.toString() === teamId);
-            if (clubObj) {
-              const payload = {
-                ...awardForm,
-                playerId: teamId,
-                type: finalType,
-                playerName: clubObj.name,
-                seasonId: selectedSeasonId,
-                recipientType: "team",
-                category: awardForm.category
-              };
-              await givePlayerAward(payload);
-            }
-          }
-          showToast("Nominees saved successfully!");
-        } else {
+        if (editingNomineesKey) {
+          // Bulk nominees update (now fully editable, including renames and tournament link changes)
+          const selectedNomineeObjects = selectedNominees.map(teamId => {
+            const club = clubs.find(c => c.id.toString() === teamId);
+            return {
+              id: teamId,
+              name: club ? club.name : `Team ${teamId}`
+            };
+          });
+
+          await syncNominees({
+            seasonId: selectedSeasonId,
+            oldAwardType: editingNomineesKey.awardType,
+            oldTournamentId: editingNomineesKey.tournamentId,
+            awardType: finalType,
+            category: awardForm.category,
+            tournamentId: awardForm.tournamentId ? awardForm.tournamentId.toString() : null,
+            nominees: selectedNomineeObjects
+          });
+          showToast("Nominees list updated successfully!");
+        } else if (editingId) {
+          // Single Winner/Runner Up update
           const clubObj = clubs.find(c => c.id.toString() === awardForm.playerId);
           if (!clubObj) return showToast("Team not found!");
           const finalPlayerName = clubObj.name;
@@ -149,28 +159,150 @@ export default function PlayerAwardsManager() {
             recipientType: "team",
             category: awardForm.category
           };
-          await givePlayerAward(payload);
-          showToast("Honors issued successfully!");
+          await updatePlayerAward(editingId, payload);
+          showToast("Honors updated successfully!");
+        } else {
+          // Standard creation flow
+          if (isNominee) {
+            // Loop through all selected nominees and save them
+            for (const teamId of selectedNominees) {
+              const clubObj = clubs.find(c => c.id.toString() === teamId);
+              if (clubObj) {
+                const payload = {
+                  ...awardForm,
+                  playerId: teamId,
+                  type: finalType,
+                  playerName: clubObj.name,
+                  seasonId: selectedSeasonId,
+                  recipientType: "team",
+                  category: awardForm.category
+                };
+                await givePlayerAward(payload);
+              }
+            }
+            showToast("Nominees saved successfully!");
+          } else {
+            const clubObj = clubs.find(c => c.id.toString() === awardForm.playerId);
+            if (!clubObj) return showToast("Team not found!");
+            const finalPlayerName = clubObj.name;
+
+            const payload = {
+              ...awardForm,
+              type: finalType,
+              playerName: finalPlayerName,
+              seasonId: selectedSeasonId,
+              recipientType: "team",
+              category: awardForm.category
+            };
+            await givePlayerAward(payload);
+            showToast("Honors issued successfully!");
+          }
         }
 
-        setAwardForm(prev => ({
-          ...prev,
-          playerId: "", 
-          playerName: "", 
-          tournamentId: "", 
-          notes: "",
-          rewardRc: 0, 
-          rewardRt: 0, 
-          rewardVoucher: 0
-        }));
-        setSelectedNominees([]);
-        setNomineeSearch("");
-        setCustomTypeVal("");
-        setIsCustomType(false);
-        loadSeasonData();
+        handleCancelEdit();
+        loadSeasonData(true);
       } catch {
         showToast("Error saving honors!");
       }
+    });
+  };
+
+  const handleEditAward = (aw: any) => {
+    // If it is a nominee, edit all nominees sharing the same award type in bulk
+    if (aw.award_position === "Nominee") {
+      const tourId = aw.tournament_id || null;
+      const matchingNominees = awards.filter(
+        a => a.award_type === aw.award_type && 
+        a.award_position === "Nominee" && 
+        (a.tournament_id || null) === tourId
+      );
+
+      const teamIds = matchingNominees.map(n => n.player_id.toString());
+      setSelectedNominees(teamIds);
+      setEditingNomineesKey({
+        awardType: aw.award_type,
+        tournamentId: tourId
+      });
+      setEditingId(null);
+
+      // Prepopulate form fields
+      setAwardForm({
+        playerId: "",
+        playerName: "",
+        tournamentId: aw.tournament_id ? aw.tournament_id.toString() : "",
+        category: aw.award_category,
+        type: aw.award_type,
+        position: "Nominee",
+        notes: aw.notes || "",
+        rewardRc: 0,
+        rewardRt: 0,
+        rewardVoucher: 0
+      });
+
+      const predefinedTypes = ["Ballon d'Or", "R2G Best", "Gerd Müller", "Yashin Trophy", "Golden Ball", "Maldini Trophy", "League Champions", "UCL Winner", "Cup Champions", "Super Cup Winner"];
+      if (!predefinedTypes.includes(aw.award_type)) {
+        setIsCustomType(true);
+        setCustomTypeVal(aw.award_type);
+      } else {
+        setIsCustomType(false);
+        setCustomTypeVal("");
+      }
+
+      showToast(`Editing Nominees for ${aw.award_type} in bulk`);
+    } else {
+      // Single Winner/Runner Up edit
+      setEditingId(aw.id);
+      setEditingNomineesKey(null);
+      setSelectedNominees([]);
+
+      setAwardForm({
+        playerId: aw.player_id.toString(),
+        playerName: aw.player_name,
+        tournamentId: aw.tournament_id ? aw.tournament_id.toString() : "",
+        category: aw.award_category,
+        type: aw.award_type,
+        position: aw.award_position,
+        notes: aw.notes || "",
+        rewardRc: aw.reward_rc || 0,
+        rewardRt: aw.reward_rt || 0,
+        rewardVoucher: aw.reward_voucher || 0
+      });
+
+      const predefinedTypes = ["Ballon d'Or", "R2G Best", "Gerd Müller", "Yashin Trophy", "Golden Ball", "Maldini Trophy", "League Champions", "UCL Winner", "Cup Champions", "Super Cup Winner"];
+      if (!predefinedTypes.includes(aw.award_type)) {
+        setIsCustomType(true);
+        setCustomTypeVal(aw.award_type);
+      } else {
+        setIsCustomType(false);
+        setCustomTypeVal("");
+      }
+
+      showToast(`Editing single award: ${aw.award_type}`);
+    }
+
+    // Scroll form into view
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingNomineesKey(null);
+    setSelectedNominees([]);
+    setNomineeSearch("");
+    setCustomTypeVal("");
+    setIsCustomType(false);
+
+    setAwardForm({
+      playerId: "",
+      playerName: "",
+      tournamentId: "", 
+      category: "award",
+      type: "Ballon d'Or",
+      position: "Winner",
+      notes: "",
+      rewardRc: 0,
+      rewardRt: 0,
+      rewardVoucher: 0
     });
   };
 
@@ -180,7 +312,7 @@ export default function PlayerAwardsManager() {
       try {
         await revokePlayerAward(id);
         showToast("Award/trophy revoked!");
-        loadSeasonData();
+        loadSeasonData(true);
       } catch {
         showToast("Error revoking award!");
       }
@@ -324,6 +456,8 @@ export default function PlayerAwardsManager() {
         .ledger-card-actions {
           display: flex;
           justify-content: flex-end;
+          align-items: center;
+          gap: 8px;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
           padding-top: 0.75rem;
         }
@@ -402,9 +536,12 @@ export default function PlayerAwardsManager() {
         ) : (
           <div className="admin-tools-grid" style={{ display: "grid", gridTemplateColumns: "minmax(320px, 1fr) minmax(400px, 1.35fr)", gap: "2rem", alignItems: "start" }}>
             
-            {/* Create Award Card */}
+            {/* Create / Edit Award Card */}
             <div className="admin-card">
-              <h2 className="admin-card-title" style={{ marginBottom: "1.5rem" }}><i className="fa-solid fa-trophy" style={{ color: "#eab308" }} /> Distribute Season Honors</h2>
+              <h2 className="admin-card-title" style={{ marginBottom: "1.5rem", color: (editingId || editingNomineesKey) ? "#fbbf24" : "#ffffff" }}>
+                <i className="fa-solid fa-trophy" style={{ color: "#eab308" }} /> 
+                {editingNomineesKey ? `Edit Nominees: ${editingNomineesKey.awardType}` : editingId ? "Update Season Honor" : "Distribute Season Honors"}
+              </h2>
 
               <form onSubmit={handleSaveAward}>
 
@@ -655,21 +792,21 @@ export default function PlayerAwardsManager() {
                         <label style={{ fontSize: "0.75rem", color: "#fff", fontWeight: 700 }}>Reward Coins (RC)</label>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-coins currency-icon rc" style={{ color: "#fbbf24" }} />
-                          <input type="number" className="admin-input" value={awardForm.rewardRc} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardRc: parseInt(e.target.value) || 0 }))} />
+                          <input type="number" className="admin-input" value={awardForm.rewardRc} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardRc: parseInt(e.target.value) || 0 }))} disabled={awardForm.position === "Nominee"} />
                         </div>
                       </div>
                       <div className="admin-form-group">
                         <label style={{ fontSize: "0.75rem", color: "#fff", fontWeight: 700 }}>Reward Tokens (RT)</label>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-star currency-icon rt" style={{ color: "#38bdf8" }} />
-                          <input type="number" className="admin-input" value={awardForm.rewardRt} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardRt: parseInt(e.target.value) || 0 }))} />
+                          <input type="number" className="admin-input" value={awardForm.rewardRt} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardRt: parseInt(e.target.value) || 0 }))} disabled={awardForm.position === "Nominee"} />
                         </div>
                       </div>
                       <div className="admin-form-group">
                         <label style={{ fontSize: "0.75rem", color: "#fff", fontWeight: 700 }}>Reward Vouchers</label>
                         <div className="currency-input-wrapper">
                           <i className="fa-solid fa-ticket currency-icon voucher" style={{ color: "#ec4899" }} />
-                          <input type="number" className="admin-input" value={awardForm.rewardVoucher} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardVoucher: parseInt(e.target.value) || 0 }))} />
+                          <input type="number" className="admin-input" value={awardForm.rewardVoucher} onChange={(e) => setAwardForm(prev => ({ ...prev, rewardVoucher: parseInt(e.target.value) || 0 }))} disabled={awardForm.position === "Nominee"} />
                         </div>
                       </div>
                     </div>
@@ -701,8 +838,14 @@ export default function PlayerAwardsManager() {
                 </div>
 
                 <div className="admin-btn-row">
+                  {(editingId || editingNomineesKey) && (
+                    <button type="button" className="portal-btn btn-secondary" onClick={handleCancelEdit} style={{ fontWeight: 800 }}>
+                      Cancel Edit
+                    </button>
+                  )}
                   <button type="submit" className="portal-btn btn-primary" disabled={isPending} style={{ background: "linear-gradient(135deg, #eab308 0%, #ca8a04 100%)", color: "#000", fontWeight: 800 }}>
-                    <i className="fa-solid fa-trophy" /> Disburse Reward & Give Award
+                    <i className="fa-solid fa-floppy-disk" style={{ marginRight: 6 }} />
+                    {(editingId || editingNomineesKey) ? "Save Changes" : "Disburse Reward & Give Award"}
                   </button>
                 </div>
               </form>
@@ -731,7 +874,9 @@ export default function PlayerAwardsManager() {
                     const hasRewards = aw.reward_rc > 0 || aw.reward_rt > 0 || aw.reward_voucher > 0;
                     
                     return (
-                      <div key={aw.id} className="ledger-card">
+                      <div key={aw.id} className="ledger-card" style={{
+                        border: (editingId === aw.id || (editingNomineesKey && editingNomineesKey.awardType === aw.award_type && (aw.tournament_id || null) === editingNomineesKey.tournamentId && aw.award_position === "Nominee")) ? "1.5px solid #fbbf24" : "1px solid rgba(255, 255, 255, 0.06)"
+                      }}>
                         
                         {/* Header details: Category and Position */}
                         <div className="ledger-card-header">
@@ -770,7 +915,7 @@ export default function PlayerAwardsManager() {
                         {/* Winner/Nominated Team Info */}
                         <div className="ledger-card-team">
                           <div className="ledger-card-team-name">
-                            <i className="fa-solid fa-shield-halved" />
+                            <i className="fa-solid fa-shield-halved" style={{ marginRight: 6 }} />
                             {aw.player_name}
                           </div>
                           <div className="ledger-card-team-manager">
@@ -809,6 +954,23 @@ export default function PlayerAwardsManager() {
 
                         {/* Actions block */}
                         <div className="ledger-card-actions">
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ 
+                              padding: "6px 12px", 
+                              fontSize: "0.72rem", 
+                              borderRadius: "8px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              border: "1px solid rgba(255,255,255,0.1)"
+                            }}
+                            onClick={() => handleEditAward(aw)}
+                          >
+                            <i className="fa-solid fa-pen-to-square" /> {isNominee ? "Edit Bulk" : "Edit"}
+                          </button>
+                          
                           <button 
                             className="portal-btn btn-danger" 
                             style={{ 
