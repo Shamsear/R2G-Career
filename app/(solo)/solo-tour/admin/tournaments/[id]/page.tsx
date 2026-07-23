@@ -28,6 +28,163 @@ import {
   recalculateTournamentStandings
 } from "@/utils/solo/serverActions";
 
+function RoundFilterDropdown({
+  rounds,
+  activeRound,
+  onChange
+}: {
+  rounds: number[];
+  activeRound: number | "all";
+  onChange: (round: number | "all") => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getLabel = () => {
+    if (activeRound === "all") return "All Rounds";
+    return `Round ${activeRound}`;
+  };
+
+  return (
+    <div ref={dropdownRef} style={{ position: "relative", display: "inline-block" }}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.55rem",
+          background: "linear-gradient(135deg, rgba(25, 18, 45, 0.85) 0%, rgba(12, 9, 24, 0.95) 100%)",
+          border: isOpen ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(168, 85, 247, 0.3)",
+          borderRadius: "8px",
+          padding: "5px 12px",
+          color: "#fff",
+          fontSize: "0.78rem",
+          fontWeight: "bold",
+          cursor: "pointer",
+          boxShadow: isOpen ? "0 0 12px rgba(168, 85, 247, 0.25)" : "0 2px 8px rgba(0, 0, 0, 0.3)",
+          transition: "all 0.2s ease"
+        }}
+      >
+        <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          ROUND:
+        </span>
+        <span style={{ color: "#fbbf24", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+          <i className="fa-solid fa-filter" style={{ fontSize: "0.65rem", color: "#c084fc" }} />
+          {getLabel()}
+        </span>
+        <i
+          className="fa-solid fa-chevron-down"
+          style={{
+            fontSize: "0.65rem",
+            color: "rgba(255, 255, 255, 0.5)",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease"
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            width: "165px",
+            background: "rgba(15, 12, 27, 0.96)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1px solid rgba(168, 85, 247, 0.35)",
+            borderRadius: "10px",
+            padding: "5px",
+            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(168, 85, 247, 0.15)",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px"
+          }}
+        >
+          <div
+            onClick={() => {
+              onChange("all");
+              setIsOpen(false);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justify: "space-between",
+              padding: "7px 10px",
+              borderRadius: "6px",
+              fontSize: "0.78rem",
+              fontWeight: activeRound === "all" ? "bold" : "normal",
+              color: activeRound === "all" ? "#fbbf24" : "#e2e8f0",
+              background: activeRound === "all" ? "rgba(168, 85, 247, 0.2)" : "transparent",
+              cursor: "pointer",
+              transition: "all 0.15s ease"
+            }}
+            onMouseEnter={(e) => {
+              if (activeRound !== "all") e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+            }}
+            onMouseLeave={(e) => {
+              if (activeRound !== "all") e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <span>All Rounds</span>
+            {activeRound === "all" && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
+          </div>
+
+          <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.06)", margin: "3px 0" }} />
+
+          {rounds.map((r) => {
+            const isSelected = activeRound === r;
+            return (
+              <div
+                key={r}
+                onClick={() => {
+                  onChange(r);
+                  setIsOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justify: "space-between",
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  fontSize: "0.78rem",
+                  fontWeight: isSelected ? "bold" : "normal",
+                  color: isSelected ? "#fbbf24" : "#e2e8f0",
+                  background: isSelected ? "rgba(168, 85, 247, 0.2)" : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease"
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span>Round {r}</span>
+                {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const tournamentId = parseInt(resolvedParams.id);
@@ -1825,33 +1982,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                 {rounds.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(15, 12, 27, 0.45)", padding: "5px 12px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.25)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)" }}>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "bold", letterSpacing: "0.5px" }}>FILTER BY ROUND:</span>
-                    <select
-                      className="admin-select"
-                      style={{ 
-                        textAlign: "center", 
-                        fontSize: "0.75rem", 
-                        padding: "2px 24px 2px 8px", 
-                        margin: 0, 
-                        fontWeight: "bold", 
-                        color: "#fbbf24", 
-                        cursor: "pointer", 
-                        height: "26px", 
-                        background: "none", 
-                        border: "none", 
-                        width: "115px",
-                        outline: "none"
-                      }}
-                      value={activeRound}
-                      onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-                    >
-                      <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
-                      {rounds.map(r => (
-                        <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <RoundFilterDropdown
+                    rounds={rounds}
+                    activeRound={activeRound}
+                    onChange={(r) => setActiveRound(r)}
+                  />
                 )}
                 <button
                   type="button"
@@ -2146,33 +2281,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </button>
               </div>
               {rounds.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(15, 12, 27, 0.45)", padding: "5px 12px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.25)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)" }}>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "bold", letterSpacing: "0.5px" }}>FILTER BY ROUND:</span>
-                  <select
-                    className="admin-select"
-                    style={{ 
-                      textAlign: "center", 
-                      fontSize: "0.75rem", 
-                      padding: "2px 24px 2px 8px", 
-                      margin: 0, 
-                      fontWeight: "bold", 
-                      color: "#fbbf24", 
-                      cursor: "pointer", 
-                      height: "26px", 
-                      background: "none", 
-                      border: "none", 
-                      width: "115px",
-                      outline: "none"
-                    }}
-                    value={activeRound}
-                    onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-                  >
-                    <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
-                    {rounds.map(r => (
-                      <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
-                    ))}
-                  </select>
-                </div>
+                <RoundFilterDropdown
+                  rounds={rounds}
+                  activeRound={activeRound}
+                  onChange={(r) => setActiveRound(r)}
+                />
               )}
             </div>
 
@@ -2522,30 +2635,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     >
                       <i className="fa-solid fa-chevron-left" />
                     </button>
-                    <select
-                      className="admin-select"
-                      style={{ 
-                        textAlign: "center", 
-                        fontSize: "0.75rem", 
-                        padding: "2px 24px 2px 8px", 
-                        margin: 0, 
-                        fontWeight: "bold", 
-                        color: "#fbbf24", 
-                        cursor: "pointer", 
-                        height: "26px", 
-                        background: "none", 
-                        border: "none", 
-                        width: "115px",
-                        outline: "none"
-                      }}
-                      value={activeRound}
-                      onChange={(e) => setActiveRound(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-                    >
-                      <option value="all" style={{ background: "#110e20", color: "#fff" }}>All Rounds</option>
-                      {rounds.map(r => (
-                        <option key={r} value={r} style={{ background: "#110e20", color: "#fff" }}>Round {r}</option>
-                      ))}
-                    </select>
+                    <RoundFilterDropdown
+                      rounds={rounds}
+                      activeRound={activeRound}
+                      onChange={(r) => setActiveRound(r)}
+                    />
                     <button
                       type="button"
                       className="portal-btn btn-secondary"
