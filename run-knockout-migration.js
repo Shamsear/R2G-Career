@@ -1,112 +1,128 @@
-const { neon } = require('@neondatabase/serverless');
+const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: '.env.local' });
 
 async function runMigration() {
+  console.log('🚀 Starting Knockout Tournament Migration...\n');
+
+  const connectionString = process.env.SOLO_DATABASE_URL;
+  
+  if (!connectionString) {
+    console.error('❌ ERROR: SOLO_DATABASE_URL not found in .env.local');
+    console.error('Please ensure your .env.local file has SOLO_DATABASE_URL set.');
+    process.exit(1);
+  }
+
+  console.log('✓ Database connection string found');
+  console.log('✓ Connecting to database...\n');
+
+  const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
-    // Read NEON_TOURNAMENT_DB_URL from .env.local (tournament database with fixtures)
-    const envContent = fs.readFileSync('.env.local', 'utf8');
-    const dbUrlMatch = envContent.match(/^NEON_TOURNAMENT_DB_URL=(.+)$/m);
+    // Test connection
+    await pool.query('SELECT NOW()');
+    console.log('✓ Database connection successful\n');
     
-    if (!dbUrlMatch) {
-      throw new Error('NEON_TOURNAMENT_DB_URL not found in .env.local');
+    console.log('📖 Reading migration file...');
+    const sqlFilePath = path.join(__dirname, 'migrations', 'create_knockout_tables.sql');
+    
+    if (!fs.existsSync(sqlFilePath)) {
+      throw new Error(`Migration file not found: ${sqlFilePath}`);
     }
     
-    const databaseUrl = dbUrlMatch[1].trim();
-    console.log('📊 Connecting to tournament database (fixtures)...');
+    const sql = fs.readFileSync(sqlFilePath, 'utf8');
+    console.log('✓ Migration file loaded\n');
     
-    const sql = neon(databaseUrl);
+    console.log('⚙️  Executing migration...');
+    console.log('   - Creating knockout_rounds table...');
+    console.log('   - Creating knockout_pairings table...');
+    console.log('   - Creating helper functions...');
+    console.log('   - Creating triggers...\n');
     
-    // First, check what tables exist
-    console.log('🔍 Checking available tables...');
-    const tables = await sql`
+    await pool.query(sql);
+    
+    console.log('✅ Migration completed successfully!\n');
+    
+    // Verify tables were created
+    console.log('🔍 Verifying migration...');
+    
+    const tablesCheck = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'public'
-      ORDER BY table_name;
-    `;
+      WHERE table_schema = 'public' 
+        AND table_name IN ('knockout_rounds', 'knockout_pairings')
+      ORDER BY table_name
+    `);
     
-    console.log('📋 Available tables:');
-    tables.forEach(t => console.log(`  - ${t.table_name}`));
-    
-    // Check if fixtures table exists
-    const hasFixtures = tables.some(t => t.table_name === 'fixtures');
-    
-    if (!hasFixtures) {
-      console.log('\n⚠️  Fixtures table not found in this database!');
-      console.log('This might be the wrong database. Fixtures might be in Firebase or another Neon database.');
-      return;
-    }
-    
-    // Read migration file
-    const migrationPath = path.join(__dirname, 'migrations', 'add_knockout_scoring_system.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-    
-    console.log('🔄 Running migration: add_knockout_scoring_system.sql');
-    console.log('---');
-    console.log(migrationSQL);
-    console.log('---');
-    
-    // Execute migration statements using template literals
-    console.log('Executing: ALTER TABLE fixtures ADD COLUMN...');
-    await sql`
-      ALTER TABLE fixtures 
-      ADD COLUMN IF NOT EXISTS scoring_system VARCHAR(20) DEFAULT 'goals'
-    `;
-    
-    console.log('Executing: COMMENT ON COLUMN...');
-    await sql`
-      COMMENT ON COLUMN fixtures.scoring_system IS 'Scoring system for knockout: goals (sum of goals) or wins (3 for win, 1 for draw)'
-    `;
-    
-    console.log('Executing: UPDATE fixtures...');
-    await sql`
-      UPDATE fixtures 
-      SET scoring_system = 'goals' 
-      WHERE scoring_system IS NULL
-    `;
-    
-    console.log('✅ Migration completed successfully!');
-    
-    // Verify the column was added
-    console.log('\n🔍 Verifying column...');
-    const result = await sql`
-      SELECT column_name, data_type, column_default
-      FROM information_schema.columns
-      WHERE table_name = 'fixtures'
-        AND column_name IN ('scoring_system', 'knockout_format')
-      ORDER BY column_name;
-    `;
-    
-    console.log('📋 Columns found:');
-    result.forEach(col => {
-      console.log(`  - ${col.column_name}: ${col.data_type} (default: ${col.column_default || 'none'})`);
-    });
-    
-    // Check existing fixtures
-    console.log('\n📊 Checking existing knockout fixtures...');
-    const fixtures = await sql`
-      SELECT id, knockout_round, scoring_system
-      FROM fixtures
-      WHERE knockout_round IS NOT NULL
-      LIMIT 5;
-    `;
-    
-    if (fixtures.length > 0) {
-      console.log(`Found ${fixtures.length} knockout fixtures (showing first 5):`);
-      fixtures.forEach(f => {
-        console.log(`  - ${f.id}: round=${f.knockout_round}, scoring=${f.scoring_system || 'NULL'}`);
+    if (tablesCheck.rows.length === 2) {
+      console.log('✓ Tables created:');
+      tablesCheck.rows.forEach(row => {
+        console.log(`  - ${row.table_name}`);
       });
     } else {
-      console.log('No knockout fixtures found yet.');
+      console.warn('⚠️  Warning: Expected 2 tables but found', tablesCheck.rows.length);
     }
     
-    console.log('\n🎉 All done! Knockout scoring system is ready to use.');
+    // Check functions
+    const functionsCheck = await pool.query(`
+      SELECT routine_name 
+      FROM information_schema.routines 
+      WHERE routine_schema = 'public' 
+        AND (routine_name LIKE '%knockout%' OR routine_name LIKE '%round%')
+      ORDER BY routine_name
+    `);
+    
+    console.log(`✓ Functions created: ${functionsCheck.rows.length} functions`);
+    functionsCheck.rows.forEach(row => {
+      console.log(`  - ${row.routine_name}()`);
+    });
+    
+    // Test a simple query
+    const testQuery = await pool.query('SELECT COUNT(*) FROM knockout_rounds');
+    console.log(`✓ Test query successful: ${testQuery.rows[0].count} knockout rounds found`);
+    
+    console.log('\n🎉 SUCCESS! Knockout tournament system is ready to use!\n');
+    console.log('📋 Next steps:');
+    console.log('   1. Open your browser');
+    console.log('   2. Navigate to admin dashboard');
+    console.log('   3. Open any tournament with knockout stage');
+    console.log('   4. Click the "Knockout" tab');
+    console.log('   5. Create your first knockout round!\n');
     
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error('\n❌ Migration failed!');
+    console.error('Error:', error.message);
+    
+    if (error.code) {
+      console.error('Error Code:', error.code);
+    }
+    
+    if (error.detail) {
+      console.error('Detail:', error.detail);
+    }
+    
+    if (error.hint) {
+      console.error('Hint:', error.hint);
+    }
+    
+    console.error('\n💡 Troubleshooting:');
+    console.error('   - Check if you have CREATE TABLE permissions');
+    console.error('   - Verify SOLO_DATABASE_URL is correct in .env.local');
+    console.error('   - Ensure the database is accessible');
+    console.error('   - Check if tables already exist (run: SELECT * FROM knockout_rounds;)');
+    
     process.exit(1);
+  } finally {
+    await pool.end();
   }
 }
 
-runMigration();
+// Run the migration
+runMigration().catch(error => {
+  console.error('Unexpected error:', error);
+  process.exit(1);
+});

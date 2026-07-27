@@ -9,8 +9,8 @@
 -- ============================================
 -- Stores individual knockout round information
 CREATE TABLE IF NOT EXISTS knockout_rounds (
-  id TEXT PRIMARY KEY DEFAULT ('kr_' || gen_random_uuid()::text),
-  tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  id SERIAL PRIMARY KEY,
+  tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
   round_name TEXT NOT NULL CHECK (round_name IN (
     'ROUND_OF_32', 
     'ROUND_OF_16', 
@@ -49,16 +49,16 @@ COMMENT ON COLUMN knockout_rounds.status IS 'Current status of the round';
 -- ============================================
 -- Stores team matchups for each round with placeholder support
 CREATE TABLE IF NOT EXISTS knockout_pairings (
-  id TEXT PRIMARY KEY DEFAULT ('kp_' || gen_random_uuid()::text),
-  knockout_round_id TEXT NOT NULL REFERENCES knockout_rounds(id) ON DELETE CASCADE,
+  id SERIAL PRIMARY KEY,
+  knockout_round_id INTEGER NOT NULL REFERENCES knockout_rounds(id) ON DELETE CASCADE,
   pairing_order INTEGER NOT NULL,
-  team1_id TEXT,
-  team2_id TEXT,
+  team1_id INTEGER,
+  team2_id INTEGER,
   team1_placeholder TEXT,
   team2_placeholder TEXT,
-  winner_id TEXT,
-  leg1_match_id TEXT,
-  leg2_match_id TEXT,
+  winner_id INTEGER,
+  leg1_match_id INTEGER,
+  leg2_match_id INTEGER,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT team_or_placeholder_1 CHECK (

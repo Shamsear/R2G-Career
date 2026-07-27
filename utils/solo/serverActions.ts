@@ -7149,18 +7149,18 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
             'leg2MatchId', kp.leg2_match_id,
             'team1', CASE 
               WHEN kp.team1_id IS NOT NULL THEN json_build_object(
-                'id', tc1.club_id,
-                'name', COALESCE(tc1.custom_name, c1.name),
-                'logo', COALESCE(tc1.custom_logo, c1.logo_path),
+                'id', c1.id,
+                'name', c1.name,
+                'logo', c1.logo_path,
                 'manager', m1.name
               )
               ELSE NULL
             END,
             'team2', CASE 
               WHEN kp.team2_id IS NOT NULL THEN json_build_object(
-                'id', tc2.club_id,
-                'name', COALESCE(tc2.custom_name, c2.name),
-                'logo', COALESCE(tc2.custom_logo, c2.logo_path),
+                'id', c2.id,
+                'name', c2.name,
+                'logo', c2.logo_path,
                 'manager', m2.name
               )
               ELSE NULL
@@ -7169,11 +7169,9 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
         ) as pairings
       FROM knockout_rounds kr
       LEFT JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
-      LEFT JOIN tournament_clubs tc1 ON tc1.club_id = kp.team1_id::int AND tc1.tournament_id = kr.tournament_id
-      LEFT JOIN clubs c1 ON c1.id = tc1.club_id
+      LEFT JOIN clubs c1 ON c1.id = kp.team1_id
       LEFT JOIN managers m1 ON m1.club_id = c1.id
-      LEFT JOIN tournament_clubs tc2 ON tc2.club_id = kp.team2_id::int AND tc2.tournament_id = kr.tournament_id
-      LEFT JOIN clubs c2 ON c2.id = tc2.club_id
+      LEFT JOIN clubs c2 ON c2.id = kp.team2_id
       LEFT JOIN managers m2 ON m2.club_id = c2.id
       WHERE kr.tournament_id = $1
       GROUP BY kr.id
