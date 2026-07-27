@@ -7115,3 +7115,519 @@ export async function deleteSoloTrophyCabinetItem(id: number) {
   }
 }
 
+
+
+// ============================================
+// KNOCKOUT TOURNAMENT SERVER ACTIONS
+// ============================================
+
+/**
+ * Fetch all knockout rounds and pairings for a tournament
+ */
+export async function fetchKnockoutRounds(tournamentId: number | string) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        kr.id,
+        kr.tournament_id,
+        kr.round_name,
+        kr.round_order,
+        kr.legs,
+        kr.status,
+        kr.created_at,
+        kr.updated_at,
+        json_agg(
+          json_build_object(
+            'id', kp.id,
+            'pairingOrder', kp.pairing_order,
+            'team1Id', kp.team1_id,
+            'team2Id', kp.team2_id,
+            'team1Placeholder', kp.team1_placeholder,
+            'team2Placeholder', kp.team2_placeholder,
+            'winnerId', kp.winner_id,
+            'leg1MatchId', kp.leg1_match_id,
+            'leg2MatchId', kp.leg2_match_id,
+            'team1', CASE 
+              WHEN kp.team1_id IS NOT NULL THEN json_build_object(
+                'id', tc1.club_id,
+                'name', COALESCE(tc1.custom_name, c1.name),
+                'logo', COALESCE(tc1.custom_logo, c1.logo_path),
+                'manager', m1.name
+              )
+              ELSE NULL
+            END,
+            'team2', CASE 
+              WHEN kp.team2_id IS NOT NULL THEN json_build_object(
+                'id', tc2.club_id,
+                'name', COALESCE(tc2.custom_name, c2.name),
+                'logo', COALESCE(tc2.custom_logo, c2.logo_path),
+                'manager', m2.name
+              )
+              ELSE NULL
+            END
+          ) ORDER BY kp.pairing_order
+        ) as pairings
+      FROM knockout_rounds kr
+      LEFT JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
+      LEFT JOIN tournament_clubs tc1 ON tc1.club_id = kp.team1_id::int AND tc1.tournament_id = kr.tournament_id
+      LEFT JOIN clubs c1 ON c1.id = tc1.club_id
+      LEFT JOIN managers m1 ON m1.club_id = c1.id
+      LEFT JOIN tournament_clubs tc2 ON tc2.club_id = kp.team2_id::int AND tc2.tournament_id = kr.tournament_id
+      LEFT JOIN clubs c2 ON c2.id = tc2.club_id
+      LEFT JOIN managers m2 ON m2.club_id = c2.id
+      WHERE kr.tournament_id = $1
+      GROUP BY kr.id
+      ORDER BY kr.round_order
+    `, [tournamentId]);
+
+    return rows;
+  } catch (error: any) {
+    console.error('Error fetching knockout rounds:', error);
+    throw new Error(`Failed to fetch knockout rounds: ${error.message}`);
+  }
+}
+
+/**
+ * Create a knockout round with pairings
+ */
+export async function createKnockoutRound(data: {
+  tournamentId: number | string;
+  roundName: string;
+  legs: number;
+  teams?: string[];
+  mode: 'auto' | 'manual';
+  autoPair?: boolean;
+  customPairings?: Array<{ team1Id: string; team2Id: string }>;
+  createFullBracket?: boolean;
+}) {
+  const {
+    tournamentId,
+    roundName,
+    legs = 2,
+    teams = [],
+    mode = 'manual',
+    autoPair = false,
+    customPairings = [],
+    createFullBracket = false
+  } = data;
+
+  try {
+    // Validate round name
+    const validRounds = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+    if (!validRounds.includes(roundName)) {
+      throw new Error(`Invalid round name. Must be one of: ${validRounds.join(', ')}`);
+    }
+
+    // Get round order and required team count
+    const roundOrder: Record<string, number> = {
+      'ROUND_OF_32': 0,
+      'ROUND_OF_16': 1,
+      'QUARTER_FINAL': 2,
+      'SEMI_FINAL': 3,
+      'THIRD_PLACE': 4,
+      'FINAL': 5
+    };
+
+    const requiredTeams: Record<string, number> = {
+      'ROUND_OF_32': 32,
+      'ROUND_OF_16': 16,
+      'QUARTER_FINAL': 8,
+      'SEMI_FINAL': 4,
+      'THIRD_PLACE': 2,
+      'FINAL': 2
+    };
+
+    const order = roundOrder[roundName];
+    const required = requiredTeams[roundName];
+
+    // Fetch tournament details
+    const { rows: tournamentRows } = await pool.query(
+      `SELECT * FROM tournaments WHERE id = $1`,
+      [tournamentId]
+    );
+
+    if (tournamentRows.length === 0) {
+      throw new Error('Tournament not found');
+    }
+
+    const tournament = tournamentRows[0];
+
+    // Check if round already exists
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM knockout_rounds WHERE tournament_id = $1 AND round_name = $2`,
+      [tournamentId, roundName]
+    );
+
+    if (existing.length > 0) {
+      throw new Error('This knockout round already exists');
+    }
+
+    // Create the round
+    const { rows: newRoundRows } = await pool.query(
+      `INSERT INTO knockout_rounds (tournament_id, round_name, round_order, legs, status)
+       VALUES ($1, $2, $3, $4, 'PENDING')
+       RETURNING *`,
+      [tournamentId, roundName, order, legs]
+    );
+
+    const newRound = newRoundRows[0];
+
+    // Generate pairings based on mode
+    let pairings: Array<{
+      team1Id?: string | null;
+      team2Id?: string | null;
+      team1Placeholder?: string | null;
+      team2Placeholder?: string | null;
+    }> = [];
+
+    if (mode === 'auto') {
+      // Auto mode: Create placeholders based on tournament type
+      pairings = await generateAutoPlaceholdersServer(tournament, roundName, required);
+    } else {
+      // Manual mode: Validate team count
+      if (teams.length !== required) {
+        // Clean up the round we just created
+        await pool.query(`DELETE FROM knockout_rounds WHERE id = $1`, [newRound.id]);
+        throw new Error(`This round requires exactly ${required} teams, but ${teams.length} were provided`);
+      }
+
+      // Generate pairings from teams
+      if (customPairings.length > 0) {
+        pairings = customPairings;
+      } else if (autoPair) {
+        // Auto-seed pairing: 1 vs last, 2 vs second-last
+        for (let i = 0; i < teams.length / 2; i++) {
+          pairings.push({
+            team1Id: teams[i],
+            team2Id: teams[teams.length - 1 - i]
+          });
+        }
+      } else {
+        // Consecutive pairing: 1v2, 3v4, 5v6
+        for (let i = 0; i < teams.length; i += 2) {
+          pairings.push({
+            team1Id: teams[i],
+            team2Id: teams[i + 1]
+          });
+        }
+      }
+    }
+
+    // Insert pairings
+    for (let i = 0; i < pairings.length; i++) {
+      const pairing = pairings[i];
+      await pool.query(
+        `INSERT INTO knockout_pairings (
+          knockout_round_id,
+          pairing_order,
+          team1_id,
+          team2_id,
+          team1_placeholder,
+          team2_placeholder
+        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          newRound.id,
+          i + 1,
+          pairing.team1Id || null,
+          pairing.team2Id || null,
+          pairing.team1Placeholder || null,
+          pairing.team2Placeholder || null
+        ]
+      );
+    }
+
+    // Create full bracket if requested
+    if (createFullBracket) {
+      await createSubsequentRoundsServer(tournamentId, roundName, order, legs);
+    }
+
+    await logSoloAdminAction('CREATE_KNOCKOUT_ROUND', {
+      tournamentId,
+      roundName,
+      legs,
+      mode,
+      pairingsCount: pairings.length
+    });
+
+    return { success: true, roundId: newRound.id };
+  } catch (error: any) {
+    console.error('Error creating knockout round:', error);
+    throw new Error(`Failed to create knockout round: ${error.message}`);
+  }
+}
+
+/**
+ * Update a knockout pairing
+ */
+export async function updateKnockoutPairing(data: {
+  pairingId: string;
+  team1Id?: string | null;
+  team2Id?: string | null;
+  winnerId?: string | null;
+}) {
+  const { pairingId, team1Id, team2Id, winnerId } = data;
+
+  try {
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (team1Id !== undefined) {
+      updates.push(`team1_id = $${paramIndex}`);
+      values.push(team1Id || null);
+      paramIndex++;
+      updates.push(`team1_placeholder = NULL`);
+    }
+
+    if (team2Id !== undefined) {
+      updates.push(`team2_id = $${paramIndex}`);
+      values.push(team2Id || null);
+      paramIndex++;
+      updates.push(`team2_placeholder = NULL`);
+    }
+
+    if (winnerId !== undefined) {
+      updates.push(`winner_id = $${paramIndex}`);
+      values.push(winnerId || null);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No valid fields to update');
+    }
+
+    values.push(pairingId);
+
+    const { rows } = await pool.query(
+      `UPDATE knockout_pairings 
+       SET ${updates.join(', ')}, updated_at = NOW()
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+
+    if (rows.length === 0) {
+      throw new Error('Pairing not found');
+    }
+
+    // If winner was set, resolve next round placeholders
+    if (winnerId !== undefined && winnerId !== null) {
+      await resolveNextRoundPairingsServer(pairingId, winnerId);
+    }
+
+    await logSoloAdminAction('UPDATE_KNOCKOUT_PAIRING', {
+      pairingId,
+      team1Id,
+      team2Id,
+      winnerId
+    });
+
+    return { success: true, pairing: rows[0] };
+  } catch (error: any) {
+    console.error('Error updating knockout pairing:', error);
+    throw new Error(`Failed to update pairing: ${error.message}`);
+  }
+}
+
+/**
+ * Delete all knockout rounds for a tournament
+ */
+export async function deleteAllKnockoutRounds(tournamentId: number | string) {
+  try {
+    await pool.query(
+      `DELETE FROM knockout_rounds WHERE tournament_id = $1`,
+      [tournamentId]
+    );
+
+    await logSoloAdminAction('DELETE_ALL_KNOCKOUT_ROUNDS', { tournamentId });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error deleting knockout rounds:', error);
+    throw new Error(`Failed to delete knockout rounds: ${error.message}`);
+  }
+}
+
+/**
+ * Helper: Generate auto-qualification placeholders
+ */
+async function generateAutoPlaceholdersServer(tournament: any, roundName: string, requiredTeams: number) {
+  const pairings: Array<{
+    team1Placeholder?: string;
+    team2Placeholder?: string;
+  }> = [];
+
+  const formatType = tournament.format_type;
+  const numGroups = tournament.num_groups;
+  const qualifiedPerGroup = tournament.qualified_per_group || tournament.group_qualifiers;
+
+  if (formatType === 'Group Stage' && numGroups && qualifiedPerGroup) {
+    // GROUP_KNOCKOUT logic
+    if (roundName === 'QUARTER_FINAL' && requiredTeams === 8) {
+      if (numGroups === 4 && qualifiedPerGroup === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
+          { team1Placeholder: 'Group C #1', team2Placeholder: 'Group D #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' },
+          { team1Placeholder: 'Group D #1', team2Placeholder: 'Group C #2' }
+        );
+      } else if (numGroups === 2 && qualifiedPerGroup === 4) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #4' },
+          { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #3' },
+          { team1Placeholder: 'Group B #2', team2Placeholder: 'Group A #3' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #4' }
+        );
+      }
+    } else if (roundName === 'SEMI_FINAL' && requiredTeams === 4) {
+      if (numGroups === 2 && qualifiedPerGroup === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
+        );
+      } else if (numGroups === 4 && qualifiedPerGroup === 1) {
+        pairings.push(
+          { team1Placeholder: 'Group A Winner', team2Placeholder: 'Group B Winner' },
+          { team1Placeholder: 'Group C Winner', team2Placeholder: 'Group D Winner' }
+        );
+      }
+    } else if (roundName === 'FINAL' && requiredTeams === 2) {
+      pairings.push(
+        { team1Placeholder: 'Group A Winner', team2Placeholder: 'Group B Winner' }
+      );
+    }
+  } else if (formatType === 'League' || formatType === 'League Format') {
+    // LEAGUE_PLAYOFF logic
+    if (roundName === 'SEMI_FINAL' && requiredTeams === 4) {
+      pairings.push(
+        { team1Placeholder: 'League #1', team2Placeholder: 'League #4' },
+        { team1Placeholder: 'League #2', team2Placeholder: 'League #3' }
+      );
+    } else if (roundName === 'FINAL' && requiredTeams === 2) {
+      pairings.push(
+        { team1Placeholder: 'League #1', team2Placeholder: 'League #2' }
+      );
+    }
+  }
+
+  // Fallback: Generic seed-based placeholders
+  if (pairings.length === 0) {
+    for (let i = 1; i <= requiredTeams / 2; i++) {
+      pairings.push({
+        team1Placeholder: `Seed #${i}`,
+        team2Placeholder: `Seed #${requiredTeams + 1 - i}`
+      });
+    }
+  }
+
+  return pairings;
+}
+
+/**
+ * Helper: Create subsequent rounds for full bracket
+ */
+async function createSubsequentRoundsServer(
+  tournamentId: string | number,
+  startRoundName: string,
+  startOrder: number,
+  legs: number
+) {
+  const roundSequence = [
+    { name: 'ROUND_OF_32', order: 0, teams: 32 },
+    { name: 'ROUND_OF_16', order: 1, teams: 16 },
+    { name: 'QUARTER_FINAL', order: 2, teams: 8 },
+    { name: 'SEMI_FINAL', order: 3, teams: 4 },
+    { name: 'FINAL', order: 5, teams: 2 }
+  ];
+
+  const subsequentRounds = roundSequence.filter(r => r.order > startOrder);
+
+  for (const roundDef of subsequentRounds) {
+    // Create the round
+    const { rows: newRoundRows } = await pool.query(
+      `INSERT INTO knockout_rounds (tournament_id, round_name, round_order, legs, status)
+       VALUES ($1, $2, $3, $4, 'PENDING')
+       RETURNING *`,
+      [tournamentId, roundDef.name, roundDef.order, legs]
+    );
+
+    const newRound = newRoundRows[0];
+
+    // Create placeholder pairings
+    const pairingCount = roundDef.teams / 2;
+    const prevRoundOrder = roundDef.order - 1;
+    const prevRound = roundSequence.find(r => r.order === prevRoundOrder);
+    
+    if (!prevRound) continue;
+
+    for (let i = 0; i < pairingCount; i++) {
+      await pool.query(
+        `INSERT INTO knockout_pairings (
+          knockout_round_id,
+          pairing_order,
+          team1_placeholder,
+          team2_placeholder
+        ) VALUES ($1, $2, $3, $4)`,
+        [
+          newRound.id,
+          i + 1,
+          `Winner of ${prevRound.name} #${i * 2 + 1}`,
+          `Winner of ${prevRound.name} #${i * 2 + 2}`
+        ]
+      );
+    }
+  }
+}
+
+/**
+ * Helper: Resolve next round placeholders when a winner is determined
+ */
+async function resolveNextRoundPairingsServer(completedPairingId: string, winnerId: string) {
+  try {
+    // Get current pairing details
+    const { rows: currentRows } = await pool.query(
+      `SELECT kp.*, kr.round_name, kr.round_order, kr.tournament_id
+       FROM knockout_pairings kp
+       JOIN knockout_rounds kr ON kr.id = kp.knockout_round_id
+       WHERE kp.id = $1`,
+      [completedPairingId]
+    );
+
+    if (currentRows.length === 0) return;
+
+    const { round_name, round_order, pairing_order, tournament_id } = currentRows[0];
+
+    // Find next round
+    const { rows: nextRoundRows } = await pool.query(
+      `SELECT * FROM knockout_rounds
+       WHERE tournament_id = $1 AND round_order > $2
+       ORDER BY round_order ASC
+       LIMIT 1`,
+      [tournament_id, round_order]
+    );
+
+    if (nextRoundRows.length === 0) return;
+
+    const nextRoundId = nextRoundRows[0].id;
+    const placeholderText = `Winner of ${round_name} #${pairing_order}`;
+
+    // Update team1 placeholders
+    await pool.query(
+      `UPDATE knockout_pairings
+       SET team1_id = $1, team1_placeholder = NULL, updated_at = NOW()
+       WHERE knockout_round_id = $2 AND team1_placeholder = $3`,
+      [winnerId, nextRoundId, placeholderText]
+    );
+
+    // Update team2 placeholders
+    await pool.query(
+      `UPDATE knockout_pairings
+       SET team2_id = $1, team2_placeholder = NULL, updated_at = NOW()
+       WHERE knockout_round_id = $2 AND team2_placeholder = $3`,
+      [winnerId, nextRoundId, placeholderText]
+    );
+  } catch (error) {
+    console.error('Error resolving next round pairings:', error);
+  }
+}

@@ -27,8 +27,10 @@ import {
   clearAllGroups,
   autoGenerateFixtures,
   fetchTournamentStandings,
-  recalculateTournamentStandings
+  recalculateTournamentStandings,
+  fetchKnockoutRounds
 } from "@/utils/solo/serverActions";
+import KnockoutManager from "@/components/tournament/KnockoutManager";
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -38,6 +40,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [financialRules, setFinancialRules] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
+  const [knockoutRounds, setKnockoutRounds] = useState<any[]>([]);
   const [activeRound, setActiveRound] = useState<number | "all">("all");
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
@@ -426,14 +429,15 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tourney, rules, matches, clubsData, types, tourneyClubs, standingsData] = await Promise.all([
+      const [tourney, rules, matches, clubsData, types, tourneyClubs, standingsData, knockoutData] = await Promise.all([
         fetchTournamentById(tournamentId).catch(e => { console.error(e); return null; }),
         fetchFinancialRules().catch(e => { console.error(e); return []; }),
         fetchFixtures(tournamentId).catch(e => { console.error(e); return []; }),
         fetchRegisteredClubs(true).catch(e => { console.error(e); return []; }),
         fetchTournamentTypes().catch(e => { console.error(e); return []; }),
         fetchTournamentClubs(tournamentId).catch(e => { console.error(e); return []; }),
-        fetchTournamentStandings(tournamentId).catch(e => { console.error(e); return []; })
+        fetchTournamentStandings(tournamentId).catch(e => { console.error(e); return []; }),
+        fetchKnockoutRounds(tournamentId).catch(e => { console.error(e); return []; })
       ]);
       setTournament(tourney);
       setFinancialRules(rules || []);
@@ -442,6 +446,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       setTournamentTypes(types || []);
       setTournamentClubs(tourneyClubs || []);
       setStandings(standingsData || []);
+      setKnockoutRounds(knockoutData || []);
 
       if (tourney) {
         setEditName(tourney.name);
@@ -971,6 +976,17 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             >
               <i className="fa-solid fa-chart-simple" style={{ marginRight: "6px" }} /> Stats
             </button>
+            {(tournament?.format_type?.includes('Knockout') || 
+              tournament?.has_knockout_stage || 
+              tournament?.is_pure_knockout) && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "knockout" ? "active" : ""}`}
+                onClick={() => setActiveTab("knockout")}
+              >
+                <i className="fa-solid fa-trophy" style={{ marginRight: "6px" }} /> Knockout
+              </button>
+            )}
             {tournament?.tournament_type === 'special' && (
               <Link
                 href={`/solo-tour/admin/special-album?id=${tournament.id}`}
@@ -2908,6 +2924,17 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </div>
               );
             })()}
+
+            {/* Knockout Tab */}
+            {activeTab === "knockout" && (
+              <div className="admin-card" style={{ marginTop: 0, padding: "24px" }}>
+                <KnockoutManager
+                  tournamentId={tournamentId}
+                  tournament={tournament}
+                  onSuccess={loadData}
+                />
+              </div>
+            )}
 
             {/* Footer */}
             <div style={{ marginTop: "3rem", paddingTop: "1.5rem", borderTop: "1px dashed rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
