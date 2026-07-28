@@ -140,12 +140,14 @@ export default function RwsYearTournament() {
           setFixtures(fixturesData || []);
           setTournamentClubs(clubsData || []);
           
-          // Determine initial active round
+          // Determine initial active round — prefer last group-stage round (< 100)
           if (fixturesData && fixturesData.length > 0) {
-            const played = fixturesData.filter((f: any) => f.homeScore !== null && f.awayScore !== null);
-            if (played.length > 0) {
-              const maxPlayedRound = Math.max(...played.map((f: any) => f.roundNumber));
-              setActiveRound(maxPlayedRound);
+            const groupPlayed = fixturesData.filter((f: any) => f.homeScore !== null && f.awayScore !== null && (f.roundNumber || 0) < 100);
+            const allPlayed = fixturesData.filter((f: any) => f.homeScore !== null && f.awayScore !== null);
+            if (groupPlayed.length > 0) {
+              setActiveRound(Math.max(...groupPlayed.map((f: any) => f.roundNumber || 1)));
+            } else if (allPlayed.length > 0) {
+              setActiveRound(Math.max(...allPlayed.map((f: any) => f.roundNumber || 1)));
             } else {
               setActiveRound(1);
             }
@@ -208,6 +210,8 @@ export default function RwsYearTournament() {
     });
     
     fixtures.forEach(match => {
+      // Exclude knockout fixtures (roundNumber >= 100) from group/league standings
+      if ((match.roundNumber || 0) >= 100) return;
       if (match.homeScore === null || match.awayScore === null || match.match_status === 'void') return;
       
       const homeId = match.homeClubId;
@@ -384,18 +388,17 @@ export default function RwsYearTournament() {
       return `Round ${rNum}`;
     }
     
-    // Knockout rounds naming based on distance to the final round
-    const knockoutRounds = roundsList.filter(r => {
-      const matches = fixtures.filter(f => f.roundNumber === r);
-      return matches.every(f => !f.groupName);
-    });
-    
+    // Knockout rounds: all rounds with roundNumber >= 100, sorted ascending
+    const knockoutRounds = roundsList.filter(r => r >= 100).sort((a, b) => a - b);
     const idx = knockoutRounds.indexOf(rNum);
     if (idx !== -1) {
       const distance = knockoutRounds.length - 1 - idx;
       if (distance === 0) return "Grand Final";
       if (distance === 1) return "Semi-Finals";
       if (distance === 2) return "Quarter-Finals";
+      if (distance === 3) return "Round of 16";
+      if (distance === 4) return "Round of 32";
+      return `Knockout Rd ${idx + 1}`;
     }
     
     return `Round ${rNum}`;
