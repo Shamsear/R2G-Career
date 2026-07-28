@@ -3702,6 +3702,54 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
                     {activeRound === "all" ? "No matches scheduled." : activeRound === "knockout" ? "No knockout matches yet." : `No matches scheduled for Round ${activeRound}.`}
                   </div>
+                ) : activeRound === "knockout" ? (
+                  // Group knockout matches by round name
+                  (() => {
+                    const grouped: Record<string, typeof roundFixtures> = {};
+                    roundFixtures.forEach(m => {
+                      const key = m.displayRound || "Knockout";
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(m);
+                    });
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                        {Object.entries(grouped).map(([roundName, matches]) => (
+                          <div key={roundName}>
+                            <div style={{ fontSize: "0.7rem", color: "#a855f7", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "0.75rem", paddingBottom: "0.4rem", borderBottom: "1px solid rgba(168,85,247,0.2)" }}>
+                              {roundName}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                              {matches.map((match) => {
+                                const isFinished = match.homeScore !== null && match.awayScore !== null;
+                                const homeWon = isFinished && match.homeScore > match.awayScore;
+                                const awayWon = isFinished && match.awayScore > match.homeScore;
+                                const isSpecial = tournament?.tournament_type === 'special';
+                                const homeDisplayName = isSpecial ? (match.homeManager || match.homeClub) : match.homeClub;
+                                const awayDisplayName = isSpecial ? (match.awayManager || match.awayClub) : match.awayClub;
+                                const homeLogoUrl = isSpecial ? (match.homeManagerAvatar || match.homeLogo) : match.homeLogo;
+                                const awayLogoUrl = isSpecial ? (match.awayManagerAvatar || match.awayLogo) : match.awayLogo;
+                                return (
+                                  <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1rem 1.2rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
+                                        {homeLogoUrl && <img src={homeLogoUrl} alt="" style={isSpecial ? { width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,255,255,0.15)" } : { width: "22px", height: "22px", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = isSpecial ? "/assets/images/default-avatar.png" : "/assets/images/default-club-logo.png"; }} />}
+                                        <span style={{ fontSize: "0.85rem", fontWeight: homeWon ? "bold" : "500", color: homeWon ? "#22c55e" : "#ffffff" }}>{homeDisplayName}</span>
+                                      </div>
+                                      <span style={{ fontSize: "1rem", fontWeight: "bold", color: "#c084fc", padding: "0 1.5rem" }}>{isFinished ? `${match.homeScore} - ${match.awayScore}` : "VS"}</span>
+                                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px", justifyContent: "flex-end" }}>
+                                        <span style={{ fontSize: "0.85rem", fontWeight: awayWon ? "bold" : "500", color: awayWon ? "#22c55e" : "#ffffff" }}>{awayDisplayName}</span>
+                                        {awayLogoUrl && <img src={awayLogoUrl} alt="" style={isSpecial ? { width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(255,255,255,0.15)" } : { width: "22px", height: "22px", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = isSpecial ? "/assets/images/default-avatar.png" : "/assets/images/default-club-logo.png"; }} />}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                     {roundFixtures.map((match) => {
@@ -3718,7 +3766,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <div key={`${match.isKnockout ? 'ko' : 'reg'}-${match.id}`} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1rem 1.2rem" }}>
                           {match.isKnockout && (
                             <div style={{ fontSize: "0.65rem", color: "#a855f7", marginBottom: "0.5rem", fontWeight: "bold", textTransform: "uppercase" }}>
-                              🥇 {match.displayRound}
+                              {match.displayRound}
                             </div>
                           )}
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
