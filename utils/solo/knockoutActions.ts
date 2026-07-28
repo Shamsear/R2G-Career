@@ -151,6 +151,39 @@ export async function createKnockoutRoundEnhanced(
           [newRound.id, i + 1, team1_id, team2_id]
         );
 
+        // Create fixture matches if both teams are set (manual mode)
+        if (team1_id && team2_id) {
+          // Create leg 1
+          const { rows: [leg1Match] } = await pool.query(
+            `INSERT INTO fixtures (
+              tournament_id, home_club_id, away_club_id, round_number, match_status
+            ) VALUES ($1, $2, $3, $4, 'scheduled')
+            RETURNING id`,
+            [tournamentId, team1_id, team2_id, 100 + roundInfo.order]
+          );
+
+          await pool.query(
+            `UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2`,
+            [leg1Match.id, pairing.id]
+          );
+
+          // Create leg 2 for two-leg ties
+          if (legs === 2) {
+            const { rows: [leg2Match] } = await pool.query(
+              `INSERT INTO fixtures (
+                tournament_id, home_club_id, away_club_id, round_number, match_status
+              ) VALUES ($1, $2, $3, $4, 'scheduled')
+              RETURNING id`,
+              [tournamentId, team2_id, team1_id, 100 + roundInfo.order] // Reversed for leg 2
+            );
+
+            await pool.query(
+              `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
+              [leg2Match.id, pairing.id]
+            );
+          }
+        }
+
         createdPairings.push(pairing);
       }
     }
@@ -364,7 +397,8 @@ export async function resolveAllPlaceholders(
     // Get all pairings with placeholders
     const { rows: pairings } = await pool.query(
       `SELECT kp.id, kp.knockout_round_id, kp.team1_placeholder, kp.team2_placeholder,
-              kr.legs, kr.round_name, t.name as tournament_name
+              kp.team1_id, kp.team2_id,
+              kr.legs, kr.round_name, kr.round_order, t.name as tournament_name
        FROM knockout_pairings kp
        JOIN knockout_rounds kr ON kr.id = kp.knockout_round_id
        JOIN tournaments t ON kr.tournament_id = t.id
@@ -381,26 +415,32 @@ export async function resolveAllPlaceholders(
     for (const pairing of pairings) {
       console.log('🔍 [RESOLVE] Processing pairing:', pairing.id);
       
-      let team1Id = null;
-      let team2Id = null;
+      let team1Id = pairing.team1_id || null;
+      let team2Id = pairing.team2_id || null;
 
       if (pairing.team1_placeholder) {
         console.log('🔍 [RESOLVE] Resolving team1 placeholder:', pairing.team1_placeholder);
-        team1Id = await resolveQualificationPlaceholder(
+        const resolved = await resolveQualificationPlaceholder(
           pool,
           pairing.team1_placeholder,
           tournamentId
         );
+        if (resolved !== null) {
+          team1Id = resolved;
+        }
         console.log('🔍 [RESOLVE] Team1 resolved to:', team1Id);
       }
 
       if (pairing.team2_placeholder) {
         console.log('🔍 [RESOLVE] Resolving team2 placeholder:', pairing.team2_placeholder);
-        team2Id = await resolveQualificationPlaceholder(
+        const resolved = await resolveQualificationPlaceholder(
           pool,
           pairing.team2_placeholder,
           tournamentId
         );
+        if (resolved !== null) {
+          team2Id = resolved;
+        }
         console.log('🔍 [RESOLVE] Team2 resolved to:', team2Id);
       }
 
@@ -409,14 +449,14 @@ export async function resolveAllPlaceholders(
       const values: any[] = [];
       let paramIndex = 1;
 
-      if (team1Id !== null) {
+      if (team1Id !== null && pairing.team1_id === null) {
         updates.push(`team1_id = $${paramIndex}, team1_placeholder = NULL`);
         values.push(team1Id);
         paramIndex++;
         resolvedCount++;
       }
 
-      if (team2Id !== null) {
+      if (team2Id !== null && pairing.team2_id === null) {
         updates.push(`team2_id = $${paramIndex}, team2_placeholder = NULL`);
         values.push(team2Id);
         paramIndex++;
@@ -432,59 +472,59 @@ export async function resolveAllPlaceholders(
            WHERE id = $${paramIndex}`,
           values
         );
+      }
 
-        // Create fixture matches if both teams are resolved and fixtures don't exist yet
-        if (team1Id && team2Id) {
-          console.log('🔍 [RESOLVE] Both teams resolved, checking for existing fixtures');
-          
-          // Check if fixtures already exist
-          const { rows: existingFixtures } = await pool.query(
-            `SELECT leg1_match_id, leg2_match_id FROM knockout_pairings WHERE id = $1`,
-            [pairing.id]
+      // Create fixture matches if both teams are resolved and fixtures don't exist yet
+      if (team1Id && team2Id) {
+        console.log('🔍 [RESOLVE] Both teams resolved, checking for existing fixtures');
+        
+        // Check if fixtures already exist
+        const { rows: existingFixtures } = await pool.query(
+          `SELECT leg1_match_id, leg2_match_id FROM knockout_pairings WHERE id = $1`,
+          [pairing.id]
+        );
+
+        const existing = existingFixtures[0];
+        console.log('🔍 [RESOLVE] Existing fixtures:', existing);
+        
+        const legs = pairing.legs || 2;
+
+        // Create leg 1 if it doesn't exist
+        if (!existing.leg1_match_id) {
+          console.log('🔍 [RESOLVE] Creating leg 1 fixture');
+          const { rows: [leg1Match] } = await pool.query(
+            `INSERT INTO fixtures (
+              tournament_id, home_club_id, away_club_id, round_number, match_status
+            ) VALUES ($1, $2, $3, $4, 'scheduled')
+            RETURNING id`,
+            [tournamentId, team1Id, team2Id, 100 + pairing.round_order]
           );
+          console.log('🔍 [RESOLVE] Created leg 1 fixture:', leg1Match.id);
 
-          const existing = existingFixtures[0];
-          console.log('🔍 [RESOLVE] Existing fixtures:', existing);
-          
-          const legs = pairing.legs || 2;
+          await pool.query(
+            `UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2`,
+            [leg1Match.id, pairing.id]
+          );
+          console.log('🔍 [RESOLVE] Linked leg 1 fixture to pairing');
+        }
 
-          // Create leg 1 if it doesn't exist
-          if (!existing.leg1_match_id) {
-            console.log('🔍 [RESOLVE] Creating leg 1 fixture');
-            const { rows: [leg1Match] } = await pool.query(
-              `INSERT INTO fixtures (
-                tournament_id, home_club_id, away_club_id, round_number, match_status
-              ) VALUES ($1, $2, $3, 100, 'scheduled')
-              RETURNING id`,
-              [tournamentId, team1Id, team2Id]
-            );
-            console.log('🔍 [RESOLVE] Created leg 1 fixture:', leg1Match.id);
+        // Create leg 2 if it's a two-leg tie and doesn't exist
+        if (legs === 2 && !existing.leg2_match_id) {
+          console.log('🔍 [RESOLVE] Creating leg 2 fixture');
+          const { rows: [leg2Match] } = await pool.query(
+            `INSERT INTO fixtures (
+              tournament_id, home_club_id, away_club_id, round_number, match_status
+            ) VALUES ($1, $2, $3, $4, 'scheduled')
+            RETURNING id`,
+            [tournamentId, team2Id, team1Id, 100 + pairing.round_order] // Reversed for second leg
+          );
+          console.log('🔍 [RESOLVE] Created leg 2 fixture:', leg2Match.id);
 
-            await pool.query(
-              `UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2`,
-              [leg1Match.id, pairing.id]
-            );
-            console.log('🔍 [RESOLVE] Linked leg 1 fixture to pairing');
-          }
-
-          // Create leg 2 if it's a two-leg tie and doesn't exist
-          if (legs === 2 && !existing.leg2_match_id) {
-            console.log('🔍 [RESOLVE] Creating leg 2 fixture');
-            const { rows: [leg2Match] } = await pool.query(
-              `INSERT INTO fixtures (
-                tournament_id, home_club_id, away_club_id, round_number, match_status
-              ) VALUES ($1, $2, $3, 100, 'scheduled')
-              RETURNING id`,
-              [tournamentId, team2Id, team1Id] // Reversed for second leg
-            );
-            console.log('🔍 [RESOLVE] Created leg 2 fixture:', leg2Match.id);
-
-            await pool.query(
-              `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
-              [leg2Match.id, pairing.id]
-            );
-            console.log('🔍 [RESOLVE] Linked leg 2 fixture to pairing');
-          }
+          await pool.query(
+            `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
+            [leg2Match.id, pairing.id]
+          );
+          console.log('🔍 [RESOLVE] Linked leg 2 fixture to pairing');
         }
       }
     }

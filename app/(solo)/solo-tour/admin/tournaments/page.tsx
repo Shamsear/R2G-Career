@@ -426,24 +426,27 @@ export default function TournamentsManager() {
                     />
                   </div>
 
+                  {/* Total Teams (Always visible) */}
+                  <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                    <label>Total Teams</label>
+                    <input 
+                      type="number" 
+                      className="admin-input" 
+                      min={2} 
+                      value={tourneyForm.numTeams} 
+                      onChange={(e) => setTourneyForm(prev => ({ ...prev, numTeams: e.target.value }))} 
+                      placeholder="e.g. 16" 
+                      required
+                    />
+                  </div>
+
+                  {/* Group Stage Specific Fields */}
                   {(tourneyForm.formatType === "Group + Knockout" || tourneyForm.formatType === "League + Knockout") && (() => {
                     const computedTeamsPerGroup = tourneyForm.numTeams && tourneyForm.numGroups 
                       ? Math.floor(parseInt(tourneyForm.numTeams) / parseInt(tourneyForm.numGroups)) 
                       : 0;
                     return (
-                      <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.8rem", marginBottom: "1rem" }}>
-                        <div className="admin-form-group" style={{ marginBottom: 0 }}>
-                          <label>Total Teams</label>
-                          <input 
-                            type="number" 
-                            className="admin-input" 
-                            min={2} 
-                            value={tourneyForm.numTeams} 
-                            onChange={(e) => setTourneyForm(prev => ({ ...prev, numTeams: e.target.value }))} 
-                            placeholder="e.g. 16" 
-                            required
-                          />
-                        </div>
+                      <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.8rem", marginBottom: "1rem" }}>
                         <div className="admin-form-group" style={{ marginBottom: 0 }}>
                           <label>No. of Groups</label>
                           <input 

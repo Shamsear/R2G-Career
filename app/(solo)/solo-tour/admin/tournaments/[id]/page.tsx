@@ -439,11 +439,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   // Merge fixtures with knockout matches for display
   const allMatches = useMemo(() => {
-    const groupStageMatches = fixtures.map(f => ({
-      ...f,
-      isKnockout: false,
-      displayRound: `Round ${f.roundNumber || 1}${f.groupName ? ` (Group ${f.groupName})` : ''}`
-    }));
+    const groupStageMatches = fixtures
+      .filter(f => !f.roundNumber || f.roundNumber < 100)
+      .map(f => ({
+        ...f,
+        isKnockout: false,
+        displayRound: `Round ${f.roundNumber || 1}${f.groupName ? ` (Group ${f.groupName})` : ''}`
+      }));
 
     const knockoutMatchesFormatted = knockoutMatches.map(km => ({
       ...km,
@@ -519,6 +521,22 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         setEditDivisionTier(tourney.division_tier !== null && tourney.division_tier !== undefined ? tourney.division_tier.toString() : "");
         setEditPromotionCount(tourney.promotion_count !== null && tourney.promotion_count !== undefined ? tourney.promotion_count.toString() : "");
         setEditRelegationCount(tourney.relegation_count !== null && tourney.relegation_count !== undefined ? tourney.relegation_count.toString() : "");
+
+        // Auto-set the default knockout round name based on qualifying teams
+        const numGroups = tourney.num_groups || 0;
+        const qualifiedPerGroup = tourney.qualified_per_group || 2;
+        const qualifyingTeams = numGroups > 0 ? numGroups * qualifiedPerGroup : (tourney.num_teams || 8);
+        const allRounds = [
+          { value: 'ROUND_OF_32', teams: 32 },
+          { value: 'ROUND_OF_16', teams: 16 },
+          { value: 'QUARTER_FINAL', teams: 8 },
+          { value: 'SEMI_FINAL', teams: 4 },
+          { value: 'FINAL', teams: 2 }
+        ];
+        const matchingRound = allRounds.find(r => r.teams === qualifyingTeams) || allRounds.find(r => r.teams <= qualifyingTeams);
+        if (matchingRound) {
+          setKnockoutRoundName(matchingRound.value);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -928,22 +946,28 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     const numPairings = requiredTeams / 2;
 
     let pairings = [];
+    let isComplete = false;
 
     if (knockoutMode === 'MANUAL') {
       // Manual mode - use selected teams
+      const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
       for (const pairing of knockoutManualPairings) {
         const team1Data = standingsWithStats.find(t => t.club_id === pairing.team1);
         const team2Data = standingsWithStats.find(t => t.club_id === pairing.team2);
+        const getName = (t: any) => t ? (isSpecialOrRws ? (t.manager || t.club_name) : t.club_name) : null;
         
         pairings.push({
-          team1: team1Data?.club_name || null,
-          team2: team2Data?.club_name || null,
+          team1: getName(team1Data),
+          team2: getName(team2Data),
+          team1Id: team1Data ? String(team1Data.club_id) : null,
+          team2Id: team2Data ? String(team2Data.club_id) : null,
           team1Logo: team1Data?.club_logo,
           team2Logo: team2Data?.club_logo,
           team1Placeholder: !team1Data ? 'Not selected' : null,
           team2Placeholder: !team2Data ? 'Not selected' : null
         });
       }
+      isComplete = knockoutManualPairings.every(p => p.team1 && p.team2);
     } else {
       // Auto mode - generate placeholder pairings
       const placeholderPairings = generatePlaceholderPairings(
@@ -954,37 +978,41 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       );
 
       // Check if group stage is complete by checking last round fixtures
-      const groupFixtures = fixtures.filter(f => !f.isKnockout);
+      // allMatches has isKnockout set correctly; fixtures raw state does not
+      const groupFixtures = allMatches.filter(f => !f.isKnockout);
       const maxRound = Math.max(...groupFixtures.map(f => f.roundNumber || 1), 0);
       const lastRoundFixtures = groupFixtures.filter(f => (f.roundNumber || 1) === maxRound);
-      const isComplete = lastRoundFixtures.length > 0 && lastRoundFixtures.every(f => f.homeScore !== null && f.awayScore !== null);
+      isComplete = lastRoundFixtures.length > 0 && lastRoundFixtures.every(f => f.homeScore !== null && f.awayScore !== null);
 
       // If complete, try to resolve teams
       for (const placeholder of placeholderPairings) {
         let team1 = null, team2 = null, team1Logo = null, team2Logo = null;
+        let team1Id: string | null = null, team2Id: string | null = null;
 
         if (isComplete) {
           // Try to resolve teams from standings
           const team1Data = resolveTeamFromPlaceholder(placeholder.team1Placeholder);
           const team2Data = resolveTeamFromPlaceholder(placeholder.team2Placeholder);
-          team1 = team1Data?.name;
-          team2 = team2Data?.name;
-          team1Logo = team1Data?.logo;
-          team2Logo = team2Data?.logo;
+          team1 = team1Data?.name || null;
+          team2 = team2Data?.name || null;
+          team1Logo = team1Data?.logo || null;
+          team2Logo = team2Data?.logo || null;
+          team1Id = team1Data?.id ? String(team1Data.id) : null;
+          team2Id = team2Data?.id ? String(team2Data.id) : null;
         }
 
         pairings.push({
           team1,
           team2,
+          team1Id,
+          team2Id,
           team1Logo,
           team2Logo,
-          team1Placeholder: placeholder.team1Placeholder,
-          team2Placeholder: placeholder.team2Placeholder
+          team1Placeholder: isComplete ? null : placeholder.team1Placeholder,
+          team2Placeholder: isComplete ? null : placeholder.team2Placeholder
         });
       }
     }
-
-    const isComplete = knockoutMode === 'MANUAL' ? knockoutManualPairings.every(p => p.team1 && p.team2) : false;
 
     return {
       roundName: knockoutRoundName,
@@ -1014,31 +1042,42 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       }
     } else if (strategy === 'CONSECUTIVE_GROUPS') {
       // Consecutive groups: A1 vs B1, C1 vs D1
-      const numPairings = numTeams / 2;
-      for (let i = 0; i < numPairings; i++) {
-        const group1Idx = i * 2;
-        const group2Idx = i * 2 + 1;
-        if (group1Idx < numGroups && group2Idx < numGroups) {
-          pairings.push({
-            team1Placeholder: `Group ${groupNames[group1Idx]} #1`,
-            team2Placeholder: `Group ${groupNames[group2Idx]} #1`
-          });
+      for (let i = 0; i < numGroups - 1; i += 2) {
+        for (let pos = 1; pos <= qualifiedPerGroup; pos++) {
+          if (groupNames[i] && groupNames[i + 1]) {
+            pairings.push({
+              team1Placeholder: `Group ${groupNames[i]} #${pos}`,
+              team2Placeholder: `Group ${groupNames[i + 1]} #${pos}`
+            });
+          }
         }
       }
     } else {
-      // CROSS_GROUP (default)
-      if (numTeams === 8 && numGroups === 4 && qualifiedPerGroup === 2) {
-        pairings.push(
-          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
-          { team1Placeholder: 'Group C #1', team2Placeholder: 'Group D #2' },
-          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' },
-          { team1Placeholder: 'Group D #1', team2Placeholder: 'Group C #2' }
-        );
-      } else if (numTeams === 4 && numGroups === 2 && qualifiedPerGroup === 2) {
-        pairings.push(
-          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
-          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
-        );
+      // CROSS_GROUP (default): top of each group vs runner-up of crossing group
+      // Generic: for each group pair (A vs B, C vs D, ...), A1 vs B2 and B1 vs A2
+      if (numGroups >= 2 && qualifiedPerGroup >= 1) {
+        for (let i = 0; i < numGroups; i += 2) {
+          const g1 = groupNames[i];
+          const g2 = groupNames[i + 1];
+          if (!g1 || !g2) break;
+          // Cross match: group i winner vs group i+1 runner-up, and vice versa
+          for (let pos = 1; pos <= qualifiedPerGroup; pos++) {
+            const oppositePos = qualifiedPerGroup - pos + 1;
+            pairings.push({
+              team1Placeholder: `Group ${g1} #${pos}`,
+              team2Placeholder: `Group ${g2} #${oppositePos}`
+            });
+          }
+        }
+      } else if (numGroups === 0) {
+        // No groups (pure knockout seeding)
+        const numPairings = numTeams / 2;
+        for (let i = 0; i < numPairings; i++) {
+          pairings.push({
+            team1Placeholder: `Seed #${i + 1}`,
+            team2Placeholder: `Seed #${numTeams - i}`
+          });
+        }
       }
     }
 
@@ -1049,19 +1088,24 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     // Parse placeholder like "Group A #1" or "Seed #1"
     const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/);
     const seedMatch = placeholder.match(/Seed #(\d+)/);
+    const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
+
+    const teamToResult = (team: any) => {
+      if (!team) return null;
+      const name = isSpecialOrRws ? (team.manager || team.club_name) : team.club_name;
+      return { id: team.club_id, name, logo: team.club_logo };
+    };
 
     if (groupMatch) {
       const [, groupName, position] = groupMatch;
       const groupStandings = standingsWithStats
         .filter(s => s.group_name === groupName)
         .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference);
-      const team = groupStandings[parseInt(position) - 1];
-      return team ? { name: team.club_name, logo: team.club_logo } : null;
+      return teamToResult(groupStandings[parseInt(position) - 1]);
     } else if (seedMatch) {
       const [, position] = seedMatch;
       const allStandings = [...standingsWithStats].sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference);
-      const team = allStandings[parseInt(position) - 1];
-      return team ? { name: team.club_name, logo: team.club_logo } : null;
+      return teamToResult(allStandings[parseInt(position) - 1]);
     }
 
     return null;
@@ -3428,24 +3472,34 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
                     setKnockoutCreating(true);
                     try {
-                      // Prepare teams and custom pairings for manual mode
-                      const teams = knockoutMode === 'MANUAL' 
-                        ? knockoutManualPairings.flatMap(p => [p.team1, p.team2]).filter(Boolean).map(String)
-                        : [];
-                      
-                      const customPairings = knockoutMode === 'MANUAL'
-                        ? knockoutManualPairings.map(p => ({
-                            team1Id: String(p.team1),
-                            team2Id: String(p.team2)
-                          }))
-                        : [];
+                      let teams: string[] = [];
+                      let customPairings: { team1Id: string; team2Id: string }[] = [];
+                      let effectiveMode: 'auto' | 'manual' = knockoutMode.toLowerCase() as 'auto' | 'manual';
+
+                      if (knockoutMode === 'MANUAL') {
+                        // Manual mode: use selected team IDs
+                        teams = knockoutManualPairings.flatMap(p => [p.team1, p.team2]).filter(Boolean).map(String);
+                        customPairings = knockoutManualPairings.map(p => ({
+                          team1Id: String(p.team1),
+                          team2Id: String(p.team2)
+                        }));
+                      } else if (knockoutPreview?.isComplete && knockoutPreview?.pairings?.every((p: any) => p.team1Id && p.team2Id)) {
+                        // Auto mode but group stage is fully resolved — treat as manual with real IDs
+                        effectiveMode = 'manual';
+                        customPairings = knockoutPreview.pairings.map((p: any) => ({
+                          team1Id: String(p.team1Id),
+                          team2Id: String(p.team2Id)
+                        }));
+                        teams = knockoutPreview.pairings.flatMap((p: any) => [p.team1Id, p.team2Id]).filter(Boolean).map(String);
+                      }
+                      // else: pure auto mode with placeholders — teams=[] and customPairings=[] so server creates placeholders
 
                       await createKnockoutRound({
                         tournamentId,
                         roundName: knockoutRoundName,
                         legs: knockoutLegs,
                         teams,
-                        mode: knockoutMode.toLowerCase() as 'auto' | 'manual',
+                        mode: effectiveMode,
                         customPairings,
                         createFullBracket: knockoutCreateFullBracket
                       });
