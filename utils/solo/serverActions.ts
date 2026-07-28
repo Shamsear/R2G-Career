@@ -839,11 +839,11 @@ export async function fetchTournaments() {
 
     const { rows } = await pool.query(query, params);
     return rows.map(r => {
-      const isSpecial = r.tournament_type === 'special';
-      const homeDefaultName = isSpecial ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
-      const awayDefaultName = isSpecial ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
-      const homeDefaultLogo = isSpecial ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
-      const awayDefaultLogo = isSpecial ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
+      const isSpecialOrRws = r.tournament_type === 'special' || r.tournament_type === 'rws';
+      const homeDefaultName = isSpecialOrRws ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
+      const awayDefaultName = isSpecialOrRws ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
+      const homeDefaultLogo = isSpecialOrRws ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
+      const awayDefaultLogo = isSpecialOrRws ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
 
       const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : homeDefaultName;
       const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : awayDefaultName;
@@ -904,11 +904,11 @@ export async function fetchFixtureById(fixtureId: number) {
     if (rows.length === 0) return null;
     const r = rows[0];
 
-    const isSpecial = r.tournament_type === 'special';
-    const homeDefaultName = isSpecial ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
-    const awayDefaultName = isSpecial ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
-    const homeDefaultLogo = isSpecial ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
-    const awayDefaultLogo = isSpecial ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
+    const isSpecialOrRws = r.tournament_type === 'special' || r.tournament_type === 'rws';
+    const homeDefaultName = isSpecialOrRws ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
+    const awayDefaultName = isSpecialOrRws ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
+    const homeDefaultLogo = isSpecialOrRws ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
+    const awayDefaultLogo = isSpecialOrRws ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
 
     const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : homeDefaultName;
     const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : awayDefaultName;
@@ -938,6 +938,84 @@ export async function fetchFixtureById(fixtureId: number) {
   } catch (error) {
     console.error("Error fetching fixture by ID:", error);
     return null;
+  }
+}
+
+export async function fetchKnockoutMatches(tournamentId: number) {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        f.id, f.home_score, f.away_score, f.match_status, f.match_events,
+        kp.id as knockout_pairing_id, kp.pairing_order,
+        kr.round_name, kr.round_order, kr.legs,
+        CASE 
+          WHEN f.id = kp.leg1_match_id THEN 1
+          WHEN f.id = kp.leg2_match_id THEN 2
+          ELSE 1
+        END as leg_number,
+        t.name as tournament_name, t.tournament_type,
+        hc.name as home_club_name, hc.logo_path as home_club_logo, 
+        hm.name as home_manager, hm.avatar_path as home_manager_avatar, hm.r2g_id as home_r2g_id,
+        tth.custom_team_name as home_custom_name, tth.use_existing_club as home_use_existing, tth.custom_logo_path as home_custom_logo,
+        ac.name as away_club_name, ac.logo_path as away_club_logo,
+        am.name as away_manager, am.avatar_path as away_manager_avatar, am.r2g_id as away_r2g_id,
+        tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
+      FROM knockout_rounds kr
+      JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
+      JOIN fixtures f ON (f.id = kp.leg1_match_id OR f.id = kp.leg2_match_id)
+      JOIN tournaments t ON kr.tournament_id = t.id
+      LEFT JOIN managers hm ON f.home_club_id = hm.id
+      LEFT JOIN clubs hc ON hm.id = hc.id
+      LEFT JOIN managers am ON f.away_club_id = am.id
+      LEFT JOIN clubs ac ON am.id = ac.id
+      LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
+      LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
+      WHERE kr.tournament_id = $1
+        AND (kp.leg1_match_id IS NOT NULL OR kp.leg2_match_id IS NOT NULL)
+      ORDER BY kr.round_order DESC, kp.pairing_order ASC, leg_number ASC
+    `, [tournamentId]);
+
+    return rows.map(r => {
+      const isSpecialOrRws = r.tournament_type === 'special' || r.tournament_type === 'rws';
+      const homeDefaultName = isSpecialOrRws ? (r.home_manager || "Unknown") : (r.home_club_name || r.home_manager);
+      const awayDefaultName = isSpecialOrRws ? (r.away_manager || "Unknown") : (r.away_club_name || r.away_manager);
+      const homeDefaultLogo = isSpecialOrRws ? (r.home_manager_avatar || r.home_club_logo) : r.home_club_logo;
+      const awayDefaultLogo = isSpecialOrRws ? (r.away_manager_avatar || r.away_club_logo) : r.away_club_logo;
+
+      const homeName = (!r.home_use_existing && r.home_custom_name) ? r.home_custom_name : homeDefaultName;
+      const awayName = (!r.away_use_existing && r.away_custom_name) ? r.away_custom_name : awayDefaultName;
+      const homeLogo = (!r.home_use_existing && r.home_custom_logo) ? r.home_custom_logo : homeDefaultLogo;
+      const awayLogo = (!r.away_use_existing && r.away_custom_logo) ? r.away_custom_logo : awayDefaultLogo;
+
+      return {
+        id: r.id,
+        knockoutPairingId: r.knockout_pairing_id,
+        legNumber: r.leg_number,
+        roundName: r.round_name,
+        roundOrder: r.round_order,
+        pairingOrder: r.pairing_order,
+        tournamentName: r.tournament_name,
+        tournamentType: r.tournament_type,
+        homeClub: homeName || "TBD",
+        homeLogo: homeLogo,
+        homeManager: r.home_manager || "TBD",
+        homeR2gId: r.home_r2g_id,
+        homeClubId: r.home_club_id,
+        awayClub: awayName || "TBD",
+        awayLogo: awayLogo,
+        awayManager: r.away_manager || "TBD",
+        awayR2gId: r.away_r2g_id,
+        awayClubId: r.away_club_id,
+        homeScore: r.home_score,
+        awayScore: r.away_score,
+        match_status: r.match_status,
+        matchEvents: typeof r.match_events === 'string' ? JSON.parse(r.match_events) : r.match_events,
+        isKnockout: true
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching knockout matches:", error);
+    return [];
   }
 }
 
@@ -975,9 +1053,9 @@ export async function fetchTournamentStandings(tournamentId: number) {
       ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_scored DESC
     `, [tournamentId]);
     return rows.map((r: any) => {
-      const isSpecial = r.tournament_type === 'special';
-      const defaultName = isSpecial ? (r.manager || "Unknown") : (r.club_name || r.manager);
-      const defaultLogo = isSpecial ? (r.manager_avatar || r.club_logo) : r.club_logo;
+      const isSpecialOrRws = r.tournament_type === 'special' || r.tournament_type === 'rws';
+      const defaultName = isSpecialOrRws ? (r.manager || "Unknown") : (r.club_name || r.manager);
+      const defaultLogo = isSpecialOrRws ? (r.manager_avatar || r.club_logo) : r.club_logo;
       return {
         ...r,
         club_name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : defaultName,
@@ -3726,16 +3804,16 @@ export async function fetchTournamentClubs(tournamentId: number) {
       ORDER BY COALESCE(c.name, m.name) ASC
     `, [tournamentId]);
     return rows.map((r: any) => {
-      const isSpecial = r.tournament_type === 'special';
-      const defaultName = isSpecial ? (r.manager || "Unknown") : r.name;
-      const defaultLogo = isSpecial ? (r.manager_avatar || r.logo_path) : r.logo_path;
+      const isSpecialOrRws = r.tournament_type === 'special' || r.tournament_type === 'rws';
+      const defaultName = isSpecialOrRws ? (r.manager || "Unknown") : r.name;
+      const defaultLogo = isSpecialOrRws ? (r.manager_avatar || r.logo_path) : r.logo_path;
       return {
         club_id: r.club_id,
         name: (!r.use_existing_club && r.custom_team_name) ? r.custom_team_name : defaultName,
         logo_path: (!r.use_existing_club && r.custom_logo_path) ? r.custom_logo_path : defaultLogo,
         custom_team_name: r.custom_team_name,
         custom_logo_path: r.custom_logo_path,
-        use_existing_club: isSpecial ? false : (r.use_existing_club ?? true),
+        use_existing_club: isSpecialOrRws ? false : (r.use_existing_club ?? true),
         original_name: defaultName,
         manager: r.manager || "Unknown",
         manager_r2g_id: r.manager_r2g_id,
@@ -7149,18 +7227,34 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
             'leg2MatchId', kp.leg2_match_id,
             'team1', CASE 
               WHEN kp.team1_id IS NOT NULL THEN json_build_object(
-                'id', c1.id,
-                'name', c1.name,
-                'logo', c1.logo_path,
+                'id', m1.id,
+                'name', COALESCE(
+                  CASE WHEN tt1.use_existing_club = false THEN tt1.custom_team_name END,
+                  CASE WHEN t.tournament_type IN ('special', 'rws') THEN m1.name ELSE c1.name END,
+                  m1.name
+                ),
+                'logo', COALESCE(
+                  CASE WHEN tt1.use_existing_club = false THEN tt1.custom_logo_path END,
+                  CASE WHEN t.tournament_type IN ('special', 'rws') THEN m1.avatar_path ELSE c1.logo_path END,
+                  c1.logo_path
+                ),
                 'manager', m1.name
               )
               ELSE NULL
             END,
             'team2', CASE 
               WHEN kp.team2_id IS NOT NULL THEN json_build_object(
-                'id', c2.id,
-                'name', c2.name,
-                'logo', c2.logo_path,
+                'id', m2.id,
+                'name', COALESCE(
+                  CASE WHEN tt2.use_existing_club = false THEN tt2.custom_team_name END,
+                  CASE WHEN t.tournament_type IN ('special', 'rws') THEN m2.name ELSE c2.name END,
+                  m2.name
+                ),
+                'logo', COALESCE(
+                  CASE WHEN tt2.use_existing_club = false THEN tt2.custom_logo_path END,
+                  CASE WHEN t.tournament_type IN ('special', 'rws') THEN m2.avatar_path ELSE c2.logo_path END,
+                  c2.logo_path
+                ),
                 'manager', m2.name
               )
               ELSE NULL
@@ -7169,10 +7263,13 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
         ) as pairings
       FROM knockout_rounds kr
       LEFT JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
-      LEFT JOIN clubs c1 ON c1.id = kp.team1_id
-      LEFT JOIN managers m1 ON m1.club_id = c1.id
-      LEFT JOIN clubs c2 ON c2.id = kp.team2_id
-      LEFT JOIN managers m2 ON m2.club_id = c2.id
+      LEFT JOIN managers m1 ON m1.id = kp.team1_id
+      LEFT JOIN clubs c1 ON c1.id = m1.id
+      LEFT JOIN tournaments t ON t.id = kr.tournament_id
+      LEFT JOIN tournament_teams tt1 ON tt1.tournament_name = t.name AND tt1.club_id = m1.id
+      LEFT JOIN managers m2 ON m2.id = kp.team2_id
+      LEFT JOIN clubs c2 ON c2.id = m2.id
+      LEFT JOIN tournament_teams tt2 ON tt2.tournament_name = t.name AND tt2.club_id = m2.id
       WHERE kr.tournament_id = $1
       GROUP BY kr.id
       ORDER BY kr.round_order
@@ -7314,7 +7411,7 @@ export async function createKnockoutRound(data: {
     // Insert pairings
     for (let i = 0; i < pairings.length; i++) {
       const pairing = pairings[i];
-      await pool.query(
+      const { rows: [insertedPairing] } = await pool.query(
         `INSERT INTO knockout_pairings (
           knockout_round_id,
           pairing_order,
@@ -7322,7 +7419,8 @@ export async function createKnockoutRound(data: {
           team2_id,
           team1_placeholder,
           team2_placeholder
-        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, team1_id, team2_id`,
         [
           newRound.id,
           i + 1,
@@ -7332,6 +7430,39 @@ export async function createKnockoutRound(data: {
           pairing.team2Placeholder || null
         ]
       );
+
+      // Create fixture matches if both teams are set (manual mode or resolved placeholders)
+      if (insertedPairing.team1_id && insertedPairing.team2_id) {
+        // Create leg 1
+        const { rows: [leg1Match] } = await pool.query(
+          `INSERT INTO fixtures (
+            tournament_id, home_club_id, away_club_id, round_number, match_status
+          ) VALUES ($1, $2, $3, 100, 'scheduled')
+          RETURNING id`,
+          [tournamentId, insertedPairing.team1_id, insertedPairing.team2_id]
+        );
+
+        await pool.query(
+          `UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2`,
+          [leg1Match.id, insertedPairing.id]
+        );
+
+        // Create leg 2 for two-leg ties
+        if (legs === 2) {
+          const { rows: [leg2Match] } = await pool.query(
+            `INSERT INTO fixtures (
+              tournament_id, home_club_id, away_club_id, round_number, match_status
+            ) VALUES ($1, $2, $3, 100, 'scheduled')
+            RETURNING id`,
+            [tournamentId, insertedPairing.team2_id, insertedPairing.team1_id] // Reversed for leg 2
+          );
+
+          await pool.query(
+            `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
+            [leg2Match.id, insertedPairing.id]
+          );
+        }
+      }
     }
 
     // Create full bracket if requested
@@ -7444,6 +7575,40 @@ export async function deleteAllKnockoutRounds(tournamentId: number | string) {
   } catch (error: any) {
     console.error('Error deleting knockout rounds:', error);
     throw new Error(`Failed to delete knockout rounds: ${error.message}`);
+  }
+}
+
+/**
+ * Delete a single knockout round
+ */
+export async function deleteKnockoutRound(roundId: number) {
+  try {
+    // Get round info for logging
+    const { rows: [round] } = await pool.query(
+      `SELECT tournament_id, round_name FROM knockout_rounds WHERE id = $1`,
+      [roundId]
+    );
+
+    if (!round) {
+      throw new Error('Knockout round not found');
+    }
+
+    // Delete the round (CASCADE will delete pairings automatically)
+    await pool.query(
+      `DELETE FROM knockout_rounds WHERE id = $1`,
+      [roundId]
+    );
+
+    await logSoloAdminAction('DELETE_KNOCKOUT_ROUND', { 
+      roundId, 
+      tournamentId: round.tournament_id, 
+      roundName: round.round_name 
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error deleting knockout round:', error);
+    throw new Error(`Failed to delete knockout round: ${error.message}`);
   }
 }
 
@@ -7628,4 +7793,69 @@ async function resolveNextRoundPairingsServer(completedPairingId: string, winner
   } catch (error) {
     console.error('Error resolving next round pairings:', error);
   }
+}
+
+
+// ============================================================================
+// ENHANCED KNOCKOUT TOURNAMENT SYSTEM
+// ============================================================================
+// Import enhanced knockout functions
+import {
+  createKnockoutRoundEnhanced,
+  updateKnockoutPairingEnhanced,
+  deleteAllKnockoutRoundsEnhanced,
+  resolveAllPlaceholders,
+  getEligibleTeamsForKnockout
+} from './knockoutActions';
+
+/**
+ * Create knockout round with full auto/manual support
+ * This replaces the basic createKnockoutRound with comprehensive functionality
+ */
+export async function createKnockoutRoundV2(data: {
+  tournamentId: number;
+  roundName: 'ROUND_OF_32' | 'ROUND_OF_16' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'THIRD_PLACE' | 'FINAL';
+  legs: number;
+  mode: 'AUTO' | 'MANUAL';
+  pairingMethod?: 'AUTO_SEED' | 'CONSECUTIVE' | 'CUSTOM';
+  teams?: number[];
+  customPairings?: Array<{ team1Id: number; team2Id: number }>;
+  createFullBracket?: boolean;
+}) {
+  return createKnockoutRoundEnhanced(pool, data);
+}
+
+/**
+ * Update a knockout pairing
+ */
+export async function updateKnockoutPairingV2(
+  pairingId: string,
+  data: {
+    team1Id?: number | null;
+    team2Id?: number | null;
+    winnerId?: number | null;
+  }
+) {
+  return updateKnockoutPairingEnhanced(pool, pairingId, data);
+}
+
+/**
+ * Delete all knockout rounds for a tournament
+ */
+export async function deleteAllKnockoutRoundsV2(tournamentId: number) {
+  return deleteAllKnockoutRoundsEnhanced(pool, tournamentId);
+}
+
+/**
+ * Manually resolve all placeholders
+ */
+export async function resolveKnockoutPlaceholders(tournamentId: number) {
+  return resolveAllPlaceholders(pool, tournamentId);
+}
+
+/**
+ * Get eligible teams for knockout selection
+ */
+export async function fetchEligibleKnockoutTeams(tournamentId: number) {
+  return getEligibleTeamsForKnockout(pool, tournamentId);
 }

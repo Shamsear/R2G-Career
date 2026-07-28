@@ -1,128 +1,84 @@
+require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: '.env.local' });
+
+const pool = new Pool({
+  connectionString: process.env.SOLO_DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 async function runMigration() {
-  console.log('🚀 Starting Knockout Tournament Migration...\n');
-
-  const connectionString = process.env.SOLO_DATABASE_URL;
+  console.log('🚀 Starting Knockout System Migration...\n');
   
-  if (!connectionString) {
-    console.error('❌ ERROR: SOLO_DATABASE_URL not found in .env.local');
-    console.error('Please ensure your .env.local file has SOLO_DATABASE_URL set.');
-    process.exit(1);
-  }
-
-  console.log('✓ Database connection string found');
-  console.log('✓ Connecting to database...\n');
-
-  const pool = new Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false }
-  });
-
   try {
-    // Test connection
-    await pool.query('SELECT NOW()');
-    console.log('✓ Database connection successful\n');
+    // Read the migration file
+    const migrationPath = path.join(__dirname, 'migrations', 'update_knockout_system.sql');
+    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
     
-    console.log('📖 Reading migration file...');
-    const sqlFilePath = path.join(__dirname, 'migrations', 'create_knockout_tables.sql');
+    console.log('📖 Migration file loaded');
+    console.log('📊 Connecting to database...\n');
     
-    if (!fs.existsSync(sqlFilePath)) {
-      throw new Error(`Migration file not found: ${sqlFilePath}`);
-    }
-    
-    const sql = fs.readFileSync(sqlFilePath, 'utf8');
-    console.log('✓ Migration file loaded\n');
-    
-    console.log('⚙️  Executing migration...');
-    console.log('   - Creating knockout_rounds table...');
-    console.log('   - Creating knockout_pairings table...');
-    console.log('   - Creating helper functions...');
-    console.log('   - Creating triggers...\n');
-    
-    await pool.query(sql);
+    // Execute the migration
+    await pool.query(migrationSQL);
     
     console.log('✅ Migration completed successfully!\n');
+    console.log('📋 Changes applied:');
+    console.log('   ✓ Added knockout_config column to tournaments');
+    console.log('   ✓ Updated knockout_rounds table structure');
+    console.log('   ✓ Updated knockout_pairings table structure');
+    console.log('   ✓ Created performance indexes');
+    console.log('   ✓ Created helper functions');
+    console.log('   ✓ Created bracket visualization view');
+    console.log('   ✓ Created auto-resolution triggers');
+    console.log('   ✓ Created aggregate score tracking\n');
     
-    // Verify tables were created
+    // Verify the changes
     console.log('🔍 Verifying migration...');
     
-    const tablesCheck = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-        AND table_name IN ('knockout_rounds', 'knockout_pairings')
-      ORDER BY table_name
-    `);
+    const verifyQueries = [
+      { 
+        query: "SELECT column_name FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'knockout_config'",
+        name: 'knockout_config column'
+      },
+      {
+        query: "SELECT column_name FROM information_schema.columns WHERE table_name = 'knockout_rounds' AND column_name = 'creation_mode'",
+        name: 'creation_mode column'
+      },
+      {
+        query: "SELECT column_name FROM information_schema.columns WHERE table_name = 'knockout_pairings' AND column_name = 'pairing_order'",
+        name: 'pairing_order column'
+      },
+      {
+        query: "SELECT COUNT(*) as count FROM pg_proc WHERE proname = 'resolve_knockout_placeholders'",
+        name: 'resolve_knockout_placeholders function'
+      },
+      {
+        query: "SELECT COUNT(*) as count FROM pg_views WHERE viewname = 'v_knockout_bracket'",
+        name: 'v_knockout_bracket view'
+      }
+    ];
     
-    if (tablesCheck.rows.length === 2) {
-      console.log('✓ Tables created:');
-      tablesCheck.rows.forEach(row => {
-        console.log(`  - ${row.table_name}`);
-      });
-    } else {
-      console.warn('⚠️  Warning: Expected 2 tables but found', tablesCheck.rows.length);
+    for (const check of verifyQueries) {
+      const result = await pool.query(check.query);
+      const exists = result.rows.length > 0 && (result.rows[0].column_name || result.rows[0].count > 0);
+      console.log(`   ${exists ? '✓' : '✗'} ${check.name}`);
     }
     
-    // Check functions
-    const functionsCheck = await pool.query(`
-      SELECT routine_name 
-      FROM information_schema.routines 
-      WHERE routine_schema = 'public' 
-        AND (routine_name LIKE '%knockout%' OR routine_name LIKE '%round%')
-      ORDER BY routine_name
-    `);
-    
-    console.log(`✓ Functions created: ${functionsCheck.rows.length} functions`);
-    functionsCheck.rows.forEach(row => {
-      console.log(`  - ${row.routine_name}()`);
-    });
-    
-    // Test a simple query
-    const testQuery = await pool.query('SELECT COUNT(*) FROM knockout_rounds');
-    console.log(`✓ Test query successful: ${testQuery.rows[0].count} knockout rounds found`);
-    
-    console.log('\n🎉 SUCCESS! Knockout tournament system is ready to use!\n');
-    console.log('📋 Next steps:');
-    console.log('   1. Open your browser');
-    console.log('   2. Navigate to admin dashboard');
-    console.log('   3. Open any tournament with knockout stage');
-    console.log('   4. Click the "Knockout" tab');
-    console.log('   5. Create your first knockout round!\n');
+    console.log('\n✨ Knockout system database migration complete!');
+    console.log('📝 Next steps:');
+    console.log('   1. Implement server actions for knockout management');
+    console.log('   2. Create API routes');
+    console.log('   3. Build UI components');
+    console.log('   4. Test with sample tournaments\n');
     
   } catch (error) {
-    console.error('\n❌ Migration failed!');
-    console.error('Error:', error.message);
-    
-    if (error.code) {
-      console.error('Error Code:', error.code);
-    }
-    
-    if (error.detail) {
-      console.error('Detail:', error.detail);
-    }
-    
-    if (error.hint) {
-      console.error('Hint:', error.hint);
-    }
-    
-    console.error('\n💡 Troubleshooting:');
-    console.error('   - Check if you have CREATE TABLE permissions');
-    console.error('   - Verify SOLO_DATABASE_URL is correct in .env.local');
-    console.error('   - Ensure the database is accessible');
-    console.error('   - Check if tables already exist (run: SELECT * FROM knockout_rounds;)');
-    
+    console.error('❌ Migration failed:', error.message);
+    console.error('\nError details:', error);
     process.exit(1);
   } finally {
     await pool.end();
   }
 }
 
-// Run the migration
-runMigration().catch(error => {
-  console.error('Unexpected error:', error);
-  process.exit(1);
-});
+runMigration();

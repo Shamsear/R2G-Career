@@ -2,6 +2,23 @@
 
 import { useState, useEffect } from 'react';
 
+// Types
+type RoundName = 'ROUND_OF_32' | 'ROUND_OF_16' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'THIRD_PLACE' | 'FINAL';
+type CreationMode = 'AUTO' | 'MANUAL';
+type PairingMethod = 'AUTO_SEED' | 'CONSECUTIVE' | 'CUSTOM';
+
+interface Team {
+  id: number;
+  name: string;
+  logo: string;
+  manager: string;
+  points: number;
+  goalDifference: number;
+  groupName?: string;
+  groupPosition?: number;
+  overallPosition: number;
+}
+
 interface KnockoutManagerProps {
   tournamentId: number;
   tournament: any;
@@ -9,15 +26,27 @@ interface KnockoutManagerProps {
 }
 
 export default function KnockoutManager({ tournamentId, tournament, onSuccess }: KnockoutManagerProps) {
+  console.log('=== KnockoutManager RENDER START ===');
+  console.log('tournamentId:', tournamentId);
+  console.log('tournament:', tournament);
+  console.log('tournament.format_type:', tournament?.format_type);
+  
+  // State
   const [knockoutRounds, setKnockoutRounds] = useState<any[]>([]);
+  const [eligibleTeams, setEligibleTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
-  const [roundName, setRoundName] = useState('QUARTER_FINAL');
+  
+  // Form state
+  const [mode, setMode] = useState<CreationMode>('AUTO');
+  const [roundName, setRoundName] = useState<RoundName>('QUARTER_FINAL');
   const [legs, setLegs] = useState(2);
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [pairingMethod, setPairingMethod] = useState<PairingMethod>('AUTO_SEED');
+  const [selectedTeams, setSelectedTeams] = useState<number[]>([]);
   const [createFullBracket, setCreateFullBracket] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
 
   const roundOptions = [
     { value: 'ROUND_OF_32', label: 'Round of 32', teams: 32 },
@@ -42,20 +71,37 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
   };
 
   const loadKnockoutRounds = async () => {
+    console.log('Loading knockout rounds for tournament:', tournamentId);
     setLoading(true);
     try {
       const { fetchKnockoutRounds } = await import('@/utils/solo/serverActions');
       const rounds = await fetchKnockoutRounds(tournamentId);
-      setKnockoutRounds(rounds || []);
+      console.log('Loaded knockout rounds:', rounds);
+      console.log('Rounds type:', typeof rounds, 'Is array:', Array.isArray(rounds));
+      
+      // Force conversion to real array - the database query returns a Proxy
+      let validRounds: any[] = [];
+      if (rounds) {
+        // Try spreading to force array conversion
+        validRounds = [...rounds];
+      }
+      
+      console.log('Valid rounds array:', validRounds);
+      console.log('Valid rounds length:', validRounds.length);
+      console.log('Valid rounds JSON:', JSON.stringify(validRounds));
+      setKnockoutRounds(validRounds);
     } catch (error: any) {
       console.error('Error loading knockout rounds:', error);
-      showToast('Failed to load knockout rounds');
+      showToast('Failed to load knockout rounds: ' + error.message);
+      setKnockoutRounds([]);
     } finally {
+      console.log('Loading finished, setting loading to false');
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('KnockoutManager mounted, tournament:', tournament);
     loadKnockoutRounds();
   }, [tournamentId]);
 
@@ -63,7 +109,7 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
     const selectedRound = roundOptions.find(r => r.value === roundName);
     if (!selectedRound) return;
 
-    if (mode === 'manual' && selectedTeams.length !== selectedRound.teams) {
+    if (mode === 'MANUAL' && selectedTeams.length !== selectedRound.teams) {
       showToast(`Please select exactly ${selectedRound.teams} teams`);
       return;
     }
@@ -76,7 +122,7 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
         roundName,
         legs,
         teams: selectedTeams,
-        mode,
+        mode: mode.toLowerCase() as 'auto' | 'manual',
         createFullBracket
       });
 
@@ -108,8 +154,15 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem" }}>
+        <div style={{ 
+          width: "2rem", 
+          height: "2rem", 
+          border: "3px solid rgba(59, 130, 246, 0.3)", 
+          borderTop: "3px solid #3b82f6",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite"
+        }}></div>
       </div>
     );
   }
@@ -119,14 +172,22 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
     tournament?.has_knockout_stage ||
     tournament?.is_pure_knockout;
 
+  console.log('Render conditions:', { 
+    loading, 
+    hasKnockoutStage, 
+    format_type: tournament?.format_type,
+    knockoutRoundsLength: knockoutRounds?.length 
+  });
+
   if (!hasKnockoutStage) {
+    console.log('No knockout stage, showing warning');
     return (
-      <div className="p-8 text-center">
-        <div className="text-6xl mb-4">⚠️</div>
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+      <div style={{ padding: "2rem", textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+        <h3 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#e5e7eb", marginBottom: "0.5rem" }}>
           Knockout Stage Not Enabled
         </h3>
-        <p className="text-gray-600">
+        <p style={{ color: "#9ca3af" }}>
           This tournament does not have a knockout stage configured.
           Please enable knockout stage in tournament settings.
         </p>
@@ -134,31 +195,103 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
     );
   }
 
+  console.log('Rendering main content, knockoutRounds:', knockoutRounds);
+
   return (
-    <div className="space-y-6">
+    <div style={{ 
+      width: "100%",
+      minHeight: "500px",
+      background: "#ff0000",
+      padding: "24px",
+      borderRadius: "12px",
+      border: "10px solid #00ff00",
+      position: "relative",
+      zIndex: 999999,
+      margin: "20px 0",
+      boxShadow: "0 0 50px rgba(255, 0, 0, 0.8)"
+    }}>
+      {/* DEBUG: Always visible header */}
+      <div style={{ 
+        background: "#0000ff", 
+        color: "#ffff00", 
+        padding: "30px", 
+        fontSize: "32px", 
+        fontWeight: "bold",
+        marginBottom: "24px",
+        borderRadius: "8px",
+        textAlign: "center",
+        border: "5px solid white",
+        position: "relative",
+        zIndex: 999999
+      }}>
+        🥇 KNOCKOUT MANAGER ACTIVE - {knockoutRounds.length} ROUNDS LOADED
+      </div>
+
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg">
+        <div style={{ 
+          position: "fixed", 
+          top: "2rem", 
+          right: "2rem", 
+          zIndex: 99999, 
+          background: "#1f2937", 
+          color: "white", 
+          padding: "1rem 1.5rem", 
+          borderRadius: "0.75rem", 
+          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
+          border: "1px solid #6366f1"
+        }}>
           {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header Section */}
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "space-between",
+        marginBottom: "24px",
+        padding: "16px",
+        background: "rgba(99, 102, 241, 0.1)",
+        borderRadius: "8px",
+        border: "1px solid rgba(99, 102, 241, 0.3)"
+      }}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 style={{ 
+            fontSize: "1.5rem", 
+            fontWeight: "bold", 
+            color: "#f3f4f6", 
+            margin: 0,
+            marginBottom: "8px"
+          }}>
             <span>🥇</span> Knockout Stage Management
           </h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <p style={{ 
+            fontSize: "0.875rem", 
+            color: "#9ca3af", 
+            margin: 0
+          }}>
             Create and manage knockout tournament rounds
           </p>
         </div>
         {knockoutRounds.length > 0 && (
           <button
             onClick={handleResetBracket}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+            style={{ 
+              padding: "0.75rem 1.25rem", 
+              background: "#dc2626", 
+              color: "white", 
+              borderRadius: "0.5rem", 
+              border: "none", 
+              cursor: "pointer", 
+              fontSize: "0.875rem", 
+              fontWeight: 600,
+              transition: "background 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = "#b91c1c"}
+            onMouseOut={(e) => e.currentTarget.style.background = "#dc2626"}
           >
-            <i className="fa-solid fa-trash mr-2"></i>
+            <i className="fa-solid fa-trash" style={{ marginRight: "0.5rem" }}></i>
             Reset Bracket
           </button>
         )}
@@ -166,25 +299,26 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
       {/* Existing Rounds */}
       {knockoutRounds.length > 0 ? (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Existing Knockout Rounds</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#e5e7eb" }}>Existing Knockout Rounds</h3>
           {knockoutRounds.map(round => (
             <div
               key={round.id}
-              className="bg-white border border-gray-200 rounded-lg p-4"
+              style={{ background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "0.5rem", padding: "1rem" }}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
                 <div>
-                  <h4 className="font-semibold text-gray-900">
+                  <h4 style={{ fontWeight: 600, color: "#f3f4f6" }}>
                     {roundLabels[round.round_name] || round.round_name}
                   </h4>
-                  <p className="text-sm text-gray-600">
+                  <p style={{ fontSize: "0.875rem", color: "#9ca3af" }}>
                     {round.legs === 1 ? 'Single Leg' : 'Two Legs'} • {' '}
-                    <span className={`font-medium ${
-                      round.status === 'COMPLETED' ? 'text-green-600' :
-                      round.status === 'IN_PROGRESS' ? 'text-blue-600' :
-                      'text-gray-500'
-                    }`}>
+                    <span style={{ 
+                      fontWeight: 500,
+                      color: round.status === 'COMPLETED' ? '#10b981' :
+                             round.status === 'IN_PROGRESS' ? '#3b82f6' :
+                             '#6b7280'
+                    }}>
                       {round.status}
                     </span>
                   </p>
@@ -192,52 +326,52 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
               </div>
 
               {/* Pairings */}
-              <div className="grid gap-2">
+              <div style={{ display: "grid", gap: "0.5rem" }}>
                 {round.pairings?.filter((p: any) => p).map((pairing: any, idx: number) => (
                   <div
                     key={pairing.id || idx}
-                    className="flex items-center justify-between bg-gray-50 rounded p-3 text-sm"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.02)", borderRadius: "0.375rem", padding: "0.75rem", fontSize: "0.875rem" }}
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="text-gray-500 font-medium w-8">#{pairing.pairingOrder}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
+                      <span style={{ color: "#9ca3af", fontWeight: 500, width: "2rem" }}>#{pairing.pairingOrder}</span>
                       
                       {/* Team 1 */}
-                      <div className="flex items-center gap-2 flex-1">
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
                         {pairing.team1 ? (
                           <>
                             {pairing.team1.logo && (
                               <img
                                 src={pairing.team1.logo}
                                 alt={pairing.team1.name}
-                                className="w-6 h-6 object-contain"
+                                style={{ width: "1.5rem", height: "1.5rem", objectFit: "contain" }}
                               />
                             )}
-                            <span className="font-medium">{pairing.team1.name}</span>
+                            <span style={{ fontWeight: 500, color: "#f3f4f6" }}>{pairing.team1.name}</span>
                           </>
                         ) : (
-                          <span className="text-gray-500 italic">
+                          <span style={{ color: "#6b7280", fontStyle: "italic" }}>
                             {pairing.team1Placeholder || 'TBD'}
                           </span>
                         )}
                       </div>
 
-                      <span className="text-gray-400 font-bold">VS</span>
+                      <span style={{ color: "#6b7280", fontWeight: "bold" }}>VS</span>
 
                       {/* Team 2 */}
-                      <div className="flex items-center gap-2 flex-1">
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
                         {pairing.team2 ? (
                           <>
                             {pairing.team2.logo && (
                               <img
                                 src={pairing.team2.logo}
                                 alt={pairing.team2.name}
-                                className="w-6 h-6 object-contain"
+                                style={{ width: "1.5rem", height: "1.5rem", objectFit: "contain" }}
                               />
                             )}
-                            <span className="font-medium">{pairing.team2.name}</span>
+                            <span style={{ fontWeight: 500, color: "#f3f4f6" }}>{pairing.team2.name}</span>
                           </>
                         ) : (
-                          <span className="text-gray-500 italic">
+                          <span style={{ color: "#6b7280", fontStyle: "italic" }}>
                             {pairing.team2Placeholder || 'TBD'}
                           </span>
                         )}
@@ -246,9 +380,9 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
                     {/* Winner */}
                     {pairing.winnerId && (
-                      <div className="ml-4 flex items-center gap-2 text-green-600">
+                      <div style={{ marginLeft: "1rem", display: "flex", alignItems: "center", gap: "0.5rem", color: "#10b981" }}>
                         <i className="fa-solid fa-trophy"></i>
-                        <span className="text-xs font-medium">Winner</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>Winner</span>
                       </div>
                     )}
                   </div>
@@ -258,43 +392,99 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
           ))}
         </div>
       ) : (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-          <div className="text-4xl mb-3">🥇</div>
-          <h3 className="font-semibold text-blue-900 mb-2">No Knockout Rounds Yet</h3>
-          <p className="text-sm text-blue-700">
+        <div style={{ 
+          background: "rgba(59, 130, 246, 0.15)", 
+          border: "2px solid rgba(59, 130, 246, 0.4)", 
+          borderRadius: "12px", 
+          padding: "32px", 
+          textAlign: "center",
+          marginBottom: "24px"
+        }}>
+          <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🥇</div>
+          <h3 style={{ 
+            fontWeight: 600, 
+            color: "#93c5fd", 
+            marginBottom: "12px",
+            fontSize: "1.25rem"
+          }}>
+            No Knockout Rounds Yet
+          </h3>
+          <p style={{ 
+            fontSize: "0.875rem", 
+            color: "#60a5fa",
+            margin: 0
+          }}>
             Create your first knockout round below to get started
           </p>
         </div>
       )}
 
       {/* Create New Round */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Knockout Round</h3>
+      <div style={{ 
+        background: "rgba(99, 102, 241, 0.15)", 
+        border: "2px solid rgba(99, 102, 241, 0.4)", 
+        borderRadius: "12px", 
+        padding: "24px"
+      }}>
+        <h3 style={{ 
+          fontSize: "1.25rem", 
+          fontWeight: 600, 
+          color: "#e5e7eb", 
+          marginBottom: "20px",
+          margin: 0
+        }}>
+          Create New Knockout Round
+        </h3>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div style={{ 
+          display: "grid", 
+          gap: "16px", 
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          marginTop: "20px"
+        }}>
           {/* Mode Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label style={{ 
+              display: "block", 
+              fontSize: "0.875rem", 
+              fontWeight: 600, 
+              color: "#d1d5db", 
+              marginBottom: "8px" 
+            }}>
               Creation Mode
             </label>
-            <div className="flex gap-2">
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
-                onClick={() => setMode('auto')}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  mode === 'auto'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
+                onClick={() => setMode('AUTO')}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  border: mode === 'AUTO' ? 'none' : '2px solid rgba(255, 255, 255, 0.2)',
+                  background: mode === 'AUTO' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                  color: mode === 'AUTO' ? 'white' : '#d1d5db',
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
               >
                 Auto Qualification
               </button>
               <button
-                onClick={() => setMode('manual')}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  mode === 'manual'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
+                onClick={() => setMode('MANUAL')}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  border: mode === 'MANUAL' ? 'none' : '2px solid rgba(255, 255, 255, 0.2)',
+                  background: mode === 'MANUAL' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                  color: mode === 'MANUAL' ? 'white' : '#d1d5db',
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
               >
                 Manual Selection
               </button>
@@ -303,16 +493,32 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
           {/* Round Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label style={{ 
+              display: "block", 
+              fontSize: "0.875rem", 
+              fontWeight: 600, 
+              color: "#d1d5db", 
+              marginBottom: "8px" 
+            }}>
               Round Type
             </label>
             <select
               value={roundName}
-              onChange={(e) => setRoundName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              onChange={(e) => setRoundName(e.target.value as RoundName)}
+              style={{ 
+                width: "100%", 
+                padding: "10px 16px", 
+                border: "2px solid rgba(255, 255, 255, 0.2)", 
+                borderRadius: "8px", 
+                background: "rgba(255, 255, 255, 0.05)", 
+                color: "#f3f4f6", 
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer"
+              }}
             >
               {roundOptions.map(option => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={option.value} style={{ background: "#1f2937" }}>
                   {option.label} ({option.teams} teams)
                 </option>
               ))}
@@ -321,27 +527,47 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
           {/* Legs Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label style={{ 
+              display: "block", 
+              fontSize: "0.875rem", 
+              fontWeight: 600, 
+              color: "#d1d5db", 
+              marginBottom: "8px" 
+            }}>
               Number of Legs
             </label>
-            <div className="flex gap-2">
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={() => setLegs(1)}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  legs === 1
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  border: legs === 1 ? 'none' : '2px solid rgba(255, 255, 255, 0.2)',
+                  background: legs === 1 ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                  color: legs === 1 ? 'white' : '#d1d5db',
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
               >
                 Single Leg
               </button>
               <button
                 onClick={() => setLegs(2)}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  legs === 2
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  border: legs === 2 ? 'none' : '2px solid rgba(255, 255, 255, 0.2)',
+                  background: legs === 2 ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                  color: legs === 2 ? 'white' : '#d1d5db',
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
               >
                 Two Legs
               </button>
@@ -350,17 +576,32 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
 
           {/* Full Bracket Option */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label style={{ 
+              display: "block", 
+              fontSize: "0.875rem", 
+              fontWeight: 600, 
+              color: "#d1d5db", 
+              marginBottom: "8px" 
+            }}>
               Bracket Generation
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px", 
+              cursor: "pointer",
+              padding: "10px 16px",
+              background: "rgba(255, 255, 255, 0.05)",
+              borderRadius: "8px",
+              border: "2px solid rgba(255, 255, 255, 0.2)"
+            }}>
               <input
                 type="checkbox"
                 checked={createFullBracket}
                 onChange={(e) => setCreateFullBracket(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
               />
-              <span className="text-sm text-gray-700">
+              <span style={{ fontSize: "0.875rem", color: "#d1d5db", fontWeight: 500 }}>
                 Create full bracket (auto-generate subsequent rounds)
               </span>
             </label>
@@ -368,19 +609,39 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
         </div>
 
         {/* Mode Description */}
-        <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
-          {mode === 'auto' ? (
-            <div className="text-sm">
-              <p className="font-medium text-gray-900 mb-2">🤖 Auto Qualification Mode</p>
-              <p className="text-gray-600">
+        <div style={{ 
+          marginTop: "20px", 
+          padding: "16px", 
+          background: "rgba(255, 255, 255, 0.05)", 
+          borderRadius: "8px", 
+          border: "1px solid rgba(255, 255, 255, 0.15)" 
+        }}>
+          {mode === 'AUTO' ? (
+            <div style={{ fontSize: "0.875rem" }}>
+              <p style={{ 
+                fontWeight: 600, 
+                color: "#f3f4f6", 
+                marginBottom: "8px",
+                margin: "0 0 8px 0"
+              }}>
+                🤖 Auto Qualification Mode
+              </p>
+              <p style={{ color: "#9ca3af", margin: 0 }}>
                 Teams will be automatically paired based on group/league standings.
                 Placeholders like "Group A #1" will resolve as matches complete.
               </p>
             </div>
           ) : (
-            <div className="text-sm">
-              <p className="font-medium text-gray-900 mb-2">✋ Manual Selection Mode</p>
-              <p className="text-gray-600">
+            <div style={{ fontSize: "0.875rem" }}>
+              <p style={{ 
+                fontWeight: 600, 
+                color: "#f3f4f6", 
+                marginBottom: "8px",
+                margin: "0 0 8px 0"
+              }}>
+                ✋ Manual Selection Mode
+              </p>
+              <p style={{ color: "#9ca3af", margin: 0 }}>
                 You'll select teams manually after the preceding stage completes.
                 Teams must be selected before creating the round.
               </p>
@@ -392,16 +653,31 @@ export default function KnockoutManager({ tournamentId, tournament, onSuccess }:
         <button
           onClick={handleCreateKnockoutRound}
           disabled={creating}
-          className="mt-4 w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            marginTop: "20px",
+            width: "100%",
+            padding: "14px 24px",
+            background: creating ? "#4f46e5" : "#6366f1",
+            color: "white",
+            borderRadius: "8px",
+            border: "none",
+            fontWeight: 600,
+            fontSize: "1rem",
+            cursor: creating ? "not-allowed" : "pointer",
+            opacity: creating ? 0.5 : 1,
+            transition: "all 0.2s"
+          }}
+          onMouseOver={(e) => !creating && (e.currentTarget.style.background = "#4f46e5")}
+          onMouseOut={(e) => !creating && (e.currentTarget.style.background = "#6366f1")}
         >
           {creating ? (
             <>
-              <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+              <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "8px" }}></i>
               Creating...
             </>
           ) : (
             <>
-              <i className="fa-solid fa-plus mr-2"></i>
+              <i className="fa-solid fa-plus" style={{ marginRight: "8px" }}></i>
               Create Knockout Round
             </>
           )}

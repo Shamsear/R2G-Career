@@ -12,6 +12,7 @@ import {
   fetchTournamentById,
   fetchFinancialRules,
   fetchFixtures,
+  fetchKnockoutMatches,
   fetchRegisteredClubs,
   createFixture,
   updateFixture,
@@ -28,9 +29,10 @@ import {
   autoGenerateFixtures,
   fetchTournamentStandings,
   recalculateTournamentStandings,
-  fetchKnockoutRounds
+  fetchKnockoutRounds,
+  createKnockoutRound,
+  deleteKnockoutRound
 } from "@/utils/solo/serverActions";
-import KnockoutManager from "@/components/tournament/KnockoutManager";
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -39,6 +41,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [tournament, setTournament] = useState<any>(null);
   const [financialRules, setFinancialRules] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
+  const [knockoutMatches, setKnockoutMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
   const [knockoutRounds, setKnockoutRounds] = useState<any[]>([]);
   const [activeRound, setActiveRound] = useState<number | "all">("all");
@@ -48,6 +51,19 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  
+  // Knockout form state
+  const [knockoutMode, setKnockoutMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
+  const [knockoutRoundName, setKnockoutRoundName] = useState<string>('QUARTER_FINAL');
+  const [knockoutLegs, setKnockoutLegs] = useState<number>(2);
+  const [knockoutCreateFullBracket, setKnockoutCreateFullBracket] = useState<boolean>(true);
+  const [knockoutPairingStrategy, setKnockoutPairingStrategy] = useState<string>('CROSS_GROUP');
+  const [knockoutCreating, setKnockoutCreating] = useState<boolean>(false);
+  const [knockoutResolving, setKnockoutResolving] = useState<boolean>(false);
+  const [knockoutPreview, setKnockoutPreview] = useState<any>(null);
+  const [showKnockoutPreview, setShowKnockoutPreview] = useState<boolean>(false);
+  const [knockoutManualPairings, setKnockoutManualPairings] = useState<Array<{team1: number | null, team2: number | null}>>([]);
+  
   const viewModeToggled = useRef(false);
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -421,18 +437,53 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
   }, [fixtures, standingsWithStats, tournamentClubs, activeRound]);
 
+  // Merge fixtures with knockout matches for display
+  const allMatches = useMemo(() => {
+    const groupStageMatches = fixtures.map(f => ({
+      ...f,
+      isKnockout: false,
+      displayRound: `Round ${f.roundNumber || 1}${f.groupName ? ` (Group ${f.groupName})` : ''}`
+    }));
+
+    const knockoutMatchesFormatted = knockoutMatches.map(km => ({
+      ...km,
+      isKnockout: true,
+      roundNumber: 100 + km.roundOrder, // Ensure knockout matches come after group stage
+      displayRound: `${km.roundName.replace(/_/g, ' ')}${km.legNumber ? ` (Leg ${km.legNumber})` : ''}`
+    }));
+
+    return [...groupStageMatches, ...knockoutMatchesFormatted];
+  }, [fixtures, knockoutMatches]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Initialize manual pairings when mode or round changes
+  useEffect(() => {
+    if (knockoutMode === 'MANUAL') {
+      const roundTeamsMap: Record<string, number> = {
+        'ROUND_OF_32': 32,
+        'ROUND_OF_16': 16,
+        'QUARTER_FINAL': 8,
+        'SEMI_FINAL': 4,
+        'FINAL': 2
+      };
+      const requiredTeams = roundTeamsMap[knockoutRoundName] || 8;
+      const numPairings = requiredTeams / 2;
+      setKnockoutManualPairings(Array(numPairings).fill(null).map(() => ({ team1: null, team2: null })));
+    }
+  }, [knockoutMode, knockoutRoundName]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tourney, rules, matches, clubsData, types, tourneyClubs, standingsData, knockoutData] = await Promise.all([
+      const [tourney, rules, matches, knockoutMatchesData, clubsData, types, tourneyClubs, standingsData, knockoutData] = await Promise.all([
         fetchTournamentById(tournamentId).catch(e => { console.error(e); return null; }),
         fetchFinancialRules().catch(e => { console.error(e); return []; }),
         fetchFixtures(tournamentId).catch(e => { console.error(e); return []; }),
+        fetchKnockoutMatches(tournamentId).catch(e => { console.error(e); return []; }),
         fetchRegisteredClubs(true).catch(e => { console.error(e); return []; }),
         fetchTournamentTypes().catch(e => { console.error(e); return []; }),
         fetchTournamentClubs(tournamentId).catch(e => { console.error(e); return []; }),
@@ -442,11 +493,19 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       setTournament(tourney);
       setFinancialRules(rules || []);
       setFixtures(matches || []);
+      setKnockoutMatches(knockoutMatchesData || []);
       setClubs(clubsData || []);
       setTournamentTypes(types || []);
       setTournamentClubs(tourneyClubs || []);
       setStandings(standingsData || []);
-      setKnockoutRounds(knockoutData || []);
+      console.log('📊 Loading knockout data:', knockoutData);
+      console.log('📊 Knockout data type:', typeof knockoutData, 'Is array:', Array.isArray(knockoutData));
+      
+      // Force conversion from Proxy to real array
+      const validKnockoutRounds = knockoutData ? [...knockoutData] : [];
+      console.log('📊 Valid knockout rounds:', validKnockoutRounds);
+      console.log('📊 Valid knockout rounds length:', validKnockoutRounds.length);
+      setKnockoutRounds(validKnockoutRounds);
 
       if (tourney) {
         setEditName(tourney.name);
@@ -855,6 +914,159 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     });
   };
 
+  const generateKnockoutPreview = async () => {
+    // Determine required teams based on round
+    const roundTeamsMap: Record<string, number> = {
+      'ROUND_OF_32': 32,
+      'ROUND_OF_16': 16,
+      'QUARTER_FINAL': 8,
+      'SEMI_FINAL': 4,
+      'FINAL': 2
+    };
+
+    const requiredTeams = roundTeamsMap[knockoutRoundName] || 8;
+    const numPairings = requiredTeams / 2;
+
+    let pairings = [];
+
+    if (knockoutMode === 'MANUAL') {
+      // Manual mode - use selected teams
+      for (const pairing of knockoutManualPairings) {
+        const team1Data = standingsWithStats.find(t => t.club_id === pairing.team1);
+        const team2Data = standingsWithStats.find(t => t.club_id === pairing.team2);
+        
+        pairings.push({
+          team1: team1Data?.club_name || null,
+          team2: team2Data?.club_name || null,
+          team1Logo: team1Data?.club_logo,
+          team2Logo: team2Data?.club_logo,
+          team1Placeholder: !team1Data ? 'Not selected' : null,
+          team2Placeholder: !team2Data ? 'Not selected' : null
+        });
+      }
+    } else {
+      // Auto mode - generate placeholder pairings
+      const placeholderPairings = generatePlaceholderPairings(
+        requiredTeams,
+        tournament?.num_groups || 4,
+        tournament?.qualified_per_group || 2,
+        knockoutPairingStrategy
+      );
+
+      // Check if group stage is complete by checking last round fixtures
+      const groupFixtures = fixtures.filter(f => !f.isKnockout);
+      const maxRound = Math.max(...groupFixtures.map(f => f.roundNumber || 1), 0);
+      const lastRoundFixtures = groupFixtures.filter(f => (f.roundNumber || 1) === maxRound);
+      const isComplete = lastRoundFixtures.length > 0 && lastRoundFixtures.every(f => f.homeScore !== null && f.awayScore !== null);
+
+      // If complete, try to resolve teams
+      for (const placeholder of placeholderPairings) {
+        let team1 = null, team2 = null, team1Logo = null, team2Logo = null;
+
+        if (isComplete) {
+          // Try to resolve teams from standings
+          const team1Data = resolveTeamFromPlaceholder(placeholder.team1Placeholder);
+          const team2Data = resolveTeamFromPlaceholder(placeholder.team2Placeholder);
+          team1 = team1Data?.name;
+          team2 = team2Data?.name;
+          team1Logo = team1Data?.logo;
+          team2Logo = team2Data?.logo;
+        }
+
+        pairings.push({
+          team1,
+          team2,
+          team1Logo,
+          team2Logo,
+          team1Placeholder: placeholder.team1Placeholder,
+          team2Placeholder: placeholder.team2Placeholder
+        });
+      }
+    }
+
+    const isComplete = knockoutMode === 'MANUAL' ? knockoutManualPairings.every(p => p.team1 && p.team2) : false;
+
+    return {
+      roundName: knockoutRoundName,
+      legs: knockoutLegs,
+      isComplete,
+      pairings
+    };
+  };
+
+  const generatePlaceholderPairings = (
+    numTeams: number,
+    numGroups: number,
+    qualifiedPerGroup: number,
+    strategy: string
+  ) => {
+    const pairings: Array<{ team1Placeholder: string; team2Placeholder: string }> = [];
+    const groupNames = 'ABCDEFGH'.split('').slice(0, numGroups);
+
+    if (strategy === 'RANKED_OVERALL') {
+      // Overall ranking: 1st vs last, 2nd vs 2nd-last, etc.
+      const numPairings = numTeams / 2;
+      for (let i = 0; i < numPairings; i++) {
+        pairings.push({
+          team1Placeholder: `Seed #${i + 1}`,
+          team2Placeholder: `Seed #${numTeams - i}`
+        });
+      }
+    } else if (strategy === 'CONSECUTIVE_GROUPS') {
+      // Consecutive groups: A1 vs B1, C1 vs D1
+      const numPairings = numTeams / 2;
+      for (let i = 0; i < numPairings; i++) {
+        const group1Idx = i * 2;
+        const group2Idx = i * 2 + 1;
+        if (group1Idx < numGroups && group2Idx < numGroups) {
+          pairings.push({
+            team1Placeholder: `Group ${groupNames[group1Idx]} #1`,
+            team2Placeholder: `Group ${groupNames[group2Idx]} #1`
+          });
+        }
+      }
+    } else {
+      // CROSS_GROUP (default)
+      if (numTeams === 8 && numGroups === 4 && qualifiedPerGroup === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
+          { team1Placeholder: 'Group C #1', team2Placeholder: 'Group D #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' },
+          { team1Placeholder: 'Group D #1', team2Placeholder: 'Group C #2' }
+        );
+      } else if (numTeams === 4 && numGroups === 2 && qualifiedPerGroup === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
+        );
+      }
+    }
+
+    return pairings;
+  };
+
+  const resolveTeamFromPlaceholder = (placeholder: string) => {
+    // Parse placeholder like "Group A #1" or "Seed #1"
+    const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/);
+    const seedMatch = placeholder.match(/Seed #(\d+)/);
+
+    if (groupMatch) {
+      const [, groupName, position] = groupMatch;
+      const groupStandings = standingsWithStats
+        .filter(s => s.group_name === groupName)
+        .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference);
+      const team = groupStandings[parseInt(position) - 1];
+      return team ? { name: team.club_name, logo: team.club_logo } : null;
+    } else if (seedMatch) {
+      const [, position] = seedMatch;
+      const allStandings = [...standingsWithStats].sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference);
+      const team = allStandings[parseInt(position) - 1];
+      return team ? { name: team.club_name, logo: team.club_logo } : null;
+    }
+
+    return null;
+  };
+
   if (!tournament) {
     return (
       <div className="portal-root-wrapper" data-module="tournaments">
@@ -902,9 +1114,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   const linkedRule = financialRules.find(r => r.id === tournament.financial_rule_id);
 
-  // Find unique rounds and filter matches
-  const rounds = Array.from(new Set(fixtures.map(f => f.roundNumber || 1))).sort((a, b) => a - b);
-  const roundFixtures = activeRound === "all" ? fixtures : fixtures.filter(f => (f.roundNumber || 1) === activeRound);
+  // Find unique rounds and filter matches (using allMatches which includes knockout matches)
+  const rounds = Array.from(new Set(allMatches.filter(f => !f.isKnockout).map(f => f.roundNumber || 1))).sort((a, b) => a - b);
+  const roundFixtures = activeRound === "all" ? allMatches : allMatches.filter(f => {
+    if (f.isKnockout) {
+      return activeRound === "knockout";
+    }
+    return (f.roundNumber || 1) === activeRound;
+  });
 
   return (
     <div className="portal-root-wrapper" data-module="tournaments">
@@ -976,9 +1193,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             >
               <i className="fa-solid fa-chart-simple" style={{ marginRight: "6px" }} /> Stats
             </button>
-            {(tournament?.format_type?.includes('Knockout') || 
-              tournament?.has_knockout_stage || 
-              tournament?.is_pure_knockout) && (
+            {(tournament?.format_type?.includes('Knockout')) && (
               <button
                 type="button"
                 className={`tab-btn ${activeTab === "knockout" ? "active" : ""}`}
@@ -2555,7 +2770,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       type="button"
                       className="portal-btn btn-secondary"
                       style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
-                      onClick={() => setActiveRound(prev => prev === "all" ? 1 : Math.max(1, prev - 1))}
+                      onClick={() => setActiveRound(prev => {
+                        if (prev === "all") return 1;
+                        if (prev === "knockout") return rounds[rounds.length - 1];
+                        return Math.max(1, prev - 1);
+                      })}
                       disabled={activeRound === "all" || activeRound <= 1}
                     >
                       <i className="fa-solid fa-chevron-left" />
@@ -2567,7 +2786,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       onChange={(val) => setActiveRound(val)}
                       options={[
                         { value: "all", label: "All Rounds" },
-                        ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                        ...rounds.map((r) => ({ value: r, label: `Round ${r}` })),
+                        ...(knockoutMatches.length > 0 ? [{ value: "knockout", label: "Knockout Stage" }] : [])
                       ]}
                       menuWidth={165}
                     />
@@ -2575,8 +2795,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       type="button"
                       className="portal-btn btn-secondary"
                       style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
-                      onClick={() => setActiveRound(prev => prev === "all" ? rounds[0] : Math.min(rounds[rounds.length - 1], prev + 1))}
-                      disabled={activeRound === "all" || activeRound >= rounds[rounds.length - 1]}
+                      onClick={() => setActiveRound(prev => {
+                        if (prev === "all") return rounds[0];
+                        if (prev === "knockout") return "all";
+                        if (prev >= rounds[rounds.length - 1]) return knockoutMatches.length > 0 ? "knockout" : "all";
+                        return Math.min(rounds[rounds.length - 1], prev + 1);
+                      })}
+                      disabled={activeRound === "all" || (activeRound === "knockout" && knockoutMatches.length === 0)}
                     >
                       <i className="fa-solid fa-chevron-right" />
                     </button>
@@ -2610,8 +2835,23 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </thead>
                     <tbody>
                       {roundFixtures.map(f => (
-                        <tr key={f.id}>
-                          <td><strong>Round {f.roundNumber || 1}{f.groupName ? ` (Group ${f.groupName})` : ""}</strong></td>
+                        <tr key={`${f.isKnockout ? 'ko' : 'reg'}-${f.id}`}>
+                          <td>
+                            <strong>{f.displayRound}</strong>
+                            {f.isKnockout && (
+                              <span style={{ 
+                                marginLeft: "0.5rem", 
+                                padding: "2px 6px", 
+                                background: "rgba(168, 85, 247, 0.15)", 
+                                color: "#a855f7", 
+                                borderRadius: "4px", 
+                                fontSize: "0.65rem",
+                                fontWeight: "bold"
+                              }}>
+                                KNOCKOUT
+                              </span>
+                            )}
+                          </td>
                           <td>
                             <strong>{f.homeClub}</strong> vs <strong>{f.awayClub}</strong>
                           </td>
@@ -2633,10 +2873,18 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           </td>
                           <td style={{ textAlign: "right" }}>
                             <div style={{ display: "inline-flex", gap: "0.4rem", justifyContent: "flex-end" }}>
-                              <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "2px 8px", fontSize: "0.75rem" }}>
-                                <i className="fa-solid fa-scale-balanced" style={{ marginRight: "4px" }} /> Manage
-                              </Link>
-                              <button className="portal-btn btn-danger" style={{ padding: "2px 8px", fontSize: "0.75rem" }} onClick={() => handleDeleteFixture(f.id)}>Delete</button>
+                              {f.isKnockout ? (
+                                <Link href={`/solo-tour/admin/knockout-matches/${f.id}`} className="portal-btn btn-primary" style={{ padding: "2px 8px", fontSize: "0.75rem" }}>
+                                  <i className="fa-solid fa-scale-balanced" style={{ marginRight: "4px" }} /> Manage
+                                </Link>
+                              ) : (
+                                <>
+                                  <Link href={`/solo-tour/admin/fixtures/${f.id}`} className="portal-btn btn-primary" style={{ padding: "2px 8px", fontSize: "0.75rem" }}>
+                                    <i className="fa-solid fa-scale-balanced" style={{ marginRight: "4px" }} /> Manage
+                                  </Link>
+                                  <button className="portal-btn btn-danger" style={{ padding: "2px 8px", fontSize: "0.75rem" }} onClick={() => handleDeleteFixture(f.id)}>Delete</button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2645,6 +2893,588 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Knockout Tab */}
+        {activeTab === "knockout" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
+            {/* DEBUG */}
+            {console.log('🎯 Knockout Tab Rendering - knockoutRounds:', knockoutRounds, 'length:', knockoutRounds.length, 'JSON:', JSON.stringify(knockoutRounds))}
+            
+            <div className="admin-card">
+              {/* Header */}
+              <div style={{ 
+                marginBottom: "1.5rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start"
+              }}>
+                <div>
+                  <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#f3f4f6", margin: "0 0 0.5rem 0" }}>
+                    🥇 Knockout Stage Management
+                  </h2>
+                  <p style={{ fontSize: "0.875rem", color: "#9ca3af", margin: 0 }}>
+                    Create and manage knockout tournament rounds
+                  </p>
+                </div>
+                
+                {knockoutRounds.length > 0 && (
+                  <button
+                    type="button"
+                    className="portal-btn btn-primary"
+                    onClick={async () => {
+                      if (!confirm('Resolve all placeholders based on current standings?')) return;
+                      setKnockoutResolving(true);
+                      try {
+                        const { resolveKnockoutPlaceholders } = await import('@/utils/solo/serverActions');
+                        await resolveKnockoutPlaceholders(tournamentId);
+                        showToast('✅ Placeholders resolved!');
+                        loadData();
+                      } catch (error: any) {
+                        showToast(`❌ ${error.message || 'Failed to resolve'}`);
+                      } finally {
+                        setKnockoutResolving(false);
+                      }
+                    }}
+                    disabled={knockoutResolving}
+                  >
+                    {knockoutResolving ? (
+                      <>
+                        <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "0.5rem" }}></i>
+                        Resolving...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: "0.5rem" }}></i>
+                        Resolve Placeholders
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* No Rounds Message */}
+              {knockoutRounds.length === 0 && (
+                <div style={{ 
+                  background: "rgba(59, 130, 246, 0.1)", 
+                  border: "1px solid rgba(59, 130, 246, 0.3)", 
+                  borderRadius: "12px", 
+                  padding: "2rem", 
+                  textAlign: "center",
+                  marginBottom: "1.5rem"
+                }}>
+                  <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🥇</div>
+                  <h3 style={{ fontWeight: 600, color: "#93c5fd", marginBottom: "0.5rem", fontSize: "1.125rem" }}>
+                    No Knockout Rounds Yet
+                  </h3>
+                  <p style={{ fontSize: "0.875rem", color: "#60a5fa", margin: 0 }}>
+                    Create your first knockout round below
+                  </p>
+                </div>
+              )}
+
+              {/* Existing Rounds */}
+              {knockoutRounds.length > 0 && (
+                <div className="sub-card" style={{ marginBottom: "1.5rem" }}>
+                  <h3 className="sub-card-title">
+                    <i className="fa-solid fa-list"></i> Existing Knockout Rounds ({knockoutRounds.length})
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {knockoutRounds.map((round: any) => {
+                      const hasUnresolvedPlaceholders = round.pairings?.some((p: any) => 
+                        (p.team1Placeholder && !p.team1Id) || (p.team2Placeholder && !p.team2Id)
+                      );
+                      
+                      return (
+                        <div key={round.id} style={{ 
+                          padding: "1rem", 
+                          background: "rgba(255,255,255,0.03)", 
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "8px"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                            <div>
+                              <h4 style={{ margin: 0, color: "#f3f4f6", fontSize: "1rem" }}>
+                                {round.round_name?.replace(/_/g, ' ')}
+                              </h4>
+                              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", color: "#9ca3af" }}>
+                                {round.legs} Leg{round.legs > 1 ? 's' : ''} • Status: {round.status || 'PENDING'}
+                                {hasUnresolvedPlaceholders && (
+                                  <span style={{ marginLeft: "0.5rem", color: "#fbbf24" }}>
+                                    <i className="fa-solid fa-clock" style={{ marginRight: "0.25rem" }}></i>
+                                    Has Placeholders
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                              <div style={{ fontSize: "0.875rem", color: "#6366f1" }}>
+                                {round.pairings?.filter((p: any) => p.id).length || 0} Pairings
+                              </div>
+                              <button
+                                type="button"
+                                className="portal-btn btn-danger"
+                                style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                                onClick={async () => {
+                                  if (!confirm(`Delete ${round.round_name?.replace(/_/g, ' ')} round? This will remove all pairings and cannot be undone.`)) return;
+                                  try {
+                                    await deleteKnockoutRound(round.id);
+                                    showToast('✅ Round deleted!');
+                                    loadData();
+                                  } catch (error: any) {
+                                    showToast(`❌ ${error.message || 'Failed to delete'}`);
+                                  }
+                                }}
+                              >
+                                <i className="fa-solid fa-trash" style={{ marginRight: "0.25rem" }}></i>
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {/* Show Pairings */}
+                          {round.pairings?.filter((p: any) => p.id).length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem" }}>
+                              {round.pairings.filter((p: any) => p.id).map((pairing: any) => (
+                                <div key={pairing.id} style={{ 
+                                  padding: "0.75rem",
+                                  background: "rgba(255,255,255,0.02)",
+                                  borderRadius: "6px",
+                                  border: "1px solid rgba(255,255,255,0.05)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  fontSize: "0.875rem"
+                                }}>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <span style={{ color: "#9ca3af", fontWeight: 600, minWidth: "2rem" }}>
+                                      #{pairing.pairingOrder}
+                                    </span>
+                                    <span style={{ 
+                                      color: pairing.team1 ? "#f3f4f6" : "#fbbf24",
+                                      fontStyle: pairing.team1 ? "normal" : "italic"
+                                    }}>
+                                      {pairing.team1?.name || pairing.team1Placeholder || 'TBD'}
+                                    </span>
+                                  </div>
+                                  <span style={{ color: "#6b7280", fontWeight: "bold", padding: "0 1rem" }}>VS</span>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.5rem" }}>
+                                    <span style={{ 
+                                      color: pairing.team2 ? "#f3f4f6" : "#fbbf24",
+                                      fontStyle: pairing.team2 ? "normal" : "italic"
+                                    }}>
+                                      {pairing.team2?.name || pairing.team2Placeholder || 'TBD'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Create Form */}
+              <div className="sub-card">
+                <h3 className="sub-card-title">Create New Knockout Round</h3>
+                
+                <div className="admin-form-grid">
+                  {/* Mode */}
+                  <div className="admin-form-group">
+                    <label>Mode</label>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => setKnockoutMode('AUTO')}
+                        className={`portal-btn ${knockoutMode === 'AUTO' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Auto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKnockoutMode('MANUAL')}
+                        className={`portal-btn ${knockoutMode === 'MANUAL' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Manual
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Round Type */}
+                  <div className="admin-form-group">
+                    <label>Round Type</label>
+                    <select
+                      className="admin-select"
+                      value={knockoutRoundName}
+                      onChange={(e) => setKnockoutRoundName(e.target.value)}
+                    >
+                      {(() => {
+                        // Calculate qualifying teams
+                        const numGroups = tournament?.num_groups || 0;
+                        const qualifiedPerGroup = tournament?.qualified_per_group || 2;
+                        const qualifyingTeams = numGroups * qualifiedPerGroup;
+
+                        // Available round options based on team count
+                        const allRounds = [
+                          { value: 'ROUND_OF_32', label: 'Round of 32', teams: 32 },
+                          { value: 'ROUND_OF_16', label: 'Round of 16', teams: 16 },
+                          { value: 'QUARTER_FINAL', label: 'Quarter Finals', teams: 8 },
+                          { value: 'SEMI_FINAL', label: 'Semi Finals', teams: 4 },
+                          { value: 'FINAL', label: 'Final', teams: 2 }
+                        ];
+
+                        // Filter to show only rounds that match or are smaller than qualifying teams
+                        const validRounds = allRounds.filter(r => r.teams <= qualifyingTeams);
+
+                        // If no valid rounds, show all (fallback)
+                        const rounds = validRounds.length > 0 ? validRounds : allRounds;
+
+                        return rounds.map(r => (
+                          <option key={r.value} value={r.value}>
+                            {r.label} ({r.teams} teams)
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                    {tournament?.num_groups && tournament?.qualified_per_group && (
+                      <small style={{ display: "block", marginTop: "0.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>
+                        {tournament.num_groups} groups × {tournament.qualified_per_group} qualified = {tournament.num_groups * tournament.qualified_per_group} teams in knockout
+                      </small>
+                    )}
+                  </div>
+
+                  {/* Legs */}
+                  <div className="admin-form-group">
+                    <label>Legs</label>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => setKnockoutLegs(1)}
+                        className={`portal-btn ${knockoutLegs === 1 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Single
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKnockoutLegs(2)}
+                        className={`portal-btn ${knockoutLegs === 2 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Two Legs
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pairing Strategy - Only for Group tournaments in AUTO mode */}
+                  {knockoutMode === 'AUTO' && tournament?.format_type?.includes('Group') && (
+                    <div className="admin-form-group" style={{ gridColumn: "1 / -1" }}>
+                      <label>Pairing Strategy</label>
+                      <select
+                        className="admin-select"
+                        value={knockoutPairingStrategy}
+                        onChange={(e) => setKnockoutPairingStrategy(e.target.value)}
+                      >
+                        <option value="CROSS_GROUP">Cross-Group (A1 vs B2, B1 vs A2)</option>
+                        <option value="RANKED_OVERALL">Overall Ranking (1st vs 8th, 2nd vs 7th)</option>
+                        <option value="CONSECUTIVE_GROUPS">Consecutive Groups (A1 vs B1, C1 vs D1)</option>
+                      </select>
+                      <small style={{ display: "block", marginTop: "0.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>
+                        {knockoutPairingStrategy === 'CROSS_GROUP' && 'Winners face runners-up from different groups'}
+                        {knockoutPairingStrategy === 'RANKED_OVERALL' && 'All teams ranked by points/GD across all groups'}
+                        {knockoutPairingStrategy === 'CONSECUTIVE_GROUPS' && 'Winners from adjacent groups face each other'}
+                      </small>
+                    </div>
+                  )}
+
+                  {/* Manual Team Selection - Only in MANUAL mode */}
+                  {knockoutMode === 'MANUAL' && (
+                    <div className="admin-form-group" style={{ gridColumn: "1 / -1" }}>
+                      <label style={{ marginBottom: "0.75rem", display: "block" }}>Select Teams for Each Pairing</label>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        {knockoutManualPairings.map((pairing, idx) => (
+                          <div key={idx} style={{
+                            padding: "1rem",
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "8px"
+                          }}>
+                            <div style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.75rem", fontWeight: "bold" }}>
+                              Match {idx + 1}
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "1rem", alignItems: "center" }}>
+                              <select
+                                className="admin-select"
+                                value={pairing.team1 || ''}
+                                onChange={(e) => {
+                                  const newPairings = [...knockoutManualPairings];
+                                  newPairings[idx].team1 = e.target.value ? parseInt(e.target.value) : null;
+                                  setKnockoutManualPairings(newPairings);
+                                }}
+                                style={{ fontSize: "0.85rem" }}
+                              >
+                                <option value="">Select Team 1...</option>
+                                {standingsWithStats
+                                  .filter(team => !knockoutManualPairings.some((p, i) => 
+                                    i !== idx && (p.team1 === team.club_id || p.team2 === team.club_id)
+                                  ))
+                                  .map(team => (
+                                    <option key={team.club_id} value={team.club_id}>
+                                      {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                      {team.group_name && ` (Group ${team.group_name})`}
+                                    </option>
+                                  ))}
+                              </select>
+                              <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#a855f7" }}>VS</span>
+                              <select
+                                className="admin-select"
+                                value={pairing.team2 || ''}
+                                onChange={(e) => {
+                                  const newPairings = [...knockoutManualPairings];
+                                  newPairings[idx].team2 = e.target.value ? parseInt(e.target.value) : null;
+                                  setKnockoutManualPairings(newPairings);
+                                }}
+                                style={{ fontSize: "0.85rem" }}
+                              >
+                                <option value="">Select Team 2...</option>
+                                {standingsWithStats
+                                  .filter(team => !knockoutManualPairings.some((p, i) => 
+                                    i !== idx && (p.team1 === team.club_id || p.team2 === team.club_id)
+                                  ))
+                                  .map(team => (
+                                    <option key={team.club_id} value={team.club_id}>
+                                      {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                      {team.group_name && ` (Group ${team.group_name})`}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <small style={{ display: "block", marginTop: "0.5rem", fontSize: "0.75rem", color: "#9ca3af" }}>
+                        Select teams manually for special formats like Eliminator or Qualifier matches
+                      </small>
+                    </div>
+                  )}
+
+                  {/* Full Bracket */}
+                  <div className="admin-form-group">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={knockoutCreateFullBracket}
+                        onChange={(e) => setKnockoutCreateFullBracket(e.target.checked)}
+                        style={{ marginRight: "0.5rem" }}
+                      />
+                      Create full bracket
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="portal-btn btn-primary"
+                  onClick={async () => {
+                    // Generate preview first
+                    try {
+                      const preview = await generateKnockoutPreview();
+                      setKnockoutPreview(preview);
+                      setShowKnockoutPreview(true);
+                    } catch (error: any) {
+                      showToast(`❌ ${error.message || 'Failed to generate preview'}`);
+                    }
+                  }}
+                  disabled={knockoutCreating}
+                  style={{ width: "100%", marginTop: "1rem" }}
+                >
+                  {knockoutCreating ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "0.5rem" }}></i>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-eye" style={{ marginRight: "0.5rem" }}></i>
+                      Preview Knockout Round
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Knockout Preview Modal */}
+        {showKnockoutPreview && knockoutPreview && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "1rem"
+          }}>
+            <div style={{
+              background: "linear-gradient(135deg, #1a1625 0%, #0f0c1b 100%)",
+              border: "2px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: "16px",
+              maxWidth: "700px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              padding: "2rem"
+            }}>
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#f3f4f6", margin: "0 0 0.5rem 0" }}>
+                  🥇 Knockout Round Preview
+                </h2>
+                <p style={{ fontSize: "0.875rem", color: "#9ca3af", margin: 0 }}>
+                  {knockoutPreview.roundName.replace(/_/g, ' ')} • {knockoutPreview.legs} Leg{knockoutPreview.legs > 1 ? 's' : ''}
+                  {knockoutPreview.isComplete ? (
+                    <span style={{ marginLeft: "0.5rem", color: "#22c55e" }}>
+                      <i className="fa-solid fa-check-circle" style={{ marginRight: "0.25rem" }}></i>
+                      Group stage complete
+                    </span>
+                  ) : (
+                    <span style={{ marginLeft: "0.5rem", color: "#fbbf24" }}>
+                      <i className="fa-solid fa-clock" style={{ marginRight: "0.25rem" }}></i>
+                      Placeholders (resolve after group stage)
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                {knockoutPreview.pairings.map((pairing: any, idx: number) => (
+                  <div key={idx} style={{
+                    padding: "1rem",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "8px"
+                  }}>
+                    <div style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.5rem" }}>
+                      Match {idx + 1}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {pairing.team1Logo && (
+                          <img 
+                            src={pairing.team1Logo} 
+                            alt="" 
+                            style={{ width: "20px", height: "20px", objectFit: tournament?.tournament_type === 'special' ? "cover" : "contain", borderRadius: tournament?.tournament_type === 'special' ? "50%" : "0" }}
+                          />
+                        )}
+                        <span style={{ fontSize: "0.9rem", color: pairing.team1 ? "#fff" : "#9ca3af", fontWeight: pairing.team1 ? "bold" : "normal" }}>
+                          {pairing.team1 || pairing.team1Placeholder}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#a855f7", padding: "0 1rem" }}>
+                        VS
+                      </span>
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "flex-end" }}>
+                        <span style={{ fontSize: "0.9rem", color: pairing.team2 ? "#fff" : "#9ca3af", fontWeight: pairing.team2 ? "bold" : "normal" }}>
+                          {pairing.team2 || pairing.team2Placeholder}
+                        </span>
+                        {pairing.team2Logo && (
+                          <img 
+                            src={pairing.team2Logo} 
+                            alt="" 
+                            style={{ width: "20px", height: "20px", objectFit: tournament?.tournament_type === 'special' ? "cover" : "contain", borderRadius: tournament?.tournament_type === 'special' ? "50%" : "0" }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button
+                  type="button"
+                  className="portal-btn btn-secondary"
+                  onClick={() => {
+                    setShowKnockoutPreview(false);
+                    setKnockoutPreview(null);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="portal-btn btn-primary"
+                  onClick={async () => {
+                    // Validation for manual mode
+                    if (knockoutMode === 'MANUAL') {
+                      const allSelected = knockoutManualPairings.every(p => p.team1 && p.team2);
+                      if (!allSelected) {
+                        showToast('❌ Please select both teams for each pairing');
+                        return;
+                      }
+                    }
+
+                    setKnockoutCreating(true);
+                    try {
+                      // Prepare teams and custom pairings for manual mode
+                      const teams = knockoutMode === 'MANUAL' 
+                        ? knockoutManualPairings.flatMap(p => [p.team1, p.team2]).filter(Boolean).map(String)
+                        : [];
+                      
+                      const customPairings = knockoutMode === 'MANUAL'
+                        ? knockoutManualPairings.map(p => ({
+                            team1Id: String(p.team1),
+                            team2Id: String(p.team2)
+                          }))
+                        : [];
+
+                      await createKnockoutRound({
+                        tournamentId,
+                        roundName: knockoutRoundName,
+                        legs: knockoutLegs,
+                        teams,
+                        mode: knockoutMode.toLowerCase() as 'auto' | 'manual',
+                        customPairings,
+                        createFullBracket: knockoutCreateFullBracket
+                      });
+                      showToast('✅ Knockout round created!');
+                      setShowKnockoutPreview(false);
+                      setKnockoutPreview(null);
+                      loadData();
+                    } catch (error: any) {
+                      showToast(`❌ ${error.message || 'Failed to create'}`);
+                    } finally {
+                      setKnockoutCreating(false);
+                    }
+                  }}
+                  disabled={knockoutCreating}
+                  style={{ flex: 1 }}
+                >
+                  {knockoutCreating ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "0.5rem" }}></i>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-check" style={{ marginRight: "0.5rem" }}></i>
+                      Confirm & Create
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2808,7 +3638,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {activeTab === "fixtures" && (
               <div>
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                  {activeRound === "all" ? "ALL ROUNDS MATCH CALENDAR" : `ROUND ${activeRound} MATCH CALENDAR`}
+                  {activeRound === "all" ? "ALL ROUNDS MATCH CALENDAR" : activeRound === "knockout" ? "KNOCKOUT STAGE MATCHES" : `ROUND ${activeRound} MATCH CALENDAR`}
                 </div>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
@@ -2816,7 +3646,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 ) : roundFixtures.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                    {activeRound === "all" ? "No matches scheduled." : `No matches scheduled for Round ${activeRound}.`}
+                    {activeRound === "all" ? "No matches scheduled." : activeRound === "knockout" ? "No knockout matches yet." : `No matches scheduled for Round ${activeRound}.`}
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -2831,7 +3661,12 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       const awayLogoUrl = isSpecial ? (match.awayManagerAvatar || match.awayLogo) : match.awayLogo;
 
                       return (
-                        <div key={match.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1rem 1.2rem" }}>
+                        <div key={`${match.isKnockout ? 'ko' : 'reg'}-${match.id}`} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1rem 1.2rem" }}>
+                          {match.isKnockout && (
+                            <div style={{ fontSize: "0.65rem", color: "#a855f7", marginBottom: "0.5rem", fontWeight: "bold", textTransform: "uppercase" }}>
+                              🥇 {match.displayRound}
+                            </div>
+                          )}
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "10px" }}>
                               {homeLogoUrl && (
@@ -2924,17 +3759,6 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 </div>
               );
             })()}
-
-            {/* Knockout Tab */}
-            {activeTab === "knockout" && (
-              <div className="admin-card" style={{ marginTop: 0, padding: "24px" }}>
-                <KnockoutManager
-                  tournamentId={tournamentId}
-                  tournament={tournament}
-                  onSuccess={loadData}
-                />
-              </div>
-            )}
 
             {/* Footer */}
             <div style={{ marginTop: "3rem", paddingTop: "1.5rem", borderTop: "1px dashed rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
