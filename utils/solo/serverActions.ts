@@ -2684,18 +2684,27 @@ async function recalculateTournamentStandingsInTransaction(
     const away = f.away_club_id;
     const hs = Number(f.home_score);
     const as_ = Number(f.away_score);
+    const isWalkover = f.match_status === 'wo_home' || f.match_status === 'wo_away';
 
     if (statsMap[home] !== undefined) {
       statsMap[home].mp += 1;
-      statsMap[home].gf += hs;
-      statsMap[home].ga += as_;
+      // Only count goals for actual played matches, not walkovers
+      if (!isWalkover) {
+        statsMap[home].gf += hs;
+        statsMap[home].ga += as_;
+      }
+      // Always count points regardless of walkover
       if (hs > as_) statsMap[home].pts += 3;
       else if (hs === as_) statsMap[home].pts += 1;
     }
     if (statsMap[away] !== undefined) {
       statsMap[away].mp += 1;
-      statsMap[away].gf += as_;
-      statsMap[away].ga += hs;
+      // Only count goals for actual played matches, not walkovers
+      if (!isWalkover) {
+        statsMap[away].gf += as_;
+        statsMap[away].ga += hs;
+      }
+      // Always count points regardless of walkover
       if (as_ > hs) statsMap[away].pts += 3;
       else if (as_ === hs) statsMap[away].pts += 1;
     }
