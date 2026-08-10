@@ -2734,7 +2734,7 @@ async function recalculateManagerSeasonStatsInTransaction(
 
   // Get all played fixtures for this tournament
   const { rows: fixtureRows } = await db.query(`
-    SELECT home_club_id, away_club_id, home_score, away_score
+    SELECT home_club_id, away_club_id, home_score, away_score, match_status
     FROM fixtures
     WHERE tournament_id = $1
       AND home_score IS NOT NULL
@@ -2753,24 +2753,33 @@ async function recalculateManagerSeasonStatsInTransaction(
     const away = f.away_club_id;
     const hs = Number(f.home_score);
     const as_ = Number(f.away_score);
+    const isWalkover = f.match_status === 'wo_home' || f.match_status === 'wo_away';
 
     if (statsMap[home] !== undefined) {
       statsMap[home].mp += 1;
-      statsMap[home].gf += hs;
-      statsMap[home].ga += as_;
+      // Only count goals/clean sheets for actual played matches, not walkovers
+      if (!isWalkover) {
+        statsMap[home].gf += hs;
+        statsMap[home].ga += as_;
+        if (as_ === 0) statsMap[home].cs += 1;
+      }
+      // Always count wins/draws/losses regardless of walkover
       if (hs > as_) statsMap[home].w += 1;
       else if (hs === as_) statsMap[home].d += 1;
       else statsMap[home].l += 1;
-      if (as_ === 0) statsMap[home].cs += 1;
     }
     if (statsMap[away] !== undefined) {
       statsMap[away].mp += 1;
-      statsMap[away].gf += as_;
-      statsMap[away].ga += hs;
+      // Only count goals/clean sheets for actual played matches, not walkovers
+      if (!isWalkover) {
+        statsMap[away].gf += as_;
+        statsMap[away].ga += hs;
+        if (hs === 0) statsMap[away].cs += 1;
+      }
+      // Always count wins/draws/losses regardless of walkover
       if (as_ > hs) statsMap[away].w += 1;
       else if (as_ === hs) statsMap[away].d += 1;
       else statsMap[away].l += 1;
-      if (hs === 0) statsMap[away].cs += 1;
     }
   }
 

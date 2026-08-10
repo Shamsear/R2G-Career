@@ -132,14 +132,25 @@ export default function RwsYearFixtures() {
               });
             });
 
+            const roundsList = Object.keys(groupedMap).map(Number).sort((a, b) => a - b);
             const mappedRounds: Round[] = Object.keys(groupedMap)
               .map(Number)
               .sort((a, b) => b - a) // Show finals first
               .map((rNum) => {
                 let name = `Round ${rNum}`;
-                if (rNum === 3) name = "Grand Final";
-                else if (rNum === 2) name = "Semi-Finals";
-                else if (rNum === 1) name = "Quarter-Finals";
+                if (rNum >= 100) {
+                  const knockoutRounds = roundsList.filter(r => r >= 100);
+                  const idx = knockoutRounds.indexOf(rNum);
+                  if (idx !== -1) {
+                    const distance = knockoutRounds.length - 1 - idx;
+                    if (distance === 0) name = "Grand Final";
+                    else if (distance === 1) name = "Semi-Finals";
+                    else if (distance === 2) name = "Quarter-Finals";
+                    else if (distance === 3) name = "Round of 16";
+                    else if (distance === 4) name = "Round of 32";
+                    else name = `Knockout Rd ${idx + 1}`;
+                  }
+                }
                 return {
                   roundName: name,
                   matches: groupedMap[rNum]
