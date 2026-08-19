@@ -11,8 +11,8 @@ import {
   updateSoloTrophyCabinetItem
 } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
-import CustomSelect from "@/components/ui/CustomSelect";
 import "../../../../portal.css";
+import "../admin.css";
 
 interface CabinetItem {
   id: number;
@@ -24,7 +24,6 @@ interface CabinetItem {
 
 export default function SoloTrophyCabinetManager() {
   const [seasons, setSeasons] = useState<any[]>([]);
-  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string>("season7");
   const [cabinetItems, setCabinetItems] = useState<CabinetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,46 +46,24 @@ export default function SoloTrophyCabinetManager() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  const loadSeasonsAndTrophies = async () => {
+  const loadAllData = async () => {
     try {
       const seasonList = await fetchSeasonsList();
       setSeasons(seasonList || []);
       
-      if (seasonList && seasonList.length > 0) {
-        const active = seasonList.find(s => s.is_active) || seasonList[0];
-        const defaultKey = `season${active.season_number}`;
-        setSelectedSeasonKey(defaultKey);
-        await loadCabinetItems(defaultKey);
-      } else {
-        setSelectedSeasonKey("season7");
-        await loadCabinetItems("season7");
-      }
+      const items = await fetchSoloTrophyCabinetItems();
+      setCabinetItems(items || []);
     } catch (err) {
       console.error(err);
-      setMessage({ text: "Error loading seasons data!", type: "error" });
+      setMessage({ text: "Error loading cabinet database data!", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCabinetItems = async (seasonKey: string) => {
-    try {
-      const items = await fetchSoloTrophyCabinetItems(seasonKey);
-      setCabinetItems(items || []);
-    } catch (err) {
-      console.error(err);
-      setMessage({ text: "Error loading trophy cabinet items!", type: "error" });
-    }
-  };
-
   useEffect(() => {
-    loadSeasonsAndTrophies();
+    loadAllData();
   }, []);
-
-  const handleSeasonChange = (val: string) => {
-    setSelectedSeasonKey(val);
-    loadCabinetItems(val);
-  };
 
   const handleCreateSeason = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +78,7 @@ export default function SoloTrophyCabinetManager() {
           Number(newSeasonNumber),
           makeActive,
           carryOver,
-          true, // hosts RWS
+          true, 
           2026 + (Number(newSeasonNumber) - 9), 
           1500, 
           50,   
@@ -115,12 +92,7 @@ export default function SoloTrophyCabinetManager() {
           setMessage({ text: `✅ Created Season ${newSeasonNumber} successfully!`, type: "success" });
           setShowCreateSeason(false);
           setNewSeasonNumber("");
-          
-          const seasonList = await fetchSeasonsList();
-          setSeasons(seasonList || []);
-          const newKey = `season${newSeasonNumber}`;
-          setSelectedSeasonKey(newKey);
-          await loadCabinetItems(newKey);
+          await loadAllData();
         } else {
           setMessage({ text: "Failed to create season", type: "error" });
         }
@@ -152,12 +124,14 @@ export default function SoloTrophyCabinetManager() {
     }
   };
 
-  const openAddModal = () => {
+  const openAddModal = (initialSeasonKey?: string) => {
     setEditingId(null);
-    setFormSeasonKey(selectedSeasonKey);
+    setFormSeasonKey(initialSeasonKey || "season7");
     setFormCategory("trophy");
     setFormImageUrl("");
-    setFormOrder(cabinetItems.length + 1);
+    
+    const count = cabinetItems.filter(item => item.season_key === (initialSeasonKey || "season7")).length;
+    setFormOrder(count + 1);
     setShowModal(true);
   };
 
@@ -181,7 +155,6 @@ export default function SoloTrophyCabinetManager() {
     setMessage(null);
     try {
       if (editingId) {
-        // Update item
         const res = await updateSoloTrophyCabinetItem({
           id: editingId,
           seasonKey: formSeasonKey,
@@ -193,17 +166,16 @@ export default function SoloTrophyCabinetManager() {
         if (res.success) {
           setMessage({ text: "Cabinet item updated successfully!", type: "success" });
           setShowModal(false);
-          await loadCabinetItems(selectedSeasonKey);
+          await loadAllData();
         } else {
           setMessage({ text: res.error || "Failed to update item", type: "error" });
         }
       } else {
-        // Add new item
         const res = await addSoloTrophyCabinetItem(formSeasonKey, formCategory, formImageUrl.trim());
         if (res.success) {
           setMessage({ text: "New item added successfully to cabinet!", type: "success" });
           setShowModal(false);
-          await loadCabinetItems(selectedSeasonKey);
+          await loadAllData();
         } else {
           setMessage({ text: res.error || "Failed to add item", type: "error" });
         }
@@ -223,7 +195,7 @@ export default function SoloTrophyCabinetManager() {
       const res = await deleteSoloTrophyCabinetItem(id);
       if (res.success) {
         setMessage({ text: "Item removed from cabinet successfully!", type: "success" });
-        await loadCabinetItems(selectedSeasonKey);
+        await loadAllData();
       } else {
         setMessage({ text: "Failed to delete item", type: "error" });
       }
@@ -251,8 +223,26 @@ export default function SoloTrophyCabinetManager() {
     }
   });
 
-  const trophiesList = cabinetItems.filter(item => item.category === "trophy");
-  const awardsList = cabinetItems.filter(item => item.category === "award");
+  // Group items by season
+  const groupedSeasons: Record<string, { trophies: CabinetItem[], awards: CabinetItem[] }> = {};
+  cabinetItems.forEach((item) => {
+    const key = item.season_key;
+    if (!groupedSeasons[key]) {
+      groupedSeasons[key] = { trophies: [], awards: [] };
+    }
+    if (item.category === 'trophy') {
+      groupedSeasons[key].trophies.push(item);
+    } else {
+      groupedSeasons[key].awards.push(item);
+    }
+  });
+
+  // Sort season keys descending
+  const sortedSeasonKeys = Object.keys(groupedSeasons).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+    const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+    return numB - numA;
+  });
 
   if (loading) {
     return (
@@ -276,7 +266,7 @@ export default function SoloTrophyCabinetManager() {
         {/* Breadcrumbs */}
         <div className="portal-breadcrumb" style={{ marginBottom: "1rem" }}>
           <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Admin Panel
+            <i className="fas fa-arrow-left" /> Back to Admin Hub
           </Link>
         </div>
 
@@ -288,7 +278,7 @@ export default function SoloTrophyCabinetManager() {
           </div>
           <h1 className="portal-title" style={{ fontSize: "2.25rem", margin: "0.5rem 0" }}>SOLO TROPHY CABINET</h1>
           <p className="portal-subtitle" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", maxWidth: "600px", margin: "0 auto" }}>
-            Add, update, or remove trophy or individual award listings displayed in the public legacy museum.
+            Manage the entire inventory of trophies and awards across all seasons on a single page.
           </p>
         </div>
 
@@ -311,37 +301,31 @@ export default function SoloTrophyCabinetManager() {
           </div>
         )}
 
-        {/* Filter Controls & Create Season */}
-        <div className="portal-card" style={{ padding: "1.5rem", marginBottom: "2rem", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <i className="fa-solid fa-calendar-days" style={{ color: "var(--solo-primary)", fontSize: "1.2rem" }} />
-              <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff" }}>Target Season:</span>
-              <CustomSelect
-                value={selectedSeasonKey}
-                onChange={handleSeasonChange}
-                options={seasonOptions}
-                buttonStyle={{ width: "240px", justifyContent: "space-between" }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                onClick={() => setShowCreateSeason(!showCreateSeason)}
-                className="portal-btn btn-secondary"
-                style={{ fontSize: "0.8rem", padding: "8px 16px" }}
-              >
-                {showCreateSeason ? "✕ Close Season Form" : "+ Initialize Season"}
-              </button>
-              <button onClick={openAddModal} className="portal-btn btn-primary" style={{ padding: "8px 20px" }}>
-                <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} /> Add Cabinet Item
-              </button>
-            </div>
+        {/* Action Bar */}
+        <div style={{ padding: "1.25rem 1.75rem", marginBottom: "2.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)", borderRadius: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#fff" }}>
+              🏆 Cabinet Inventory: <span style={{ color: "var(--solo-primary)" }}>{cabinetItems.length} items registered</span>
+            </span>
           </div>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button
+              onClick={() => setShowCreateSeason(!showCreateSeason)}
+              className="portal-btn btn-secondary"
+              style={{ fontSize: "0.8rem", padding: "8px 16px" }}
+            >
+              {showCreateSeason ? "✕ Close Season Form" : "+ Initialize Season"}
+            </button>
+            <button onClick={() => openAddModal()} className="portal-btn btn-primary" style={{ padding: "8px 20px" }}>
+              <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} /> Add Cabinet Item
+            </button>
+          </div>
+        </div>
 
-          {/* Create Season Form */}
-          {showCreateSeason && (
-            <form onSubmit={handleCreateSeason} style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* Create Season Collapsible Form */}
+        {showCreateSeason && (
+          <div style={{ padding: "1.5rem", marginBottom: "2rem", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)", borderRadius: "16px" }}>
+            <form onSubmit={handleCreateSeason}>
               <h3 style={{ fontSize: "0.9rem", color: "#fff", fontWeight: 700, marginBottom: "1rem" }}>
                 Initialize New Season
               </h3>
@@ -394,87 +378,139 @@ export default function SoloTrophyCabinetManager() {
                 </button>
               </div>
             </form>
-          )}
-        </div>
-
-        {/* Dynamic Display of Cabinet Items */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
-          
-          {/* Trophies Column */}
-          <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.75rem" }}>
-              <i className="fa-solid fa-trophy" style={{ color: "#ffd700", fontSize: "1.2rem" }} />
-              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>Season Trophies</h2>
-              <span style={{ fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "10px", color: "var(--text-secondary)", marginLeft: "4px" }}>
-                {trophiesList.length}
-              </span>
-            </div>
-
-            {trophiesList.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                No trophies registered for this season.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1rem" }}>
-                {trophiesList.map(item => (
-                  <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "1rem", display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "10px" }}>
-                      <img src={item.image_url} alt="Trophy Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
-                    </div>
-                    <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
-                      {item.image_url}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                      <span>Order: {item.display_order}</span>
-                      <div style={{ display: "flex", gap: "12px" }}>
-                        <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
-                        <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+        )}
 
-          {/* Awards Column */}
-          <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.75rem" }}>
-              <i className="fa-solid fa-award" style={{ color: "#a855f7", fontSize: "1.2rem" }} />
-              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>Individual Awards</h2>
-              <span style={{ fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "10px", color: "var(--text-secondary)", marginLeft: "4px" }}>
-                {awardsList.length}
-              </span>
-            </div>
-
-            {awardsList.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                No individual awards registered for this season.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1rem" }}>
-                {awardsList.map(item => (
-                  <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "1rem", display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "10px" }}>
-                      <img src={item.image_url} alt="Award Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
-                    </div>
-                    <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
-                      {item.image_url}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                      <span>Order: {item.display_order}</span>
-                      <div style={{ display: "flex", gap: "12px" }}>
-                        <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
-                        <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* List of Seasons */}
+        {sortedSeasonKeys.length === 0 ? (
+          <div className="portal-card" style={{ padding: "4rem 2rem", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <i className="fa-solid fa-circle-xmark" style={{ fontSize: "2rem", color: "var(--rose)", marginBottom: "1rem" }} />
+            <h3 style={{ fontSize: "1.1rem", color: "#fff", marginBottom: "0.5rem" }}>No Cabinet Items Found</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", maxWidth: "450px", margin: "0 auto 1.5rem" }}>
+              There are currently no trophies or awards registered in the database. Add your first item to initialize.
+            </p>
+            <button onClick={() => openAddModal()} className="portal-btn btn-primary">
+              + Add First Item
+            </button>
           </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "3rem" }}>
+            {sortedSeasonKeys.map((seasonKey) => {
+              const seasonNum = seasonKey.replace(/\D/g, "");
+              const sTrophies = groupedSeasons[seasonKey].trophies;
+              const sAwards = groupedSeasons[seasonKey].awards;
 
-        </div>
+              return (
+                <div 
+                  key={seasonKey}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.01)",
+                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    borderRadius: "20px",
+                    padding: "1.75rem",
+                    position: "relative"
+                  }}
+                >
+                  {/* Season Title Header */}
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                    paddingBottom: "1rem",
+                    marginBottom: "1.75rem"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "0.72rem", background: "var(--solo-primary-glow)", color: "var(--solo-primary)", padding: "2px 8px", borderRadius: "8px", fontWeight: 700, textTransform: "uppercase" }}>Season {seasonNum}</span>
+                      <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", margin: 0, textTransform: "uppercase" }}>SEASON {seasonNum} CABINET</h2>
+                    </div>
+
+                    <button 
+                      onClick={() => openAddModal(seasonKey)} 
+                      className="portal-btn btn-secondary" 
+                      style={{ fontSize: "0.75rem", padding: "6px 14px" }}
+                    >
+                      + Add to Season {seasonNum}
+                    </button>
+                  </div>
+
+                  {/* Columns */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
+                    
+                    {/* Trophies Column */}
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem" }}>
+                        <i className="fa-solid fa-trophy" style={{ color: "#ffd700", fontSize: "1.05rem" }} />
+                        <h3 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff", margin: 0 }}>Trophies ({sTrophies.length})</h3>
+                      </div>
+
+                      {sTrophies.length === 0 ? (
+                        <div style={{ padding: "2rem", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: "12px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                          No trophies registered.
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "0.75rem" }}>
+                          {sTrophies.map(item => (
+                            <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "0.75rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px" }}>
+                                <img src={item.image_url} alt="Trophy Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
+                              </div>
+                              <div style={{ fontSize: "0.62rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
+                                {item.image_url}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                                <span>Order: {item.display_order}</span>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
+                                  <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Awards Column */}
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem" }}>
+                        <i className="fa-solid fa-award" style={{ color: "#a855f7", fontSize: "1.05rem" }} />
+                        <h3 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff", margin: 0 }}>Individual Awards ({sAwards.length})</h3>
+                      </div>
+
+                      {sAwards.length === 0 ? (
+                        <div style={{ padding: "2rem", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: "12px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                          No individual awards registered.
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "0.75rem" }}>
+                          {sAwards.map(item => (
+                            <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "0.75rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px" }}>
+                                <img src={item.image_url} alt="Award Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
+                              </div>
+                              <div style={{ fontSize: "0.62rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
+                                {item.image_url}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                                <span>Order: {item.display_order}</span>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
+                                  <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       </div>
 
