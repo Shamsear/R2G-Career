@@ -5,7 +5,8 @@ import Link from "next/link";
 import { 
   fetchCareerTournaments, 
   saveCareerTournament, 
-  deleteCareerTournament 
+  deleteCareerTournament,
+  reorderCareerTournament
 } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../../portal.css";
@@ -169,6 +170,32 @@ export default function CareerShowcaseAdmin() {
     }
   };
 
+  const handleReorder = async (current: TournamentCard, direction: "up" | "down", siblingList: TournamentCard[]) => {
+    const currentIndex = siblingList.findIndex(t => t.id === current.id);
+    if (currentIndex === -1) return;
+
+    let sibling: TournamentCard | null = null;
+    if (direction === "up" && currentIndex > 0) {
+      sibling = siblingList[currentIndex - 1];
+    } else if (direction === "down" && currentIndex < siblingList.length - 1) {
+      sibling = siblingList[currentIndex + 1];
+    }
+
+    if (!sibling) return;
+
+    try {
+      const res = await reorderCareerTournament(current.id, sibling.display_order, sibling.id, current.display_order);
+      if (res.success) {
+        await loadData();
+      } else {
+        setMessage({ text: res.error || "Failed to reorder card", type: "error" });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ text: err.message || "Failed to reorder card", type: "error" });
+    }
+  };
+
   const categories = [
     { key: "division", label: "Division Leagues", icon: "fa-solid fa-layer-group" },
     { key: "european", label: "European Cups", icon: "fa-solid fa-earth-europe" },
@@ -265,7 +292,29 @@ export default function CareerShowcaseAdmin() {
                         {/* Title Header */}
                         <div style={{ padding: "0.85rem 1.25rem", borderBottom: "1px solid rgba(255, 255, 255, 0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#fff" }}>{t.name}</span>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-muted)" }}>Order: {t.display_order}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button 
+                                onClick={() => handleReorder(t, "up", list)} 
+                                disabled={list.indexOf(t) === 0}
+                                className="portal-btn btn-secondary" 
+                                style={{ padding: "2px 6px", fontSize: "0.65rem", display: "inline-flex", alignItems: "center", justifyContent: "center", opacity: list.indexOf(t) === 0 ? 0.35 : 1, cursor: list.indexOf(t) === 0 ? "not-allowed" : "pointer" }}
+                                title="Move Up"
+                              >
+                                <i className="fa-solid fa-arrow-up" />
+                              </button>
+                              <button 
+                                onClick={() => handleReorder(t, "down", list)} 
+                                disabled={list.indexOf(t) === list.length - 1}
+                                className="portal-btn btn-secondary" 
+                                style={{ padding: "2px 6px", fontSize: "0.65rem", display: "inline-flex", alignItems: "center", justifyContent: "center", opacity: list.indexOf(t) === list.length - 1 ? 0.35 : 1, cursor: list.indexOf(t) === list.length - 1 ? "not-allowed" : "pointer" }}
+                                title="Move Down"
+                              >
+                                <i className="fa-solid fa-arrow-down" />
+                              </button>
+                            </div>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-muted)" }}>Order: {t.display_order}</span>
+                          </div>
                         </div>
 
                         {/* Image Previews */}

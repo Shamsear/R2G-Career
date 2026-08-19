@@ -8230,6 +8230,20 @@ export async function deleteCareerTournament(id: number) {
   }
 }
 
+export async function reorderCareerTournament(id1: number, order1: number, id2: number, order2: number) {
+  try {
+    await pool.query('BEGIN');
+    await pool.query('UPDATE career_tournaments SET display_order = $1 WHERE id = $2', [order1, id1]);
+    await pool.query('UPDATE career_tournaments SET display_order = $1 WHERE id = $2', [order2, id2]);
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error('Error reordering career tournament:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function updateSoloTrophyCabinetItem(data: {
   id: number;
   seasonKey: string;
