@@ -242,17 +242,6 @@ export default function CareerMode() {
           </div>
         </div>
       </div>
-
-      <footer className="portal-footer">
-        <div className="portal-status-bar">
-          <div className="status-item">
-            <span className="status-indicator online" />
-            Career Mode: Active
-          </div>
-          <div className="status-item">Current Season: Active</div>
-        </div>
-        <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-      </footer>
     </div>
   );
 }

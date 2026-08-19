@@ -10,7 +10,6 @@ import "../../../portal.css";
 export default function CareerTournament() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const [tournamentsData, setTournamentsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,32 +36,10 @@ export default function CareerTournament() {
   useEffect(() => {
     const handleScroll = () => setShowBackToTop(window.scrollY > 300);
     window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Intersection observer for scroll-triggered reveals
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("animate-in");
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
-    );
-
-    if (!loading) {
-      setTimeout(() => {
-        document
-          .querySelectorAll(".tournament-display-card, .tournament-category-title")
-          .forEach((el) => observerRef.current?.observe(el));
-      }, 100);
-    }
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      observerRef.current?.disconnect();
     };
-  }, [loading]);
+  }, []);
 
   const tournaments = tournamentsData.filter(t => t.category === "division");
   const europeanLeague = tournamentsData.filter(t => t.category === "european");

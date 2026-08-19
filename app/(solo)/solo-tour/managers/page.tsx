@@ -227,18 +227,6 @@ export default function Managers() {
             ))
           )}
         </div>
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              Directory: Synchronized
-            </div>
-            <div className="status-item">Total Tacticians: {managers.length}</div>
-          </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
       </div>
     </div>
   );

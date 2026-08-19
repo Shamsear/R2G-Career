@@ -1367,9 +1367,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .tournament-category-title.animate-in { opacity: 1; transform: none; }
 .tournament-category-title::before {
@@ -1401,11 +1401,11 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  opacity: 0;
-  transform: translateY(24px);
+  opacity: 1;
+  transform: none;
   transition:
-    opacity 0.5s var(--ease-out),
-    transform 0.5s var(--ease-out),
+    opacity 0.3s ease,
+    transform 0.3s ease,
     border-color 0.3s ease,
     box-shadow 0.3s ease;
 }
@@ -1555,15 +1555,29 @@ body {
 .fa-chevron-down.rotate-up { transform: rotate(180deg); }
 
 .season-content-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  opacity: 0;
   overflow: hidden;
-  transition: max-height 0.45s var(--ease-out), opacity 0.35s ease;
-  max-height: 0;
+}
+.season-content-wrapper.expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.season-content-wrapper.collapsed {
+  grid-template-rows: 0fr;
   opacity: 0;
 }
-.season-content-wrapper.expanded { max-height: 4000px; opacity: 1; }
-.season-content-wrapper.collapsed { max-height: 0; opacity: 0; }
 
-.season-content { padding: 1.5rem 0; }
+.season-content {
+  min-height: 0;
+  padding: 0;
+  transition: padding 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.season-content-wrapper.expanded .season-content {
+  padding: 1.5rem 0;
+}
 
 .trophy-section { width: 100%; }
 .club-info.sub-heading { margin-bottom: 1.25rem; }

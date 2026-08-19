@@ -122,18 +122,6 @@ export default function RegisteredClubs() {
             )}
           </div>
         )}
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online" />
-              System Online
-            </div>
-            <div className="status-item">Total Clubs: {clubs.length}</div>
-          </div>
-          <div className="portal-copyright">&copy; 2026 Road to Glory. All rights reserved.</div>
-        </footer>
       </div>
     </div>
   );

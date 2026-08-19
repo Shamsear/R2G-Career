@@ -134,7 +134,7 @@ export default function TrophyCabinet() {
         </div>
 
         {/* Accordion seasons */}
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "0.65rem" }}>
           {seasonsData.map((season) => {
             const isOpen = !!expandedSeasons[season.id];
             return (
