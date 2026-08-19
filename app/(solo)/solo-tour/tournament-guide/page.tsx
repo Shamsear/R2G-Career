@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import Link from "next/image"; // we use normal img tags for dynamic cdn
+import NextLink from "next/link";
+import { fetchSoloGuideAssets } from "@/utils/solo/serverActions";
 import "../../../portal.css";
 import "./tournament-guide.css";
 
@@ -10,6 +11,29 @@ export default function TournamentGuide() {
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>("faqs");
+  const [guideAssets, setGuideAssets] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function loadAssets() {
+      try {
+        const assetsList = await fetchSoloGuideAssets();
+        if (assetsList && assetsList.length > 0) {
+          const mapping: Record<string, string> = {};
+          assetsList.forEach((asset: any) => {
+            mapping[asset.asset_key] = asset.image_url;
+          });
+          setGuideAssets(mapping);
+        }
+      } catch (err) {
+        console.error("Error loading dynamic guide assets:", err);
+      }
+    }
+    loadAssets();
+  }, []);
+
+  const getAssetUrl = (key: string, fallback: string) => {
+    return guideAssets[key] || fallback;
+  };
 
   const openModal = (src: string) => setModalImage(src);
   const closeModal = () => setModalImage(null);
@@ -63,9 +87,9 @@ export default function TournamentGuide() {
       <div className="portal-container">
         {/* Navigation / Back Button */}
         <div className="guide-wrapper">
-          <Link href="/solo-tour" className="portal-btn btn-secondary back-link-btn">
+          <NextLink href="/solo-tour" className="portal-btn btn-secondary back-link-btn">
             <i className="fas fa-arrow-left"></i> Back to Dashboard
-          </Link>
+          </NextLink>
         </div>
 
         {/* Header Section */}
@@ -170,8 +194,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Follow our season roadmap to understand how the tournament progresses from start to finish.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/auction1.webp")}>
-                <Image src="/assets/images/guide/auction1.webp" alt="Road Map" width={600} height={400} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("roadmap", "/assets/images/guide/auction1.webp"))}>
+                <img src={getAssetUrl("roadmap", "/assets/images/guide/auction1.webp")} alt="Road Map" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -184,11 +208,11 @@ export default function TournamentGuide() {
                 Different card types represent various levels of player rarity and special abilities.
               </p>
               <div className="image-gallery">
-                <div className="roadmap-img-card" style={{ flex: "1 1 250px", marginTop: 0 }} onClick={() => openModal("/assets/images/guide/auction4.webp")}>
-                  <Image src="/assets/images/guide/auction4.webp" alt="Card Type 1" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="roadmap-img-card" style={{ flex: "1 1 250px", marginTop: 0 }} onClick={() => openModal(getAssetUrl("card_type_1", "/assets/images/guide/auction4.webp"))}>
+                  <img src={getAssetUrl("card_type_1", "/assets/images/guide/auction4.webp")} alt="Card Type 1" style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
-                <div className="roadmap-img-card" style={{ flex: "1 1 250px", marginTop: 0 }} onClick={() => openModal("/assets/images/guide/auction5.webp")}>
-                  <Image src="/assets/images/guide/auction5.webp" alt="Card Type 2" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="roadmap-img-card" style={{ flex: "1 1 250px", marginTop: 0 }} onClick={() => openModal(getAssetUrl("card_type_2", "/assets/images/guide/auction5.webp"))}>
+                  <img src={getAssetUrl("card_type_2", "/assets/images/guide/auction5.webp")} alt="Card Type 2" style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
               </div>
             </section>
@@ -201,8 +225,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Understanding the point system used to calculate match performance and season standings.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/pointsystem.jpg")}>
-                <Image src="/assets/images/guide/pointsystem.jpg" alt="Point System" width={600} height={400} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("point_system", "/assets/images/guide/pointsystem.jpg"))}>
+                <img src={getAssetUrl("point_system", "/assets/images/guide/pointsystem.jpg")} alt="Point System" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -292,8 +316,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Earn special bonuses and rewards for performances during matches.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/bonus.webp")}>
-                <Image src="/assets/images/guide/bonus.webp" alt="Match Bonus" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("match_bonus", "/assets/images/guide/bonus.webp"))}>
+                <img src={getAssetUrl("match_bonus", "/assets/images/guide/bonus.webp")} alt="Match Bonus" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -305,8 +329,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 End-of-season awards recognize top performers and achievements throughout the tournament.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/awards.webp")}>
-                <Image src="/assets/images/guide/awards.webp" alt="Season Awards" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("season_awards", "/assets/images/guide/awards.webp"))}>
+                <img src={getAssetUrl("season_awards", "/assets/images/guide/awards.webp")} alt="Season Awards" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -318,8 +342,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Earn RT rewards based on your division at the end of the season.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/seasonrewards.jpg")}>
-                <Image src="/assets/images/guide/seasonrewards.jpg" alt="Season Rewards" width={600} height={300} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("season_rewards", "/assets/images/guide/seasonrewards.jpg"))}>
+                <img src={getAssetUrl("season_rewards", "/assets/images/guide/seasonrewards.jpg")} alt="Season Rewards" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -332,14 +356,14 @@ export default function TournamentGuide() {
                 Different currency types used in the auction system to purchase players and manage your franchise.
               </p>
               <div className="image-gallery">
-                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal("/assets/images/guide/voucher.jpg")}>
-                  <Image src="/assets/images/guide/voucher.jpg" alt="R2G Voucher" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal(getAssetUrl("voucher_currency", "/assets/images/guide/voucher.jpg"))}>
+                  <img src={getAssetUrl("voucher_currency", "/assets/images/guide/voucher.jpg")} alt="R2G Voucher" style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
-                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal("/assets/images/guide/auction2.webp")}>
-                  <Image src="/assets/images/guide/auction2.webp" alt="Currency Type Example 1" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal(getAssetUrl("currency_example_1", "/assets/images/guide/auction2.webp"))}>
+                  <img src={getAssetUrl("currency_example_1", "/assets/images/guide/auction2.webp")} alt="Currency Type Example 1" style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
-                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal("/assets/images/guide/auction3.webp")}>
-                  <Image src="/assets/images/guide/auction3.webp" alt="Currency Type Example 2" width={300} height={200} style={{ width: "100%", height: "auto" }} />
+                <div className="roadmap-img-card" style={{ flex: "1 1 200px", marginTop: 0 }} onClick={() => openModal(getAssetUrl("currency_example_2", "/assets/images/guide/auction3.webp"))}>
+                  <img src={getAssetUrl("currency_example_2", "/assets/images/guide/auction3.webp")} alt="Currency Type Example 2" style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
               </div>
             </section>
@@ -352,8 +376,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Exchange your Coins for R2G Vouchers, Tokens, and other valuable rewards.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/voucherexchange.jpg")}>
-                <Image src="/assets/images/guide/voucherexchange.jpg" alt="Voucher Exchange" width={600} height={300} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("coin_exchange", "/assets/images/guide/voucherexchange.jpg"))}>
+                <img src={getAssetUrl("coin_exchange", "/assets/images/guide/voucherexchange.jpg")} alt="Voucher Exchange" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -365,8 +389,8 @@ export default function TournamentGuide() {
               <p className="section-text">
                 Exchange your R2G Tokens for RT points according to the rates shown below.
               </p>
-              <div className="roadmap-img-card" onClick={() => openModal("/assets/images/guide/tokenexchange.jpg")}>
-                <Image src="/assets/images/guide/tokenexchange.jpg" alt="Token Exchange" width={600} height={300} style={{ width: "100%", height: "auto" }} />
+              <div className="roadmap-img-card" onClick={() => openModal(getAssetUrl("token_exchange", "/assets/images/guide/tokenexchange.jpg"))}>
+                <img src={getAssetUrl("token_exchange", "/assets/images/guide/tokenexchange.jpg")} alt="Token Exchange" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
             </section>
 
@@ -382,8 +406,8 @@ export default function TournamentGuide() {
               <div className="events-gallery" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
                 {/* Event 1 */}
                 <div className="event-item" style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.06)", paddingBottom: "1.5rem" }}>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/meetup.jpg")}>
-                    <Image src="/assets/images/guide/meetup.jpg" alt="Meetup Event" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("meetup_event", "/assets/images/guide/meetup.jpg"))}>
+                    <img src={getAssetUrl("meetup_event", "/assets/images/guide/meetup.jpg")} alt="Meetup Event" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -395,8 +419,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     The ULTIMATE showdown of the year! This is THE championship everyone's been waiting for - happening once a year and open to ALL R2G players! Battle it out for EPIC rewards including exclusive jerseys, mystery boxes packed with surprises, and SO MUCH MORE! Don't miss your shot at GLORY! 🔥
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/worldseries.jpg")}>
-                    <Image src="/assets/images/guide/worldseries.jpg" alt="World Series Championship" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("world_series_event", "/assets/images/guide/worldseries.jpg"))}>
+                    <img src={getAssetUrl("world_series_event", "/assets/images/guide/worldseries.jpg")} alt="World Series Championship" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -408,8 +432,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     Predict match outcomes and tournament results to earn rewards based on your accuracy.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/prediction.jpg")}>
-                    <Image src="/assets/images/guide/prediction.jpg" alt="R2G Prediction" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("prediction_event", "/assets/images/guide/prediction.jpg"))}>
+                    <img src={getAssetUrl("prediction_event", "/assets/images/guide/prediction.jpg")} alt="R2G Prediction" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -421,8 +445,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     This event is based on POTW (Player of the Week) cards from eFootball.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/spinwin.jpg")}>
-                    <Image src="/assets/images/guide/spinwin.jpg" alt="Spin & Win Event" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("potw_event", "/assets/images/guide/spinwin.jpg"))}>
+                    <img src={getAssetUrl("potw_event", "/assets/images/guide/spinwin.jpg")} alt="Spin & Win Event" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -434,8 +458,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     Earn special vouchers through various events and activities.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/scratch.jpg")}>
-                    <Image src="/assets/images/guide/scratch.jpg" alt="Scratch Cards" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("voucher_rewards", "/assets/images/guide/scratch.jpg"))}>
+                    <img src={getAssetUrl("voucher_rewards", "/assets/images/guide/scratch.jpg")} alt="Scratch Cards" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -447,8 +471,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     Open voucher crates to discover valuable rewards and exclusive items.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/vouchercrate.jpg")}>
-                    <Image src="/assets/images/guide/vouchercrate.jpg" alt="Voucher Crate" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("voucher_crate", "/assets/images/guide/vouchercrate.jpg"))}>
+                    <img src={getAssetUrl("voucher_crate", "/assets/images/guide/vouchercrate.jpg")} alt="Voucher Crate" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -460,8 +484,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     Collect and open voucher packs to unlock exclusive rewards and bonuses.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/voucherpack.jpg")}>
-                    <Image src="/assets/images/guide/voucherpack.jpg" alt="Voucher Pack" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("voucher_packs", "/assets/images/guide/voucherpack.jpg"))}>
+                    <img src={getAssetUrl("voucher_packs", "/assets/images/guide/voucherpack.jpg")} alt="Voucher Pack" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
 
@@ -473,8 +497,8 @@ export default function TournamentGuide() {
                   <p className="section-text" style={{ fontSize: "0.95rem", margin: "0.5rem 0 1rem 0" }}>
                     Unlock the power to acquire unsold players from the transfer market! These players can be used by your team for 1 week, giving you tactical flexibility when you need it most.
                   </p>
-                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal("/assets/images/guide/wildcards.jpg")}>
-                    <Image src="/assets/images/guide/wildcards.jpg" alt="Wildcards" width={500} height={300} style={{ width: "100%", height: "auto" }} />
+                  <div className="roadmap-img-card" style={{ marginTop: 0 }} onClick={() => openModal(getAssetUrl("wildcards", "/assets/images/guide/wildcards.jpg"))}>
+                    <img src={getAssetUrl("wildcards", "/assets/images/guide/wildcards.jpg")} alt="Wildcards" style={{ width: "100%", height: "auto", display: "block" }} />
                   </div>
                 </div>
               </div>
@@ -502,28 +526,13 @@ export default function TournamentGuide() {
             </section>
           </div>
         </div>
-
-        {/* Footer */}
-        <footer className="portal-footer">
-          <div className="portal-status-bar">
-            <div className="status-item">
-              <span className="status-indicator online"></span>
-              Guide Version: 2026.1
-            </div>
-            <div className="status-item">
-              Solo Tour Handbook
-            </div>
-          </div>
-          <div className="portal-copyright">
-            &copy; 2026 Road to Glory. All rights reserved.
-          </div>
-        </footer>
       </div>
 
       {/* High-Fidelity Blurred Backdrop Modal */}
       <div 
         className={`guide-modal ${modalImage ? "active" : ""}`}
         onClick={closeModal}
+        style={{ zIndex: 9999 }}
       >
         <button className="close-guide-modal" onClick={closeModal}>
           <i className="fas fa-times"></i>

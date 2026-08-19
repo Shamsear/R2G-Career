@@ -8250,3 +8250,40 @@ export async function updateSoloTrophyCabinetItem(data: {
     return { success: false, error: error.message };
   }
 }
+
+export async function fetchSoloGuideAssets() {
+  try {
+    // Ensure table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS solo_guide_assets (
+          id SERIAL PRIMARY KEY,
+          asset_key VARCHAR(100) UNIQUE NOT NULL,
+          label VARCHAR(100) NOT NULL,
+          image_url VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    const { rows } = await pool.query(`SELECT * FROM solo_guide_assets ORDER BY id ASC`);
+    return rows;
+  } catch (error) {
+    console.error("Error fetching solo guide assets:", error);
+    return [];
+  }
+}
+
+export async function saveSoloGuideAsset(assetKey: string, label: string, imageUrl: string) {
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO solo_guide_assets (asset_key, label, image_url) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT (asset_key) 
+       DO UPDATE SET image_url = $3, label = $2
+       RETURNING *`,
+      [assetKey, label, imageUrl]
+    );
+    return { success: true, asset: rows[0] };
+  } catch (error: any) {
+    console.error("Error saving solo guide asset:", error);
+    return { success: false, error: error.message };
+  }
+}

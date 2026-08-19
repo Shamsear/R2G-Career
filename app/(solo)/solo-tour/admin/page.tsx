@@ -176,6 +176,13 @@ const ADMIN_MODULES = [
     title: "Career Tournaments Showcase",
     desc: "Manage the public Career Tournaments list, add new divisions/cups, and upload card imagery.",
   },
+  {
+    href: "/solo-tour/admin/tournament-guide",
+    icon: "fa-solid fa-book",
+    accent: "nominees",
+    title: "Tournament Guide Manager",
+    desc: "Manage all the rules, posters, roadmaps, and coin exchanges displayed in the handbook.",
+  },
 ];
 
 function AdminDashboardContent() {
