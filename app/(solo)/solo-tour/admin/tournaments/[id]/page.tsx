@@ -209,13 +209,69 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [editPromotionCount, setEditPromotionCount] = useState("");
   const [editRelegationCount, setEditRelegationCount] = useState("");
 
+  // Merge fixtures with knockout matches for display
+  const allMatches = useMemo(() => {
+    const groupStageMatches = fixtures
+      .filter(f => !f.roundNumber || f.roundNumber < 100)
+      .map(f => ({
+        ...f,
+        isKnockout: false,
+        displayRound: `Round ${f.roundNumber || 1}${f.groupName ? ` (Group ${f.groupName})` : ''}`
+      }));
+
+    const knockoutMatchesFormatted = knockoutMatches.map(km => ({
+      ...km,
+      isKnockout: true,
+      roundNumber: 100 + km.roundOrder, // Ensure knockout matches come after group stage
+      displayRound: `${getRoundDisplay(100 + km.roundOrder)}${km.legNumber ? ` (Leg ${km.legNumber})` : ''}`
+    }));
+
+    return [...groupStageMatches, ...knockoutMatchesFormatted];
+  }, [fixtures, knockoutMatches]);
+
+  // Find unique rounds
+  const rounds = useMemo(() => {
+    return Array.from(new Set(allMatches.filter(f => !f.isKnockout).map(f => f.roundNumber || 1))).sort((a, b) => a - b);
+  }, [allMatches]);
+
+  // Create a combined sequence of all filterable rounds: [1, 2, 3, "ko-SEMI_FINAL", "ko-FINAL"]
+  const filterSequence = useMemo(() => {
+    const seq: Array<number | string> = [...rounds];
+    const koRoundsSorted = Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
+      const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+    koRoundsSorted.forEach(name => {
+      seq.push(`ko-${name}`);
+    });
+    return seq;
+  }, [rounds, knockoutMatches]);
+
+  // Filter matches for statistics
+  const filteredMatchesForStats = useMemo(() => {
+    if (activeRound === "all") {
+      return allMatches;
+    }
+    if (typeof activeRound === "number") {
+      return allMatches.filter(f => !f.isKnockout && (f.roundNumber || 1) <= activeRound);
+    }
+    if (activeRound === "knockout") {
+      return allMatches.filter(f => f.isKnockout);
+    }
+    if (typeof activeRound === "string" && activeRound.startsWith("ko-")) {
+      const targetKoRound = activeRound.substring(3);
+      return allMatches.filter(f => f.isKnockout && f.roundName === targetKoRound);
+    }
+    return allMatches;
+  }, [allMatches, activeRound]);
+
   // Dynamically compute stats from match events
   const stats = useMemo(() => {
     const goalScorers: Record<string, number> = {};
     const playmakers: Record<string, number> = {};
     const discipline: Record<string, { yellow: number; red: number }> = {};
 
-    fixtures.forEach(f => {
+    filteredMatchesForStats.forEach(f => {
       if (f.matchEvents && Array.isArray(f.matchEvents)) {
         f.matchEvents.forEach(evt => {
           if (evt.type === 'goal') {
@@ -260,7 +316,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       .slice(0, 5);
 
     return { scorers: sortedScorers, playmakers: sortedPlaymakers, cards: sortedDiscipline };
-  }, [fixtures]);
+  }, [filteredMatchesForStats]);
 
   // Dynamically calculate wins, draws, losses, goals for/against on client side
   const standingsWithStats = useMemo(() => {
@@ -276,6 +332,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     fixtures.forEach(match => {
       if (match.homeScore === null || match.awayScore === null || match.match_status === 'void') return;
       
+      // Ignore knockout stage matches (round number 100 or above) in standings table
+      if ((match.roundNumber || 0) >= 100) return;
+
       // ONLY include matches up to and including activeRound!
       if (typeof activeRound === 'number' && (match.roundNumber || 1) > activeRound) return;
       
@@ -353,48 +412,39 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       defensiveStats[id] = { name, logo, manager, conceded: 0, matches: 0, value: 0 };
     });
 
-    // Parse standingsWithStats for goals and goal difference (already calculated and filtered up to activeRound)
-    standingsWithStats.forEach(row => {
-      const id = row.club_id;
-      const name = row.club_name;
-      const logo = row.club_logo || "";
-      const manager = row.manager || "Unknown";
-      if (goalsScored[id]) {
-        goalsScored[id].value = row.goals_for || 0;
+    // Parse filteredMatchesForStats for goals, goal diff, clean sheets, concessions
+    filteredMatchesForStats.forEach(f => {
+      const hs = f.homeScore;
+      const as = f.awayScore;
+      if (hs === null || as === null || f.match_status === 'void') return;
+
+      const homeId = f.homeClubId;
+      const awayId = f.awayClubId;
+
+      // Goals Scored
+      if (goalsScored[homeId]) goalsScored[homeId].value += hs;
+      if (goalsScored[awayId]) goalsScored[awayId].value += as;
+
+      // Goal Difference
+      if (goalDiff[homeId]) goalDiff[homeId].value += (hs - as);
+      if (goalDiff[awayId]) goalDiff[awayId].value += (as - hs);
+
+      // Clean Sheets (Golden Glove)
+      if (hs === 0) {
+        if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
       }
-      if (goalDiff[id]) {
-        goalDiff[id].value = row.goal_difference || 0;
+      if (as === 0) {
+        if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
       }
-    });
 
-    // Parse fixtures for clean sheets and concedes (filtered up to activeRound)
-    fixtures.forEach(f => {
-      if (typeof activeRound === 'number' && (f.roundNumber || 1) > activeRound) return;
-      
-      const isFinished = f.homeScore !== null && f.awayScore !== null;
-      if (isFinished) {
-        const hs = f.homeScore || 0;
-        const as = f.awayScore || 0;
-        const homeId = f.homeClubId;
-        const awayId = f.awayClubId;
-
-        // Clean Sheets (Golden Glove)
-        if (hs === 0) {
-          if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
-        }
-        if (as === 0) {
-          if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
-        }
-
-        // Conceded and matches count for Best Defender
-        if (defensiveStats[homeId]) {
-          defensiveStats[homeId].conceded += as;
-          defensiveStats[homeId].matches += 1;
-        }
-        if (defensiveStats[awayId]) {
-          defensiveStats[awayId].conceded += hs;
-          defensiveStats[awayId].matches += 1;
-        }
+      // Conceded and matches count for Best Defender
+      if (defensiveStats[homeId]) {
+        defensiveStats[homeId].conceded += as;
+        defensiveStats[homeId].matches += 1;
+      }
+      if (defensiveStats[awayId]) {
+        defensiveStats[awayId].conceded += hs;
+        defensiveStats[awayId].matches += 1;
       }
     });
 
@@ -407,17 +457,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       }
     });
 
-    const sortedBoot = Object.entries(goalsScored)
-      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
-      .sort((a, b) => b.value - a.value);
-
-    const sortedBall = Object.entries(goalDiff)
-      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
-      .sort((a, b) => b.value - a.value);
-
-    const sortedGlove = Object.entries(cleanSheets)
-      .map(([id, data]) => ({ name: data.name, logo: data.logo, manager: data.manager, value: data.value }))
-      .sort((a, b) => b.value - a.value);
+    const sortedBoot = Object.values(goalsScored).sort((a, b) => b.value - a.value).slice(0, 5);
+    const sortedBall = Object.values(goalDiff).sort((a, b) => b.value - a.value).slice(0, 5);
+    const sortedGlove = Object.values(cleanSheets).sort((a, b) => b.value - a.value).slice(0, 5);
 
     const sortedDefender = Object.values(defensiveStats)
       .map(ds => ({
@@ -436,45 +478,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       });
 
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
-  }, [fixtures, standingsWithStats, tournamentClubs, activeRound]);
-
-  // Merge fixtures with knockout matches for display
-  const allMatches = useMemo(() => {
-    const groupStageMatches = fixtures
-      .filter(f => !f.roundNumber || f.roundNumber < 100)
-      .map(f => ({
-        ...f,
-        isKnockout: false,
-        displayRound: `Round ${f.roundNumber || 1}${f.groupName ? ` (Group ${f.groupName})` : ''}`
-      }));
-
-    const knockoutMatchesFormatted = knockoutMatches.map(km => ({
-      ...km,
-      isKnockout: true,
-      roundNumber: 100 + km.roundOrder, // Ensure knockout matches come after group stage
-      displayRound: `${getRoundDisplay(100 + km.roundOrder)}${km.legNumber ? ` (Leg ${km.legNumber})` : ''}`
-    }));
-
-    return [...groupStageMatches, ...knockoutMatchesFormatted];
-  }, [fixtures, knockoutMatches]);
-
-  // Find unique rounds
-  const rounds = useMemo(() => {
-    return Array.from(new Set(allMatches.filter(f => !f.isKnockout).map(f => f.roundNumber || 1))).sort((a, b) => a - b);
-  }, [allMatches]);
-
-  // Create a combined sequence of all filterable rounds: [1, 2, 3, "ko-SEMI_FINAL", "ko-FINAL"]
-  const filterSequence = useMemo(() => {
-    const seq: Array<number | string> = [...rounds];
-    const koRoundsSorted = Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
-      const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
-      return order.indexOf(a) - order.indexOf(b);
-    });
-    koRoundsSorted.forEach(name => {
-      seq.push(`ko-${name}`);
-    });
-    return seq;
-  }, [rounds, knockoutMatches]);
+  }, [filteredMatchesForStats, tournamentClubs]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -2181,7 +2185,17 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     onChange={(val) => setActiveRound(val)}
                     options={[
                       { value: "all", label: "All Rounds" },
-                      ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                      ...rounds.map((r) => ({ value: r, label: `Round ${r}` })),
+                      ...Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
+                        const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+                        return order.indexOf(a) - order.indexOf(b);
+                      }).map(name => {
+                        const orderIdx = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(name);
+                        return {
+                          value: `ko-${name}`,
+                          label: getRoundDisplay(100 + (orderIdx >= 0 ? orderIdx : 0))
+                        };
+                      })
                     ]}
                     menuWidth={165}
                   />
@@ -2486,7 +2500,17 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   onChange={(val) => setActiveRound(val)}
                   options={[
                     { value: "all", label: "All Rounds" },
-                    ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
+                    ...rounds.map((r) => ({ value: r, label: `Round ${r}` })),
+                    ...Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
+                      const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+                      return order.indexOf(a) - order.indexOf(b);
+                    }).map(name => {
+                      const orderIdx = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(name);
+                      return {
+                        value: `ko-${name}`,
+                        label: getRoundDisplay(100 + (orderIdx >= 0 ? orderIdx : 0))
+                      };
+                    })
                   ]}
                   menuWidth={165}
                 />
