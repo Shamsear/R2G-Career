@@ -6,6 +6,7 @@ import "../../../../../portal.css";
 import "../../admin.css";
 
 import CustomSelect from "@/components/ui/CustomSelect";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 import { captureElementAsPng, shareOrDownloadBlob } from "@/lib/share-table";
 
 import {
@@ -276,7 +277,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       if (match.homeScore === null || match.awayScore === null || match.match_status === 'void') return;
       
       // ONLY include matches up to and including activeRound!
-      if ((match.roundNumber || 1) > activeRound) return;
+      if (typeof activeRound === 'number' && (match.roundNumber || 1) > activeRound) return;
       
       const homeId = match.homeClubId;
       const awayId = match.awayClubId;
@@ -368,7 +369,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
     // Parse fixtures for clean sheets and concedes (filtered up to activeRound)
     fixtures.forEach(f => {
-      if ((f.roundNumber || 1) > activeRound) return;
+      if (typeof activeRound === 'number' && (f.roundNumber || 1) > activeRound) return;
       
       const isFinished = f.homeScore !== null && f.awayScore !== null;
       if (isFinished) {
@@ -451,11 +452,29 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       ...km,
       isKnockout: true,
       roundNumber: 100 + km.roundOrder, // Ensure knockout matches come after group stage
-      displayRound: `${km.roundName.replace(/_/g, ' ')}${km.legNumber ? ` (Leg ${km.legNumber})` : ''}`
+      displayRound: `${getRoundDisplay(100 + km.roundOrder)}${km.legNumber ? ` (Leg ${km.legNumber})` : ''}`
     }));
 
     return [...groupStageMatches, ...knockoutMatchesFormatted];
   }, [fixtures, knockoutMatches]);
+
+  // Find unique rounds
+  const rounds = useMemo(() => {
+    return Array.from(new Set(allMatches.filter(f => !f.isKnockout).map(f => f.roundNumber || 1))).sort((a, b) => a - b);
+  }, [allMatches]);
+
+  // Create a combined sequence of all filterable rounds: [1, 2, 3, "ko-SEMI_FINAL", "ko-FINAL"]
+  const filterSequence = useMemo(() => {
+    const seq: Array<number | string> = [...rounds];
+    const koRoundsSorted = Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
+      const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+    koRoundsSorted.forEach(name => {
+      seq.push(`ko-${name}`);
+    });
+    return seq;
+  }, [rounds, knockoutMatches]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1158,10 +1177,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   const linkedRule = financialRules.find(r => r.id === tournament.financial_rule_id);
 
-  // Find unique rounds and filter matches (using allMatches which includes knockout matches)
-  const rounds = Array.from(new Set(allMatches.filter(f => !f.isKnockout).map(f => f.roundNumber || 1))).sort((a, b) => a - b);
   const roundFixtures = activeRound === "all" ? allMatches : allMatches.filter(f => {
     if (f.isKnockout) {
+      if (typeof activeRound === "string" && activeRound.startsWith("ko-")) {
+        return f.roundName === activeRound.substring(3);
+      }
       return activeRound === "knockout";
     }
     return (f.roundNumber || 1) === activeRound;
@@ -2815,11 +2835,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       className="portal-btn btn-secondary"
                       style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
                       onClick={() => setActiveRound(prev => {
-                        if (prev === "all") return 1;
-                        if (prev === "knockout") return rounds[rounds.length - 1];
-                        return Math.max(1, prev - 1);
+                        if (prev === "all") {
+                          return filterSequence[filterSequence.length - 1] || "all";
+                        }
+                        const idx = filterSequence.indexOf(prev);
+                        if (idx > 0) {
+                          return filterSequence[idx - 1];
+                        }
+                        return "all";
                       })}
-                      disabled={activeRound === "all" || activeRound <= 1}
+                      disabled={filterSequence.length === 0}
                     >
                       <i className="fa-solid fa-chevron-left" />
                     </button>
@@ -2831,7 +2856,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       options={[
                         { value: "all", label: "All Rounds" },
                         ...rounds.map((r) => ({ value: r, label: `Round ${r}` })),
-                        ...(knockoutMatches.length > 0 ? [{ value: "knockout", label: "Knockout Stage" }] : [])
+                        ...Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
+                          const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+                          return order.indexOf(a) - order.indexOf(b);
+                        }).map(name => {
+                          const orderIdx = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(name);
+                          return {
+                            value: `ko-${name}`,
+                            label: getRoundDisplay(100 + (orderIdx >= 0 ? orderIdx : 0))
+                          };
+                        })
                       ]}
                       menuWidth={165}
                     />
@@ -2840,12 +2874,16 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       className="portal-btn btn-secondary"
                       style={{ padding: "2px 8px", minWidth: "30px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0, fontSize: "0.75rem", background: "rgba(255,255,255,0.02)", border: "none" }}
                       onClick={() => setActiveRound(prev => {
-                        if (prev === "all") return rounds[0];
-                        if (prev === "knockout") return "all";
-                        if (prev >= rounds[rounds.length - 1]) return knockoutMatches.length > 0 ? "knockout" : "all";
-                        return Math.min(rounds[rounds.length - 1], prev + 1);
+                        if (prev === "all") {
+                          return filterSequence[0] || "all";
+                        }
+                        const idx = filterSequence.indexOf(prev);
+                        if (idx !== -1 && idx < filterSequence.length - 1) {
+                          return filterSequence[idx + 1];
+                        }
+                        return "all";
                       })}
-                      disabled={activeRound === "all" || (activeRound === "knockout" && knockoutMatches.length === 0)}
+                      disabled={filterSequence.length === 0}
                     >
                       <i className="fa-solid fa-chevron-right" />
                     </button>
@@ -3563,7 +3601,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 {tournament?.name || "TOURNAMENT DETAILS"}
               </h1>
               <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                {activeRound === "all" ? "Official tournament standings and statistics" : `Official standings and statistics up to Round ${activeRound}`} // Captured on {new Date().toLocaleDateString()}
+                {activeRound === "all" 
+                  ? "Official tournament standings and statistics" 
+                  : typeof activeRound === "string" && activeRound.startsWith("ko-")
+                  ? `Official standings and statistics up to ${getRoundDisplay(100 + ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(activeRound.substring(3)))}`
+                  : `Official standings and statistics up to Round ${activeRound}`} // Captured on {new Date().toLocaleDateString()}
               </p>
             </div>
             {/* Table Tab */}
@@ -3692,7 +3734,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             {activeTab === "fixtures" && (
               <div>
                 <div style={{ textAlign: "center", padding: "0.5rem", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "8px", color: "#c084fc", fontWeight: "bold", fontSize: "0.85rem", marginBottom: "1.5rem", textTransform: "uppercase" }}>
-                  {activeRound === "all" ? "ALL ROUNDS MATCH CALENDAR" : activeRound === "knockout" ? "KNOCKOUT STAGE MATCHES" : `ROUND ${activeRound} MATCH CALENDAR`}
+                  {activeRound === "all" 
+                    ? "ALL ROUNDS MATCH CALENDAR" 
+                    : typeof activeRound === "string" && activeRound.startsWith("ko-")
+                    ? `${getRoundDisplay(100 + ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(activeRound.substring(3))).toUpperCase()} MATCH CALENDAR`
+                    : activeRound === "knockout" 
+                    ? "KNOCKOUT STAGE MATCHES" 
+                    : `ROUND ${activeRound} MATCH CALENDAR`}
                 </div>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
@@ -3700,9 +3748,15 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 ) : roundFixtures.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3rem", color: "rgba(255,255,255,0.3)" }}>
-                    {activeRound === "all" ? "No matches scheduled." : activeRound === "knockout" ? "No knockout matches yet." : `No matches scheduled for Round ${activeRound}.`}
+                    {activeRound === "all" 
+                      ? "No matches scheduled." 
+                      : typeof activeRound === "string" && activeRound.startsWith("ko-")
+                      ? `No matches scheduled for ${getRoundDisplay(100 + ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(activeRound.substring(3)))}.`
+                      : activeRound === "knockout" 
+                      ? "No knockout matches yet." 
+                      : `No matches scheduled for Round ${activeRound}.`}
                   </div>
-                ) : activeRound === "knockout" ? (
+                ) : (activeRound === "knockout" || (typeof activeRound === "string" && activeRound.startsWith("ko-"))) ? (
                   // Group knockout matches by round name
                   (() => {
                     const grouped: Record<string, typeof roundFixtures> = {};

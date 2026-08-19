@@ -116,7 +116,10 @@ export default function CustomSelect({
       }
     }
 
-    function handleScroll() {
+    function handleScroll(e: Event) {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target as Node)) {
+        return;
+      }
       setIsOpen(false);
     }
 
