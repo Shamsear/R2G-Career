@@ -370,6 +370,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         draws: s.draws,
         losses: s.losses,
         goals_for: s.goals_for,
+        goals_scored: s.goals_for,
         goals_against: s.goals_against,
         goal_difference: gd,
         points: pts

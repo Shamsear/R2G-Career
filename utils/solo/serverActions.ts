@@ -2671,6 +2671,7 @@ async function recalculateTournamentStandingsInTransaction(
       AND home_score IS NOT NULL
       AND away_score IS NOT NULL
       AND match_status != 'void'
+      AND (round_number IS NULL OR round_number < 100)
   `, [tournamentId]);
 
   // Build a map: clubId -> { mp, pts, gf, ga, gd }

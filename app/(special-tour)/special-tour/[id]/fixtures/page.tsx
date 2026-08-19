@@ -184,16 +184,19 @@ export default function SpecialTourFixtures() {
     
     return standings.map(row => {
       const s = stats[row.club_id] || { wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0 };
+      const gd = s.goals_for - s.goals_against;
+      const pts = s.wins * 3 + s.draws * 1;
       return {
         ...row,
-        matches_played: row.matches_played || (s.wins + s.draws + s.losses),
+        matches_played: s.wins + s.draws + s.losses,
         wins: s.wins,
         draws: s.draws,
         losses: s.losses,
-        goals_for: row.goals_scored || s.goals_for,
-        goals_against: row.goals_against || s.goals_against,
-        goal_difference: row.goal_difference !== undefined ? row.goal_difference : (s.goals_for - s.goals_against),
-        points: row.points !== undefined ? row.points : (s.wins * 3 + s.draws)
+        goals_for: s.goals_for,
+        goals_scored: s.goals_for,
+        goals_against: s.goals_against,
+        goal_difference: gd,
+        points: pts
       };
     });
   }, [standings, fixtures]);
