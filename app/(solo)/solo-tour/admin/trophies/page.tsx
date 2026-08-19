@@ -2,23 +2,32 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import "../../../../portal.css";
-import "../admin.css";
-
-import CustomSelect from "@/components/ui/CustomSelect";
-import {
-  fetchSeasonsList,
-  createSoloSeason,
-  fetchSoloTrophyCabinetItems,
-  addSoloTrophyCabinetItem,
-  deleteSoloTrophyCabinetItem
+import { 
+  fetchSeasonsList, 
+  createSoloSeason, 
+  fetchSoloTrophyCabinetItems, 
+  addSoloTrophyCabinetItem, 
+  deleteSoloTrophyCabinetItem,
+  updateSoloTrophyCabinetItem
 } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
+import CustomSelect from "@/components/ui/CustomSelect";
+import "../../../../portal.css";
+
+interface CabinetItem {
+  id: number;
+  season_key: string;
+  category: "trophy" | "award";
+  image_url: string;
+  display_order: number;
+}
 
 export default function SoloTrophyCabinetManager() {
   const [seasons, setSeasons] = useState<any[]>([]);
-  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string>("");
-  const [cabinetItems, setCabinetItems] = useState<any[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [selectedSeasonKey, setSelectedSeasonKey] = useState<string>("season7");
+  const [cabinetItems, setCabinetItems] = useState<CabinetItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Create Season Form
@@ -27,36 +36,36 @@ export default function SoloTrophyCabinetManager() {
   const [makeActive, setMakeActive] = useState<boolean>(false);
   const [carryOver, setCarryOver] = useState<boolean>(true);
 
-  // Add Item Form
-  const [category, setCategory] = useState<"trophy" | "award">("trophy");
-  const [imageUrl, setImageUrl] = useState("");
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // Edit / Add Item Form Modal
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formSeasonKey, setFormSeasonKey] = useState("season7");
+  const [formCategory, setFormCategory] = useState<"trophy" | "award">("trophy");
+  const [formImageUrl, setFormImageUrl] = useState("");
+  const [formOrder, setFormOrder] = useState<number>(1);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   const loadSeasonsAndTrophies = async () => {
     try {
       const seasonList = await fetchSeasonsList();
       setSeasons(seasonList || []);
       
-      // Determine default selected season key
-      // If seasons exist, choose the active or latest one
       if (seasonList && seasonList.length > 0) {
         const active = seasonList.find(s => s.is_active) || seasonList[0];
         const defaultKey = `season${active.season_number}`;
         setSelectedSeasonKey(defaultKey);
-        loadCabinetItems(defaultKey);
+        await loadCabinetItems(defaultKey);
       } else {
-        // Fallback to season7 if database has no seasons
         setSelectedSeasonKey("season7");
-        loadCabinetItems("season7");
+        await loadCabinetItems("season7");
       }
     } catch (err) {
       console.error(err);
-      showToast("Error loading seasons data!");
+      setMessage({ text: "Error loading seasons data!", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,7 +75,7 @@ export default function SoloTrophyCabinetManager() {
       setCabinetItems(items || []);
     } catch (err) {
       console.error(err);
-      showToast("Error loading trophy cabinet items!");
+      setMessage({ text: "Error loading trophy cabinet items!", type: "error" });
     }
   };
 
@@ -82,7 +91,8 @@ export default function SoloTrophyCabinetManager() {
   const handleCreateSeason = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSeasonNumber || isNaN(Number(newSeasonNumber))) {
-      return showToast("Please enter a valid season number.");
+      setMessage({ text: "Please enter a valid season number.", type: "error" });
+      return;
     }
 
     startTransition(async () => {
@@ -92,31 +102,30 @@ export default function SoloTrophyCabinetManager() {
           makeActive,
           carryOver,
           true, // hosts RWS
-          2026 + (Number(newSeasonNumber) - 9), // calculate RWS Year dynamically based on Season 9
-          1500, // default RC
-          50,   // default RT
-          5,    // default Voucher
-          2000, // default finale RC
-          80,   // default finale RT
-          10    // default finale Voucher
+          2026 + (Number(newSeasonNumber) - 9), 
+          1500, 
+          50,   
+          5,    
+          2000, 
+          80,   
+          10    
         );
 
         if (res.success) {
-          showToast(`✅ Created Season ${newSeasonNumber} successfully!`);
+          setMessage({ text: `✅ Created Season ${newSeasonNumber} successfully!`, type: "success" });
           setShowCreateSeason(false);
           setNewSeasonNumber("");
           
-          // Reload seasons list and set the newly created season as selected
           const seasonList = await fetchSeasonsList();
           setSeasons(seasonList || []);
           const newKey = `season${newSeasonNumber}`;
           setSelectedSeasonKey(newKey);
-          loadCabinetItems(newKey);
+          await loadCabinetItems(newKey);
         } else {
-          showToast("Failed to create season");
+          setMessage({ text: "Failed to create season", type: "error" });
         }
       } catch (err: any) {
-        showToast(err.message || "Error creating season!");
+        setMessage({ text: err.message || "Error creating season!", type: "error" });
       }
     });
   };
@@ -125,6 +134,7 @@ export default function SoloTrophyCabinetManager() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingImage(true);
+    setMessage(null);
     try {
       const { uploadImage } = await import("@/lib/imagekit/upload");
       const res = await uploadImage({
@@ -132,58 +142,97 @@ export default function SoloTrophyCabinetManager() {
         fileName: `trophy-${Date.now()}-${file.name.replace(/\s+/g, "-")}`,
         folder: '/solo/trophies'
       });
-      setImageUrl(res.url);
-      showToast("Image uploaded successfully to ImageKit!");
+      setFormImageUrl(res.url);
+      setMessage({ text: "Image uploaded successfully to ImageKit!", type: "success" });
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "Upload failed");
+      setMessage({ text: err.message || "Upload failed", type: "error" });
     } finally {
       setUploadingImage(false);
     }
   };
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setFormSeasonKey(selectedSeasonKey);
+    setFormCategory("trophy");
+    setFormImageUrl("");
+    setFormOrder(cabinetItems.length + 1);
+    setShowModal(true);
+  };
+
+  const openEditModal = (item: CabinetItem) => {
+    setEditingId(item.id);
+    setFormSeasonKey(item.season_key);
+    setFormCategory(item.category);
+    setFormImageUrl(item.image_url);
+    setFormOrder(item.display_order);
+    setShowModal(true);
+  };
+
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSeasonKey) return showToast("Please select a target season first!");
-    if (!imageUrl.trim()) return showToast("Image URL or uploaded file is required!");
+    if (!formImageUrl.trim()) {
+      setMessage({ text: "Please provide an image URL or upload one.", type: "error" });
+      return;
+    }
 
-    startTransition(async () => {
-      try {
-        const res = await addSoloTrophyCabinetItem(selectedSeasonKey, category, imageUrl.trim());
+    setSaving(true);
+    setMessage(null);
+    try {
+      if (editingId) {
+        // Update item
+        const res = await updateSoloTrophyCabinetItem({
+          id: editingId,
+          seasonKey: formSeasonKey,
+          category: formCategory,
+          imageUrl: formImageUrl.trim(),
+          displayOrder: Number(formOrder)
+        });
+
         if (res.success) {
-          showToast(`Successfully added ${category} to cabinet!`);
-          setImageUrl("");
-          loadCabinetItems(selectedSeasonKey);
+          setMessage({ text: "Cabinet item updated successfully!", type: "success" });
+          setShowModal(false);
+          await loadCabinetItems(selectedSeasonKey);
         } else {
-          showToast(res.error || "Error adding item");
+          setMessage({ text: res.error || "Failed to update item", type: "error" });
         }
-      } catch (err) {
-        console.error(err);
-        showToast("Error adding item to cabinet!");
+      } else {
+        // Add new item
+        const res = await addSoloTrophyCabinetItem(formSeasonKey, formCategory, formImageUrl.trim());
+        if (res.success) {
+          setMessage({ text: "New item added successfully to cabinet!", type: "success" });
+          setShowModal(false);
+          await loadCabinetItems(selectedSeasonKey);
+        } else {
+          setMessage({ text: res.error || "Failed to add item", type: "error" });
+        }
       }
-    });
+    } catch (e: any) {
+      console.error(e);
+      setMessage({ text: e.message || "Failed to save cabinet item.", type: "error" });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteItem = (id: number) => {
+  const handleDeleteItem = async (id: number) => {
     if (!confirm("Are you sure you want to remove this item from the cabinet?")) return;
-    startTransition(async () => {
-      try {
-        const res = await deleteSoloTrophyCabinetItem(id);
-        if (res.success) {
-          showToast("Item removed from cabinet!");
-          loadCabinetItems(selectedSeasonKey);
-        } else {
-          showToast("Error deleting item");
-        }
-      } catch (err) {
-        console.error(err);
-        showToast("Error deleting item from cabinet!");
+    setMessage(null);
+    try {
+      const res = await deleteSoloTrophyCabinetItem(id);
+      if (res.success) {
+        setMessage({ text: "Item removed from cabinet successfully!", type: "success" });
+        await loadCabinetItems(selectedSeasonKey);
+      } else {
+        setMessage({ text: "Failed to delete item", type: "error" });
       }
-    });
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ text: "Error deleting item from cabinet!", type: "error" });
+    }
   };
 
-  // Compile options list for CustomSelect
-  // We include legacy seasons (Season 1 and Season 2) as well as database seasons
   const seasonOptions = [
     { value: "season9", label: "Season 9" },
     { value: "season8", label: "Season 8" },
@@ -195,46 +244,75 @@ export default function SoloTrophyCabinetManager() {
     { value: "season1", label: "Season 1 (Legacy)" },
   ];
 
-  // Merge any dynamically created database seasons that are not in the predefined list
   seasons.forEach(s => {
     const key = `season${s.season_number}`;
     if (!seasonOptions.find(o => o.value === key)) {
-      seasonOptions.unshift({
-        value: key,
-        label: `Season ${s.season_number}`
-      });
+      seasonOptions.unshift({ value: key, label: `Season ${s.season_number}` });
     }
   });
 
   const trophiesList = cabinetItems.filter(item => item.category === "trophy");
   const awardsList = cabinetItems.filter(item => item.category === "award");
 
+  if (loading) {
+    return (
+      <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading legacy cabinet console..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="portal-root-wrapper" data-module="trophies">
+    <div className="portal-root-wrapper">
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      {toast && <div className="toast-popup"><i className="fa-solid fa-circle-check" />{toast}</div>}
-
-      <div className="portal-container" style={{ maxWidth: "1200px" }}>
+      <div style={{ maxWidth: "1400px", width: "95%", margin: "0 auto", padding: "1.5rem 1rem 4rem", position: "relative", zIndex: 2 }}>
         
-        {/* Navigation Breadcrumbs */}
-        <div className="portal-breadcrumb">
+        {/* Breadcrumbs */}
+        <div className="portal-breadcrumb" style={{ marginBottom: "1rem" }}>
           <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Admin Hub
+            <i className="fas fa-arrow-left" /> Back to Admin Panel
           </Link>
         </div>
 
         {/* Hero Header */}
-        <div className="portal-header" style={{ marginBottom: "1.5rem" }}>
-          <div className="portal-page-badge"><i className="fa-solid fa-trophy" /> Legacy Cabinet Console</div>
-          <h1 className="portal-title">SOLO TROPHY CABINET</h1>
-          <p className="portal-subtitle">Upload and manage trophies and individual award image grids for historical & active competitive seasons.</p>
+        <div className="portal-header" style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div className="portal-page-badge">
+            <i className="fa-solid fa-trophy" />
+            Trophy Cabinet Console
+          </div>
+          <h1 className="portal-title" style={{ fontSize: "2.25rem", margin: "0.5rem 0" }}>SOLO TROPHY CABINET</h1>
+          <p className="portal-subtitle" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", maxWidth: "600px", margin: "0 auto" }}>
+            Add, update, or remove trophy or individual award listings displayed in the public legacy museum.
+          </p>
         </div>
 
-        {/* ── Season Selector & Inline Creator ── */}
-        <div className="admin-card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+        {/* Messages */}
+        {message && (
+          <div style={{
+            padding: "1rem 1.5rem",
+            borderRadius: "12px",
+            marginBottom: "1.5rem",
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: message.type === "success" ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+            border: `1px solid ${message.type === "success" ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+            color: message.type === "success" ? "#34d399" : "#f87171"
+          }}>
+            <i className={message.type === "success" ? "fa-solid fa-circle-check" : "fa-solid fa-circle-exclamation"} />
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* Filter Controls & Create Season */}
+        <div className="portal-card" style={{ padding: "1.5rem", marginBottom: "2rem", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1.5rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <i className="fa-solid fa-calendar-days" style={{ color: "var(--solo-primary)", fontSize: "1.2rem" }} />
@@ -247,24 +325,29 @@ export default function SoloTrophyCabinetManager() {
               />
             </div>
 
-            <button
-              onClick={() => setShowCreateSeason(!showCreateSeason)}
-              className="portal-btn btn-secondary"
-              style={{ fontSize: "0.8rem", padding: "8px 16px" }}
-            >
-              {showCreateSeason ? "✕ Close Season Form" : "+ Create Season"}
-            </button>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => setShowCreateSeason(!showCreateSeason)}
+                className="portal-btn btn-secondary"
+                style={{ fontSize: "0.8rem", padding: "8px 16px" }}
+              >
+                {showCreateSeason ? "✕ Close Season Form" : "+ Initialize Season"}
+              </button>
+              <button onClick={openAddModal} className="portal-btn btn-primary" style={{ padding: "8px 20px" }}>
+                <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} /> Add Cabinet Item
+              </button>
+            </div>
           </div>
 
-          {/* Inline Create Season Form */}
+          {/* Create Season Form */}
           {showCreateSeason && (
             <form onSubmit={handleCreateSeason} style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               <h3 style={{ fontSize: "0.9rem", color: "#fff", fontWeight: 700, marginBottom: "1rem" }}>
                 Initialize New Season
               </h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", alignItems: "flex-end" }}>
-                <div className="admin-form-group" style={{ flex: "1 1 200px" }}>
-                  <label style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Season Number</label>
+                <div style={{ flex: "1 1 200px" }}>
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "#94a3b8", textTransform: "uppercase", marginBottom: "6px" }}>Season Number</label>
                   <input
                     type="number"
                     className="admin-input"
@@ -275,7 +358,7 @@ export default function SoloTrophyCabinetManager() {
                       const val = e.target.value;
                       setNewSeasonNumber(val === "" ? "" : Number(val));
                     }}
-                    style={{ width: "100%" }}
+                    style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", color: "#fff" }}
                   />
                 </div>
 
@@ -287,7 +370,7 @@ export default function SoloTrophyCabinetManager() {
                       onChange={(e) => setMakeActive(e.target.checked)}
                       style={{ width: "16px", height: "16px", accentColor: "var(--solo-primary)" }}
                     />
-                    Make Active Immediately
+                    Make Active
                   </label>
 
                   <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "0.8rem", cursor: "pointer" }}>
@@ -297,7 +380,7 @@ export default function SoloTrophyCabinetManager() {
                       onChange={(e) => setCarryOver(e.target.checked)}
                       style={{ width: "16px", height: "16px", accentColor: "var(--solo-primary)" }}
                     />
-                    Carry Over Wallets & Rosters
+                    Carry Over Rosters
                   </label>
                 </div>
 
@@ -314,185 +397,77 @@ export default function SoloTrophyCabinetManager() {
           )}
         </div>
 
-        {/* ── Add Item Upload Card ── */}
-        <div className="admin-card">
-          <h2 className="admin-card-title"><i className="fa-solid fa-cloud-arrow-up" /> Upload Cabinet Item</h2>
-
-          <form onSubmit={handleAddItem}>
-            <div className="sub-card">
-              <div className="sub-card-title"><i className="fa-solid fa-circle-info" /> Item Configuration</div>
-              
-              <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr 2fr" }}>
-                
-                {/* Category selector */}
-                <div className="admin-form-group">
-                  <label><i className="fa-solid fa-tags" /> Item Category</label>
-                  <CustomSelect
-                    value={category}
-                    onChange={(val) => setCategory(val as "trophy" | "award")}
-                    options={[
-                      { value: "trophy", label: "🏆 Season Trophy" },
-                      { value: "award", label: "🏅 Individual Award" }
-                    ]}
-                    buttonStyle={{ width: "100%", justifyContent: "space-between" }}
-                  />
-                </div>
-
-                {/* Upload or input URL */}
-                <div className="admin-form-group">
-                  <label><i className="fa-solid fa-image" /> Image File / Path</label>
-                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      style={{ flex: 1 }}
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="/assets/images/trophy/... or https://..."
-                      required
-                    />
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="trophy-file-uploader"
-                      style={{ display: "none" }}
-                      onChange={handleFileUpload}
-                      disabled={uploadingImage}
-                    />
-
-                    <label
-                      htmlFor="trophy-file-uploader"
-                      className="portal-btn btn-secondary"
-                      style={{
-                        display: "inline-flex",
-                        padding: "8px 16px",
-                        fontSize: "0.78rem",
-                        cursor: "pointer",
-                        height: "40px",
-                        alignItems: "center",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                        pointerEvents: uploadingImage ? "none" : "auto"
-                      }}
-                    >
-                      {uploadingImage ? <><i className="fa-solid fa-spinner fa-spin" /> Uploading...</      > : <><i className="fa-solid fa-cloud-arrow-up" /> Upload</>}
-                    </label>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="admin-btn-row">
-              <button type="submit" className="portal-btn btn-primary" disabled={isPending || uploadingImage}>
-                <i className="fa-solid fa-plus" /> Add Item to Season Cabinet
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* ── Active Season Cabinet Visualizer ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "2rem" }}>
+        {/* Dynamic Display of Cabinet Items */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
           
-          {/* Trophies Grid Column */}
-          <div className="admin-card" style={{ margin: 0 }}>
-            <h2 className="admin-card-title" style={{ color: "#ffd700" }}>
-              🏆 Trophies ({trophiesList.length})
-            </h2>
-            
+          {/* Trophies Column */}
+          <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.75rem" }}>
+              <i className="fa-solid fa-trophy" style={{ color: "#ffd700", fontSize: "1.2rem" }} />
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>Season Trophies</h2>
+              <span style={{ fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "10px", color: "var(--text-secondary)", marginLeft: "4px" }}>
+                {trophiesList.length}
+              </span>
+            </div>
+
             {trophiesList.length === 0 ? (
-              <div className="admin-empty" style={{ padding: "3rem 1rem" }}>
-                <i className="fa-solid fa-circle-xmark" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }} />
+              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                 No trophies registered for this season.
               </div>
             ) : (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-                gap: "1rem",
-                padding: "1rem 0"
-              }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1rem" }}>
                 {trophiesList.map(item => (
-                  <div key={item.id} style={{
-                    position: "relative",
-                    background: "rgba(0, 0, 0, 0.4)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                    borderRadius: "10px",
-                    padding: "8px",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "8px"
-                  }}>
-                    <div style={{ width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <img src={item.image_url} alt="Trophy Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                  <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "1rem", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "10px" }}>
+                      <img src={item.image_url} alt="Trophy Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
                     </div>
-                    <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="portal-btn btn-danger"
-                      style={{
-                        padding: "2px 8px",
-                        fontSize: "0.68rem",
-                        width: "100%",
-                        justifyContent: "center",
-                        borderRadius: "6px"
-                      }}
-                    >
-                      Delete
-                    </button>
+                    <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
+                      {item.image_url}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                      <span>Order: {item.display_order}</span>
+                      <div style={{ display: "flex", gap: "12px" }}>
+                        <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
+                        <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Awards Grid Column */}
-          <div className="admin-card" style={{ margin: 0 }}>
-            <h2 className="admin-card-title" style={{ color: "#38bdf8" }}>
-              🏅 Individual Awards ({awardsList.length})
-            </h2>
-            
+          {/* Awards Column */}
+          <div style={{ background: "rgba(255, 255, 255, 0.01)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.75rem" }}>
+              <i className="fa-solid fa-award" style={{ color: "#a855f7", fontSize: "1.2rem" }} />
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>Individual Awards</h2>
+              <span style={{ fontSize: "0.75rem", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "10px", color: "var(--text-secondary)", marginLeft: "4px" }}>
+                {awardsList.length}
+              </span>
+            </div>
+
             {awardsList.length === 0 ? (
-              <div className="admin-empty" style={{ padding: "3rem 1rem" }}>
-                <i className="fa-solid fa-circle-xmark" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }} />
+              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                 No individual awards registered for this season.
               </div>
             ) : (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-                gap: "1rem",
-                padding: "1rem 0"
-              }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1rem" }}>
                 {awardsList.map(item => (
-                  <div key={item.id} style={{
-                    position: "relative",
-                    background: "rgba(0, 0, 0, 0.4)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                    borderRadius: "10px",
-                    padding: "8px",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "8px"
-                  }}>
-                    <div style={{ width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <img src={item.image_url} alt="Award Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                  <div key={item.id} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "1rem", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", aspectRatio: "1/1", display: "flex", alignItems: "center", justifyContent: "center", padding: "10px" }}>
+                      <img src={item.image_url} alt="Award Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/assets/images/default-club-logo.png"; }} />
                     </div>
-                    <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="portal-btn btn-danger"
-                      style={{
-                        padding: "2px 8px",
-                        fontSize: "0.68rem",
-                        width: "100%",
-                        justifyContent: "center",
-                        borderRadius: "6px"
-                      }}
-                    >
-                      Delete
-                    </button>
+                    <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.image_url}>
+                      {item.image_url}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                      <span>Order: {item.display_order}</span>
+                      <div style={{ display: "flex", gap: "12px" }}>
+                        <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
+                        <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -502,6 +477,99 @@ export default function SoloTrophyCabinetManager() {
         </div>
 
       </div>
+
+      {/* Editor Modal */}
+      {showModal && (
+        <div className="guide-modal active" style={{ display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div className="guide-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px", width: "90%", background: "#0c0d12", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "20px", padding: "2rem", position: "relative" }}>
+            <button className="close-guide-modal" onClick={() => setShowModal(false)} style={{ top: "1.5rem", right: "1.5rem" }}>
+              <i className="fas fa-times" />
+            </button>
+
+            <h2 style={{ fontFamily: "var(--font-display)", color: "#fff", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.5rem" }}>
+              {editingId ? "Edit Cabinet Item" : "New Cabinet Item"}
+            </h2>
+
+            <form onSubmit={handleSaveItem} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "6px", fontWeight: 700 }}>Season Key</label>
+                <select 
+                  value={formSeasonKey} 
+                  onChange={(e) => setFormSeasonKey(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", color: "#fff", fontSize: "0.85rem", cursor: "pointer" }}
+                >
+                  {seasonOptions.map(opt => (
+                    <option key={opt.value} value={opt.value} style={{ background: "#0c0d12" }}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "6px", fontWeight: 700 }}>Category</label>
+                <select 
+                  value={formCategory} 
+                  onChange={(e) => setFormCategory(e.target.value as any)}
+                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", color: "#fff", fontSize: "0.85rem", cursor: "pointer" }}
+                >
+                  <option value="trophy" style={{ background: "#0c0d12" }}>🏆 Season Trophy</option>
+                  <option value="award" style={{ background: "#0c0d12" }}>🏅 Individual Award</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "6px", fontWeight: 700 }}>Trophy/Award Image</label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input 
+                    type="text" 
+                    value={formImageUrl} 
+                    onChange={(e) => setFormImageUrl(e.target.value)} 
+                    placeholder="URL or Upload Image"
+                    style={{ flex: 1, padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", color: "#fff", fontSize: "0.85rem" }}
+                    required
+                  />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    id="trophy-upload-input" 
+                    style={{ display: "none" }} 
+                    onChange={handleFileUpload}
+                    disabled={uploadingImage}
+                  />
+                  <label 
+                    htmlFor="trophy-upload-input" 
+                    className="portal-btn btn-secondary" 
+                    style={{ display: "inline-flex", padding: "10px 16px", fontSize: "0.8rem", cursor: "pointer", borderRadius: "10px", whiteSpace: "nowrap", alignItems: "center", justifyContent: "center" }}
+                  >
+                    {uploadingImage ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-upload" />}
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "6px", fontWeight: 700 }}>Display Order Sequence</label>
+                <input 
+                  type="number" 
+                  value={formOrder} 
+                  onChange={(e) => setFormOrder(Number(e.target.value))} 
+                  style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", color: "#fff", fontSize: "0.85rem" }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "1rem" }}>
+                <button type="button" onClick={() => setShowModal(false)} className="portal-btn btn-secondary" style={{ padding: "8px 18px", fontSize: "0.8rem" }}>
+                  Cancel
+                </button>
+                <button type="submit" className="portal-btn btn-primary" style={{ padding: "8px 24px", fontSize: "0.8rem" }} disabled={saving}>
+                  {saving ? <i className="fa-solid fa-spinner fa-spin" /> : "Save Item"}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

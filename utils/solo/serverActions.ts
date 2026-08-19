@@ -8229,3 +8229,24 @@ export async function deleteCareerTournament(id: number) {
     throw error;
   }
 }
+
+export async function updateSoloTrophyCabinetItem(data: {
+  id: number;
+  seasonKey: string;
+  category: 'trophy' | 'award';
+  imageUrl: string;
+  displayOrder: number;
+}) {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE solo_trophy_cabinet 
+       SET season_key = $1, category = $2, image_url = $3, display_order = $4 
+       WHERE id = $5 RETURNING *`,
+      [data.seasonKey, data.category, data.imageUrl, data.displayOrder, data.id]
+    );
+    return { success: true, item: rows[0] };
+  } catch (error: any) {
+    console.error("Error updating solo trophy cabinet item:", error);
+    return { success: false, error: error.message };
+  }
+}

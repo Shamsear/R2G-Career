@@ -2,92 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import "../../../portal.css";
 import { fetchSoloTrophyCabinetItems } from "@/utils/solo/serverActions";
-
-const STATIC_SEASONS_DATA = [
-  {
-    id: "season7",
-    name: "SEASON 7",
-    trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/s7t${i + 1}.webp`),
-    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s7a${i + 1}.webp`),
-  },
-  {
-    id: "season6",
-    name: "SEASON 6",
-    trophies: [
-      "/assets/images/trophy/s6t1.webp",
-      "/assets/images/trophy/s6t12.webp",
-      ...Array.from({ length: 10 }, (_, i) => `/assets/images/trophy/s6t${i + 2}.webp`),
-    ],
-    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/s6a${i + 1}.webp`),
-  },
-  {
-    id: "season5",
-    name: "SEASON 5",
-    trophies: Array.from({ length: 12 }, (_, i) => `/assets/images/trophy/3t${i + 1}.webp`),
-    awards: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/3a${i + 1}.webp`),
-  },
-  {
-    id: "season4",
-    name: "SEASON 4",
-    trophies: Array.from({ length: 8 }, (_, i) => `/assets/images/trophy/t${i + 1}.webp`),
-    awards: Array.from({ length: 7 }, (_, i) => `/assets/images/trophy/ta${i + 1}.webp`),
-  },
-  {
-    id: "season2",
-    name: "SEASON 2",
-    trophies: [
-      "/assets/images/trophy/elitet2.webp",
-      "/assets/images/trophy/div1t2.webp",
-      "/assets/images/trophy/div2t2.webp",
-      "/assets/images/trophy/uclt.webp",
-      "/assets/images/trophy/uelt.webp",
-      "/assets/images/trophy/ueclt.webp",
-      "/assets/images/trophy/trio.webp",
-      "/assets/images/trophy/special.webp",
-      "/assets/images/trophy/divcup.webp",
-      "/assets/images/trophy/tos.webp",
-    ],
-    awards: [
-      "/assets/images/trophy/best.webp",
-      "/assets/images/trophy/ballen.webp",
-      "/assets/images/trophy/muller.webp",
-      "/assets/images/trophy/yashin.webp",
-      "/assets/images/trophy/golden.webp",
-      "/assets/images/trophy/maldini.webp",
-    ],
-  },
-  {
-    id: "season1",
-    name: "SEASON 1",
-    trophies: [
-      "/assets/images/trophy/elitet.webp",
-      "/assets/images/trophy/div1t.webp",
-      "/assets/images/trophy/div2t.webp",
-      "/assets/images/trophy/kingt.webp",
-      "/assets/images/trophy/supert.webp",
-      "/assets/images/trophy/divg.webp",
-      "/assets/images/trophy/eurot.webp",
-      "/assets/images/trophy/team.webp",
-    ],
-    awards: [
-      "/assets/images/trophy/a1.webp",
-      "/assets/images/trophy/a2.webp",
-      "/assets/images/trophy/gerd.webp",
-      "/assets/images/trophy/a4.webp",
-      "/assets/images/trophy/a5.webp",
-      "/assets/images/trophy/a6.webp",
-    ],
-  },
-];
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
+import "../../../portal.css";
 
 export default function TrophyCabinet() {
-  const [expandedSeasons, setExpandedSeasons] = useState<Record<string, boolean>>({
-    season7: true,
-  });
+  const [expandedSeasons, setExpandedSeasons] = useState<Record<string, boolean>>({});
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [seasonsData, setSeasonsData] = useState<any[]>(STATIC_SEASONS_DATA);
+  const [seasonsData, setSeasonsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -108,10 +30,7 @@ export default function TrophyCabinet() {
             }
           });
 
-          const allSeasonKeys = Array.from(new Set([
-            ...Object.keys(grouped),
-            ...STATIC_SEASONS_DATA.map(s => s.id)
-          ]));
+          const allSeasonKeys = Object.keys(grouped);
 
           allSeasonKeys.sort((a, b) => {
             const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
@@ -122,13 +41,12 @@ export default function TrophyCabinet() {
           const formatted = allSeasonKeys.map(key => {
             const seasonNum = key.replace(/\D/g, "");
             const name = `SEASON ${seasonNum}`;
-            const staticItem = STATIC_SEASONS_DATA.find(s => s.id === key);
             
             return {
               id: key,
               name,
-              trophies: grouped[key]?.trophies || staticItem?.trophies || [],
-              awards: grouped[key]?.awards || staticItem?.awards || [],
+              trophies: grouped[key]?.trophies || [],
+              awards: grouped[key]?.awards || [],
             };
           });
 
@@ -153,6 +71,21 @@ export default function TrophyCabinet() {
 
   const openModal = (src: string) => setModalImage(src);
   const closeModal = () => setModalImage(null);
+
+  if (loading) {
+    return (
+      <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading legacy trophy cabinet..." />
+      </div>
+    );
+  }
+
+  // Calculate totals across all dynamic seasons for the header stats block
+  const totalTrophies = seasonsData.reduce((acc, curr) => acc + curr.trophies.length, 0);
+  const totalAwards = seasonsData.reduce((acc, curr) => acc + curr.awards.length, 0);
 
   return (
     <div className="portal-root-wrapper">
@@ -186,16 +119,16 @@ export default function TrophyCabinet() {
           <p>Secured across multiple competitive seasons of the Road to Glory tournament.</p>
           <div className="stats-preview">
             <div className="stat-item animate-stat">
-              <div className="stat-value">15</div>
+              <div className="stat-value">{totalTrophies}</div>
               <div className="stat-label">Major Trophies</div>
             </div>
             <div className="stat-item animate-stat" style={{ animationDelay: "0.1s" }}>
-              <div className="stat-value">8</div>
-              <div className="stat-label">International Cups</div>
+              <div className="stat-value">{totalAwards}</div>
+              <div className="stat-label">Individual Awards</div>
             </div>
             <div className="stat-item animate-stat" style={{ animationDelay: "0.2s" }}>
-              <div className="stat-value">25</div>
-              <div className="stat-label">Achievement Badges</div>
+              <div className="stat-value">{totalTrophies + totalAwards}</div>
+              <div className="stat-label">Total Cabinet Items</div>
             </div>
           </div>
         </div>
@@ -304,6 +237,7 @@ export default function TrophyCabinet() {
       <div
         className={`guide-modal ${modalImage ? "active" : ""}`}
         onClick={closeModal}
+        style={{ zIndex: 9999 }}
       >
         <button className="close-guide-modal" onClick={closeModal}>
           <i className="fas fa-times" />
