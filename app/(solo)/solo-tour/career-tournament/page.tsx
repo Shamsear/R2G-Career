@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { fetchCareerTournaments } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../portal.css";
 
 export default function CareerTournament() {
@@ -10,10 +12,27 @@ export default function CareerTournament() {
   const [modalImage, setModalImage] = useState<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  const [tournamentsData, setTournamentsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const openModal = (src: string) => setModalImage(src);
   const closeModal = () => setModalImage(null);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchCareerTournaments();
+        setTournamentsData(data || []);
+      } catch (e) {
+        console.error("Failed to load career tournaments:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setShowBackToTop(window.scrollY > 300);
@@ -31,37 +50,23 @@ export default function CareerTournament() {
       { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
     );
 
-    setTimeout(() => {
-      document
-        .querySelectorAll(".tournament-display-card, .tournament-category-title")
-        .forEach((el) => observerRef.current?.observe(el));
-    }, 100);
+    if (!loading) {
+      setTimeout(() => {
+        document
+          .querySelectorAll(".tournament-display-card, .tournament-category-title")
+          .forEach((el) => observerRef.current?.observe(el));
+      }, 100);
+    }
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
       observerRef.current?.disconnect();
     };
-  }, []);
+  }, [loading]);
 
-  const tournaments = [
-    { name: "DIVISION ONE",   img1: "/assets/images/tournaments/car1.webp",  img2: "/assets/images/tournaments/car2.webp" },
-    { name: "DIVISION TWO",   img1: "/assets/images/tournaments/car3.webp",  img2: "/assets/images/tournaments/car4.webp" },
-    { name: "DIVISION THREE", img1: "/assets/images/tournaments/car5.webp",  img2: "/assets/images/tournaments/car6.webp" },
-    { name: "DIVISION FOUR",  img1: "/assets/images/tournaments/car7.webp",  img2: "/assets/images/tournaments/car8.webp" },
-    { name: "DIVISION FIVE",  img1: "/assets/images/tournaments/car9.webp",  img2: "/assets/images/tournaments/car10.webp" },
-    { name: "KINGS CUP",      img1: "/assets/images/tournaments/car23.webp", img2: "/assets/images/tournaments/car24.webp" },
-  ];
-
-  const europeanLeague = [
-    { name: "R2G CHAMPIONS LEAGUE",  img1: "/assets/images/tournaments/car11.webp", img2: "/assets/images/tournaments/car12.webp" },
-    { name: "R2G EUROPA LEAGUE",     img1: "/assets/images/tournaments/car13.webp", img2: "/assets/images/tournaments/car14.webp" },
-    { name: "R2G CONFERENCE LEAGUE", img1: "/assets/images/tournaments/car15.webp", img2: "/assets/images/tournaments/car16.webp" },
-    { name: "R2G SUPER LEAGUE",      img1: "/assets/images/tournaments/car17.webp", img2: "/assets/images/tournaments/car18.webp" },
-  ];
-
-  const specialTour = [
-    { name: "R2G AUTHENTIC TOUR", img1: "/assets/images/tournaments/car19.webp", img2: "/assets/images/tournaments/car20.webp" },
-  ];
+  const tournaments = tournamentsData.filter(t => t.category === "division");
+  const europeanLeague = tournamentsData.filter(t => t.category === "european");
+  const specialTour = tournamentsData.filter(t => t.category === "special");
 
   const renderSection = (title: string, icon: string, items: typeof tournaments) => (
     <div className="tournament-category-block" style={{ marginBottom: "3rem" }}>
@@ -102,6 +107,17 @@ export default function CareerTournament() {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading career showcase details..." />
+      </div>
+    );
+  }
+
   return (
     <div className="portal-root-wrapper">
       <div className="portal-bg-grid" />
@@ -133,17 +149,17 @@ export default function CareerTournament() {
         <div className="portal-stats-ribbon" style={{ marginBottom: "2.5rem" }}>
           <div className="stat-pill">
             <i className="fa-solid fa-layer-group" />
-            <span>5 Divisions</span>
+            <span>{tournaments.length} Divisions</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
             <i className="fa-solid fa-earth-europe" />
-            <span>4 European Cups</span>
+            <span>{europeanLeague.length} European Cups</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
             <i className="fa-solid fa-star" />
-            <span>2 Special Tours</span>
+            <span>{specialTour.length} Special Tours</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
@@ -181,6 +197,7 @@ export default function CareerTournament() {
       <div
         className={`guide-modal ${modalImage ? "active" : ""}`}
         onClick={closeModal}
+        style={{ zIndex: 9999 }}
       >
         <button className="close-guide-modal" onClick={closeModal}>
           <i className="fas fa-times" />

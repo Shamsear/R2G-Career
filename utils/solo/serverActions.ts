@@ -8135,3 +8135,97 @@ export async function resolveKnockoutPlaceholders(tournamentId: number) {
 export async function fetchEligibleKnockoutTeams(tournamentId: number) {
   return getEligibleTeamsForKnockout(pool, tournamentId);
 }
+
+export async function fetchCareerTournaments() {
+  try {
+    // 1. Ensure table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS career_tournaments (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          category VARCHAR(50) NOT NULL,
+          img1 VARCHAR(255) NOT NULL,
+          img2 VARCHAR(255) NOT NULL,
+          display_order INT DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. Check if empty
+    const { rows: check } = await pool.query('SELECT COUNT(1) as count FROM career_tournaments');
+    const count = parseInt(check[0]?.count || '0', 10);
+    if (count === 0) {
+      console.log('🌱 Seeding career_tournaments table...');
+      const seedData = [
+        // Division
+        ['DIVISION ONE', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car1_97nHNL4HM.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car2_laX-VDdV6.webp', 1],
+        ['DIVISION TWO', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car3_RoEhcAoS1.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car4_dK92Fzpec.webp', 2],
+        ['DIVISION THREE', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car5__4uzETeBd.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car6_simHuuwFg.webp', 3],
+        ['DIVISION FOUR', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car7_WkJTI1avo.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car8_HtSZp6Qup.webp', 4],
+        ['DIVISION FIVE', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car9_jyZ_9dSqS.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car10_GeCS2-3C4v.webp', 5],
+        ['KINGS CUP', 'division', 'https://ik.imagekit.io/ssleague/solo/showcase/car23_ncKuzI-KFI.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car24_wgIvZYUfN.webp', 6],
+        // European
+        ['R2G CHAMPIONS LEAGUE', 'european', 'https://ik.imagekit.io/ssleague/solo/showcase/car11__FxvjpikK.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car12_KXs6H-q4Q.webp', 7],
+        ['R2G EUROPA LEAGUE', 'european', 'https://ik.imagekit.io/ssleague/solo/showcase/car13_rBROc8-nK.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car14_Ro3Nyc_dz.webp', 8],
+        ['R2G CONFERENCE LEAGUE', 'european', 'https://ik.imagekit.io/ssleague/solo/showcase/car15_HMj9cUUXQ.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car16_WJRiNQncB.webp', 9],
+        ['R2G SUPER LEAGUE', 'european', 'https://ik.imagekit.io/ssleague/solo/showcase/car17_1KPn8441r.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car18_M29uno1s7.webp', 10],
+        // Special
+        ['R2G AUTHENTIC TOUR', 'special', 'https://ik.imagekit.io/ssleague/solo/showcase/car19_EM3kTRklU.webp', 'https://ik.imagekit.io/ssleague/solo/showcase/car20_KIVsuqibM.webp', 11],
+      ];
+      for (const [name, category, img1, img2, order] of seedData) {
+        await pool.query(
+          `INSERT INTO career_tournaments (name, category, img1, img2, display_order) VALUES ($1, $2, $3, $4, $5)`,
+          [name, category, img1, img2, order]
+        );
+      }
+    }
+
+    const { rows } = await pool.query('SELECT * FROM career_tournaments ORDER BY display_order ASC, id ASC');
+    return rows;
+  } catch (error) {
+    console.error('Error fetching career tournaments:', error);
+    return [];
+  }
+}
+
+export async function saveCareerTournament(data: {
+  id?: number;
+  name: string;
+  category: string;
+  img1: string;
+  img2: string;
+  display_order?: number;
+}) {
+  try {
+    const order = data.display_order ?? 0;
+    if (data.id) {
+      const { rows } = await pool.query(
+        `UPDATE career_tournaments 
+         SET name = $1, category = $2, img1 = $3, img2 = $4, display_order = $5 
+         WHERE id = $6 RETURNING *`,
+        [data.name, data.category, data.img1, data.img2, order, data.id]
+      );
+      return rows[0];
+    } else {
+      const { rows } = await pool.query(
+        `INSERT INTO career_tournaments (name, category, img1, img2, display_order) 
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [data.name, data.category, data.img1, data.img2, order]
+      );
+      return rows[0];
+    }
+  } catch (error) {
+    console.error('Error saving career tournament:', error);
+    throw error;
+  }
+}
+
+export async function deleteCareerTournament(id: number) {
+  try {
+    await pool.query('DELETE FROM career_tournaments WHERE id = $1', [id]);
+    return true;
+  } catch (error) {
+    console.error('Error deleting career tournament:', error);
+    throw error;
+  }
+}
