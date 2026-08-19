@@ -8301,3 +8301,17 @@ export async function saveSoloGuideAsset(assetKey: string, label: string, imageU
     return { success: false, error: error.message };
   }
 }
+
+export async function reorderSoloTrophyCabinetItem(id1: number, order1: number, id2: number, order2: number) {
+  try {
+    await pool.query('BEGIN');
+    await pool.query('UPDATE solo_trophy_cabinet SET display_order = $1 WHERE id = $2', [order1, id1]);
+    await pool.query('UPDATE solo_trophy_cabinet SET display_order = $1 WHERE id = $2', [order2, id2]);
+    await pool.query('COMMIT');
+    return { success: true };
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    console.error('Error reordering solo trophy cabinet item:', error);
+    return { success: false, error: error.message };
+  }
+}

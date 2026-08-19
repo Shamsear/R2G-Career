@@ -8,7 +8,8 @@ import {
   fetchSoloTrophyCabinetItems, 
   addSoloTrophyCabinetItem, 
   deleteSoloTrophyCabinetItem,
-  updateSoloTrophyCabinetItem
+  updateSoloTrophyCabinetItem,
+  reorderSoloTrophyCabinetItem
 } from "@/utils/solo/serverActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../../portal.css";
@@ -202,6 +203,32 @@ export default function SoloTrophyCabinetManager() {
     } catch (err: any) {
       console.error(err);
       setMessage({ text: "Error deleting item from cabinet!", type: "error" });
+    }
+  };
+
+  const handleReorder = async (current: CabinetItem, direction: "up" | "down", siblingList: CabinetItem[]) => {
+    const currentIndex = siblingList.findIndex(t => t.id === current.id);
+    if (currentIndex === -1) return;
+
+    let sibling: CabinetItem | null = null;
+    if (direction === "up" && currentIndex > 0) {
+      sibling = siblingList[currentIndex - 1];
+    } else if (direction === "down" && currentIndex < siblingList.length - 1) {
+      sibling = siblingList[currentIndex + 1];
+    }
+
+    if (!sibling) return;
+
+    try {
+      const res = await reorderSoloTrophyCabinetItem(current.id, sibling.display_order, sibling.id, current.display_order);
+      if (res.success) {
+        await loadAllData();
+      } else {
+        setMessage({ text: res.error || "Failed to reorder item", type: "error" });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ text: err.message || "Failed to reorder item", type: "error" });
     }
   };
 
@@ -459,7 +486,25 @@ export default function SoloTrophyCabinetManager() {
                                 {item.image_url}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-                                <span>Order: {item.display_order}</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <button 
+                                    onClick={() => handleReorder(item, "up", sTrophies)} 
+                                    disabled={sTrophies.indexOf(item) === 0}
+                                    style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: sTrophies.indexOf(item) === 0 ? "not-allowed" : "pointer", opacity: sTrophies.indexOf(item) === 0 ? 0.3 : 1, padding: 0 }}
+                                    title="Move Up"
+                                  >
+                                    <i className="fa-solid fa-arrow-up" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleReorder(item, "down", sTrophies)} 
+                                    disabled={sTrophies.indexOf(item) === sTrophies.length - 1}
+                                    style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: sTrophies.indexOf(item) === sTrophies.length - 1 ? "not-allowed" : "pointer", opacity: sTrophies.indexOf(item) === sTrophies.length - 1 ? 0.3 : 1, padding: 0 }}
+                                    title="Move Down"
+                                  >
+                                    <i className="fa-solid fa-arrow-down" />
+                                  </button>
+                                  <span style={{ marginLeft: "2px" }}>Order: {item.display_order}</span>
+                                </div>
                                 <div style={{ display: "flex", gap: "6px" }}>
                                   <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
                                   <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>
@@ -493,7 +538,25 @@ export default function SoloTrophyCabinetManager() {
                                 {item.image_url}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-                                <span>Order: {item.display_order}</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <button 
+                                    onClick={() => handleReorder(item, "up", sAwards)} 
+                                    disabled={sAwards.indexOf(item) === 0}
+                                    style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: sAwards.indexOf(item) === 0 ? "not-allowed" : "pointer", opacity: sAwards.indexOf(item) === 0 ? 0.3 : 1, padding: 0 }}
+                                    title="Move Up"
+                                  >
+                                    <i className="fa-solid fa-arrow-up" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleReorder(item, "down", sAwards)} 
+                                    disabled={sAwards.indexOf(item) === sAwards.length - 1}
+                                    style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: sAwards.indexOf(item) === sAwards.length - 1 ? "not-allowed" : "pointer", opacity: sAwards.indexOf(item) === sAwards.length - 1 ? 0.3 : 1, padding: 0 }}
+                                    title="Move Down"
+                                  >
+                                    <i className="fa-solid fa-arrow-down" />
+                                  </button>
+                                  <span style={{ marginLeft: "2px" }}>Order: {item.display_order}</span>
+                                </div>
                                 <div style={{ display: "flex", gap: "6px" }}>
                                   <button onClick={() => openEditModal(item)} style={{ background: "none", border: "none", color: "var(--solo-primary)", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-pen-to-square" /></button>
                                   <button onClick={() => handleDeleteItem(item.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 0 }}><i className="fa-solid fa-trash" /></button>

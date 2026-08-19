@@ -92,12 +92,12 @@ export default function CareerTournament() {
               <h3 style={{ fontSize: "0.95rem", color: "#ffffff", fontWeight: 700, margin: 0, letterSpacing: "0.5px" }}>{t.name}</h3>
             </div>
             <div className="tournament-card-body" style={{ padding: "1.25rem" }}>
-              <div className="tournament-pair-images" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="tournament-img-wrapper" onClick={() => openModal(t.img1)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.4)" }}>
-                  <Image src={t.img1} alt={t.name} width={400} height={260} style={{ width: "100%", height: "auto", display: "block" }} />
+              <div className="tournament-pair-images" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div className="tournament-img-wrapper" onClick={() => openModal(t.img1)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", cursor: "zoom-in" }}>
+                  <img src={t.img1} alt={t.name} style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
-                <div className="tournament-img-wrapper" onClick={() => openModal(t.img2)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.4)" }}>
-                  <Image src={t.img2} alt={`${t.name} Standings`} width={400} height={260} style={{ width: "100%", height: "auto", display: "block" }} />
+                <div className="tournament-img-wrapper" onClick={() => openModal(t.img2)} style={{ borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)", cursor: "zoom-in" }}>
+                  <img src={t.img2} alt={`${t.name} Standings`} style={{ width: "100%", height: "auto", display: "block" }} />
                 </div>
               </div>
             </div>
