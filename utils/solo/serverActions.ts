@@ -1170,7 +1170,7 @@ export async function fetchCompletedFixturesForClub(clubId: string | number, sea
         AND (f.home_club_id = $2 OR f.away_club_id = $2)
         AND f.home_score IS NOT NULL 
         AND f.away_score IS NOT NULL
-      ORDER BY t.name ASC, f.round_number ASC
+      ORDER BY t.id DESC, f.round_number ASC
     `, [seasonId.toString(), clubId.toString()]);
     return rows.map(r => ({
       id: r.id.toString(),
@@ -4266,7 +4266,7 @@ export async function fetchTournamentsByType(type: string) {
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       WHERE t.tournament_type = $1
-      ORDER BY t.id ASC
+      ORDER BY t.id DESC
     `, [type]);
     return rows;
   } catch (error) {
