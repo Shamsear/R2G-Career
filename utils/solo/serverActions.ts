@@ -1145,7 +1145,7 @@ export async function fetchClubTournamentsForSeason(clubId: string | number, sea
       JOIN tournaments t ON f.tournament_id = t.id
       WHERE f.season_id = $1 
         AND (f.home_club_id = $2 OR f.away_club_id = $2)
-      ORDER BY t.name ASC
+      ORDER BY t.id DESC
     `, [seasonId.toString(), clubId.toString()]);
     return rows.map(r => ({ id: r.id.toString(), name: r.name }));
   } catch (e) {
