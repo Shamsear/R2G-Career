@@ -240,10 +240,11 @@ export async function resolveQualificationPlaceholder(
   placeholder: string,
   tournamentId: number
 ): Promise<number | null> {
-  // Parse placeholder format: "Group A #1", "League #3", "Seed #2"
+  // Parse placeholder format: "Group A #1", "League #3", "Seed #2", "Winner of SEMI_FINAL #1"
   const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/);
   const leagueMatch = placeholder.match(/League #(\d+)/);
   const seedMatch = placeholder.match(/Seed #(\d+)/);
+  const winnerMatch = placeholder.match(/Winner of (\w+) #(\d+)/) || placeholder.match(/Winner of (\w+) Match #(\d+)/);
 
   try {
     if (groupMatch) {
@@ -276,6 +277,22 @@ export async function resolveQualificationPlaceholder(
         [tournamentId, parseInt(position) - 1]
       );
       return rows[0]?.club_id || null;
+    } else if (winnerMatch) {
+      const [, roundName, pairingOrder] = winnerMatch;
+      // Find the round ID for this tournament and roundName
+      const { rows: roundRows } = await pool.query(
+        `SELECT id FROM knockout_rounds WHERE tournament_id = $1 AND round_name = $2`,
+        [tournamentId, roundName]
+      );
+      if (roundRows.length > 0) {
+        // Find the winner_id of the pairing in that round with this pairing_order
+        const { rows: pairingRows } = await pool.query(
+          `SELECT winner_id FROM knockout_pairings 
+           WHERE knockout_round_id = $1 AND pairing_order = $2`,
+          [roundRows[0].id, parseInt(pairingOrder)]
+        );
+        return pairingRows[0]?.winner_id || null;
+      }
     }
   } catch (error) {
     console.error('Error resolving placeholder:', placeholder, error);

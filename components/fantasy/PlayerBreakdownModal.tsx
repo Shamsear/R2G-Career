@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getRoundDisplay, getShortRoundLabel } from '@/utils/roundFormatter';
 import { X, TrendingUp, Target, Shield, Award, Crown, Star } from 'lucide-react';
 
 interface PlayerBreakdownModalProps {
@@ -250,10 +251,10 @@ export default function PlayerBreakdownModal({
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                              <span className="font-bold text-indigo-600">R{match.round_number}</span>
+                              <span className="font-bold text-indigo-600">{getShortRoundLabel(match.round_number)}</span>
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-900">Round {match.round_number}</p>
+                              <p className="font-semibold text-gray-900">{getRoundDisplay(match.round_number)}</p>
                               <p className="text-xs text-gray-500">
                                 {new Date(match.recorded_at).toLocaleDateString()}
                               </p>

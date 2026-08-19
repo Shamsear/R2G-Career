@@ -9,6 +9,7 @@ import {
   fetchTournaments,
   fetchFixtures
 } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 
 function FixturesManagerContent() {
   const searchParams = useSearchParams();
@@ -135,8 +136,11 @@ function FixturesManagerContent() {
                     type="button"
                     className="portal-btn btn-secondary"
                     style={{ padding: "6px 12px", minWidth: "40px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0 }}
-                    onClick={() => setActiveRound(prev => Math.max(1, prev - 1))}
-                    disabled={activeRound <= 1}
+                    onClick={() => {
+                      const idx = rounds.indexOf(activeRound);
+                      if (idx > 0) setActiveRound(rounds[idx - 1]);
+                    }}
+                    disabled={rounds.indexOf(activeRound) <= 0}
                   >
                     <i className="fa-solid fa-chevron-left" />
                   </button>
@@ -148,7 +152,7 @@ function FixturesManagerContent() {
                     onChange={(e) => setActiveRound(parseInt(e.target.value))}
                   >
                     {rounds.map(r => (
-                      <option key={r} value={r}>Round {r}</option>
+                      <option key={r} value={r}>{getRoundDisplay(r)}</option>
                     ))}
                   </select>
 
@@ -156,8 +160,11 @@ function FixturesManagerContent() {
                     type="button"
                     className="portal-btn btn-secondary"
                     style={{ padding: "6px 12px", minWidth: "40px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", margin: 0 }}
-                    onClick={() => setActiveRound(prev => Math.min(rounds[rounds.length - 1], prev + 1))}
-                    disabled={activeRound >= rounds[rounds.length - 1]}
+                    onClick={() => {
+                      const idx = rounds.indexOf(activeRound);
+                      if (idx < rounds.length - 1) setActiveRound(rounds[idx + 1]);
+                    }}
+                    disabled={rounds.indexOf(activeRound) >= rounds.length - 1}
                   >
                     <i className="fa-solid fa-chevron-right" />
                   </button>
@@ -173,7 +180,7 @@ function FixturesManagerContent() {
                 <>
                   <h2 className="admin-card-title">
                     <i className="fa-solid fa-calendar-check" /> 
-                    {selectedTourneyObj?.name} - {rounds.length > 0 ? `Round ${activeRound} of ${rounds.length}` : "No Fixtures"}
+                    {selectedTourneyObj?.name} - {rounds.length > 0 ? `${getRoundDisplay(activeRound)} of ${rounds.length}` : "No Fixtures"}
                   </h2>
 
                   {loading ? (
@@ -188,7 +195,7 @@ function FixturesManagerContent() {
                   ) : (
                     <>
                       <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                        Displaying {roundFixtures.length} matches in Round {activeRound}. Click "Enter Result" next to a match to input scores and update status.
+                        Displaying {roundFixtures.length} matches in {getRoundDisplay(activeRound)}. Click "Enter Result" next to a match to input scores and update status.
                       </p>
                       
                       <div className="table-responsive" style={{ marginTop: 0 }}>

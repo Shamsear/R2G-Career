@@ -14,6 +14,7 @@ import {
   createRuleViolation,
   deleteRuleViolation
 } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 
 export default function RuleViolationsManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
@@ -177,7 +178,7 @@ export default function RuleViolationsManager() {
                     <option value="">-- No Fixture / General Violation --</option>
                     {fixtures.map(f => (
                       <option key={f.id} value={f.id}>
-                        Round {f.roundNumber} - {f.homeClub} vs {f.awayClub} ({f.tournamentName})
+                        {getRoundDisplay(f.roundNumber)} - {f.homeClub} vs {f.awayClub} ({f.tournamentName})
                       </option>
                     ))}
                   </select>
@@ -318,7 +319,7 @@ export default function RuleViolationsManager() {
                           <td>
                             {v.fixture_id ? (
                               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                                {v.tournament_name} (Round {v.round_number})
+                                {v.tournament_name} ({getRoundDisplay(v.round_number)})
                               </span>
                             ) : (
                               <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)" }}>General</span>

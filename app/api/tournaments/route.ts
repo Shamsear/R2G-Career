@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
         tournaments = await sql`
           SELECT * FROM tournaments
           WHERE season_id = ${seasonId} AND status = ${status}
-          ORDER BY display_order ASC, created_at ASC
+          ORDER BY created_at DESC, display_order ASC
         `;
       } else {
         tournaments = await sql`
           SELECT * FROM tournaments
           WHERE season_id = ${seasonId}
-          ORDER BY display_order ASC, created_at ASC
+          ORDER BY created_at DESC, display_order ASC
         `;
       }
     } else if (status) {

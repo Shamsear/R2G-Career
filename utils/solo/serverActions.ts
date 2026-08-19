@@ -804,7 +804,7 @@ export async function fetchTournaments() {
              t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
-      ORDER BY t.id ASC
+      ORDER BY t.id DESC
     `);
     return rows;
   } catch (error) {
@@ -7722,6 +7722,35 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
     team2Placeholder?: string;
   }> = [];
 
+  // Check if there is a previous round in the sequence that exists in the database
+  const sequence = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
+  const currentIdx = sequence.indexOf(roundName);
+  if (currentIdx > 0) {
+    const prevRoundName = sequence[currentIdx - 1];
+    const { rows: prevRounds } = await pool.query(
+      `SELECT id FROM knockout_rounds WHERE tournament_id = $1 AND round_name = $2`,
+      [tournament.id, prevRoundName]
+    );
+    if (prevRounds.length > 0) {
+      // Previous round exists! Let's generate placeholders based on its pairings.
+      const { rows: prevPairings } = await pool.query(
+        `SELECT id, pairing_order FROM knockout_pairings WHERE knockout_round_id = $1 ORDER BY pairing_order ASC`,
+        [prevRounds[0].id]
+      );
+      if (prevPairings.length > 0) {
+        for (let i = 0; i < prevPairings.length; i += 2) {
+          if (i + 1 < prevPairings.length) {
+            pairings.push({
+              team1Placeholder: `Winner of ${prevRoundName} #${prevPairings[i].pairing_order}`,
+              team2Placeholder: `Winner of ${prevRoundName} #${prevPairings[i + 1].pairing_order}`
+            });
+          }
+        }
+        return pairings;
+      }
+    }
+  }
+
   const formatType = tournament.format_type;
   const numGroups = tournament.num_groups;
   const qualifiedPerGroup = tournament.qualified_per_group || tournament.group_qualifiers;
@@ -7820,8 +7849,10 @@ async function createSubsequentRoundsServer(
 
     // Create placeholder pairings
     const pairingCount = roundDef.teams / 2;
-    const prevRoundOrder = roundDef.order - 1;
-    const prevRound = roundSequence.find(r => r.order === prevRoundOrder);
+    
+    // Find the previous round in the sequence
+    const currentIdx = roundSequence.findIndex(r => r.name === roundDef.name);
+    const prevRound = currentIdx > 0 ? roundSequence[currentIdx - 1] : null;
     
     if (!prevRound) continue;
 

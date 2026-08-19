@@ -2,6 +2,7 @@
 
 import { useLineupDeadlineMonitor } from '@/hooks/useLineupDeadlineMonitor';
 import { useEffect, useState } from 'react';
+import { getRoundDisplay } from '@/utils/roundFormatter';
 
 interface LineupDeadlineMonitorProps {
   seasonId: string;
@@ -93,7 +94,7 @@ export default function LineupDeadlineMonitor({
               {isExpired ? 'Lineup Deadline Passed' : 'Lineup Deadline'}
             </h3>
             <p className="text-sm text-gray-600">
-              Round {roundNumber} {leg !== 'first' && `- ${leg}`}
+              {getRoundDisplay(roundNumber)} {leg !== 'first' && `- ${leg}`}
             </p>
           </div>
         </div>

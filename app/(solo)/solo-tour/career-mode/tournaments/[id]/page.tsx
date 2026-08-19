@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import "../../../../../portal.css";
 import { fetchTournamentById, fetchTournamentStandings, fetchFixtures } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 
 interface Tournament {
   id: number;
@@ -351,7 +352,7 @@ export default function TournamentDetailPage() {
                 return (
                   <div key={fixture.id} className="glass-panel" style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-                      <span>ROUND {fixture.roundNumber || 1}{fixture.groupName ? ` • GROUP ${fixture.groupName}` : ""}</span>
+                      <span>{getRoundDisplay(fixture.roundNumber || 1).toUpperCase()}{fixture.groupName ? ` • GROUP ${fixture.groupName.toUpperCase()}` : ""}</span>
                       <span style={{
                         padding: "0.15rem 0.5rem",
                         borderRadius: "4px",

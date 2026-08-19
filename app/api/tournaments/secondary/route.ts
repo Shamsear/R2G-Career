@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       SELECT id, tournament_name, tournament_type, tournament_code
       FROM tournaments
       WHERE season_id = ${seasonId} AND is_primary = false
-      ORDER BY display_order ASC, created_at ASC
+      ORDER BY created_at DESC, display_order ASC
     `;
 
     return NextResponse.json({ success: true, tournaments });

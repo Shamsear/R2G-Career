@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getRoundDisplay } from '@/utils/roundFormatter';
 
 interface TimelineEvent {
   id: string | number;
@@ -91,7 +92,7 @@ export default function FixtureTimeline({ fixtureId, isOpen, onClose }: FixtureT
             </h2>
             {fixture && (
               <p className="text-sm text-white/80 mt-1">
-                {fixture.home_team} vs {fixture.away_team} • Round {fixture.round_number}, Match {fixture.match_number}
+                {fixture.home_team} vs {fixture.away_team} • {getRoundDisplay(fixture.round_number)}, Match {fixture.match_number}
               </p>
             )}
           </div>

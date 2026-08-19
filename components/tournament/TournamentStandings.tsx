@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getRoundDisplay, getShortRoundLabel } from '@/utils/roundFormatter';
 import LeagueStandingsTable from './LeagueStandingsTable';
 import GroupStageStandings from './GroupStageStandings';
 import KnockoutBracket from './KnockoutBracket';
@@ -143,7 +144,7 @@ export default function TournamentStandings({ tournamentId, currentUserId }: Tou
                 <option value="all">📊 All Rounds (Current Standings)</option>
                 {availableRounds.map((roundNum) => (
                   <option key={roundNum} value={roundNum}>
-                    Round {roundNum}
+                    {getRoundDisplay(roundNum)}
                   </option>
                 ))}
               </select>
@@ -172,7 +173,7 @@ export default function TournamentStandings({ tournamentId, currentUserId }: Tou
                       : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-blue-300'
                   }`}
                 >
-                  R{roundNum}
+                  {getShortRoundLabel(roundNum)}
                 </button>
               ))}
             </div>

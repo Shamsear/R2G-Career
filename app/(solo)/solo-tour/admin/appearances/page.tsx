@@ -16,6 +16,7 @@ import {
   fetchClubTournamentsForSeason,
   fetchCompletedFixturesForClub
 } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 interface Club {
@@ -579,9 +580,9 @@ export default function AppearancesManagerPage() {
                     <div style={{ background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", width: "40px", height: "40px", borderRadius: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem" }}>
                       <i className="fa-solid fa-user-gear" />
                     </div>
-                    <div>
+                     <div>
                       <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#fff" }}>
-                        {isEditing ? `EDITING MATCHDAY ${activeMatchday} ROSTER` : `MATCHDAY ROSTER MANAGER`}
+                        {isEditing ? `EDITING ${getRoundDisplay(activeMatchday).toUpperCase()} ROSTER` : `MATCHDAY ROSTER MANAGER`}
                       </h3>
                       <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "#9ca3af" }}>
                         {isEditing ? "Configure squad appearances for the selected round below." : "Select a matchday to edit or revert lineups."}
@@ -603,7 +604,7 @@ export default function AppearancesManagerPage() {
                           <option value="">No Matchdays</option>
                         ) : (
                           matchdays.map((md) => (
-                            <option key={md} value={md}>Matchday {md}</option>
+                            <option key={md} value={md}>{getRoundDisplay(md)}</option>
                           ))
                         )}
                       </select>
@@ -733,7 +734,7 @@ export default function AppearancesManagerPage() {
                       >
                         <option value="">Choose round...</option>
                         {matchdays.filter(md => md !== activeMatchday).map(md => (
-                          <option key={md} value={md}>Matchday {md}</option>
+                          <option key={md} value={md}>{getRoundDisplay(md)}</option>
                         ))}
                       </select>
                     </div>
@@ -782,7 +783,7 @@ export default function AppearancesManagerPage() {
                     <option value="all">All Matches</option>
                     {availableMatches.map(f => {
                       const opponent = f.homeClubId === selectedClubId ? f.awayClubName : f.homeClubName;
-                      const label = `R${f.roundNumber} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
+                      const label = `${getRoundDisplay(f.roundNumber)} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
                       return <option key={f.id} value={f.id}>{label}</option>;
                     })}
                   </select>

@@ -15,6 +15,7 @@ import {
   fetchClubTournamentsForSeason,
   fetchCompletedFixturesForClub
 } from "@/utils/solo/serverActions";
+import { getRoundDisplay, getShortRoundLabel } from "@/utils/roundFormatter";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 
 interface Club {
@@ -408,7 +409,7 @@ export default function AppearancesLedgerPage() {
                       { value: "all", label: "All Matches" },
                       ...availableMatches.map(f => {
                         const opponent = f.homeClubId === selectedClubId ? f.awayClubName : f.homeClubName;
-                        const label = `R${f.roundNumber} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
+                        const label = `${getRoundDisplay(f.roundNumber)} vs ${opponent} (${f.homeScore}-${f.awayScore})`;
                         return { value: String(f.id), label };
                       })
                     ]}
@@ -455,7 +456,7 @@ export default function AppearancesLedgerPage() {
                           <th>Player</th>
                           {filteredMatchdays.map((md) => (
                             <th key={md} style={{ textAlign: "center", width: "7%" }}>
-                              {`M${md}`}
+                              {getShortRoundLabel(md)}
                             </th>
                           ))}
                           <th style={{ textAlign: "center", width: "10%" }}>Total Played</th>
@@ -578,7 +579,7 @@ export default function AppearancesLedgerPage() {
                                 const played = playerApps.includes(md);
                                 return (
                                   <div key={md} className={`card-md-chip ${played ? "played" : "missed"}`}>
-                                    {played ? `M${md} ✓` : `M${md}`}
+                                    {played ? `${getShortRoundLabel(md)} ✓` : getShortRoundLabel(md)}
                                   </div>
                                 );
                               })}

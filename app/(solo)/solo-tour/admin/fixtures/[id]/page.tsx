@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import "../../../../../portal.css";
 import "../../admin.css";
 import { fetchFixtureById, updateFixture } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 
 interface Fixture {
   id: number;
@@ -248,7 +249,7 @@ function AdminFixtureDetailContent() {
 
         <div className="portal-header" style={{ marginBottom: "1.5rem" }}>
           <div className="portal-page-badge">
-            <i className="fa-solid fa-scale-balanced" /> {fixture.tournamentName} // ROUND {fixture.roundNumber}
+            <i className="fa-solid fa-scale-balanced" /> {fixture.tournamentName} // {getRoundDisplay(fixture.roundNumber).toUpperCase()}
           </div>
           <h1 className="portal-title">MANAGE MATCH RESULT</h1>
           <p className="portal-subtitle">

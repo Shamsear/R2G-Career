@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { getRoundDisplay } from '@/utils/roundFormatter';
 import { toPng } from 'html-to-image';
 
 interface Matchup {
@@ -113,7 +114,7 @@ export default function FixtureShareButton({ fixture, matchups }: Props) {
           <div className="text-center mb-8">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 rounded-2xl mb-4">
               <h1 className="text-3xl font-bold">SSPS LEAGUE</h1>
-              <p className="text-lg mt-1">Round {fixture.round_number} • Match {fixture.match_number}</p>
+              <p className="text-lg mt-1">{getRoundDisplay(fixture.round_number)} • Match {fixture.match_number}</p>
             </div>
             <div className="flex justify-center">
               {getStatusBadge()}

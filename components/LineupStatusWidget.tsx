@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getShortRoundLabel } from '@/utils/roundFormatter';
 
 interface Fixture {
   id: string;
@@ -197,7 +198,7 @@ export default function LineupStatusWidget({ teamId, seasonId }: LineupStatusWid
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-bold text-gray-500">
-                        R{status.fixture.round_number} M{status.fixture.match_number}
+                        {getShortRoundLabel(status.fixture.round_number)} M{status.fixture.match_number}
                       </span>
                       {needsAttention && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse">

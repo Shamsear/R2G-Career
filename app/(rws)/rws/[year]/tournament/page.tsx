@@ -10,6 +10,7 @@ import {
   fetchTournamentStandings, 
   fetchTournamentClubs 
 } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 import "../../rws.css";
 
 interface Match {
@@ -380,27 +381,9 @@ export default function RwsYearTournament() {
 
   // Dynamic round name helper
   const getRoundName = (rNum: number) => {
-    // Check if any match in this round belongs to a group
-    const roundMatches = fixtures.filter(f => f.roundNumber === rNum);
-    const hasGroupMatch = roundMatches.some(f => f.groupName);
-    
-    if (hasGroupMatch) {
-      return `Round ${rNum}`;
+    if (rNum >= 100) {
+      return getRoundDisplay(rNum);
     }
-    
-    // Knockout rounds: all rounds with roundNumber >= 100, sorted ascending
-    const knockoutRounds = roundsList.filter(r => r >= 100).sort((a, b) => a - b);
-    const idx = knockoutRounds.indexOf(rNum);
-    if (idx !== -1) {
-      const distance = knockoutRounds.length - 1 - idx;
-      if (distance === 0) return "Grand Final";
-      if (distance === 1) return "Semi-Finals";
-      if (distance === 2) return "Quarter-Finals";
-      if (distance === 3) return "Round of 16";
-      if (distance === 4) return "Round of 32";
-      return `Knockout Rd ${idx + 1}`;
-    }
-    
     return `Round ${rNum}`;
   };
 

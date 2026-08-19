@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import { fetchTournaments, fetchFixtures } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 
 interface Fixture {
   id: number;
@@ -157,7 +158,7 @@ export default function FixturesPage() {
               return (
                 <div key={fixture.id} className="glass-panel" style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "1rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-                    <span>{fixture.tournamentName} • ROUND {fixture.roundNumber || 1}{fixture.groupName ? ` • GROUP ${fixture.groupName}` : ""}</span>
+                    <span>{fixture.tournamentName} • {getRoundDisplay(fixture.roundNumber || 1).toUpperCase()}{fixture.groupName ? ` • GROUP ${fixture.groupName.toUpperCase()}` : ""}</span>
                     <span style={{
                       padding: "0.15rem 0.5rem",
                       borderRadius: "4px",

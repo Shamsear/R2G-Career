@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchSeasonByRwsYear, fetchTournaments, fetchFixtures } from "@/utils/solo/serverActions";
+import { getRoundDisplay } from "@/utils/roundFormatter";
 import "../../rws.css";
 
 interface Match {
@@ -137,20 +138,7 @@ export default function RwsYearFixtures() {
               .map(Number)
               .sort((a, b) => b - a) // Show finals first
               .map((rNum) => {
-                let name = `Round ${rNum}`;
-                if (rNum >= 100) {
-                  const knockoutRounds = roundsList.filter(r => r >= 100);
-                  const idx = knockoutRounds.indexOf(rNum);
-                  if (idx !== -1) {
-                    const distance = knockoutRounds.length - 1 - idx;
-                    if (distance === 0) name = "Grand Final";
-                    else if (distance === 1) name = "Semi-Finals";
-                    else if (distance === 2) name = "Quarter-Finals";
-                    else if (distance === 3) name = "Round of 16";
-                    else if (distance === 4) name = "Round of 32";
-                    else name = `Knockout Rd ${idx + 1}`;
-                  }
-                }
+                let name = rNum >= 100 ? getRoundDisplay(rNum) : `Round ${rNum}`;
                 return {
                   roundName: name,
                   matches: groupedMap[rNum]
