@@ -391,7 +391,14 @@ export default function RwsYearTournament() {
   };
 
   if (loading) {
-    return <RwsFullPageLoading text="Loading series details" />;
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading series details" />
+      </div>
+    );
   }
 
   if (error || !season) {
