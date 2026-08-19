@@ -2186,17 +2186,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     onChange={(val) => setActiveRound(val)}
                     options={[
                       { value: "all", label: "All Rounds" },
-                      ...rounds.map((r) => ({ value: r, label: `Round ${r}` })),
-                      ...Array.from(new Set(knockoutMatches.map(m => m.roundName))).sort((a, b) => {
-                        const order = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
-                        return order.indexOf(a) - order.indexOf(b);
-                      }).map(name => {
-                        const orderIdx = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'].indexOf(name);
-                        return {
-                          value: `ko-${name}`,
-                          label: getRoundDisplay(100 + (orderIdx >= 0 ? orderIdx : 0))
-                        };
-                      })
+                      ...rounds.map((r) => ({ value: r, label: `Round ${r}` }))
                     ]}
                     menuWidth={165}
                   />
