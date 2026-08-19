@@ -14,7 +14,7 @@ export default function SpecialTourFooter() {
   const navLinks = hasTourneyId ? [
     { href: `/special-tour/${tourneyId}`, label: "HUB" },
     { href: `/special-tour/${tourneyId}/fixtures`, label: "SERIES PORTAL" },
-    { href: `/special-tour/${tourneyId}/nominees`, label: "NOMINEES" },
+    { href: `/special-tour/${tourneyId}/registered-teams`, label: "REGISTERED TEAMS" },
     { href: `/special-tour/${tourneyId}/album`, label: "ALBUM" },
   ] : [
     { href: "/special-tour", label: "DASHBOARD" },

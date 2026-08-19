@@ -18,7 +18,7 @@ export default function RwsNavbar() {
 
   const navLinks = hasYear ? [
     { href: `/rws/${year}`, label: "01//DASHBOARD" },
-    { href: `/rws/${year}/selected-candidates`, label: "02//CANDIDATES" },
+    { href: `/rws/${year}/participating-teams`, label: "02//PARTICIPATING TEAMS" },
     { href: `/rws/${year}/tournament`, label: "03//TOURNAMENT" },
     { href: `/rws/${year}/album`, label: "04//ALBUM" },
   ] : [

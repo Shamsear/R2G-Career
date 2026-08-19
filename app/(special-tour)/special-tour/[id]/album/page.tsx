@@ -98,7 +98,14 @@ export default function SpecialTourAlbum() {
   }, [tourneyId]);
 
   if (loading) {
-    return <RwsFullPageLoading text="Loading tournament photo gallery" />;
+    return (
+      <div className="portal-root-wrapper">
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading tournament photo gallery" />
+      </div>
+    );
   }
 
   if (error || !tournament) {

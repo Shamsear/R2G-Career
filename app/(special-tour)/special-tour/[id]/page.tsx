@@ -151,7 +151,7 @@ export default function SpecialTourHub() {
 
           {/* Card 2: Nominees / Teams */}
           <Link 
-            href={`/special-tour/${tourneyId}/nominees`} 
+            href={`/special-tour/${tourneyId}/registered-teams`} 
             className="portal-card"
             onMouseMove={handleMouseMove}
           >
@@ -168,7 +168,7 @@ export default function SpecialTourHub() {
             <div className="portal-card-content">
               <span className="portal-card-badge">
                 <i className="fa-solid fa-user-check" />
-                Nominees
+                Registered Teams
               </span>
               <h2>PARTICIPATING TEAMS</h2>
               <p>

@@ -119,7 +119,7 @@ export default function RwsYearSelectedCandidates() {
   }, [year, yearStr]);
 
   if (loading) {
-    return <RwsFullPageLoading text="Loading selected candidates" />;
+    return <RwsFullPageLoading text="Loading participating teams" />;
   }
 
   if (error || !season) {

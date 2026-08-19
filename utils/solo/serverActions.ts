@@ -742,21 +742,113 @@ export async function fetchRegisteredClubs(includeInactive: boolean = false) {
 
 export async function fetchSelectedCandidates(tournamentName: string) {
     try {
+        // First, get the tournament ID from the name
+        const { rows: tourneyRows } = await pool.query(
+            `SELECT id FROM tournaments WHERE name = $1`,
+            [tournamentName]
+        );
+        const tournamentId = tourneyRows[0]?.id || 0;
+
+        // Check for knockout final pairing
+        const { rows: finalPairingRows } = await pool.query(
+            `SELECT kp.team1_id, kp.team2_id, kp.winner_id
+             FROM knockout_pairings kp
+             JOIN knockout_rounds kr ON kp.knockout_round_id = kr.id
+             WHERE kr.tournament_id = $1 AND kr.round_name = 'FINAL'
+             LIMIT 1`,
+            [tournamentId]
+        );
+
+        let championId = null;
+        let runnerUpId = null;
+
+        if (finalPairingRows.length > 0) {
+            const finalPairing = finalPairingRows[0];
+            if (finalPairing.winner_id) {
+                championId = Number(finalPairing.winner_id);
+                runnerUpId = Number(finalPairing.winner_id) === Number(finalPairing.team1_id) 
+                    ? Number(finalPairing.team2_id) 
+                    : Number(finalPairing.team1_id);
+            }
+        } else {
+            // Check if all fixtures are played
+            const { rows: fixtureProgress } = await pool.query(
+                `SELECT 
+                    COUNT(1) as total,
+                    COUNT(1) FILTER (WHERE home_score IS NOT NULL AND away_score IS NOT NULL) as played
+                 FROM fixtures
+                 WHERE tournament_id = $1`,
+                [tournamentId]
+            );
+            const totalMatches = parseInt(fixtureProgress[0]?.total || '0', 10);
+            const playedMatches = parseInt(fixtureProgress[0]?.played || '0', 10);
+            if (totalMatches > 0 && totalMatches === playedMatches) {
+                const { rows: topStandings } = await pool.query(
+                    `SELECT club_id 
+                     FROM tournament_standings 
+                     WHERE tournament_id = $1 
+                     ORDER BY points DESC, goal_difference DESC, goals_scored DESC 
+                     LIMIT 2`,
+                    [tournamentId]
+                );
+                championId = topStandings[0]?.club_id ? Number(topStandings[0].club_id) : null;
+                runnerUpId = topStandings[1]?.club_id ? Number(topStandings[1].club_id) : null;
+            }
+        }
+
         const { rows: result } = await pool.query(`
             SELECT DISTINCT ON (m.id)
                 m.id, c.name as club_name, c.logo_path,
                 m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
                 tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
-                ms.wins, ms.losses, ms.matches_played, ms.competitions
+                COALESCE(f_stats.matches_played, 0) as matches_played,
+                COALESCE(f_stats.wins, 0) as wins,
+                COALESCE(f_stats.losses, 0) as losses,
+                COALESCE(f_stats.goals_scored, 0) as goals_scored,
+                ms.competitions
             FROM tournament_teams tt
             JOIN managers m ON tt.club_id = m.id
             LEFT JOIN clubs c ON m.id = c.id
+            LEFT JOIN (
+                SELECT 
+                    m_id,
+                    COUNT(fixture_id) as matches_played,
+                    SUM(CASE WHEN is_win THEN 1 ELSE 0 END) as wins,
+                    SUM(CASE WHEN is_loss THEN 1 ELSE 0 END) as losses,
+                    SUM(goals) as goals_scored
+                FROM (
+                    SELECT 
+                        f.id as fixture_id,
+                        f.home_club_id as m_id,
+                        (f.home_score > f.away_score) as is_win,
+                        (f.home_score < f.away_score) as is_loss,
+                        f.home_score as goals
+                    FROM fixtures f
+                    WHERE f.tournament_id = $2
+                      AND f.home_score IS NOT NULL
+                      AND f.away_score IS NOT NULL
+                      AND f.match_status != 'void'
+                    UNION ALL
+                    SELECT 
+                        f.id as fixture_id,
+                        f.away_club_id as m_id,
+                        (f.away_score > f.home_score) as is_win,
+                        (f.away_score < f.home_score) as is_loss,
+                        f.away_score as goals
+                    FROM fixtures f
+                    WHERE f.tournament_id = $2
+                      AND f.home_score IS NOT NULL
+                      AND f.away_score IS NOT NULL
+                      AND f.match_status != 'void'
+                ) sub
+                GROUP BY m_id
+            ) f_stats ON m.id = f_stats.m_id
             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
             WHERE tt.tournament_name = $1
             ORDER BY m.id, ms.id DESC
-        `, [tournamentName]);
+        `, [tournamentName, tournamentId]);
 
         return result.map((row: any) => {
             let trophies = 0;
@@ -768,6 +860,7 @@ export async function fetchSelectedCandidates(tournamentName: string) {
             } catch (e) { console.error("Error parsing competitions:", e); }
 
             const winRate = row.matches_played > 0 ? Math.round((row.wins / row.matches_played) * 100) : 0;
+            const draws = Math.max(0, row.matches_played - row.wins - row.losses);
 
             const displayName = (!row.use_existing_club && row.custom_team_name) 
               ? row.custom_team_name 
@@ -788,7 +881,10 @@ export async function fetchSelectedCandidates(tournamentName: string) {
                 avatar: row.avatar_path || '',
                 stat1: { label: "Win Rate", value: `${winRate}%` },
                 stat2: { label: "Matches", value: String(row.matches_played || 0) },
-                stat3: { label: "Cups", value: String(trophies) }
+                stat3: { label: "Goals", value: String(row.goals_scored || 0) },
+                record: `${row.wins}W - ${draws}D - ${row.losses}L`,
+                isChampion: Number(row.id) === championId,
+                isRunner: Number(row.id) === runnerUpId
             };
         });
     } catch (error) {

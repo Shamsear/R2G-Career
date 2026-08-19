@@ -20,6 +20,9 @@ interface Candidate {
   stat1: { label: string; value: string };
   stat2: { label: string; value: string };
   stat3: { label: string; value: string };
+  record?: string;
+  isChampion?: boolean;
+  isRunner?: boolean;
 }
 
 export default function SpecialTourNominees() {
@@ -48,7 +51,7 @@ export default function SpecialTourNominees() {
           return;
         }
         setTournament(t);
-        document.title = `${t.name} - Confirmed Nominees`;
+        document.title = `${t.name} - Registered Teams`;
 
         const list = await fetchSelectedCandidates(t.name);
         setCandidates(list || []);
@@ -131,7 +134,7 @@ export default function SpecialTourNominees() {
             Tournament Roster
           </div>
           <h1 className="rws-hero-title">
-            {tournament.name.toUpperCase()} NOMINEES
+            {tournament.name.toUpperCase()} REGISTERED TEAMS
           </h1>
         </div>
 
@@ -179,7 +182,7 @@ export default function SpecialTourNominees() {
           }}>
             <i className="fa-solid fa-user-slash" style={{ fontSize: "3rem", marginBottom: "1rem", color: "var(--text-secondary)" }} />
             <h3 style={{ fontSize: "1.2rem", color: "#fff", marginBottom: "0.5rem" }}>
-              {searchQuery ? "No matching managers found" : "No nominees added yet"}
+              {searchQuery ? "No matching managers found" : "No registered teams added yet"}
             </h3>
             <p style={{ fontSize: "0.85rem", maxWidth: "400px", margin: "0 auto 1.5rem" }}>
               {searchQuery ? `No candidates matched "${searchQuery}". Try searching for another name or ID.` : "No managers or teams have been assigned to this tournament."}
@@ -222,6 +225,21 @@ export default function SpecialTourNominees() {
                         <div className="candidate-role">
                           Manager: {candidate.name}
                         </div>
+                      )}
+                      {candidate.record && (
+                        <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.45)", marginTop: "3px", fontFamily: "var(--font-mono)" }}>
+                          Record: {candidate.record}
+                        </div>
+                      )}
+                      {candidate.isChampion && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "rgba(250, 204, 21, 0.15)", color: "#facc15", border: "1px solid rgba(250, 204, 21, 0.3)", borderRadius: "4px", padding: "2px 6px", fontSize: "0.62rem", fontWeight: "bold", textTransform: "uppercase", marginTop: "5px", width: "fit-content" }}>
+                          🏆 Champion
+                        </span>
+                      )}
+                      {candidate.isRunner && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "rgba(156, 163, 175, 0.15)", color: "#9ca3af", border: "1px solid rgba(156, 163, 175, 0.3)", borderRadius: "4px", padding: "2px 6px", fontSize: "0.62rem", fontWeight: "bold", textTransform: "uppercase", marginTop: "5px", width: "fit-content" }}>
+                          🥈 Runner-up
+                        </span>
                       )}
                     </div>
                     {candidate.r2g_id && (

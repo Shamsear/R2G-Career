@@ -19,7 +19,7 @@ export default function SpecialTourNavbar() {
   const navLinks = hasTourneyId ? [
     { href: `/special-tour/${tourneyId}`, label: "01//HUB" },
     { href: `/special-tour/${tourneyId}/fixtures`, label: "02//SERIES PORTAL" },
-    { href: `/special-tour/${tourneyId}/nominees`, label: "03//NOMINEES" },
+    { href: `/special-tour/${tourneyId}/registered-teams`, label: "03//REGISTERED TEAMS" },
     { href: `/special-tour/${tourneyId}/album`, label: "04//ALBUM" },
   ] : [
     { href: "/special-tour", label: "01//DASHBOARD" },

@@ -13,7 +13,7 @@ export default function RwsFooter() {
 
   const navLinks = hasYear ? [
     { href: `/rws/${year}`, label: "DASHBOARD" },
-    { href: `/rws/${year}/selected-candidates`, label: "CANDIDATES" },
+    { href: `/rws/${year}/participating-teams`, label: "PARTICIPATING TEAMS" },
     { href: `/rws/${year}/tournament`, label: "TOURNAMENT" },
     { href: `/rws/${year}/album`, label: "ALBUM" },
   ] : [

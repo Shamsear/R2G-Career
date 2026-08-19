@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchActiveSeason, fetchTournamentsByType } from "@/utils/solo/serverActions";
+import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../portal.css";
 import "../../(rws)/rws/rws.css";
 
@@ -58,6 +59,17 @@ export default function SpecialTourYearSelection() {
     card.style.setProperty("--mouse-y", `${y}px`);
   };
 
+  if (loading) {
+    return (
+      <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
+        <div className="portal-bg-grid" />
+        <div className="portal-glow-orb-1" />
+        <div className="portal-glow-orb-2" />
+        <RwsFullPageLoading text="Loading special tournaments..." />
+      </div>
+    );
+  }
+
   return (
     <div className="portal-root-wrapper" style={{ minHeight: "100vh" }}>
       <div className="portal-bg-grid" />
@@ -90,10 +102,8 @@ export default function SpecialTourYearSelection() {
           </p>
         </div>
 
-        {/* Loading state */}
-        {loading ? (
-          <SpecialLoadingState text="Loading special tournaments" />
-        ) : tournaments.length === 0 ? (
+        {/* Tournaments list */}
+        {tournaments.length === 0 ? (
           <div className="portal-card" style={{ padding: "3rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
             <i className="fa-solid fa-folder-closed" style={{ fontSize: "3rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }} />
             <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>No Special Tournaments Scheduled</h2>

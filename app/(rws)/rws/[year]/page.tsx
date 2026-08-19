@@ -148,7 +148,7 @@ export default function RwsYearDashboard() {
             R2G WORLD SERIES {yearStr}
           </h1>
           <p className="rws-hero-sub">
-            Championship hub for the R2G World Series {yearStr}. View selected candidate lists,
+            Championship hub for the R2G World Series {yearStr}. View participating teams,
             track upcoming match calendars/results, and browse the gallery.
           </p>
         </div>
@@ -156,9 +156,9 @@ export default function RwsYearDashboard() {
         {/* Sub-modules Grid */}
         <div className="rws-dashboard-grid">
           
-          {/* Card 1: Selected Candidates */}
+          {/* Card 1: Participating Teams */}
           <Link 
-            href={`/rws/${yearStr}/selected-candidates`} 
+            href={`/rws/${yearStr}/participating-teams`} 
             className="portal-card"
             onMouseMove={handleMouseMove}
           >
@@ -175,11 +175,11 @@ export default function RwsYearDashboard() {
             <div className="portal-card-content">
               <span className="portal-card-badge">
                 <i className="fa-solid fa-user-check" />
-                Nominees
+                Participating Teams
               </span>
-              <h2>SELECTED CANDIDATES</h2>
+              <h2>PARTICIPATING TEAMS</h2>
               <p>
-                Inspect the elite managers and star players chosen to represent their teams in this season's world finals.
+                Inspect the elite clubs and representative managers competing in this season's world finals.
               </p>
               <div className="portal-card-action">
                 Inspect Roster <i className="fas fa-arrow-right" />
