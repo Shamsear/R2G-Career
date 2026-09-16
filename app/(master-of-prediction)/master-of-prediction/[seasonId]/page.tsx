@@ -9,7 +9,7 @@ import {
   WeeklyLeaderboard,
   ScoreMatrixEntry,
   PredictionDay,
-  PredictionSeason
+  PredictionSeason,
 } from "@/utils/solo/predictionServerActions";
 import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../portal.css";
@@ -30,7 +30,7 @@ export default function PredictionSeasonHub() {
   const [matrixEntries, setMatrixEntries] = useState<ScoreMatrixEntry[]>([]);
 
   // Active View Tabs
-  const [activeTab, setActiveTab] = useState<"overall" | "weekly" | "matrix" | "motw">("overall");
+  const [activeTab, setActiveTab] = useState<"standings" | "weekly" | "matrix" | "motw">("standings");
   const [selectedWeekNum, setSelectedWeekNum] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -59,7 +59,7 @@ export default function PredictionSeasonHub() {
         setWeeklyStandings(data.weeklyStandings || []);
         setMatrixEntries(data.matrixEntries || []);
 
-        document.title = `${data.season.name} | Standings`;
+        document.title = `${data.season.name} | Standings & Leaderboard`;
       } catch (err: any) {
         console.error(err);
         setError("Failed to load prediction standings.");
@@ -108,40 +108,49 @@ export default function PredictionSeasonHub() {
     );
   }, [matrixEntries, searchQuery]);
 
-  // Top 3 Podium
-  const top3 = useMemo(() => {
-    return overallStandings.slice(0, 3);
+  // Active top scorers (with points > 0)
+  const activeScorers = useMemo(() => {
+    return overallStandings.filter((m) => m.total_points > 0);
   }, [overallStandings]);
 
-  // Champion
+  // Top 3 Podium (only when points > 0)
+  const top3 = useMemo(() => {
+    return activeScorers.slice(0, 3);
+  }, [activeScorers]);
+
+  // Champion (Day 36 completed)
   const champion = useMemo(() => {
     if (overallStandings.length === 0) return null;
     const top = overallStandings[0];
     const isCompleted = (season?.completed_days || 0) >= 36 || season?.status === "completed";
-    return isCompleted ? top : null;
+    return isCompleted && top.total_points > 0 ? top : null;
   }, [overallStandings, season]);
+
+  // Current active week number (1 to 6)
+  const currentActiveWeek = useMemo(() => {
+    const done = season?.completed_days || 0;
+    return Math.min(6, Math.max(1, Math.ceil((done + 1) / 6)));
+  }, [season]);
 
   // Generate WhatsApp Share Text
   const generateWhatsAppText = () => {
     if (!season) return "";
     let text = `❇️ *${season.name.toUpperCase()}*\n`;
-    text += `📊 *STANDINGS AFTER DAY ${season.completed_days || 0} OF 36*\n\n`;
+    text += `📊 *STANDINGS AFTER DAY ${season.completed_days || 0} OF 36 (WEEK ${currentActiveWeek})*\n\n`;
 
     const displayStandings = overallStandings.slice(0, 15);
     displayStandings.forEach((m) => {
       const medal = m.rank === 1 ? "👑" : m.rank === 2 ? "🥈" : m.rank === 3 ? "🥉" : `${m.rank}.`;
-      text += `${medal} *${m.name}* (${m.r2g_id || `ID:${m.member_id}`}) - *${m.total_points} pts*\n`;
+      text += `${medal} *${m.name}* (${m.r2g_id || `ID:${m.member_id}`}) — *${m.total_points} pts*\n`;
     });
 
     if (overallStandings.length > 15) {
       text += `... and ${overallStandings.length - 15} more members\n`;
     }
 
-    // Include Week MOTW
-    const activeWeek = Math.min(6, Math.max(1, Math.ceil((season.completed_days || 1) / 6)));
-    const activeWeekObj = weeklyStandings.find((w) => w.week_number === activeWeek);
+    const activeWeekObj = weeklyStandings.find((w) => w.week_number === currentActiveWeek);
     if (activeWeekObj && activeWeekObj.motw) {
-      text += `\n🌟 *WEEK ${activeWeek} MOTW*: ${activeWeekObj.motw.name} (${activeWeekObj.motw.points} pts)\n`;
+      text += `\n🌟 *WEEK ${currentActiveWeek} MOTW*: ${activeWeekObj.motw.name} (${activeWeekObj.motw.points} pts)\n`;
     }
 
     text += `\n🌐 *Full Leaderboard & 36-Day Matrix*: ${typeof window !== "undefined" ? window.location.href : ""}`;
@@ -175,14 +184,17 @@ export default function PredictionSeasonHub() {
     return (
       <div className="portal-root-wrapper" style={{ minHeight: "100vh", padding: "4rem 1rem" }}>
         <div className="portal-bg-grid" />
-        <div className="portal-container" style={{ maxWidth: "700px", textAlign: "center" }}>
-          <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.02)" }}>
+        <div className="portal-glow-orb-1" />
+        <div className="portal-container" style={{ maxWidth: "800px", textAlign: "center", paddingTop: "5rem" }}>
+          <div className="portal-breadcrumb" style={{ textAlign: "left" }}>
+            <Link href="/master-of-prediction" className="portal-btn btn-secondary back-link-btn">
+              <i className="fas fa-arrow-left" /> Back to Seasons
+            </Link>
+          </div>
+          <div className="portal-card" style={{ padding: "3rem", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
             <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: "3rem", color: "#ef4444", marginBottom: "1.5rem" }} />
             <h2 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1rem" }}>Season Not Found</h2>
-            <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>{error}</p>
-            <Link href="/master-of-prediction" className="portal-btn btn-secondary" style={{ display: "inline-flex" }}>
-              <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Prediction Archives
-            </Link>
+            <p style={{ color: "var(--text-secondary)" }}>{error}</p>
           </div>
         </div>
       </div>
@@ -191,582 +203,570 @@ export default function PredictionSeasonHub() {
 
   const progressPct = Math.round(((season.completed_days || 0) / 36) * 100);
 
-  return (
-    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "6rem" }}>
-      <div className="portal-bg-grid" />
-      <div className="portal-glow-orb-1" />
-      <div className="portal-glow-orb-2" />
+  const TABS = [
+    { key: "standings", icon: "fa-solid fa-list-ol", label: "Standings" },
+    { key: "weekly", icon: "fa-solid fa-calendar-days", label: "Weekly" },
+    { key: "matrix", icon: "fa-solid fa-table-cells", label: "36-Day Matrix" },
+    { key: "motw", icon: "fa-solid fa-medal", label: "MOTW Honours" },
+  ];
 
-      <div className="portal-container" style={{ maxWidth: "1350px" }}>
+  return (
+    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "4rem" }}>
+      {/* Background ambient lighting */}
+      <div className="portal-bg-grid" />
+      <div className="portal-glow-orb-1" style={{ background: "radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%)" }} />
+      <div className="portal-glow-orb-2" style={{ background: "radial-gradient(circle, rgba(234, 179, 8, 0.12) 0%, transparent 70%)" }} />
+
+      <div className="portal-container" style={{ maxWidth: "1050px", width: "100%", padding: "1rem 1rem 2.5rem", gap: "0.85rem", alignItems: "stretch" }}>
         
-        {/* Navigation Breadcrumbs */}
-        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "1.5rem" }}>
-          <Link href="/master-of-prediction" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Seasons
+        {/* Navigation Breadcrumb Bar */}
+        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", margin: 0 }}>
+          <Link href="/master-of-prediction" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+            <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Seasons
           </Link>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={() => setShowShareModal(true)}
-              className="portal-btn btn-secondary"
+              className="portal-btn btn-secondary back-link-btn"
               style={{
-                borderColor: "rgba(37, 211, 102, 0.4)",
+                borderColor: "rgba(37, 211, 102, 0.35)",
                 color: "#25d366",
                 background: "rgba(37, 211, 102, 0.08)",
+                fontSize: "0.8rem",
+                padding: "6px 14px",
               }}
             >
               <i className="fa-brands fa-whatsapp" style={{ marginRight: "6px" }} />
-              Share Standings
+              Share Table
             </button>
 
             <Link
               href="/solo-tour/admin/prediction"
-              className="portal-btn btn-secondary"
-              style={{ borderColor: "rgba(234, 179, 8, 0.3)", color: "#fbbf24", background: "rgba(234, 179, 8, 0.05)" }}
+              className="portal-btn btn-secondary back-link-btn"
+              style={{
+                borderColor: "rgba(16, 185, 129, 0.25)",
+                color: "#10b981",
+                background: "rgba(16, 185, 129, 0.06)",
+                fontSize: "0.8rem",
+                padding: "6px 14px",
+              }}
             >
-              <i className="fa-solid fa-pen-to-square" style={{ marginRight: "6px" }} />
-              Admin Entry
+              <i className="fa-solid fa-user-gear" style={{ marginRight: "6px" }} />
+              Admin Console
             </Link>
           </div>
         </div>
 
         {/* Hero Section */}
-        <div className="rws-page-hero" style={{ marginBottom: "2rem" }}>
-          <div className="portal-page-badge" style={{ borderColor: "rgba(234, 179, 8, 0.4)", color: "#fbbf24" }}>
+        <div className="rws-page-hero" style={{ padding: "0.25rem 0 0.5rem" }}>
+          <div className="portal-page-badge" style={{ marginBottom: "0.4rem" }}>
             <i className="fa-solid fa-crown" />
-            Season {season.season_number} Championship
+            Special Tour Series // Season 0{season.season_number}
           </div>
-          <h1 className="rws-hero-title">
+          <h1 className="rws-hero-title" style={{ fontSize: "2rem", margin: 0 }}>
             {season.name.toUpperCase()}
           </h1>
-          <p className="rws-hero-sub">
-            36 Days • 6 Weeks • Real-time leaderboard, weekly MOTW honors, and 36-day round performance matrix.
+          <p className="rws-hero-sub" style={{ marginTop: "0.35rem", fontSize: "0.82rem" }}>
+            Track points standings, 6-week matchday breakdowns, weekly MOTW medals, and round performance matrix.
           </p>
         </div>
 
-        {/* Champion / Season Progress Banner */}
-        {champion ? (
-          /* Season Champion Banner */
+        {/* ═══════════════════ SEGMENTED TAB BAR ═══════════════════ */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.5rem",
+            margin: 0,
+          }}
+        >
           <div
-            className="portal-card"
             style={{
-              padding: "2rem",
-              marginBottom: "2rem",
-              background: "linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(168, 85, 247, 0.15))",
-              border: "2px solid #eab308",
-              boxShadow: "0 0 35px rgba(234, 179, 8, 0.3)",
-              textAlign: "center",
-              position: "relative",
-              overflow: "hidden",
+              display: "inline-flex",
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              borderRadius: "12px",
+              padding: "4px",
+              gap: "4px",
             }}
           >
-            <div style={{ fontSize: "0.85rem", fontWeight: 900, color: "#eab308", letterSpacing: "2px", textTransform: "uppercase", marginBottom: "0.5rem" }}>
-              🏆 SEASON {season.season_number} CROWN CHAMPION 🏆
-            </div>
-            <h2 style={{ fontSize: "2.5rem", fontWeight: 900, color: "#fff", margin: "0 0 0.5rem 0", textShadow: "0 0 20px rgba(234, 179, 8, 0.6)" }}>
-              {champion.name}
-            </h2>
-            <div style={{ fontSize: "1.2rem", color: "#eab308", fontWeight: 800, marginBottom: "1rem" }}>
-              {champion.total_points} Total Points across 36 Days
-            </div>
-            <p style={{ color: "rgba(255, 255, 255, 0.8)", maxWidth: "600px", margin: "0 auto", fontSize: "0.9rem" }}>
-              Crowned Champion of Road to Glory Master of Prediction Season {season.season_number} by dominating the 36-day campaign!
-            </p>
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as any)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "7px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.82rem",
+                    fontWeight: isActive ? 700 : 500,
+                    fontFamily: "var(--font-display)",
+                    background: isActive ? "linear-gradient(135deg, #a855f7, #7c3aed)" : "transparent",
+                    color: isActive ? "#fff" : "rgba(255, 255, 255, 0.45)",
+                    boxShadow: isActive ? "0 4px 16px rgba(168, 85, 247, 0.3)" : "none",
+                    transition: "all 0.25s ease",
+                  }}
+                >
+                  <i className={tab.icon} style={{ fontSize: "0.75rem" }} /> {tab.label}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          /* Season Progress Ribbon */
-          <div
-            className="portal-card"
-            style={{
-              padding: "1.5rem 2rem",
-              marginBottom: "2rem",
-              background: "rgba(15, 23, 42, 0.6)",
-              border: "1px solid rgba(234, 179, 8, 0.2)",
-            }}
-          >
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-              <div>
-                <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "1px" }}>
-                  Campaign Progress
-                </span>
-                <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", margin: "2px 0 0 0" }}>
-                  Day {season.completed_days || 0} of 36 Completed
-                </h3>
-              </div>
+        </div>
 
-              {top3.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Current Leader:</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(234, 179, 8, 0.12)", padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(234, 179, 8, 0.3)" }}>
-                    <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
-                    <span style={{ fontWeight: 800, color: "#fff" }}>{top3[0].name}</span>
-                    <span style={{ fontWeight: 900, color: "#eab308" }}>({top3[0].total_points} pts)</span>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Campaign Progress Ribbon */}
+        <div
+          style={{
+            background: "rgba(255, 255, 255, 0.02)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            borderRadius: "12px",
+            padding: "0.65rem 1.25rem",
+            margin: 0,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 10px #22c55e" }} />
+            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#fff", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "1px" }}>
+              36 Days • 6 Weeks Campaign
+            </span>
+          </div>
 
-            {/* Progress Bar */}
-            <div style={{ width: "100%", height: "8px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.4)" }}>
+              {season.completed_days || 0} / 36 Days Completed ({progressPct}%)
+            </span>
+            <div style={{ width: "100px", height: "5px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
               <div
                 style={{
                   width: `${progressPct}%`,
                   height: "100%",
-                  background: "linear-gradient(90deg, #eab308, #fbbf24)",
+                  background: "linear-gradient(90deg, #a855f7, #c084fc)",
                   borderRadius: "10px",
-                  transition: "width 0.5s ease",
                 }}
               />
             </div>
           </div>
-        )}
-
-        {/* Top 3 Podium Cards (Live Preview) */}
-        {top3.length >= 3 && !champion && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: "1.25rem",
-              marginBottom: "2rem",
-            }}
-          >
-            {/* Rank 2 (Silver) */}
-            <div
-              className="portal-card"
-              style={{
-                padding: "1.5rem",
-                textAlign: "center",
-                background: "rgba(148, 163, 184, 0.06)",
-                border: "1px solid rgba(148, 163, 184, 0.3)",
-              }}
-            >
-              <div style={{ fontSize: "2rem", color: "#94a3b8", marginBottom: "0.5rem" }}>🥈 #2</div>
-              <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#fff", margin: "0 0 4px 0" }}>{top3[1].name}</h3>
-              <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: "0.75rem" }}>{top3[1].r2g_id}</div>
-              <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#fff" }}>{top3[1].total_points} pts</div>
-            </div>
-
-            {/* Rank 1 (Gold Leader) */}
-            <div
-              className="portal-card"
-              style={{
-                padding: "1.75rem 1.5rem",
-                textAlign: "center",
-                background: "linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(168, 85, 247, 0.08))",
-                border: "2px solid rgba(234, 179, 8, 0.6)",
-                boxShadow: "0 0 25px rgba(234, 179, 8, 0.2)",
-                transform: "scale(1.02)",
-              }}
-            >
-              <div style={{ fontSize: "2.2rem", color: "#eab308", marginBottom: "0.5rem" }}>👑 #1</div>
-              <h3 style={{ fontSize: "1.4rem", fontWeight: 900, color: "#fff", margin: "0 0 4px 0" }}>{top3[0].name}</h3>
-              <div style={{ fontSize: "0.85rem", color: "#fbbf24", marginBottom: "0.75rem" }}>{top3[0].r2g_id}</div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#eab308" }}>{top3[0].total_points} pts</div>
-            </div>
-
-            {/* Rank 3 (Bronze) */}
-            <div
-              className="portal-card"
-              style={{
-                padding: "1.5rem",
-                textAlign: "center",
-                background: "rgba(217, 119, 6, 0.06)",
-                border: "1px solid rgba(217, 119, 6, 0.3)",
-              }}
-            >
-              <div style={{ fontSize: "2rem", color: "#cd7f32", marginBottom: "0.5rem" }}>🥉 #3</div>
-              <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#fff", margin: "0 0 4px 0" }}>{top3[2].name}</h3>
-              <div style={{ fontSize: "0.8rem", color: "#cd7f32", marginBottom: "0.75rem" }}>{top3[2].r2g_id}</div>
-              <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#fff" }}>{top3[2].total_points} pts</div>
-            </div>
-          </div>
-        )}
-
-        {/* View Navigation Tabs */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "1rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              onClick={() => setActiveTab("overall")}
-              style={{
-                padding: "10px 18px",
-                borderRadius: "10px",
-                border: activeTab === "overall" ? "1.5px solid #fbbf24" : "1px solid rgba(255, 255, 255, 0.1)",
-                background: activeTab === "overall" ? "rgba(234, 179, 8, 0.2)" : "rgba(15, 23, 42, 0.6)",
-                color: activeTab === "overall" ? "#fbbf24" : "var(--text-secondary)",
-                fontWeight: 800,
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <i className="fa-solid fa-trophy" style={{ marginRight: "6px" }} />
-              Overall Standings ({overallStandings.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab("weekly")}
-              style={{
-                padding: "10px 18px",
-                borderRadius: "10px",
-                border: activeTab === "weekly" ? "1.5px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.1)",
-                background: activeTab === "weekly" ? "rgba(56, 189, 248, 0.2)" : "rgba(15, 23, 42, 0.6)",
-                color: activeTab === "weekly" ? "#38bdf8" : "var(--text-secondary)",
-                fontWeight: 800,
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <i className="fa-solid fa-calendar-week" style={{ marginRight: "6px" }} />
-              Weekly Breakdown &amp; MOTW
-            </button>
-
-            <button
-              onClick={() => setActiveTab("matrix")}
-              style={{
-                padding: "10px 18px",
-                borderRadius: "10px",
-                border: activeTab === "matrix" ? "1.5px solid #c084fc" : "1px solid rgba(255, 255, 255, 0.1)",
-                background: activeTab === "matrix" ? "rgba(168, 85, 247, 0.2)" : "rgba(15, 23, 42, 0.6)",
-                color: activeTab === "matrix" ? "#c084fc" : "var(--text-secondary)",
-                fontWeight: 800,
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <i className="fa-solid fa-table-cells" style={{ marginRight: "6px" }} />
-              36-Day Full Matrix
-            </button>
-
-            <button
-              onClick={() => setActiveTab("motw")}
-              style={{
-                padding: "10px 18px",
-                borderRadius: "10px",
-                border: activeTab === "motw" ? "1.5px solid #eab308" : "1px solid rgba(255, 255, 255, 0.1)",
-                background: activeTab === "motw" ? "rgba(234, 179, 8, 0.2)" : "rgba(15, 23, 42, 0.6)",
-                color: activeTab === "motw" ? "#eab308" : "var(--text-secondary)",
-                fontWeight: 800,
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <i className="fa-solid fa-award" style={{ marginRight: "6px" }} />
-              MOTW Honours (6 Weeks)
-            </button>
-          </div>
-
-          {/* Search Box */}
-          <div style={{ position: "relative", width: "100%", maxWidth: "320px" }}>
-            <i
-              className="fa-solid fa-magnifying-glass"
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-secondary)",
-              }}
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search member name or ID..."
-              style={{
-                width: "100%",
-                padding: "8px 12px 8px 36px",
-                background: "rgba(30, 41, 59, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "8px",
-                color: "#fff",
-                fontSize: "0.9rem",
-              }}
-            />
-          </div>
         </div>
 
-        {/* TAB 1: OVERALL STANDINGS TABLE */}
-        {activeTab === "overall" && (
+        {/* ═══════════════════════ TABLE TOOLBAR & SEARCH BAR (PERFECTLY ALIGNED) ═══════════════════════ */}
+        {activeTab !== "motw" && (
           <div
-            className="portal-card"
             style={{
-              padding: "0",
-              overflow: "hidden",
-              background: "rgba(15, 23, 42, 0.7)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              margin: 0,
             }}
           >
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                <thead>
-                  <tr
-                    style={{
-                      background: "rgba(0, 0, 0, 0.3)",
-                      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                      color: "var(--text-secondary)",
-                      fontSize: "0.75rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
-                    }}
-                  >
-                    <th style={{ padding: "14px 18px", width: "70px", textAlign: "center" }}>Rank</th>
-                    <th style={{ padding: "14px 18px" }}>Member</th>
-                    <th style={{ padding: "14px 18px", textAlign: "center" }}>Days Scored</th>
-                    <th style={{ padding: "14px 18px", textAlign: "center" }}>Avg / Day</th>
-                    <th style={{ padding: "14px 18px", textAlign: "center" }}>Best Day</th>
-                    <th style={{ padding: "14px 18px", textAlign: "center" }}>Recent Form</th>
-                    <th style={{ padding: "14px 18px", textAlign: "right", width: "140px" }}>Total Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOverall.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ padding: "3rem", textAlign: "center", color: "var(--text-secondary)" }}>
-                        No members matching filter.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredOverall.map((row) => {
-                      const isRank1 = row.rank === 1;
-                      const isRank2 = row.rank === 2;
-                      const isRank3 = row.rank === 3;
+            {/* Left: Section Sub-Header & Member Count */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  color: "#fff",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.75px",
+                }}
+              >
+                {activeTab === "standings"
+                  ? "Overall Standings"
+                  : activeTab === "weekly"
+                  ? `Week ${selectedWeekNum} Standings`
+                  : "36-Day Score Matrix"}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  color: "rgba(255, 255, 255, 0.4)",
+                  background: "rgba(255, 255, 255, 0.04)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                {activeTab === "standings"
+                  ? `${filteredOverall.length} Members`
+                  : activeTab === "weekly"
+                  ? `${filteredWeeklyMembers.length} Members`
+                  : `${filteredMatrix.length} Members`}
+              </span>
+            </div>
 
-                      return (
-                        <tr
-                          key={row.member_id}
-                          style={{
-                            borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-                            background: isRank1
-                              ? "rgba(234, 179, 8, 0.08)"
-                              : isRank2
-                              ? "rgba(148, 163, 184, 0.04)"
-                              : isRank3
-                              ? "rgba(217, 119, 6, 0.04)"
-                              : "transparent",
-                            transition: "background 0.15s ease",
-                          }}
-                        >
-                          {/* Rank */}
-                          <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: 900, fontSize: "1rem" }}>
-                            {isRank1 ? (
-                              <span style={{ color: "#eab308" }}>👑 1</span>
-                            ) : isRank2 ? (
-                              <span style={{ color: "#94a3b8" }}>🥈 2</span>
-                            ) : isRank3 ? (
-                              <span style={{ color: "#cd7f32" }}>🥉 3</span>
-                            ) : (
-                              <span style={{ color: "var(--text-secondary)" }}>#{row.rank}</span>
-                            )}
-                          </td>
-
-                          {/* Member Photo & Name */}
-                          <td style={{ padding: "14px 18px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                              <div
-                                style={{
-                                  width: "38px",
-                                  height: "38px",
-                                  borderRadius: "50%",
-                                  background: "rgba(168, 85, 247, 0.15)",
-                                  border: "1.5px solid rgba(168, 85, 247, 0.3)",
-                                  overflow: "hidden",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {row.photo ? (
-                                  <img
-                                    src={row.photo}
-                                    alt={row.name}
-                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                    onError={(e) => {
-                                      (e.target as any).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <i className="fa-solid fa-user" style={{ color: "#c084fc", fontSize: "0.95rem" }} />
-                                )}
-                              </div>
-                              <div>
-                                <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#fff" }}>
-                                  {row.name}
-                                </div>
-                                {row.r2g_id && (
-                                  <div style={{ fontSize: "0.75rem", color: "#c084fc", fontWeight: 700 }}>
-                                    {row.r2g_id}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Days Scored */}
-                          <td style={{ padding: "14px 18px", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                            {row.days_played} / 36
-                          </td>
-
-                          {/* Avg Points */}
-                          <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: 700, color: "#fff", fontSize: "0.9rem" }}>
-                            {row.avg_points}
-                          </td>
-
-                          {/* Max Day Score */}
-                          <td style={{ padding: "14px 18px", textAlign: "center", color: "#10b981", fontWeight: 700, fontSize: "0.9rem" }}>
-                            {row.max_day_points > 0 ? `+${row.max_day_points}` : "-"}
-                          </td>
-
-                          {/* Recent Form */}
-                          <td style={{ padding: "14px 18px", textAlign: "center" }}>
-                            <div style={{ display: "flex", justifyContent: "center", gap: "4px" }}>
-                              {row.recent_form && row.recent_form.length > 0 ? (
-                                row.recent_form.map((f, i) => (
-                                  <span
-                                    key={i}
-                                    style={{
-                                      padding: "2px 6px",
-                                      borderRadius: "4px",
-                                      background: f > 0 ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.05)",
-                                      color: f > 0 ? "#10b981" : "var(--text-secondary)",
-                                      fontSize: "0.75rem",
-                                      fontWeight: 800,
-                                    }}
-                                  >
-                                    {f}
-                                  </span>
-                                ))
-                              ) : (
-                                <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>-</span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Total Points */}
-                          <td
-                            style={{
-                              padding: "14px 18px",
-                              textAlign: "right",
-                              fontWeight: 900,
-                              fontSize: "1.2rem",
-                              color: isRank1 ? "#eab308" : isRank2 ? "#94a3b8" : isRank3 ? "#cd7f32" : "#fff",
-                            }}
-                          >
-                            {row.total_points}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            {/* Right: Modern Aligned Search Input */}
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "290px",
+              }}
+            >
+              <i
+                className="fa-solid fa-magnifying-glass"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "rgba(255, 255, 255, 0.35)",
+                  fontSize: "0.8rem",
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search member name or ID..."
+                style={{
+                  width: "100%",
+                  padding: "8px 32px 8px 34px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "0.82rem",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  backdropFilter: "blur(10px)",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "rgba(168, 85, 247, 0.5)";
+                  e.target.style.background = "rgba(255, 255, 255, 0.06)";
+                  e.target.style.boxShadow = "0 0 12px rgba(168, 85, 247, 0.2)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                  e.target.style.background = "rgba(255, 255, 255, 0.03)";
+                  e.target.style.boxShadow = "none";
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.4)",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    padding: "2px",
+                  }}
+                  title="Clear search"
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* TAB 2: WEEKLY BREAKDOWN */}
-        {activeTab === "weekly" && (
-          <div>
-            {/* Week Selector Chips */}
-            <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-              {[1, 2, 3, 4, 5, 6].map((w) => {
-                const isSel = selectedWeekNum === w;
-                const weekObj = weeklyStandings.find((ws) => ws.week_number === w);
+        {/* ═══════════════════════ TAB 1 — STANDINGS ═══════════════════════ */}
+        {activeTab === "standings" && (
+          <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%" }}>
+            {filteredOverall.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "3rem 1.5rem",
+                  color: "rgba(255, 255, 255, 0.35)",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(255, 255, 255, 0.04)",
+                }}
+              >
+                <i className="fa-solid fa-chart-bar" style={{ fontSize: "1.75rem", marginBottom: "0.75rem", display: "block", opacity: 0.3 }} />
+                No prediction standings data found.
+              </div>
+            ) : (
+              <div
+                style={{
+                  background: "rgba(255, 255, 255, 0.02)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: "14px",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: "650px" }}>
+                    <thead>
+                      <tr
+                        style={{
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                          color: "rgba(255, 255, 255, 0.35)",
+                          fontSize: "0.68rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.75px",
+                          fontFamily: "var(--font-display)",
+                        }}
+                      >
+                        <th style={{ padding: "0.65rem 0.85rem", textAlign: "left", width: "45px" }}>Pos</th>
+                        <th style={{ padding: "0.65rem 0.85rem", textAlign: "left" }}>Participant Manager</th>
+                        <th style={{ padding: "0.65rem 0.65rem", textAlign: "center", width: "95px" }}>Days Played</th>
+                        <th style={{ padding: "0.65rem 0.65rem", textAlign: "center", width: "85px" }}>Avg / Day</th>
+                        <th style={{ padding: "0.65rem 0.65rem", textAlign: "center", width: "75px" }}>Best Day</th>
+                        <th style={{ padding: "0.65rem 0.65rem", textAlign: "center", width: "110px" }}>Form</th>
+                        <th style={{ padding: "0.65rem 1rem", textAlign: "right", width: "85px" }}>Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOverall.map((row) => {
+                        const isRank1 = row.rank === 1 && row.total_points > 0;
+                        const isRank2 = row.rank === 2 && row.total_points > 0;
+                        const isRank3 = row.rank === 3 && row.total_points > 0;
+                        const rankColor = isRank1 ? "#eab308" : isRank2 ? "#cbd5e1" : isRank3 ? "#cd7f32" : "rgba(255,255,255,0.4)";
 
-                return (
-                  <button
-                    key={w}
-                    onClick={() => setSelectedWeekNum(w)}
-                    style={{
-                      flex: "1 0 auto",
-                      minWidth: "150px",
-                      padding: "12px 18px",
-                      borderRadius: "12px",
-                      border: isSel ? "1.5px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.08)",
-                      background: isSel ? "rgba(56, 189, 248, 0.2)" : "rgba(15, 23, 42, 0.6)",
-                      color: isSel ? "#38bdf8" : "#fff",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    <div style={{ fontSize: "0.75rem", color: isSel ? "#38bdf8" : "var(--text-secondary)", fontWeight: 800, textTransform: "uppercase" }}>
-                      Days {(w - 1) * 6 + 1} – {w * 6}
-                    </div>
-                    <div style={{ fontSize: "1.1rem", fontWeight: 900, margin: "2px 0" }}>
-                      WEEK {w}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                      {weekObj?.completed_days || 0} / 6 Days Done
-                    </div>
-                  </button>
-                );
-              })}
+                        return (
+                          <tr
+                            key={row.member_id}
+                            style={{
+                              borderTop: "1px solid rgba(255, 255, 255, 0.03)",
+                              background: isRank1 ? "rgba(234, 179, 8, 0.04)" : "transparent",
+                              transition: "background 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)")}
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = isRank1 ? "rgba(234, 179, 8, 0.04)" : "transparent")
+                            }
+                          >
+                            {/* Pos */}
+                            <td style={{ padding: "0.6rem 0.85rem" }}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: "22px",
+                                  height: "22px",
+                                  borderRadius: "5px",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 800,
+                                  background: isRank1
+                                    ? "rgba(234, 179, 8, 0.15)"
+                                    : isRank2
+                                    ? "rgba(148, 163, 184, 0.12)"
+                                    : isRank3
+                                    ? "rgba(217, 119, 6, 0.12)"
+                                    : "rgba(255, 255, 255, 0.04)",
+                                  color: rankColor,
+                                }}
+                              >
+                                {row.rank}
+                              </span>
+                            </td>
+
+                            {/* Manager */}
+                            <td style={{ padding: "0.6rem 0.85rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+                                <div
+                                  style={{
+                                    width: "26px",
+                                    height: "26px",
+                                    borderRadius: "50%",
+                                    background: "rgba(168, 85, 247, 0.15)",
+                                    border: isRank1 ? "1.5px solid #eab308" : "1px solid rgba(255, 255, 255, 0.1)",
+                                    overflow: "hidden",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {row.photo ? (
+                                    <img
+                                      src={row.photo}
+                                      alt={row.name}
+                                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                      onError={(e) => {
+                                        (e.target as any).style.display = "none";
+                                      }}
+                                    />
+                                  ) : (
+                                    <i className="fa-solid fa-user" style={{ color: "#c084fc", fontSize: "0.7rem" }} />
+                                  )}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.82rem" }}>
+                                    {row.name}
+                                  </div>
+                                  {row.r2g_id && (
+                                    <div style={{ fontSize: "0.65rem", color: "#c084fc", fontWeight: 600 }}>
+                                      {row.r2g_id}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Days Played */}
+                            <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: "rgba(255, 255, 255, 0.5)", fontSize: "0.78rem" }}>
+                              {row.days_played} / 36
+                            </td>
+
+                            {/* Avg */}
+                            <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: "#fff", fontWeight: 600, fontSize: "0.78rem" }}>
+                              {row.avg_points}
+                            </td>
+
+                            {/* Best */}
+                            <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: row.max_day_points > 0 ? "#86efac" : "rgba(255, 255, 255, 0.3)", fontWeight: 700, fontSize: "0.78rem" }}>
+                              {row.max_day_points > 0 ? `+${row.max_day_points}` : "-"}
+                            </td>
+
+                            {/* Form */}
+                            <td style={{ padding: "0.6rem 0.65rem", textAlign: "center" }}>
+                              <div style={{ display: "flex", justifyContent: "center", gap: "3px" }}>
+                                {row.recent_form && row.recent_form.length > 0 ? (
+                                  row.recent_form.map((f, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        padding: "1px 4px",
+                                        borderRadius: "3px",
+                                        background: f > 0 ? "rgba(34, 197, 94, 0.15)" : "rgba(255, 255, 255, 0.04)",
+                                        color: f > 0 ? "#86efac" : "rgba(255, 255, 255, 0.3)",
+                                        fontSize: "0.65rem",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {f}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: "rgba(255, 255, 255, 0.25)", fontSize: "0.68rem" }}>-</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Points */}
+                            <td
+                              style={{
+                                padding: "0.6rem 1rem",
+                                textAlign: "right",
+                                fontWeight: 800,
+                                fontSize: "0.95rem",
+                                color: isRank1 ? "#eab308" : "#fff",
+                              }}
+                            >
+                              {row.total_points}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════ TAB 2 — WEEKLY ═══════════════════════ */}
+        {activeTab === "weekly" && (
+          <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {/* Week Sub-Tab Bar */}
+            <div style={{ display: "flex", justifyContent: "center", margin: 0 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: "10px",
+                  padding: "3px",
+                  gap: "3px",
+                  overflowX: "auto",
+                }}
+              >
+                {[1, 2, 3, 4, 5, 6].map((w) => {
+                  const isSel = selectedWeekNum === w;
+                  const weekObj = weeklyStandings.find((ws) => ws.week_number === w);
+
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setSelectedWeekNum(w)}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "7px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: isSel ? 700 : 500,
+                        fontFamily: "var(--font-display)",
+                        background: isSel ? "linear-gradient(135deg, #38bdf8, #0284c7)" : "transparent",
+                        color: isSel ? "#fff" : "rgba(255, 255, 255, 0.45)",
+                        boxShadow: isSel ? "0 4px 12px rgba(56, 189, 248, 0.25)" : "none",
+                        transition: "all 0.2s ease",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Week {w} {weekObj?.is_completed && <i className="fa-solid fa-check" style={{ marginLeft: "4px", fontSize: "0.65rem" }} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Current Week MOTW Highlight Card */}
-            {currentWeekData?.motw && (
+            {/* Current Week MOTW Feature Card */}
+            {currentWeekData?.motw && currentWeekData.motw.points > 0 && (
               <div
-                className="portal-card"
                 style={{
-                  padding: "1.5rem 2rem",
-                  marginBottom: "1.5rem",
-                  background: "linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(56, 189, 248, 0.1))",
-                  border: "1.5px solid rgba(234, 179, 8, 0.5)",
-                  boxShadow: "0 0 25px rgba(234, 179, 8, 0.2)",
+                  background: "linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(168, 85, 247, 0.05))",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(234, 179, 8, 0.35)",
+                  borderRadius: "12px",
+                  padding: "0.85rem 1.25rem",
+                  margin: 0,
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: "1rem",
+                  gap: "0.75rem",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div
-                    style={{
-                      width: "56px",
-                      height: "56px",
-                      borderRadius: "50%",
-                      background: "rgba(234, 179, 8, 0.2)",
-                      border: "2px solid #eab308",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1.6rem",
-                      color: "#eab308",
-                    }}
-                  >
-                    <i className="fa-solid fa-medal" />
-                  </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <i className="fa-solid fa-medal" style={{ fontSize: "1.4rem", color: "#eab308" }} />
                   <div>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 900, color: "#eab308", letterSpacing: "1px", textTransform: "uppercase" }}>
+                    <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "#eab308", textTransform: "uppercase", letterSpacing: "1px" }}>
                       👑 WEEK {selectedWeekNum} MOTW (Top Scorer)
                     </span>
-                    <h3 style={{ fontSize: "1.5rem", fontWeight: 900, color: "#fff", margin: "2px 0 0 0" }}>
+                    <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#fff", margin: "1px 0 0 0" }}>
                       {currentWeekData.motw.name}
                     </h3>
-                    <span style={{ fontSize: "0.8rem", color: "#fbbf24", fontWeight: 700 }}>
-                      {currentWeekData.motw.r2g_id}
-                    </span>
                   </div>
                 </div>
 
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Week {selectedWeekNum} Points</div>
-                  <div style={{ fontSize: "2rem", fontWeight: 900, color: "#eab308" }}>
+                  <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>Week {selectedWeekNum} Points</div>
+                  <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#eab308" }}>
                     {currentWeekData.motw.points} pts
                   </div>
                 </div>
@@ -775,37 +775,37 @@ export default function PredictionSeasonHub() {
 
             {/* Week Standings Table */}
             <div
-              className="portal-card"
               style={{
-                padding: "0",
+                background: "rgba(255, 255, 255, 0.02)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "14px",
                 overflow: "hidden",
-                background: "rgba(15, 23, 42, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
               }}
             >
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: "500px" }}>
                   <thead>
                     <tr
                       style={{
-                        background: "rgba(0, 0, 0, 0.3)",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                        color: "var(--text-secondary)",
-                        fontSize: "0.75rem",
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                        color: "rgba(255, 255, 255, 0.35)",
+                        fontSize: "0.68rem",
                         textTransform: "uppercase",
-                        letterSpacing: "1px",
+                        letterSpacing: "0.75px",
+                        fontFamily: "var(--font-display)",
                       }}
                     >
-                      <th style={{ padding: "14px 18px", width: "70px", textAlign: "center" }}>Rank</th>
-                      <th style={{ padding: "14px 18px" }}>Member</th>
-                      <th style={{ padding: "14px 18px", textAlign: "center" }}>Days Scored in Week</th>
-                      <th style={{ padding: "14px 18px", textAlign: "right" }}>Week {selectedWeekNum} Points</th>
+                      <th style={{ padding: "0.65rem 0.85rem", textAlign: "left", width: "45px" }}>Pos</th>
+                      <th style={{ padding: "0.65rem 0.85rem", textAlign: "left" }}>Participant Manager</th>
+                      <th style={{ padding: "0.65rem 0.65rem", textAlign: "center", width: "110px" }}>Days Scored</th>
+                      <th style={{ padding: "0.65rem 1rem", textAlign: "right", width: "95px" }}>Week Points</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredWeeklyMembers.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={{ padding: "3rem", textAlign: "center", color: "var(--text-secondary)" }}>
+                        <td colSpan={4} style={{ padding: "2.5rem", textAlign: "center", color: "rgba(255, 255, 255, 0.35)" }}>
                           No points recorded yet for Week {selectedWeekNum}.
                         </td>
                       </tr>
@@ -814,36 +814,53 @@ export default function PredictionSeasonHub() {
                         <tr
                           key={row.member_id}
                           style={{
-                            borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-                            background: row.rank === 1 && row.points > 0 ? "rgba(234, 179, 8, 0.08)" : "transparent",
+                            borderTop: "1px solid rgba(255, 255, 255, 0.03)",
+                            background: row.rank === 1 && row.points > 0 ? "rgba(234, 179, 8, 0.04)" : "transparent",
+                            transition: "background 0.2s ease",
                           }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)")}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background =
+                              row.rank === 1 && row.points > 0 ? "rgba(234, 179, 8, 0.04)" : "transparent")
+                          }
                         >
-                          <td style={{ padding: "14px 18px", textAlign: "center", fontWeight: 900 }}>
-                            {row.rank === 1 && row.points > 0 ? (
-                              <span style={{ color: "#eab308" }}>👑 1</span>
-                            ) : (
-                              <span style={{ color: "var(--text-secondary)" }}>#{row.rank}</span>
-                            )}
+                          <td style={{ padding: "0.6rem 0.85rem" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "22px",
+                                height: "22px",
+                                borderRadius: "5px",
+                                fontSize: "0.7rem",
+                                fontWeight: 800,
+                                background: row.rank === 1 && row.points > 0 ? "rgba(234, 179, 8, 0.15)" : "rgba(255, 255, 255, 0.04)",
+                                color: row.rank === 1 && row.points > 0 ? "#eab308" : "rgba(255, 255, 255, 0.4)",
+                              }}
+                            >
+                              {row.rank}
+                            </span>
                           </td>
-                          <td style={{ padding: "14px 18px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <span style={{ fontWeight: 700, color: "#fff" }}>{row.name}</span>
+                          <td style={{ padding: "0.6rem 0.85rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontWeight: 700, color: "#fff", fontSize: "0.82rem" }}>{row.name}</span>
                               {row.r2g_id && (
-                                <span style={{ fontSize: "0.75rem", color: "#c084fc", fontWeight: 700 }}>
+                                <span style={{ fontSize: "0.65rem", color: "#c084fc", fontWeight: 600 }}>
                                   ({row.r2g_id})
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: "14px 18px", textAlign: "center", color: "var(--text-secondary)" }}>
+                          <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: "rgba(255, 255, 255, 0.5)", fontSize: "0.78rem" }}>
                             {row.days_played} / 6
                           </td>
                           <td
                             style={{
-                              padding: "14px 18px",
+                              padding: "0.6rem 1rem",
                               textAlign: "right",
-                              fontWeight: 900,
-                              fontSize: "1.1rem",
+                              fontWeight: 800,
+                              fontSize: "0.95rem",
                               color: row.rank === 1 && row.points > 0 ? "#eab308" : "#fff",
                             }}
                           >
@@ -859,167 +876,180 @@ export default function PredictionSeasonHub() {
           </div>
         )}
 
-        {/* TAB 3: 36-DAY FULL MATRIX */}
+        {/* ═══════════════════════ TAB 3 — 36-DAY FULL MATRIX ═══════════════════════ */}
         {activeTab === "matrix" && (
-          <div
-            className="portal-card"
-            style={{
-              padding: "0",
-              overflow: "hidden",
-              background: "rgba(15, 23, 42, 0.7)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-              <table style={{ borderCollapse: "collapse", textAlign: "center", fontSize: "0.8rem", width: "max-content" }}>
-                <thead>
-                  {/* Super Header: Weeks 1 to 6 */}
-                  <tr style={{ background: "rgba(0, 0, 0, 0.5)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
-                    <th
-                      style={{
-                        padding: "10px 14px",
-                        position: "sticky",
-                        left: 0,
-                        background: "#0b0f19",
-                        zIndex: 3,
-                        textAlign: "left",
-                        minWidth: "160px",
-                      }}
-                    >
-                      Member
-                    </th>
-                    {[1, 2, 3, 4, 5, 6].map((w) => (
+          <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%" }}>
+            <div
+              style={{
+                background: "rgba(255, 255, 255, 0.02)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "14px",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                <table style={{ borderCollapse: "collapse", textAlign: "center", fontSize: "0.78rem", width: "max-content" }}>
+                  <thead>
+                    {/* Super Header: Weeks 1 to 6 */}
+                    <tr style={{ background: "rgba(0, 0, 0, 0.5)", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
                       <th
-                        key={w}
-                        colSpan={6}
                         style={{
-                          padding: "8px",
-                          borderLeft: "2px solid rgba(255, 255, 255, 0.15)",
-                          color: "#38bdf8",
-                          fontWeight: 800,
-                          fontSize: "0.75rem",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        Week {w} (Days {(w - 1) * 6 + 1}–{w * 6})
-                      </th>
-                    ))}
-                    <th
-                      style={{
-                        padding: "10px 16px",
-                        position: "sticky",
-                        right: 0,
-                        background: "#0b0f19",
-                        zIndex: 3,
-                        color: "#eab308",
-                        fontWeight: 900,
-                        borderLeft: "2px solid rgba(255, 255, 255, 0.2)",
-                      }}
-                    >
-                      Total
-                    </th>
-                  </tr>
-
-                  {/* Sub Header: Days 1 to 36 */}
-                  <tr style={{ background: "rgba(0, 0, 0, 0.3)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", color: "var(--text-secondary)", fontSize: "0.7rem" }}>
-                    <th style={{ padding: "8px 14px", position: "sticky", left: 0, background: "#0b0f19", zIndex: 3, textAlign: "left" }}>
-                      Name (R2G ID)
-                    </th>
-                    {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => (
-                      <th
-                        key={d}
-                        style={{
-                          padding: "6px 8px",
-                          minWidth: "36px",
-                          borderLeft: d % 6 === 1 ? "2px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(255, 255, 255, 0.04)",
-                        }}
-                      >
-                        D{d}
-                      </th>
-                    ))}
-                    <th style={{ padding: "8px 16px", position: "sticky", right: 0, background: "#0b0f19", zIndex: 3, borderLeft: "2px solid rgba(255, 255, 255, 0.2)" }}>
-                      PTS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMatrix.map((row) => (
-                    <tr
-                      key={row.member_id}
-                      style={{
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-                        background: row.rank === 1 ? "rgba(234, 179, 8, 0.05)" : "transparent",
-                      }}
-                    >
-                      {/* Sticky Name */}
-                      <td
-                        style={{
-                          padding: "10px 14px",
+                          padding: "8px 12px",
                           position: "sticky",
                           left: 0,
                           background: "#0b0f19",
-                          zIndex: 2,
+                          zIndex: 3,
                           textAlign: "left",
-                          fontWeight: 700,
-                          color: "#fff",
-                          whiteSpace: "nowrap",
+                          minWidth: "150px",
+                          fontFamily: "var(--font-display)",
+                          fontSize: "0.7rem",
+                          color: "rgba(255,255,255,0.5)",
+                          textTransform: "uppercase",
                         }}
                       >
-                        <span style={{ color: row.rank === 1 ? "#eab308" : "var(--text-secondary)", marginRight: "6px" }}>
-                          #{row.rank}
-                        </span>
-                        {row.name}
-                      </td>
-
-                      {/* 36 Days */}
-                      {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => {
-                        const score = row.daily_scores[d];
-                        return (
-                          <td
-                            key={d}
-                            style={{
-                              padding: "8px 4px",
-                              borderLeft: d % 6 === 1 ? "2px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(255, 255, 255, 0.04)",
-                              color: score > 0 ? "#10b981" : "rgba(255, 255, 255, 0.2)",
-                              fontWeight: score > 0 ? 800 : 400,
-                            }}
-                          >
-                            {score !== undefined ? score : "-"}
-                          </td>
-                        );
-                      })}
-
-                      {/* Sticky Total */}
-                      <td
+                        Member
+                      </th>
+                      {[1, 2, 3, 4, 5, 6].map((w) => (
+                        <th
+                          key={w}
+                          colSpan={6}
+                          style={{
+                            padding: "6px",
+                            borderLeft: "1.5px solid rgba(255, 255, 255, 0.12)",
+                            color: "#38bdf8",
+                            fontWeight: 700,
+                            fontSize: "0.7rem",
+                            textTransform: "uppercase",
+                            fontFamily: "var(--font-display)",
+                          }}
+                        >
+                          Week {w} (Days {(w - 1) * 6 + 1}–{w * 6})
+                        </th>
+                      ))}
+                      <th
                         style={{
-                          padding: "10px 16px",
+                          padding: "8px 14px",
                           position: "sticky",
                           right: 0,
                           background: "#0b0f19",
-                          zIndex: 2,
-                          fontWeight: 900,
-                          fontSize: "0.95rem",
-                          color: row.rank === 1 ? "#eab308" : "#fff",
-                          borderLeft: "2px solid rgba(255, 255, 255, 0.2)",
+                          zIndex: 3,
+                          color: "#eab308",
+                          fontWeight: 800,
+                          borderLeft: "2px solid rgba(255, 255, 255, 0.15)",
+                          fontFamily: "var(--font-display)",
+                          fontSize: "0.72rem",
                         }}
                       >
-                        {row.total_points}
-                      </td>
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                    {/* Sub Header: Days 1 to 36 */}
+                    <tr style={{ background: "rgba(0, 0, 0, 0.3)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)", color: "rgba(255, 255, 255, 0.35)", fontSize: "0.65rem" }}>
+                      <th style={{ padding: "5px 12px", position: "sticky", left: 0, background: "#0b0f19", zIndex: 3, textAlign: "left" }}>
+                        Name (ID)
+                      </th>
+                      {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => (
+                        <th
+                          key={d}
+                          style={{
+                            padding: "5px 6px",
+                            minWidth: "30px",
+                            borderLeft: d % 6 === 1 ? "1.5px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.03)",
+                          }}
+                        >
+                          D{d}
+                        </th>
+                      ))}
+                      <th style={{ padding: "5px 14px", position: "sticky", right: 0, background: "#0b0f19", zIndex: 3, borderLeft: "2px solid rgba(255, 255, 255, 0.15)" }}>
+                        PTS
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMatrix.map((row) => (
+                      <tr
+                        key={row.member_id}
+                        style={{
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.03)",
+                          background: row.rank === 1 && row.total_points > 0 ? "rgba(234, 179, 8, 0.04)" : "transparent",
+                        }}
+                      >
+                        {/* Sticky Name */}
+                        <td
+                          style={{
+                            padding: "6px 12px",
+                            position: "sticky",
+                            left: 0,
+                            background: "#0b0f19",
+                            zIndex: 2,
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "#fff",
+                            whiteSpace: "nowrap",
+                            fontSize: "0.78rem",
+                          }}
+                        >
+                          <span style={{ color: "rgba(255,255,255,0.35)", marginRight: "6px", fontSize: "0.7rem" }}>
+                            #{row.rank}
+                          </span>
+                          {row.name}
+                        </td>
+
+                        {/* 36 Days */}
+                        {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => {
+                          const score = row.daily_scores[d];
+                          return (
+                            <td
+                              key={d}
+                              style={{
+                                padding: "5px 4px",
+                                borderLeft: d % 6 === 1 ? "1.5px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.03)",
+                                color: score > 0 ? "#86efac" : "rgba(255, 255, 255, 0.15)",
+                                fontWeight: score > 0 ? 700 : 400,
+                                fontSize: "0.75rem",
+                              }}
+                            >
+                              {score !== undefined ? score : "-"}
+                            </td>
+                          );
+                        })}
+
+                        {/* Sticky Total */}
+                        <td
+                          style={{
+                            padding: "6px 14px",
+                            position: "sticky",
+                            right: 0,
+                            background: "#0b0f19",
+                            zIndex: 2,
+                            fontWeight: 800,
+                            fontSize: "0.85rem",
+                            color: row.rank === 1 && row.total_points > 0 ? "#eab308" : "#fff",
+                            borderLeft: "2px solid rgba(255, 255, 255, 0.15)",
+                          }}
+                        >
+                          {row.total_points}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 4: MOTW HONOURS LIST */}
+        {/* ═══════════════════════ TAB 4 — MOTW HONOURS ═══════════════════════ */}
         {activeTab === "motw" && (
           <div
             style={{
+              animation: "rwsFadeUp 0.3s ease-out both",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "1.25rem",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "0.85rem",
+              width: "100%",
             }}
           >
             {[1, 2, 3, 4, 5, 6].map((w) => {
@@ -1029,63 +1059,56 @@ export default function PredictionSeasonHub() {
               return (
                 <div
                   key={w}
-                  className="portal-card"
                   style={{
-                    padding: "1.75rem",
                     background: motw
-                      ? "linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(168, 85, 247, 0.05))"
-                      : "rgba(15, 23, 42, 0.4)",
-                    border: motw
-                      ? "1.5px solid rgba(234, 179, 8, 0.4)"
-                      : "1px solid rgba(255, 255, 255, 0.06)",
+                      ? "linear-gradient(135deg, rgba(234, 179, 8, 0.08) 0%, rgba(10, 8, 20, 0.8) 100%)"
+                      : "rgba(255, 255, 255, 0.02)",
+                    border: motw ? "1px solid rgba(234, 179, 8, 0.3)" : "1px solid rgba(255, 255, 255, 0.05)",
+                    borderRadius: "12px",
+                    padding: "1.1rem",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                    <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#38bdf8", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", fontFamily: "var(--font-display)" }}>
                       WEEK {w} (Days {(w - 1) * 6 + 1}–{w * 6})
                     </span>
                     <span
                       style={{
                         fontSize: "0.65rem",
-                        fontWeight: 800,
-                        padding: "2px 8px",
+                        fontWeight: 700,
+                        padding: "2px 7px",
                         borderRadius: "4px",
-                        background: weekObj?.is_completed ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.08)",
-                        color: weekObj?.is_completed ? "#10b981" : "var(--text-secondary)",
+                        background: weekObj?.is_completed ? "rgba(34, 197, 94, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                        color: weekObj?.is_completed ? "#86efac" : "rgba(255, 255, 255, 0.4)",
                       }}
                     >
                       {weekObj?.is_completed ? "Completed" : `${weekObj?.completed_days || 0}/6 Days`}
                     </span>
                   </div>
 
-                  {motw ? (
+                  {motw && motw.points > 0 ? (
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1rem" }}>
-                        <i className="fa-solid fa-medal" style={{ fontSize: "2rem", color: "#eab308" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+                        <i className="fa-solid fa-medal" style={{ fontSize: "1.5rem", color: "#eab308" }} />
                         <div>
-                          <div style={{ fontSize: "0.75rem", color: "#eab308", fontWeight: 800, textTransform: "uppercase" }}>
+                          <div style={{ fontSize: "0.65rem", color: "#eab308", fontWeight: 700, textTransform: "uppercase" }}>
                             MOTW Winner
                           </div>
-                          <div style={{ fontSize: "1.25rem", fontWeight: 900, color: "#fff" }}>
+                          <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "#fff" }}>
                             {motw.name}
                           </div>
-                          {motw.r2g_id && (
-                            <div style={{ fontSize: "0.75rem", color: "#c084fc", fontWeight: 700 }}>
-                              {motw.r2g_id}
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.75rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Week Points:</span>
-                        <span style={{ fontSize: "1.3rem", fontWeight: 900, color: "#eab308" }}>{motw.points} pts</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.65rem", borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                        <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>Week Points:</span>
+                        <span style={{ fontSize: "1.1rem", fontWeight: 900, color: "#eab308" }}>{motw.points} pts</span>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--text-secondary)" }}>
-                      <i className="fa-solid fa-hourglass-start" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }} />
-                      <div style={{ fontSize: "0.85rem" }}>Awaiting week completion</div>
+                    <div style={{ textAlign: "center", padding: "1rem 0", color: "rgba(255, 255, 255, 0.3)" }}>
+                      <i className="fa-solid fa-hourglass-start" style={{ fontSize: "1.25rem", marginBottom: "0.4rem", display: "block" }} />
+                      <div style={{ fontSize: "0.75rem" }}>Awaiting week matches</div>
                     </div>
                   )}
                 </div>
@@ -1115,22 +1138,23 @@ export default function PredictionSeasonHub() {
             className="portal-card"
             style={{
               width: "100%",
-              maxWidth: "520px",
+              maxWidth: "500px",
               padding: "2rem",
               background: "#0f172a",
               border: "1px solid rgba(37, 211, 102, 0.4)",
+              borderRadius: "16px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <i className="fa-brands fa-whatsapp" style={{ fontSize: "1.6rem", color: "#25d366" }} />
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", margin: 0 }}>
-                  Share Standings to WhatsApp
+                <i className="fa-brands fa-whatsapp" style={{ fontSize: "1.5rem", color: "#25d366" }} />
+                <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", margin: 0, fontFamily: "var(--font-display)" }}>
+                  Share to WhatsApp
                 </h2>
               </div>
               <button
                 onClick={() => setShowShareModal(false)}
-                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.2rem", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "rgba(255, 255, 255, 0.5)", fontSize: "1.2rem", cursor: "pointer" }}
               >
                 <i className="fa-solid fa-xmark" />
               </button>
@@ -1138,29 +1162,29 @@ export default function PredictionSeasonHub() {
 
             <textarea
               readOnly
-              rows={10}
+              rows={9}
               value={generateWhatsAppText()}
               style={{
                 width: "100%",
                 background: "rgba(0, 0, 0, 0.4)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
                 borderRadius: "8px",
                 padding: "12px",
                 color: "#fff",
-                fontSize: "0.85rem",
+                fontSize: "0.82rem",
                 fontFamily: "monospace",
-                marginBottom: "1.5rem",
+                marginBottom: "1.25rem",
               }}
             />
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
               <button
                 onClick={handleCopyShare}
-                className="portal-btn btn-secondary"
-                style={{ borderColor: "rgba(255, 255, 255, 0.2)" }}
+                className="portal-btn btn-secondary back-link-btn"
+                style={{ fontSize: "0.82rem", padding: "8px 16px" }}
               >
                 <i className={copied ? "fa-solid fa-check" : "fa-solid fa-copy"} style={{ marginRight: "6px" }} />
-                {copied ? "Copied to Clipboard!" : "Copy Text"}
+                {copied ? "Copied!" : "Copy Text"}
               </button>
 
               <button
@@ -1169,7 +1193,9 @@ export default function PredictionSeasonHub() {
                 style={{
                   background: "linear-gradient(135deg, #25d366, #128c7e)",
                   color: "#fff",
-                  fontWeight: 800,
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  padding: "8px 18px",
                 }}
               >
                 <i className="fa-brands fa-whatsapp" style={{ marginRight: "6px" }} />

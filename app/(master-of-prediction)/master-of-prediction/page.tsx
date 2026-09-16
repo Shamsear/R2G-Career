@@ -47,51 +47,51 @@ export default function PredictionSeasonSelection() {
   }
 
   return (
-    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "5rem" }}>
+    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "4rem" }}>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
 
-      <div className="portal-container" style={{ maxWidth: "1100px" }}>
+      <div className="portal-container" style={{ maxWidth: "1100px", width: "100%", padding: "1rem 1rem 2.5rem", gap: "1rem", alignItems: "stretch" }}>
         
         {/* Navigation Breadcrumbs */}
-        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "2rem" }}>
-          <Link href="/" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Portal
+        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", margin: 0 }}>
+          <Link href="/" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+            <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Portal
           </Link>
           <Link
             href="/solo-tour/admin/prediction"
             className="portal-btn btn-secondary back-link-btn"
-            style={{ borderColor: "rgba(234, 179, 8, 0.3)", color: "#fbbf24", background: "rgba(234, 179, 8, 0.05)" }}
+            style={{ borderColor: "rgba(234, 179, 8, 0.3)", color: "#fbbf24", background: "rgba(234, 179, 8, 0.05)", fontSize: "0.8rem", padding: "6px 14px" }}
           >
-            <i className="fa-solid fa-user-gear" /> Admin Score Console
+            <i className="fa-solid fa-user-gear" style={{ marginRight: "6px" }} /> Admin Score Console
           </Link>
         </div>
 
         {/* Hero Section */}
-        <div className="rws-page-hero" style={{ marginBottom: "2.5rem" }}>
-          <div className="portal-page-badge" style={{ borderColor: "rgba(234, 179, 8, 0.35)", color: "#fbbf24" }}>
+        <div className="rws-page-hero" style={{ padding: "0.25rem 0 0.5rem", margin: 0 }}>
+          <div className="portal-page-badge" style={{ borderColor: "rgba(234, 179, 8, 0.35)", color: "#fbbf24", marginBottom: "0.4rem" }}>
             <i className="fa-solid fa-crown" />
             Seasonal Prediction Arena
           </div>
-          <h1 className="rws-hero-title">
+          <h1 className="rws-hero-title" style={{ fontSize: "2rem", margin: 0 }}>
             MASTER OF PREDICTION
           </h1>
-          <p className="rws-hero-sub">
-            The ultimate 36-day prediction championship divided across 6 competitive weeks. Browse active seasons and historical archives.
+          <p className="rws-hero-sub" style={{ marginTop: "0.35rem", fontSize: "0.82rem" }}>
+            The ultimate prediction championship divided across competitive weeks. Browse active seasons and historical archives.
           </p>
         </div>
 
         {/* Season Statistics Ribbon */}
-        <div className="portal-stats-ribbon" style={{ marginBottom: "2.5rem" }}>
+        <div className="portal-stats-ribbon" style={{ margin: 0 }}>
           <div className="stat-pill">
             <i className="fa-solid fa-calendar-days" style={{ color: "#fbbf24" }} />
-            <span>36 Matchdays / Season</span>
+            <span>Seasonal Matchdays</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
             <i className="fa-solid fa-layer-group" style={{ color: "#38bdf8" }} />
-            <span>6 Weeks (6 Days/Week)</span>
+            <span>Weekly Rounds</span>
           </div>
           <div className="stat-divider" />
           <div className="stat-pill">
@@ -107,7 +107,7 @@ export default function PredictionSeasonSelection() {
 
         {/* Season Folders Grid */}
         {seasons.length === 0 ? (
-          <div className="portal-card" style={{ padding: "3.5rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="portal-card" style={{ padding: "3rem", textAlign: "center", background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)" }}>
             <i className="fa-solid fa-folder-closed" style={{ fontSize: "3.5rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }} />
             <h2 style={{ fontSize: "1.6rem", color: "#fff", marginBottom: "1rem" }}>No Prediction Seasons Initialized</h2>
             <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>

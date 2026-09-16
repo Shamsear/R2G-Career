@@ -24,6 +24,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+import PredictionNavbar from "@/components/prediction/PredictionNavbar";
+import PredictionFooter from "@/components/prediction/PredictionFooter";
+
 export default function PredictionLayout({
   children,
 }: Readonly<{
@@ -46,9 +49,11 @@ export default function PredictionLayout({
       </head>
       <body>
         <div className="app-container">
+          <PredictionNavbar />
           <main className="main-content">
             {children}
           </main>
+          <PredictionFooter />
         </div>
       </body>
     </html>

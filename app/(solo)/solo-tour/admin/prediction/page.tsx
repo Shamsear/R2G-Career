@@ -11,10 +11,11 @@ import {
   fetchPredictionDayData,
   savePredictionDayScores,
   createPredictionSeason,
+  updatePredictionSeasonSettings,
   fetchPredictionLeaderboard,
   PredictionSeason,
   PredictionDay,
-  MemberDayScore
+  MemberDayScore,
 } from "@/utils/solo/predictionServerActions";
 
 export default function PredictionAdminPage() {
@@ -22,7 +23,7 @@ export default function PredictionAdminPage() {
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<PredictionSeason | null>(null);
   const [days, setDays] = useState<PredictionDay[]>([]);
-  
+
   // Navigation State
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedDayNum, setSelectedDayNum] = useState<number>(1);
@@ -43,14 +44,26 @@ export default function PredictionAdminPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   // Create Season Modal
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState<boolean>(false);
   const [newSeasonNum, setNewSeasonNum] = useState<number>(2);
   const [newSeasonName, setNewSeasonName] = useState<string>("");
+  const [newSeasonDays, setNewSeasonDays] = useState<number>(36);
+  const [newSeasonWeeks, setNewSeasonWeeks] = useState<number>(6);
+  const [newSeasonDaysPerWeek, setNewSeasonDaysPerWeek] = useState<number>(6);
   const [newSeasonNotes, setNewSeasonNotes] = useState<string>("");
   const [creatingSeason, setCreatingSeason] = useState<boolean>(false);
+
+  // Edit Season Settings Modal
+  const [showEditSettingsModal, setShowEditSettingsModal] = useState<boolean>(false);
+  const [editSeasonName, setEditSeasonName] = useState<string>("");
+  const [editSeasonDays, setEditSeasonDays] = useState<number>(36);
+  const [editSeasonWeeks, setEditSeasonWeeks] = useState<number>(6);
+  const [editSeasonDaysPerWeek, setEditSeasonDaysPerWeek] = useState<number>(6);
+  const [editSeasonStatus, setEditSeasonStatus] = useState<"active" | "completed" | "upcoming">("active");
+  const [editSeasonNotes, setEditSeasonNotes] = useState<string>("");
+  const [savingSettings, setSavingSettings] = useState<boolean>(false);
 
   // Live Standings Modal
   const [showStandingsModal, setShowStandingsModal] = useState<boolean>(false);
@@ -93,11 +106,21 @@ export default function PredictionAdminPage() {
         const { season, days: seasonDays } = await fetchPredictionSeasonById(selectedSeasonId!);
         setSelectedSeason(season);
         setDays(seasonDays);
+
+        if (season) {
+          setEditSeasonName(season.name);
+          setEditSeasonDays(season.total_days || 36);
+          setEditSeasonWeeks(season.total_weeks || 6);
+          setEditSeasonDaysPerWeek(season.days_per_week || 6);
+          setEditSeasonStatus(season.status || "active");
+          setEditSeasonNotes(season.notes || "");
+        }
+
         if (seasonDays.length > 0) {
-          // Select current active day or day 1
           const targetDay = season?.current_day || 1;
-          setSelectedDayNum(targetDay);
-          setSelectedWeek(Math.ceil(targetDay / 6));
+          const daysPerWeek = season?.days_per_week || 6;
+          setSelectedDayNum(Math.min(seasonDays.length, targetDay));
+          setSelectedWeek(Math.ceil(targetDay / daysPerWeek));
         }
       } catch (err) {
         console.error(err);
@@ -126,7 +149,6 @@ export default function PredictionAdminPage() {
 
         setMembers(fetchedMembers);
 
-        // Build score map
         const scoresMap: Record<number, number> = {};
         const notesMap: Record<number, string> = {};
         fetchedMembers.forEach((m) => {
@@ -191,7 +213,6 @@ export default function PredictionAdminPage() {
 
       if (res.success) {
         showToast(`✅ Day ${selectedDayNum} points saved successfully!`, "success");
-        // Update local day in days list
         setDays((prev) =>
           prev.map((d) =>
             d.day_number === selectedDayNum
@@ -216,7 +237,7 @@ export default function PredictionAdminPage() {
     }
   };
 
-  // Create New Season
+  // Create New Custom Season
   const handleCreateSeason = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSeasonNum || !newSeasonName.trim()) {
@@ -225,17 +246,20 @@ export default function PredictionAdminPage() {
     }
     setCreatingSeason(true);
     try {
-      const res = await createPredictionSeason(
-        newSeasonNum,
-        newSeasonName.trim(),
-        newSeasonNotes.trim()
-      );
+      const res = await createPredictionSeason({
+        seasonNumber: newSeasonNum,
+        name: newSeasonName.trim(),
+        totalDays: Number(newSeasonDays) || 36,
+        totalWeeks: Number(newSeasonWeeks) || 6,
+        daysPerWeek: Number(newSeasonDaysPerWeek) || 6,
+        notes: newSeasonNotes.trim(),
+      });
+
       if (res.success && res.season) {
-        showToast(`🎉 Season ${newSeasonNum} created with 36 days!`, "success");
+        showToast(`🎉 Season ${newSeasonNum} created with ${newSeasonDays} custom days & ${newSeasonWeeks} weeks!`, "success");
         setShowCreateSeasonModal(false);
         setNewSeasonName("");
         setNewSeasonNotes("");
-        // Refresh seasons list
         const updated = await fetchPredictionSeasons();
         setSeasons(updated);
         setSelectedSeasonId(res.season.id);
@@ -247,6 +271,40 @@ export default function PredictionAdminPage() {
       showToast("Error creating season", "error");
     } finally {
       setCreatingSeason(false);
+    }
+  };
+
+  // Save Edit Season Settings
+  const handleSaveSeasonSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSeasonId) return;
+    setSavingSettings(true);
+    try {
+      const res = await updatePredictionSeasonSettings(selectedSeasonId, {
+        name: editSeasonName.trim(),
+        total_days: Number(editSeasonDays) || 36,
+        total_weeks: Number(editSeasonWeeks) || 6,
+        days_per_week: Number(editSeasonDaysPerWeek) || 6,
+        status: editSeasonStatus,
+        notes: editSeasonNotes.trim(),
+      });
+
+      if (res.success && res.season) {
+        showToast("✅ Season settings updated successfully!", "success");
+        setShowEditSettingsModal(false);
+        const { season: updatedSeason, days: updatedDays } = await fetchPredictionSeasonById(selectedSeasonId);
+        setSelectedSeason(updatedSeason);
+        setDays(updatedDays);
+        const seasonsList = await fetchPredictionSeasons();
+        setSeasons(seasonsList);
+      } else {
+        showToast(`❌ Error: ${res.error}`, "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast("Failed to update season settings", "error");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -273,15 +331,20 @@ export default function PredictionAdminPage() {
       (m.r2g_id && m.r2g_id.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Week Days (6 days per week)
-  const weekStartDay = (selectedWeek - 1) * 6 + 1;
-  const weekDays = days.filter(
-    (d) => d.day_number >= weekStartDay && d.day_number <= weekStartDay + 5
+  // Dynamic Weeks & Days Calculations
+  const totalWeeks = selectedSeason?.total_weeks || 6;
+  const daysPerWeek = selectedSeason?.days_per_week || 6;
+  const totalDays = selectedSeason?.total_days || 36;
+
+  const weekStartDay = (selectedWeek - 1) * daysPerWeek + 1;
+  const weekEndDay = Math.min(totalDays, selectedWeek * daysPerWeek);
+
+  const currentWeekDays = days.filter(
+    (d) => d.day_number >= weekStartDay && d.day_number <= weekEndDay
   );
 
   return (
     <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "5rem" }}>
-      {/* Background elements */}
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
@@ -310,7 +373,6 @@ export default function PredictionAdminPage() {
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            animation: "rwsFadeUp 0.3s ease-out",
           }}
         >
           <i
@@ -326,7 +388,7 @@ export default function PredictionAdminPage() {
         </div>
       )}
 
-      <div className="portal-container" style={{ maxWidth: "1350px" }}>
+      <div className="portal-container" style={{ maxWidth: "1350px", width: "100%", padding: "1rem 1rem 3rem", gap: "1rem", alignItems: "stretch" }}>
         {/* Navigation Breadcrumb */}
         <div
           className="portal-breadcrumb"
@@ -335,11 +397,11 @@ export default function PredictionAdminPage() {
             justifyContent: "space-between",
             alignItems: "center",
             width: "100%",
-            marginBottom: "1.5rem",
+            margin: 0,
           }}
         >
-          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
-            <i className="fas fa-arrow-left" /> Back to Admin Console
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+            <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
           </Link>
 
           <div style={{ display: "flex", gap: "10px" }}>
@@ -350,6 +412,8 @@ export default function PredictionAdminPage() {
                 borderColor: "rgba(168, 85, 247, 0.4)",
                 color: "#c084fc",
                 background: "rgba(168, 85, 247, 0.08)",
+                fontSize: "0.8rem",
+                padding: "6px 14px",
               }}
             >
               <i className="fa-solid fa-ranking-star" style={{ marginRight: "6px" }} />
@@ -365,6 +429,8 @@ export default function PredictionAdminPage() {
                   borderColor: "rgba(59, 130, 246, 0.4)",
                   color: "#60a5fa",
                   background: "rgba(59, 130, 246, 0.08)",
+                  fontSize: "0.8rem",
+                  padding: "6px 14px",
                 }}
               >
                 <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: "6px" }} />
@@ -375,34 +441,35 @@ export default function PredictionAdminPage() {
         </div>
 
         {/* Hero Header */}
-        <div className="rws-page-hero" style={{ marginBottom: "2rem" }}>
-          <div className="portal-page-badge" style={{ borderColor: "rgba(168, 85, 247, 0.4)", color: "#c084fc" }}>
+        <div className="rws-page-hero" style={{ padding: "0.25rem 0 0.5rem", margin: 0 }}>
+          <div className="portal-page-badge" style={{ borderColor: "rgba(168, 85, 247, 0.4)", color: "#c084fc", marginBottom: "0.4rem" }}>
             <i className="fa-solid fa-square-poll-vertical" />
-            Prediction Management Engine
+            100% Admin Configurable Prediction Engine
           </div>
-          <h1 className="rws-hero-title">MASTER OF PREDICTION</h1>
-          <p className="rws-hero-sub">
-            Update round points (10, 12, 15, etc.) for all registered members across 36 Days & 6 Weeks. Day 36 top rank crowns the Champion.
+          <h1 className="rws-hero-title" style={{ fontSize: "2rem", margin: 0 }}>MASTER OF PREDICTION</h1>
+          <p className="rws-hero-sub" style={{ marginTop: "0.35rem", fontSize: "0.82rem" }}>
+            Customize Total Days, Weeks &amp; Days per Week for every Season. Update member round points (10, 12, 15, etc.) and preview live standings.
           </p>
         </div>
 
-        {/* Season Selector Bar */}
+        {/* Season Selector Bar with Settings Button */}
         <div
           className="portal-card"
           style={{
-            padding: "1.25rem 1.75rem",
-            marginBottom: "1.5rem",
+            padding: "1rem 1.25rem",
+            margin: 0,
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: "1rem",
+            gap: "0.75rem",
             background: "rgba(15, 23, 42, 0.6)",
             border: "1px solid rgba(168, 85, 247, 0.2)",
+            borderRadius: "12px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.75px" }}>
               <i className="fa-solid fa-folder-tree" style={{ color: "#c084fc", marginRight: "6px" }} />
               Active Season:
             </span>
@@ -413,54 +480,76 @@ export default function PredictionAdminPage() {
                 background: "rgba(30, 41, 59, 0.8)",
                 color: "#fff",
                 border: "1px solid rgba(168, 85, 247, 0.3)",
-                padding: "8px 16px",
+                padding: "6px 12px",
                 borderRadius: "8px",
                 fontWeight: "700",
-                fontSize: "0.95rem",
+                fontSize: "0.85rem",
                 cursor: "pointer",
               }}
             >
               {seasons.map((s) => (
                 <option key={s.id} value={s.id}>
-                  Season {s.season_number} — {s.name} ({s.status.toUpperCase()})
+                  Season {s.season_number} — {s.name} ({s.total_days} Days / {s.total_weeks} Wks)
                 </option>
               ))}
             </select>
+
+            {selectedSeason && (
+              <span style={{ fontSize: "0.75rem", color: "#38bdf8", background: "rgba(56, 189, 248, 0.1)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(56, 189, 248, 0.25)" }}>
+                {selectedSeason.total_days} Days • {selectedSeason.total_weeks} Weeks ({selectedSeason.days_per_week} Days/Wk)
+              </span>
+            )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              onClick={() => setShowEditSettingsModal(true)}
+              className="portal-btn btn-secondary"
+              style={{
+                padding: "6px 14px",
+                fontSize: "0.8rem",
+                borderColor: "rgba(234, 179, 8, 0.4)",
+                color: "#fbbf24",
+                background: "rgba(234, 179, 8, 0.08)",
+              }}
+            >
+              <i className="fa-solid fa-gear" style={{ marginRight: "6px" }} />
+              Season Settings
+            </button>
+
             <button
               onClick={() => setShowCreateSeasonModal(true)}
               className="portal-btn btn-primary"
               style={{
-                padding: "8px 16px",
-                fontSize: "0.85rem",
+                padding: "6px 14px",
+                fontSize: "0.8rem",
                 background: "linear-gradient(135deg, #a855f7, #7c3aed)",
               }}
             >
               <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} />
-              New Season
+              New Custom Season
             </button>
           </div>
         </div>
 
-        {/* 6 Weeks Tab Bar */}
-        <div style={{ marginBottom: "1rem" }}>
+        {/* Dynamic Weeks Tab Bar */}
+        <div style={{ margin: 0 }}>
           <div
             style={{
               display: "flex",
-              gap: "8px",
+              gap: "6px",
               overflowX: "auto",
-              paddingBottom: "8px",
+              paddingBottom: "4px",
             }}
           >
-            {[1, 2, 3, 4, 5, 6].map((w) => {
+            {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => {
               const isActive = selectedWeek === w;
-              const wStart = (w - 1) * 6 + 1;
-              const wEnd = w * 6;
+              const wStart = (w - 1) * daysPerWeek + 1;
+              const wEnd = Math.min(totalDays, w * daysPerWeek);
               const completedCount = days.filter(
                 (d) => d.day_number >= wStart && d.day_number <= wEnd && d.is_completed
               ).length;
+              const totalInWeek = Math.max(1, wEnd - wStart + 1);
 
               return (
                 <button
@@ -471,9 +560,9 @@ export default function PredictionAdminPage() {
                   }}
                   style={{
                     flex: "1 0 auto",
-                    minWidth: "140px",
-                    padding: "12px 16px",
-                    borderRadius: "10px",
+                    minWidth: "120px",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
                     border: isActive
                       ? "1.5px solid #c084fc"
                       : "1px solid rgba(255, 255, 255, 0.08)",
@@ -486,18 +575,18 @@ export default function PredictionAdminPage() {
                     textAlign: "left",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                    <span style={{ fontWeight: 800, fontSize: "0.95rem", color: isActive ? "#c084fc" : "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
+                    <span style={{ fontWeight: 800, fontSize: "0.85rem", color: isActive ? "#c084fc" : "#fff" }}>
                       WEEK {w}
                     </span>
-                    {completedCount === 6 && (
-                      <span style={{ color: "#10b981", fontSize: "0.75rem", fontWeight: 700 }}>
+                    {completedCount === totalInWeek && (
+                      <span style={{ color: "#10b981", fontSize: "0.7rem", fontWeight: 700 }}>
                         <i className="fa-solid fa-circle-check" />
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-                    Days {wStart} – {wEnd} ({completedCount}/6 done)
+                  <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                    Days {wStart}–{wEnd} ({completedCount}/{totalInWeek} done)
                   </div>
                 </button>
               );
@@ -505,24 +594,24 @@ export default function PredictionAdminPage() {
           </div>
         </div>
 
-        {/* Days of Current Week Selector */}
+        {/* Dynamic Days of Current Week Selector */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
-            gap: "10px",
-            marginBottom: "2rem",
+            gridTemplateColumns: `repeat(auto-fill, minmax(110px, 1fr))`,
+            gap: "8px",
+            margin: 0,
           }}
         >
-          {weekDays.map((d) => {
+          {currentWeekDays.map((d) => {
             const isSelected = selectedDayNum === d.day_number;
             return (
               <button
                 key={d.day_number}
                 onClick={() => setSelectedDayNum(d.day_number)}
                 style={{
-                  padding: "14px 10px",
-                  borderRadius: "12px",
+                  padding: "10px 8px",
+                  borderRadius: "10px",
                   border: isSelected
                     ? "2px solid #38bdf8"
                     : "1px solid rgba(255, 255, 255, 0.08)",
@@ -534,13 +623,13 @@ export default function PredictionAdminPage() {
                   transition: "all 0.2s ease",
                 }}
               >
-                <div style={{ fontSize: "0.7rem", color: isSelected ? "#38bdf8" : "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase" }}>
+                <div style={{ fontSize: "0.65rem", color: isSelected ? "#38bdf8" : "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase" }}>
                   Round {d.day_number}
                 </div>
-                <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#fff", margin: "2px 0" }}>
+                <div style={{ fontSize: "1rem", fontWeight: 900, color: "#fff", margin: "1px 0" }}>
                   DAY {d.day_number}
                 </div>
-                <div style={{ fontSize: "0.7rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                <div style={{ fontSize: "0.65rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
                   {d.is_completed ? (
                     <span style={{ color: "#10b981", fontWeight: 700 }}>
                       <i className="fa-solid fa-check" /> Done
@@ -560,10 +649,11 @@ export default function PredictionAdminPage() {
         <div
           className="portal-card"
           style={{
-            padding: "1.5rem",
-            marginBottom: "1.5rem",
+            padding: "1.1rem 1.25rem",
+            margin: 0,
             background: "rgba(15, 23, 42, 0.7)",
             border: "1px solid rgba(56, 189, 248, 0.2)",
+            borderRadius: "12px",
           }}
         >
           <div
@@ -592,7 +682,7 @@ export default function PredictionAdminPage() {
                   {isCompleted ? "Completed Round" : "In Progress Round"}
                 </span>
                 <span style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
-                  Week {selectedWeek} • Day {selectedDayNum} of 36
+                  Week {selectedWeek} of {totalWeeks} • Day {selectedDayNum} of {totalDays}
                 </span>
               </div>
               <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#fff", margin: 0 }}>
@@ -706,7 +796,7 @@ export default function PredictionAdminPage() {
                 type="text"
                 value={dayNotes}
                 onChange={(e) => setDayNotes(e.target.value)}
-                placeholder="e.g. UCL Round of 16 Predictions"
+                placeholder="e.g. Round matchday notes"
                 style={{
                   width: "100%",
                   background: "rgba(30, 41, 59, 0.6)",
@@ -728,11 +818,11 @@ export default function PredictionAdminPage() {
             justifyContent: "space-between",
             alignItems: "center",
             flexWrap: "wrap",
-            gap: "1rem",
-            marginBottom: "1rem",
+            gap: "0.75rem",
+            margin: 0,
           }}
         >
-          <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#fff" }}>
+          <div style={{ fontSize: "1rem", fontWeight: 800, color: "#fff" }}>
             Participating Members ({filteredMembers.length})
           </div>
 
@@ -778,12 +868,9 @@ export default function PredictionAdminPage() {
             >
               <i className="fa-solid fa-user-slash" style={{ fontSize: "2.5rem", color: "var(--text-secondary)", marginBottom: "1rem" }} />
               <div style={{ color: "#fff", fontSize: "1.1rem", fontWeight: 700 }}>No members found</div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                Try adjusting your search filter or make sure managers are registered in the directory.
-              </p>
             </div>
           ) : (
-            filteredMembers.map((m, idx) => {
+            filteredMembers.map((m) => {
               const currentScore = memberScores[m.member_id] || 0;
               const hasScore = currentScore > 0;
 
@@ -807,7 +894,6 @@ export default function PredictionAdminPage() {
                     transition: "all 0.15s ease",
                   }}
                 >
-                  {/* Member Info */}
                   <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: "220px" }}>
                     <div
                       style={{
@@ -863,9 +949,7 @@ export default function PredictionAdminPage() {
                     </div>
                   </div>
 
-                  {/* Points Input & Quick Point Chips */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    {/* Quick Preset Buttons */}
                     <div style={{ display: "flex", gap: "6px" }}>
                       {[10, 12, 15, 20].map((pts) => (
                         <button
@@ -906,7 +990,6 @@ export default function PredictionAdminPage() {
                       </button>
                     </div>
 
-                    {/* Numeric Input */}
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <input
                         type="number"
@@ -960,7 +1043,7 @@ export default function PredictionAdminPage() {
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: "0.95rem" }}>
-              Day {selectedDayNum} (Week {selectedWeek})
+              Day {selectedDayNum} (Week {selectedWeek} of {totalWeeks})
             </span>
             <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
               • {Object.values(memberScores).filter((pts) => pts > 0).length} members scored
@@ -993,13 +1076,224 @@ export default function PredictionAdminPage() {
         </div>
       </div>
 
+      {/* Modal: Edit Season Settings */}
+      {showEditSettingsModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(8px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+        >
+          <div
+            className="portal-card"
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              padding: "2rem",
+              background: "#0f172a",
+              border: "1px solid rgba(234, 179, 8, 0.4)",
+              borderRadius: "16px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", margin: 0 }}>
+                <i className="fa-solid fa-gear" style={{ color: "#fbbf24", marginRight: "8px" }} />
+                Customize Season {selectedSeason?.season_number} Settings
+              </h2>
+              <button
+                onClick={() => setShowEditSettingsModal(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.2rem", cursor: "pointer" }}
+              >
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSeasonSettings} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                  Season Name
+                </label>
+                <input
+                  type="text"
+                  value={editSeasonName}
+                  onChange={(e) => setEditSeasonName(e.target.value)}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "rgba(30, 41, 59, 0.8)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                  }}
+                />
+              </div>
+
+              {/* Grid: Total Days, Total Weeks, Days Per Week */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Total Days / Rounds
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={editSeasonDays}
+                    onChange={(e) => {
+                      const d = Number(e.target.value);
+                      setEditSeasonDays(d);
+                      if (editSeasonDaysPerWeek > 0) {
+                        setEditSeasonWeeks(Math.ceil(d / editSeasonDaysPerWeek));
+                      }
+                    }}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Days per Week
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={editSeasonDaysPerWeek}
+                    onChange={(e) => {
+                      const dpw = Number(e.target.value);
+                      setEditSeasonDaysPerWeek(dpw);
+                      if (dpw > 0) {
+                        setEditSeasonWeeks(Math.ceil(editSeasonDays / dpw));
+                      }
+                    }}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Total Weeks
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={editSeasonWeeks}
+                    onChange={(e) => setEditSeasonWeeks(Number(e.target.value))}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                  Season Status
+                </label>
+                <select
+                  value={editSeasonStatus}
+                  onChange={(e) => setEditSeasonStatus(e.target.value as any)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "rgba(30, 41, 59, 0.8)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontWeight: "700",
+                  }}
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="upcoming">Upcoming</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                  Notes / Description
+                </label>
+                <textarea
+                  value={editSeasonNotes}
+                  onChange={(e) => setEditSeasonNotes(e.target.value)}
+                  rows={2}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "rgba(30, 41, 59, 0.8)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditSettingsModal(false)}
+                  className="portal-btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="portal-btn btn-primary"
+                  style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", color: "#000", fontWeight: 800 }}
+                >
+                  {savingSettings ? "Saving..." : "Apply & Sync Days"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal: Create New Season */}
       {showCreateSeasonModal && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.8)",
+            background: "rgba(0,0,0,0.85)",
             backdropFilter: "blur(6px)",
             zIndex: 9999,
             display: "flex",
@@ -1012,16 +1306,17 @@ export default function PredictionAdminPage() {
             className="portal-card"
             style={{
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "520px",
               padding: "2rem",
               background: "#0f172a",
               border: "1px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: "16px",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
               <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", margin: 0 }}>
                 <i className="fa-solid fa-folder-plus" style={{ color: "#c084fc", marginRight: "8px" }} />
-                Create Prediction Season
+                Create Custom Prediction Season
               </h2>
               <button
                 onClick={() => setShowCreateSeasonModal(false)}
@@ -1075,6 +1370,93 @@ export default function PredictionAdminPage() {
                 />
               </div>
 
+              {/* Total Days, Weeks, Days Per Week */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Total Days / Rounds
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={newSeasonDays}
+                    onChange={(e) => {
+                      const d = Number(e.target.value);
+                      setNewSeasonDays(d);
+                      if (newSeasonDaysPerWeek > 0) {
+                        setNewSeasonWeeks(Math.ceil(d / newSeasonDaysPerWeek));
+                      }
+                    }}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Days per Week
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={newSeasonDaysPerWeek}
+                    onChange={(e) => {
+                      const dpw = Number(e.target.value);
+                      setNewSeasonDaysPerWeek(dpw);
+                      if (dpw > 0) {
+                        setNewSeasonWeeks(Math.ceil(newSeasonDays / dpw));
+                      }
+                    }}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                    Total Weeks
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={newSeasonWeeks}
+                    onChange={(e) => setNewSeasonWeeks(Number(e.target.value))}
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: "rgba(30, 41, 59, 0.8)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontWeight: "700",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
                   Notes / Description (Optional)
@@ -1082,8 +1464,8 @@ export default function PredictionAdminPage() {
                 <textarea
                   value={newSeasonNotes}
                   onChange={(e) => setNewSeasonNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Details regarding this 36-day season campaign..."
+                  rows={2}
+                  placeholder="Details regarding this custom season campaign..."
                   style={{
                     width: "100%",
                     padding: "10px 14px",
@@ -1095,12 +1477,7 @@ export default function PredictionAdminPage() {
                 />
               </div>
 
-              <div style={{ background: "rgba(168, 85, 247, 0.08)", padding: "12px", borderRadius: "8px", border: "1px solid rgba(168, 85, 247, 0.2)", fontSize: "0.8rem", color: "#c084fc" }}>
-                <i className="fa-solid fa-circle-info" style={{ marginRight: "6px" }} />
-                Creating a season automatically seeds <strong>36 Days</strong> organized across <strong>6 Weeks</strong>.
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "0.5rem" }}>
                 <button
                   type="button"
                   onClick={() => setShowCreateSeasonModal(false)}
@@ -1114,7 +1491,7 @@ export default function PredictionAdminPage() {
                   className="portal-btn btn-primary"
                   style={{ background: "linear-gradient(135deg, #a855f7, #7c3aed)" }}
                 >
-                  {creatingSeason ? "Creating..." : "Initialize Season"}
+                  {creatingSeason ? "Creating..." : "Initialize Custom Season"}
                 </button>
               </div>
             </form>
@@ -1147,6 +1524,7 @@ export default function PredictionAdminPage() {
               padding: "2rem",
               background: "#0f172a",
               border: "1px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: "16px",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
@@ -1156,7 +1534,7 @@ export default function PredictionAdminPage() {
                   Live Standings Preview
                 </h2>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                  Season {selectedSeason?.season_number} • {selectedSeason?.name}
+                  Season {selectedSeason?.season_number} • {selectedSeason?.name} ({selectedSeason?.total_days} Days / {selectedSeason?.total_weeks} Weeks)
                 </div>
               </div>
               <button
@@ -1174,58 +1552,26 @@ export default function PredictionAdminPage() {
               </div>
             ) : liveLeaderboard ? (
               <div>
-                {/* MOTW Highlight from current week */}
-                {liveLeaderboard.weeklyStandings?.[selectedWeek - 1]?.motw && (
-                  <div
-                    style={{
-                      padding: "1rem 1.25rem",
-                      borderRadius: "10px",
-                      background: "linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(168, 85, 247, 0.1))",
-                      border: "1px solid rgba(234, 179, 8, 0.4)",
-                      marginBottom: "1.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <i className="fa-solid fa-medal" style={{ fontSize: "1.75rem", color: "#eab308" }} />
-                      <div>
-                        <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#eab308", textTransform: "uppercase" }}>
-                          WEEK {selectedWeek} MOTW (Leader)
-                        </div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#fff" }}>
-                          {liveLeaderboard.weeklyStandings[selectedWeek - 1].motw.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: "1.2rem", fontWeight: 900, color: "#eab308" }}>
-                      {liveLeaderboard.weeklyStandings[selectedWeek - 1].motw.points} pts
-                    </div>
-                  </div>
-                )}
-
-                {/* Overall Table */}
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left", color: "var(--text-secondary)", fontSize: "0.75rem", textTransform: "uppercase" }}>
-                      <th style={{ padding: "10px" }}>Rank</th>
+                      <th style={{ padding: "10px" }}>Pos</th>
                       <th style={{ padding: "10px" }}>Member</th>
                       <th style={{ padding: "10px", textAlign: "center" }}>Days Played</th>
                       <th style={{ padding: "10px", textAlign: "right" }}>Total Points</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {liveLeaderboard.overallStandings?.slice(0, 20).map((row: any) => (
+                    {liveLeaderboard.overallStandings?.map((row: any) => (
                       <tr
                         key={row.member_id}
                         style={{
                           borderBottom: "1px solid rgba(255,255,255,0.05)",
-                          background: row.rank === 1 ? "rgba(234, 179, 8, 0.06)" : "transparent",
+                          background: row.rank === 1 && row.total_points > 0 ? "rgba(234, 179, 8, 0.06)" : "transparent",
                         }}
                       >
                         <td style={{ padding: "10px", fontWeight: 800 }}>
-                          {row.rank === 1 ? "👑 #1" : row.rank === 2 ? "🥈 #2" : row.rank === 3 ? "🥉 #3" : `#${row.rank}`}
+                          {row.rank === 1 && row.total_points > 0 ? "👑 #1" : `#${row.rank}`}
                         </td>
                         <td style={{ padding: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
                           <span style={{ fontWeight: 700, color: "#fff" }}>{row.name}</span>
@@ -1234,9 +1580,9 @@ export default function PredictionAdminPage() {
                           )}
                         </td>
                         <td style={{ padding: "10px", textAlign: "center", color: "var(--text-secondary)" }}>
-                          {row.days_played} / 36
+                          {row.days_played} / {selectedSeason?.total_days || 36}
                         </td>
-                        <td style={{ padding: "10px", textAlign: "right", fontWeight: 900, fontSize: "1.05rem", color: row.rank === 1 ? "#eab308" : "#fff" }}>
+                        <td style={{ padding: "10px", textAlign: "right", fontWeight: 900, fontSize: "1.05rem", color: row.rank === 1 && row.total_points > 0 ? "#eab308" : "#fff" }}>
                           {row.total_points}
                         </td>
                       </tr>

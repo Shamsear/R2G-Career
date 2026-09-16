@@ -114,7 +114,6 @@ export async function fetchPredictionSeasons(): Promise<PredictionSeason[]> {
       ORDER BY ps.season_number DESC
     `);
 
-    // For each season, fetch the top leader
     const result: PredictionSeason[] = [];
     for (const s of seasons) {
       const { rows: topLeader } = await pool.query(`
@@ -133,9 +132,9 @@ export async function fetchPredictionSeasons(): Promise<PredictionSeason[]> {
         id: s.id,
         season_number: s.season_number,
         name: s.name,
-        total_days: s.total_days || 36,
-        total_weeks: s.total_weeks || 6,
-        days_per_week: s.days_per_week || 6,
+        total_days: s.total_days,
+        total_weeks: s.total_weeks,
+        days_per_week: s.days_per_week,
         status: s.status || 'active',
         current_day: s.current_day || 1,
         notes: s.notes,
@@ -168,7 +167,6 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
     let seasonQuery = `SELECT * FROM prediction_seasons WHERE id = $1 LIMIT 1`;
     let seasonParam: any = [num];
 
-    // If not matching by ID, try season_number
     let { rows: seasonRows } = await pool.query(seasonQuery, seasonParam);
     if (seasonRows.length === 0) {
       const { rows: fallbackRows } = await pool.query(
@@ -198,9 +196,9 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
         id: seasonData.id,
         season_number: seasonData.season_number,
         name: seasonData.name,
-        total_days: seasonData.total_days || 36,
-        total_weeks: seasonData.total_weeks || 6,
-        days_per_week: seasonData.days_per_week || 6,
+        total_days: seasonData.total_days,
+        total_weeks: seasonData.total_weeks,
+        days_per_week: seasonData.days_per_week,
         status: seasonData.status || 'active',
         current_day: seasonData.current_day || 1,
         notes: seasonData.notes,
@@ -225,23 +223,40 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
 }
 
 /**
- * Create a new Prediction Season with 36 seeded days
+ * Create a new Prediction Season with 100% Admin Configured Days, Weeks & Days per Week
  */
-export async function createPredictionSeason(seasonNumber: number, name: string, notes?: string) {
+export async function createPredictionSeason(params: {
+  seasonNumber: number;
+  name: string;
+  totalDays: number;
+  totalWeeks: number;
+  daysPerWeek: number;
+  status?: 'active' | 'completed' | 'upcoming';
+  notes?: string;
+}) {
   try {
     const admin = await getCurrentAdminUsername();
+    const {
+      seasonNumber,
+      name,
+      totalDays = 36,
+      totalWeeks = 6,
+      daysPerWeek = 6,
+      status = 'active',
+      notes = ''
+    } = params;
 
     const { rows: newSeason } = await pool.query(`
       INSERT INTO prediction_seasons (season_number, name, total_days, total_weeks, days_per_week, status, current_day, notes)
-      VALUES ($1, $2, 36, 6, 6, 'active', 1, $3)
+      VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
       RETURNING *
-    `, [seasonNumber, name, notes || '']);
+    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes]);
 
     const seasonId = newSeason[0].id;
 
-    // Seed 36 days
-    for (let d = 1; d <= 36; d++) {
-      const w = Math.ceil(d / 6);
+    // Seed custom number of days with calculated week numbers
+    for (let d = 1; d <= totalDays; d++) {
+      const w = Math.ceil(d / daysPerWeek);
       await pool.query(`
         INSERT INTO prediction_days (season_id, day_number, week_number, title, is_completed)
         VALUES ($1, $2, $3, $4, FALSE)
@@ -253,6 +268,9 @@ export async function createPredictionSeason(seasonNumber: number, name: string,
       season_id: seasonId,
       season_number: seasonNumber,
       name,
+      total_days: totalDays,
+      total_weeks: totalWeeks,
+      days_per_week: daysPerWeek,
       admin
     });
 
@@ -264,11 +282,92 @@ export async function createPredictionSeason(seasonNumber: number, name: string,
 }
 
 /**
+ * Update Season Settings (Total Days, Weeks, Days Per Week, Status, Title, etc.)
+ */
+export async function updatePredictionSeasonSettings(
+  seasonId: number,
+  params: {
+    season_number?: number;
+    name?: string;
+    total_days?: number;
+    total_weeks?: number;
+    days_per_week?: number;
+    status?: 'active' | 'completed' | 'upcoming';
+    notes?: string;
+  }
+) {
+  try {
+    const admin = await getCurrentAdminUsername();
+
+    // 1. Fetch current season
+    const { rows: currentRows } = await pool.query(`SELECT * FROM prediction_seasons WHERE id = $1`, [seasonId]);
+    if (currentRows.length === 0) {
+      return { success: false, error: "Season not found" };
+    }
+    const current = currentRows[0];
+
+    const seasonNumber = params.season_number ?? current.season_number;
+    const name = params.name ?? current.name;
+    const totalDays = params.total_days ?? current.total_days;
+    const totalWeeks = params.total_weeks ?? current.total_weeks;
+    const daysPerWeek = params.days_per_week ?? current.days_per_week;
+    const status = params.status ?? current.status;
+    const notes = params.notes ?? current.notes;
+
+    // 2. Update season row
+    const { rows: updatedRows } = await pool.query(`
+      UPDATE prediction_seasons
+      SET 
+        season_number = $1,
+        name = $2,
+        total_days = $3,
+        total_weeks = $4,
+        days_per_week = $5,
+        status = $6,
+        notes = $7,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING *
+    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes, seasonId]);
+
+    // 3. Synchronize prediction_days table with new totalDays and daysPerWeek
+    // Update week_number and title for all days 1..totalDays
+    for (let d = 1; d <= totalDays; d++) {
+      const w = Math.ceil(d / daysPerWeek);
+      await pool.query(`
+        INSERT INTO prediction_days (season_id, day_number, week_number, title, is_completed)
+        VALUES ($1, $2, $3, $4, FALSE)
+        ON CONFLICT (season_id, day_number)
+        DO UPDATE SET 
+          week_number = EXCLUDED.week_number,
+          updated_at = CURRENT_TIMESTAMP
+      `, [seasonId, d, w, `Day ${d} (Week ${w})`]);
+    }
+
+    // If totalDays is reduced, remove extra days > totalDays
+    await pool.query(`
+      DELETE FROM prediction_days
+      WHERE season_id = $1 AND day_number > $2
+    `, [seasonId, totalDays]);
+
+    await logSoloAdminAction('UPDATE_PREDICTION_SEASON_SETTINGS', {
+      season_id: seasonId,
+      updated_settings: params,
+      admin
+    });
+
+    return { success: true, season: updatedRows[0] };
+  } catch (error: any) {
+    console.error("Error updating prediction season settings:", error);
+    return { success: false, error: error.message || 'Failed to update season settings' };
+  }
+}
+
+/**
  * Fetch day info and all members with their points for a specific day
  */
 export async function fetchPredictionDayData(seasonId: number, dayNumber: number) {
   try {
-    // 1. Fetch day info
     const { rows: dayRows } = await pool.query(`
       SELECT * FROM prediction_days 
       WHERE season_id = $1 AND day_number = $2 
@@ -286,7 +385,6 @@ export async function fetchPredictionDayData(seasonId: number, dayNumber: number
       notes: dayRows[0].notes || ''
     } : null;
 
-    // 2. Fetch all members with their points for this day (left join prediction_scores)
     const { rows: memberRows } = await pool.query(`
       SELECT 
         m.id as member_id,
@@ -335,7 +433,12 @@ export async function savePredictionDayScores(
 ) {
   try {
     const admin = await getCurrentAdminUsername();
-    const weekNumber = Math.ceil(dayNumber / 6);
+
+    // Fetch season for days_per_week
+    const { rows: sRows } = await pool.query(`SELECT days_per_week, total_days FROM prediction_seasons WHERE id = $1`, [seasonId]);
+    const daysPerWeek = sRows[0]?.days_per_week || 6;
+    const totalDays = sRows[0]?.total_days || 36;
+    const weekNumber = Math.ceil(dayNumber / daysPerWeek);
 
     // 1. Update day info
     if (dayInfo) {
@@ -357,14 +460,13 @@ export async function savePredictionDayScores(
         dayNumber
       ]);
 
-      // If marked completed, update current_day in season if higher
       if (dayInfo.is_completed) {
         await pool.query(`
           UPDATE prediction_seasons
           SET current_day = GREATEST(current_day, $1),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $2
-        `, [Math.min(36, dayNumber + 1), seasonId]);
+        `, [Math.min(totalDays, dayNumber + 1), seasonId]);
       }
     }
 
@@ -407,11 +509,10 @@ export async function savePredictionDayScores(
 }
 
 /**
- * Fetch Full Leaderboard, Weekly Standings, MOTW, and 36-Day Matrix
+ * Fetch Full Leaderboard, Weekly Standings, MOTW, and Custom-Day Matrix
  */
 export async function fetchPredictionLeaderboard(seasonId: number) {
   try {
-    // 1. Fetch Season Info
     const { rows: seasonRows } = await pool.query(
       `SELECT * FROM prediction_seasons WHERE id = $1 LIMIT 1`,
       [seasonId]
@@ -419,7 +520,10 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
     if (seasonRows.length === 0) return null;
     const season = seasonRows[0];
 
-    // 2. Fetch All Days
+    const totalDays = Number(season.total_days) || 36;
+    const totalWeeks = Number(season.total_weeks) || Math.ceil(totalDays / (season.days_per_week || 6));
+    const daysPerWeek = Number(season.days_per_week) || Math.ceil(totalDays / totalWeeks);
+
     const { rows: daysRows } = await pool.query(
       `SELECT * FROM prediction_days WHERE season_id = $1 ORDER BY day_number ASC`,
       [seasonId]
@@ -429,7 +533,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       daysRows.filter((d: any) => d.is_completed).map((d: any) => Number(d.day_number))
     );
 
-    // 3. Fetch All Scores for this season
     const { rows: scoresRows } = await pool.query(`
       SELECT 
         psc.member_id,
@@ -445,7 +548,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       ORDER BY psc.member_id, psc.day_number ASC
     `, [seasonId]);
 
-    // Also get all registered managers so even 0-point members appear in overall table
     const { rows: allManagers } = await pool.query(`
       SELECT id as member_id, name, r2g_id, avatar_path as photo
       FROM managers
@@ -453,7 +555,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       ORDER BY name ASC
     `);
 
-    // Build data structure per member
     const memberMap = new Map<number, {
       member_id: number;
       name: string;
@@ -467,15 +568,18 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       scores_list: { day: number; points: number }[];
     }>();
 
-    // Initialize all managers
     for (const m of allManagers) {
+      const initialWeekly: Record<number, number> = {};
+      for (let w = 1; w <= totalWeeks; w++) {
+        initialWeekly[w] = 0;
+      }
       memberMap.set(m.member_id, {
         member_id: m.member_id,
         name: m.name,
         r2g_id: m.r2g_id || '',
         photo: m.photo || '',
         daily_scores: {},
-        weekly_totals: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+        weekly_totals: initialWeekly,
         total_points: 0,
         days_played: 0,
         max_day_points: 0,
@@ -483,18 +587,21 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       });
     }
 
-    // Populate actual scores
     for (const s of scoresRows) {
       const mId = s.member_id;
       let record = memberMap.get(mId);
       if (!record) {
+        const initialWeekly: Record<number, number> = {};
+        for (let w = 1; w <= totalWeeks; w++) {
+          initialWeekly[w] = 0;
+        }
         record = {
           member_id: mId,
           name: s.name,
           r2g_id: s.r2g_id || '',
           photo: s.photo || '',
           daily_scores: {},
-          weekly_totals: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+          weekly_totals: initialWeekly,
           total_points: 0,
           days_played: 0,
           max_day_points: 0,
@@ -505,7 +612,7 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
 
       const pts = Number(s.points) || 0;
       const dayNum = Number(s.day_number);
-      const weekNum = Number(s.week_number) || Math.ceil(dayNum / 6);
+      const weekNum = Number(s.week_number) || Math.ceil(dayNum / daysPerWeek);
 
       record.daily_scores[dayNum] = pts;
       record.weekly_totals[weekNum] = (record.weekly_totals[weekNum] || 0) + pts;
@@ -519,7 +626,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       record.scores_list.push({ day: dayNum, points: pts });
     }
 
-    // 4. Calculate Overall Standings with proper ranking & ties
     const membersList = Array.from(memberMap.values());
     membersList.sort((a, b) => {
       if (b.total_points !== a.total_points) return b.total_points - a.total_points;
@@ -531,7 +637,7 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
     const overallStandings: LeaderboardEntry[] = [];
     const matrixEntries: ScoreMatrixEntry[] = [];
 
-    const isSeasonFinished = completedDayNumbers.size >= 36 || season.status === 'completed';
+    const isSeasonFinished = completedDayNumbers.size >= totalDays || season.status === 'completed';
 
     for (let i = 0; i < membersList.length; i++) {
       const m = membersList[i];
@@ -543,7 +649,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
         }
       }
 
-      // Recent 5 completed scores form
       const sortedDayScores = Object.entries(m.daily_scores)
         .map(([d, pts]) => ({ day: Number(d), pts }))
         .sort((a, b) => b.day - a.day)
@@ -561,7 +666,7 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
         avg_points: m.days_played > 0 ? Math.round((m.total_points / m.days_played) * 10) / 10 : 0,
         max_day_points: m.max_day_points,
         recent_form: sortedDayScores,
-        is_champion: currentRank === 1 && isSeasonFinished
+        is_champion: currentRank === 1 && isSeasonFinished && m.total_points > 0
       });
 
       matrixEntries.push({
@@ -576,18 +681,18 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
       });
     }
 
-    // 5. Calculate Weekly Standings (Weeks 1 to 6) and determine MOTW for each week
+    // Dynamic Weekly Standings for 1 to totalWeeks
     const weeklyStandings: WeeklyLeaderboard[] = [];
 
-    for (let w = 1; w <= 6; w++) {
-      const startDay = (w - 1) * 6 + 1;
-      const endDay = w * 6;
+    for (let w = 1; w <= totalWeeks; w++) {
+      const startDay = (w - 1) * daysPerWeek + 1;
+      const endDay = Math.min(totalDays, w * daysPerWeek);
 
       const weekDays = daysRows.filter((d: any) => d.week_number === w || (d.day_number >= startDay && d.day_number <= endDay));
       const completedWeekDays = weekDays.filter((d: any) => d.is_completed).length;
-      const isWeekCompleted = completedWeekDays === 6;
+      const totalWeekDaysExpected = Math.max(1, endDay - startDay + 1);
+      const isWeekCompleted = completedWeekDays >= totalWeekDaysExpected;
 
-      // Calculate member totals for this week
       const weekMembers = membersList.map(m => {
         let weekPts = 0;
         let weekDaysPlayed = 0;
@@ -620,7 +725,6 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
         };
       });
 
-      // Top scorer of the week is MOTW (if week has started & someone has > 0 points)
       const topScorer = rankedWeekStandings[0];
       const motw = (topScorer && topScorer.points > 0) ? {
         member_id: topScorer.member_id,
@@ -646,8 +750,9 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
         id: season.id,
         season_number: season.season_number,
         name: season.name,
-        total_days: season.total_days || 36,
-        total_weeks: season.total_weeks || 6,
+        total_days: totalDays,
+        total_weeks: totalWeeks,
+        days_per_week: daysPerWeek,
         status: season.status || 'active',
         current_day: season.current_day || 1,
         completed_days: completedDayNumbers.size,
