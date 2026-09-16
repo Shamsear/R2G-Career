@@ -314,51 +314,50 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Master of Prediction — Coming Soon */}
-          <div
-            className="portal-card prediction-tour coming-soon-card"
-            aria-disabled="true"
-            tabIndex={-1}
+          {/* Master of Prediction — Active */}
+          <Link
+            href="/master-of-prediction"
+            className="portal-card prediction-tour"
+            onMouseMove={handleMouseMove}
           >
             <div
               className="portal-card-bg"
               style={{ backgroundImage: "url('/assets/images/portal/ranking_bg.png')" }}
+              onError={(e) => {
+                e.currentTarget.style.backgroundImage = "url('/assets/images/portal/solo_bg.png')";
+              }}
             />
+            <div className="portal-card-shimmer" />
             <div className="portal-card-glow" />
             <div className="portal-card-overlay" />
-            <div className="coming-soon-lock-overlay">
-              <div className="lock-icon-wrapper">
-                <i className="fa-solid fa-lock" />
-              </div>
-            </div>
             <div className="portal-card-content">
-              <span className="portal-card-badge coming-soon-badge">
-                <i className="fa-solid fa-clock" />
-                Coming Soon
+              <span className="portal-card-badge" style={{ backgroundColor: "rgba(234, 179, 8, 0.15)", color: "#fbbf24", borderColor: "rgba(234, 179, 8, 0.3)" }}>
+                <i className="fa-solid fa-crown" />
+                Prediction League
               </span>
               <h2>MASTER OF PREDICTION</h2>
               <p>
-                Forecast match outcomes, predict tournament champions, and compete with other managers on the prediction leaderboard.
+                36-Day seasonal championship across 6 weeks. Score points, climb overall and weekly rankings, and claim the ultimate crown.
               </p>
               <ul className="portal-card-highlights">
                 <li>
-                  <i className="fa-solid fa-square-poll-vertical" />
-                  Matchday Forecasts
+                  <i className="fa-solid fa-calendar-days" />
+                  36 Days &amp; 6 Weeks Battle
                 </li>
                 <li>
-                  <i className="fa-solid fa-award" />
-                  Leaderboard Rankings
+                  <i className="fa-solid fa-medal" />
+                  Weekly MOTW Honours
                 </li>
                 <li>
-                  <i className="fa-solid fa-coins" />
-                  Exclusive Rewards
+                  <i className="fa-solid fa-trophy" />
+                  Season Champion Crown
                 </li>
               </ul>
-              <div className="portal-card-action disabled">
-                Coming Soon <i className="fas fa-lock" />
+              <div className="portal-card-action">
+                Enter Prediction Hub <i className="fas fa-arrow-right" />
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* R2G World Series (RWS) */}
           <Link

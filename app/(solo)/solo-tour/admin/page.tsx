@@ -37,6 +37,13 @@ const ADMIN_MODULES = [
     desc: "Disburse XP achievements, award championship medals, and review global career rank boards.",
   },
   {
+    href: "/solo-tour/admin/prediction",
+    icon: "fa-solid fa-square-poll-vertical",
+    accent: "nominees",
+    title: "Master of Prediction",
+    desc: "Update round points (10, 12, 15, etc.) for all members across 36 Days & 6 Weeks, manage seasons, and preview live standings.",
+  },
+  {
     href: "/solo-tour/admin/tournaments",
     icon: "fa-solid fa-trophy",
     accent: "tournaments",
