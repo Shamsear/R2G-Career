@@ -89,6 +89,7 @@ export default function RwsYearTournament() {
   // Tab selections
   const [activeTab, setActiveTab] = useState<string>("table");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
+  const [activePlayoffPath, setActivePlayoffPath] = useState<"A" | "B">("A");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const viewModeToggled = useRef(false);
 
@@ -372,6 +373,74 @@ export default function RwsYearTournament() {
     return { boot: sortedBoot, ball: sortedBall, glove: sortedGlove, defender: sortedDefender };
   }, [fixtures, standings, tournamentClubs]);
 
+  // Playoff Fixtures
+  const playoffFixtures = useMemo(() => {
+    return fixtures.filter(f => (f.roundNumber || 0) >= 100);
+  }, [fixtures]);
+
+  const pathAFixtures = useMemo(() => {
+    return playoffFixtures.filter(f => f.groupName === 'A' || f.groupName === 'Pro');
+  }, [playoffFixtures]);
+
+  const pathBFixtures = useMemo(() => {
+    return playoffFixtures.filter(f => f.groupName === 'B' || f.groupName === 'Supreme');
+  }, [playoffFixtures]);
+
+  // Champions & Runners-up summary
+  const dualChampions = useMemo(() => {
+    // Find Final A
+    const finalA = pathAFixtures.find(f => f.roundNumber === 113 || f.roundNumber === 105);
+    let champA = null;
+    let runnerA = null;
+    if (finalA && finalA.homeScore !== null && finalA.awayScore !== null) {
+      const hs = Number(finalA.homeScore);
+      const as_ = Number(finalA.awayScore);
+      if (hs > as_) {
+        champA = { name: finalA.homeClub, logo: finalA.homeLogo, manager: finalA.homeManager };
+        runnerA = { name: finalA.awayClub, logo: finalA.awayLogo, manager: finalA.awayManager };
+      } else if (as_ > hs) {
+        champA = { name: finalA.awayClub, logo: finalA.awayLogo, manager: finalA.awayManager };
+        runnerA = { name: finalA.homeClub, logo: finalA.homeLogo, manager: finalA.homeManager };
+      }
+    }
+
+    // Find Final B
+    const finalB = pathBFixtures.find(f => f.roundNumber === 113 || f.roundNumber === 105);
+    let champB = null;
+    let runnerB = null;
+    if (finalB && finalB.homeScore !== null && finalB.awayScore !== null) {
+      const hs = Number(finalB.homeScore);
+      const as_ = Number(finalB.awayScore);
+      if (hs > as_) {
+        champB = { name: finalB.homeClub, logo: finalB.homeLogo, manager: finalB.homeManager };
+        runnerB = { name: finalB.awayClub, logo: finalB.awayLogo, manager: finalB.awayManager };
+      } else if (as_ > hs) {
+        champB = { name: finalB.awayClub, logo: finalB.awayLogo, manager: finalB.awayManager };
+        runnerB = { name: finalB.homeClub, logo: finalB.homeLogo, manager: finalB.homeManager };
+      }
+    }
+
+    // Fallback if single-path tournament
+    let singleChamp = null;
+    let singleRunner = null;
+    if (!champA && !champB && playoffFixtures.length > 0) {
+      const finalSingle = playoffFixtures.find(f => f.roundNumber === 113 || f.roundNumber === 105);
+      if (finalSingle && finalSingle.homeScore !== null && finalSingle.awayScore !== null) {
+        const hs = Number(finalSingle.homeScore);
+        const as_ = Number(finalSingle.awayScore);
+        if (hs > as_) {
+          singleChamp = { name: finalSingle.homeClub, logo: finalSingle.homeLogo, manager: finalSingle.homeManager };
+          singleRunner = { name: finalSingle.awayClub, logo: finalSingle.awayLogo, manager: finalSingle.awayManager };
+        } else if (as_ > hs) {
+          singleChamp = { name: finalSingle.awayClub, logo: finalSingle.awayLogo, manager: finalSingle.awayManager };
+          singleRunner = { name: finalSingle.homeClub, logo: finalSingle.homeLogo, manager: finalSingle.homeManager };
+        }
+      }
+    }
+
+    return { champA, runnerA, champB, runnerB, singleChamp, singleRunner };
+  }, [pathAFixtures, pathBFixtures, playoffFixtures]);
+
   const handlePrevRound = () => {
     const idx = roundsList.indexOf(activeRound);
     if (idx > 0) setActiveRound(roundsList[idx - 1]);
@@ -456,6 +525,7 @@ export default function RwsYearTournament() {
           <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "4px", gap: "4px" }}>
             {[
               { key: "table", icon: "fa-solid fa-list-ol", label: "Standings" },
+              { key: "playoffs", icon: "fa-solid fa-trophy", label: "Playoffs & Finals" },
               { key: "fixture", icon: "fa-solid fa-calendar-days", label: "Fixtures" },
               { key: "stats", icon: "fa-solid fa-chart-simple", label: "Stats" },
             ].map(tab => (
@@ -797,6 +867,298 @@ export default function RwsYearTournament() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════════════ TAB — PLAYOFFS & FINALS ═══════════════════════ */}
+        {activeTab === "playoffs" && (
+          <div style={{ animation: "rwsFadeUp 0.4s ease-out both", width: "100%" }}>
+            
+            {/* 🏆 DOUBLE FINALS HONOURS PODIUM (2 CHAMPIONS & 2 RUNNERS-UP) 🏆 */}
+            {(dualChampions.champA || dualChampions.champB || dualChampions.singleChamp) ? (
+              <div style={{ marginBottom: "2.5rem" }}>
+                <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "4px 14px", borderRadius: "20px", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", fontSize: "0.72rem", fontWeight: 700, color: "#fbbf24", letterSpacing: "1px", textTransform: "uppercase" }}>
+                    <i className="fa-solid fa-crown" /> Roll of Honour
+                  </div>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem", fontWeight: 800, color: "#fff", margin: "0.5rem 0 0.25rem", letterSpacing: "2px", textTransform: "uppercase" }}>
+                    TOURNAMENT CHAMPIONS &amp; RUNNERS-UP
+                  </h2>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: (dualChampions.champA && dualChampions.champB) ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr", gap: "1.25rem" }}>
+                  {/* Group A / Path A Honours */}
+                  {dualChampions.champA && (
+                    <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(15,12,27,0.9) 100%)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: "16px", padding: "1.5rem", boxShadow: "0 10px 30px rgba(0,0,0,0.3)", position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", top: "-10px", right: "-10px", width: "80px", height: "80px", background: "radial-gradient(circle, rgba(251,191,36,0.2) 0%, transparent 70%)" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.6rem" }}>
+                        <span style={{ fontSize: "0.7rem", fontFamily: "var(--font-display)", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", color: "#fbbf24" }}>
+                          🏆 PATH A (GROUP A) FINALE
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {/* Winner */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(251,191,36,0.06)", padding: "0.75rem 1rem", borderRadius: "10px", border: "1px solid rgba(251,191,36,0.2)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <div style={{ fontSize: "1.5rem" }}>🥇</div>
+                            {dualChampions.champA.logo && <img src={dualChampions.champA.logo} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />}
+                            <div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff" }}>{dualChampions.champA.name}</div>
+                              <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Manager: {dualChampions.champA.manager}</div>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", padding: "3px 8px", borderRadius: "4px" }}>CHAMPION</span>
+                        </div>
+                        {/* Runner Up */}
+                        {dualChampions.runnerA && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.02)", padding: "0.6rem 1rem", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                              <div style={{ fontSize: "1.3rem" }}>🥈</div>
+                              {dualChampions.runnerA.logo && <img src={dualChampions.runnerA.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
+                              <div>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#cbd5e1" }}>{dualChampions.runnerA.name}</div>
+                                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>Manager: {dualChampions.runnerA.manager}</div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#cbd5e1", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>RUNNER-UP</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Group B / Path B Honours */}
+                  {dualChampions.champB && (
+                    <div style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(15,12,27,0.9) 100%)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "16px", padding: "1.5rem", boxShadow: "0 10px 30px rgba(0,0,0,0.3)", position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", top: "-10px", right: "-10px", width: "80px", height: "80px", background: "radial-gradient(circle, rgba(168,85,247,0.2) 0%, transparent 70%)" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.6rem" }}>
+                        <span style={{ fontSize: "0.7rem", fontFamily: "var(--font-display)", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", color: "#c084fc" }}>
+                          🏆 PATH B (GROUP B) FINALE
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {/* Winner */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(168,85,247,0.06)", padding: "0.75rem 1rem", borderRadius: "10px", border: "1px solid rgba(168,85,247,0.2)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <div style={{ fontSize: "1.5rem" }}>🥇</div>
+                            {dualChampions.champB.logo && <img src={dualChampions.champB.logo} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />}
+                            <div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff" }}>{dualChampions.champB.name}</div>
+                              <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Manager: {dualChampions.champB.manager}</div>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#c084fc", background: "rgba(168,85,247,0.15)", padding: "3px 8px", borderRadius: "4px" }}>CHAMPION</span>
+                        </div>
+                        {/* Runner Up */}
+                        {dualChampions.runnerB && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.02)", padding: "0.6rem 1rem", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                              <div style={{ fontSize: "1.3rem" }}>🥈</div>
+                              {dualChampions.runnerB.logo && <img src={dualChampions.runnerB.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
+                              <div>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#cbd5e1" }}>{dualChampions.runnerB.name}</div>
+                                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>Manager: {dualChampions.runnerB.manager}</div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#cbd5e1", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>RUNNER-UP</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Single Path Fallback Honours */}
+                  {dualChampions.singleChamp && (
+                    <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(15,12,27,0.9) 100%)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: "16px", padding: "1.5rem", maxWidth: "600px", margin: "0 auto", width: "100%" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0.6rem" }}>
+                        <span style={{ fontSize: "0.7rem", fontFamily: "var(--font-display)", fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase", color: "#fbbf24" }}>
+                          🏆 GRAND FINALE
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(251,191,36,0.06)", padding: "0.75rem 1rem", borderRadius: "10px", border: "1px solid rgba(251,191,36,0.2)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <div style={{ fontSize: "1.5rem" }}>🥇</div>
+                            {dualChampions.singleChamp.logo && <img src={dualChampions.singleChamp.logo} alt="" style={{ width: "28px", height: "28px", objectFit: "contain" }} />}
+                            <div>
+                              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff" }}>{dualChampions.singleChamp.name}</div>
+                              <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Manager: {dualChampions.singleChamp.manager}</div>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", padding: "3px 8px", borderRadius: "4px" }}>CHAMPION</span>
+                        </div>
+                        {dualChampions.singleRunner && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.02)", padding: "0.6rem 1rem", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                              <div style={{ fontSize: "1.3rem" }}>🥈</div>
+                              {dualChampions.singleRunner.logo && <img src={dualChampions.singleRunner.logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} />}
+                              <div>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#cbd5e1" }}>{dualChampions.singleRunner.name}</div>
+                                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>Manager: {dualChampions.singleRunner.manager}</div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#cbd5e1", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>RUNNER-UP</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Path Selector Bar for Dual-Path Playoff */}
+            {pathAFixtures.length > 0 && pathBFixtures.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
+                <div style={{ display: "inline-flex", background: "rgba(0,0,0,0.35)", padding: "4px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setActivePlayoffPath("A")}
+                    style={{
+                      padding: "8px 24px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "0.82rem",
+                      fontWeight: activePlayoffPath === "A" ? 800 : 500,
+                      fontFamily: "var(--font-display)",
+                      background: activePlayoffPath === "A" ? "linear-gradient(135deg, #a855f7, #7c3aed)" : "transparent",
+                      color: activePlayoffPath === "A" ? "#fff" : "rgba(255,255,255,0.5)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-code-branch" style={{ marginRight: "6px" }} /> PATH A (GROUP A PLAYOFFS)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePlayoffPath("B")}
+                    style={{
+                      padding: "8px 24px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "0.82rem",
+                      fontWeight: activePlayoffPath === "B" ? 800 : 500,
+                      fontFamily: "var(--font-display)",
+                      background: activePlayoffPath === "B" ? "linear-gradient(135deg, #a855f7, #7c3aed)" : "transparent",
+                      color: activePlayoffPath === "B" ? "#fff" : "rgba(255,255,255,0.5)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-code-branch" style={{ marginRight: "6px" }} /> PATH B (GROUP B PLAYOFFS)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Playoff Matches Container */}
+            {playoffFixtures.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "4rem 2rem", color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.02)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <i className="fa-solid fa-diagram-project" style={{ fontSize: "2.5rem", marginBottom: "1rem", display: "block", opacity: 0.3 }} />
+                <h3 style={{ color: "#fff", fontSize: "1.1rem", margin: "0 0 0.5rem 0" }}>No Playoff Rounds Created</h3>
+                <p style={{ fontSize: "0.82rem", margin: 0 }}>Playoff rounds can be generated from the Admin Console once group matches are completed.</p>
+              </div>
+            ) : (
+              /* Playoff Tree Stages */
+              (() => {
+                const currentPathFixtures = (pathAFixtures.length > 0 && pathBFixtures.length > 0)
+                  ? (activePlayoffPath === "A" ? pathAFixtures : pathBFixtures)
+                  : playoffFixtures;
+
+                const stageP1 = currentPathFixtures.filter(f => f.roundNumber === 110);
+                const stageElim = currentPathFixtures.filter(f => f.roundNumber === 111);
+                const stageP2 = currentPathFixtures.filter(f => f.roundNumber === 112);
+                const stageFinal = currentPathFixtures.filter(f => f.roundNumber === 113 || f.roundNumber === 105);
+
+                const stages = [
+                  { title: "PLAYOFF 1 (QUALIFIER 1)", sub: "Winner to Final · Loser to Playoff 2", matches: stageP1, icon: "fa-solid fa-1" },
+                  { title: "ELIMINATOR", sub: "Winner to Playoff 2 · Loser Eliminated", matches: stageElim, icon: "fa-solid fa-skull" },
+                  { title: "PLAYOFF 2 (QUALIFIER 2)", sub: "Winner to Final · Loser Eliminated", matches: stageP2, icon: "fa-solid fa-2" },
+                  { title: "CHAMPIONSHIP FINAL", sub: "Championship Decider", matches: stageFinal, icon: "fa-solid fa-trophy" },
+                ];
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                    {stages.map((stg, stgIdx) => (
+                      <div key={stgIdx} style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.25rem 1.5rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.6rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                            <div style={{ width: "24px", height: "24px", borderRadius: "6px", background: "rgba(168,85,247,0.15)", color: "#c084fc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: "bold" }}>
+                              <i className={stg.icon} />
+                            </div>
+                            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "0.95rem", color: "#fff", textTransform: "uppercase", letterSpacing: "1px" }}>
+                              {stg.title}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)" }}>
+                            {stg.sub}
+                          </span>
+                        </div>
+
+                        {stg.matches.length === 0 ? (
+                          <div style={{ padding: "1rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.8rem", background: "rgba(0,0,0,0.15)", borderRadius: "8px" }}>
+                            Awaiting preceding stage results...
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            {stg.matches.map((match) => {
+                              const isFinished = match.match_status === "finished" || (match.homeScore !== null && match.awayScore !== null);
+                              const homeWon = isFinished && (match.homeScore ?? 0) > (match.awayScore ?? 0);
+                              const awayWon = isFinished && (match.awayScore ?? 0) > (match.homeScore ?? 0);
+                              return (
+                                <div key={match.id} style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "1rem 1.25rem" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                    {/* Home Team */}
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                      <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                                        {match.homeLogo ? <img src={match.homeLogo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} /> : <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>{(match.homeClub || "TBD").slice(0,2).toUpperCase()}</span>}
+                                      </div>
+                                      <div>
+                                        <div style={{ fontFamily: "var(--font-display)", fontWeight: homeWon ? 800 : 600, fontSize: "0.88rem", color: homeWon ? "#4ade80" : "#fff" }}>
+                                          {match.homeClub || "TBD (Tied / Seed)"}
+                                        </div>
+                                        {match.homeManager && <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>{match.homeManager}</div>}
+                                      </div>
+                                    </div>
+
+                                    {/* Score */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.8rem", borderRadius: "8px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.05)", minWidth: "65px", justifyContent: "center" }}>
+                                      {!isFinished ? (
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>vs</span>
+                                      ) : (
+                                        <>
+                                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 800, color: homeWon ? "#4ade80" : "rgba(255,255,255,0.6)" }}>{match.homeScore}</span>
+                                          <span style={{ color: "rgba(255,255,255,0.2)" }}>–</span>
+                                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 800, color: awayWon ? "#4ade80" : "rgba(255,255,255,0.6)" }}>{match.awayScore}</span>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    {/* Away Team */}
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.75rem", justifyContent: "flex-end" }}>
+                                      <div style={{ textAlign: "right" }}>
+                                        <div style={{ fontFamily: "var(--font-display)", fontWeight: awayWon ? 800 : 600, fontSize: "0.88rem", color: awayWon ? "#4ade80" : "#fff" }}>
+                                          {match.awayClub || "TBD (Tied / Seed)"}
+                                        </div>
+                                        {match.awayManager && <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)" }}>{match.awayManager}</div>}
+                                      </div>
+                                      <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                                        {match.awayLogo ? <img src={match.awayLogo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain" }} /> : <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>{(match.awayClub || "TBD").slice(0,2).toUpperCase()}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
+            )}
+
           </div>
         )}
 

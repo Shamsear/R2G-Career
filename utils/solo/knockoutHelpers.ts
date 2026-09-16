@@ -55,7 +55,20 @@ export const ROUND_NAMES = {
   QUARTER_FINAL: { order: 2, teams: 8, pairings: 4 },
   SEMI_FINAL: { order: 3, teams: 4, pairings: 2 },
   THIRD_PLACE: { order: 4, teams: 2, pairings: 1 },
-  FINAL: { order: 5, teams: 2, pairings: 1 }
+  FINAL: { order: 5, teams: 2, pairings: 1 },
+  // Playoff / IPL System Rounds
+  PLAYOFF_1: { order: 10, teams: 4, pairings: 1 },
+  ELIMINATOR: { order: 11, teams: 4, pairings: 1 },
+  PLAYOFF_2: { order: 12, teams: 2, pairings: 1 },
+  GRAND_FINAL: { order: 13, teams: 2, pairings: 1 },
+  PLAYOFF_1_A: { order: 10, teams: 4, pairings: 1 },
+  ELIMINATOR_A: { order: 11, teams: 4, pairings: 1 },
+  PLAYOFF_2_A: { order: 12, teams: 2, pairings: 1 },
+  FINAL_A: { order: 13, teams: 2, pairings: 1 },
+  PLAYOFF_1_B: { order: 10, teams: 4, pairings: 1 },
+  ELIMINATOR_B: { order: 11, teams: 4, pairings: 1 },
+  PLAYOFF_2_B: { order: 12, teams: 2, pairings: 1 },
+  FINAL_B: { order: 13, teams: 2, pairings: 1 }
 } as const;
 
 export type RoundName = keyof typeof ROUND_NAMES;
@@ -291,7 +304,28 @@ export async function resolveQualificationPlaceholder(
            WHERE knockout_round_id = $1 AND pairing_order = $2`,
           [roundRows[0].id, parseInt(pairingOrder)]
         );
-        return pairingRows[0]?.winner_id || null;
+        return pairingRows[0]?.winner_id ? Number(pairingRows[0].winner_id) : null;
+      }
+    } else if (placeholder.match(/Loser of (\w+) #(\d+)/) || placeholder.match(/Loser of (\w+) Match #(\d+)/)) {
+      const loserMatch = placeholder.match(/Loser of (\w+) #(\d+)/) || placeholder.match(/Loser of (\w+) Match #(\d+)/);
+      if (loserMatch) {
+        const [, roundName, pairingOrder] = loserMatch;
+        const { rows: roundRows } = await pool.query(
+          `SELECT id FROM knockout_rounds WHERE tournament_id = $1 AND round_name = $2`,
+          [tournamentId, roundName]
+        );
+        if (roundRows.length > 0) {
+          const { rows: pairingRows } = await pool.query(
+            `SELECT team1_id, team2_id, winner_id FROM knockout_pairings 
+             WHERE knockout_round_id = $1 AND pairing_order = $2`,
+            [roundRows[0].id, parseInt(pairingOrder)]
+          );
+          if (pairingRows.length > 0 && pairingRows[0].winner_id) {
+            const { team1_id, team2_id, winner_id } = pairingRows[0];
+            if (Number(winner_id) === Number(team1_id)) return team2_id ? Number(team2_id) : null;
+            if (Number(winner_id) === Number(team2_id)) return team1_id ? Number(team1_id) : null;
+          }
+        }
       }
     }
   } catch (error) {

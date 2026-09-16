@@ -8067,85 +8067,11 @@ async function resolveNextRoundPairingsServer(completedPairingId: string, winner
     );
 
     if (currentRows.length === 0) return;
+    const { tournament_id } = currentRows[0];
 
-    const { round_name, round_order, pairing_order, tournament_id } = currentRows[0];
-
-    // Find next round
-    const { rows: nextRoundRows } = await pool.query(
-      `SELECT * FROM knockout_rounds
-       WHERE tournament_id = $1 AND round_order > $2
-       ORDER BY round_order ASC
-       LIMIT 1`,
-      [tournament_id, round_order]
-    );
-
-    if (nextRoundRows.length === 0) return;
-
-    const nextRoundId = nextRoundRows[0].id;
-    const placeholderText = `Winner of ${round_name} #${pairing_order}`;
-
-    // Update team1 placeholders
-    await pool.query(
-      `UPDATE knockout_pairings
-       SET team1_id = $1, team1_placeholder = NULL, updated_at = NOW()
-       WHERE knockout_round_id = $2 AND team1_placeholder = $3`,
-      [winnerId, nextRoundId, placeholderText]
-    );
-
-    // Update team2 placeholders
-    await pool.query(
-      `UPDATE knockout_pairings
-       SET team2_id = $1, team2_placeholder = NULL, updated_at = NOW()
-       WHERE knockout_round_id = $2 AND team2_placeholder = $3`,
-      [winnerId, nextRoundId, placeholderText]
-    );
-
-    // Check if any pairings in the next round are now fully resolved and need fixtures created
-    const { rows: nextPairings } = await pool.query(
-      `SELECT kp.id, kp.team1_id, kp.team2_id, kp.leg1_match_id, kp.leg2_match_id,
-              kr.legs, kr.round_order
-       FROM knockout_pairings kp
-       JOIN knockout_rounds kr ON kr.id = kp.knockout_round_id
-       WHERE kp.knockout_round_id = $1
-         AND kp.team1_id IS NOT NULL 
-         AND kp.team2_id IS NOT NULL`,
-      [nextRoundId]
-    );
-
-    for (const pairing of nextPairings) {
-      if (!pairing.leg1_match_id) {
-        console.log('🔍 [RESOLVE SERVER] Creating leg 1 fixture for next round pairing:', pairing.id);
-        const { rows: [leg1Match] } = await pool.query(
-          `INSERT INTO fixtures (
-            tournament_id, home_club_id, away_club_id, round_number, match_status
-          ) VALUES ($1, $2, $3, $4, 'scheduled')
-          RETURNING id`,
-          [tournament_id, pairing.team1_id, pairing.team2_id, 100 + pairing.round_order]
-        );
-
-        await pool.query(
-          `UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2`,
-          [leg1Match.id, pairing.id]
-        );
-
-        // Create leg 2
-        if (pairing.legs === 2 && !pairing.leg2_match_id) {
-          console.log('🔍 [RESOLVE SERVER] Creating leg 2 fixture for next round pairing:', pairing.id);
-          const { rows: [leg2Match] } = await pool.query(
-            `INSERT INTO fixtures (
-              tournament_id, home_club_id, away_club_id, round_number, match_status
-            ) VALUES ($1, $2, $3, $4, 'scheduled')
-            RETURNING id`,
-            [tournament_id, pairing.team2_id, pairing.team1_id, 100 + pairing.round_order]
-          );
-
-          await pool.query(
-            `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
-            [leg2Match.id, pairing.id]
-          );
-        }
-      }
-    }
+    // Call unified resolveAllPlaceholders
+    const { resolveAllPlaceholders } = await import('./knockoutActions');
+    await resolveAllPlaceholders(pool, tournament_id);
   } catch (error) {
     console.error('Error resolving next round pairings:', error);
   }
@@ -8395,3 +8321,17 @@ export async function reorderSoloTrophyCabinetItem(id1: number, order1: number, 
     return { success: false, error: error.message };
   }
 }
+
+export async function createPlayoffTournament(data: {
+  tournamentId: number | string;
+  playoffType: 'single' | 'dual';
+  legs?: number;
+}) {
+  const { createPlayoffTournamentAction } = await import('./knockoutActions');
+  return await createPlayoffTournamentAction(pool, {
+    tournamentId: Number(data.tournamentId),
+    playoffType: data.playoffType,
+    legs: data.legs || 1
+  });
+}
+

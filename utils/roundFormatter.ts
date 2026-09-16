@@ -10,6 +10,10 @@ export const getRoundDisplay = (roundNum: number): string => {
   if (roundNum === 103) return "Semi-Finals";
   if (roundNum === 104) return "Third Place Playoff";
   if (roundNum === 105) return "Grand Final";
+  if (roundNum === 110) return "Playoff 1 (Qualifier 1)";
+  if (roundNum === 111) return "Eliminator";
+  if (roundNum === 112) return "Playoff 2 (Qualifier 2)";
+  if (roundNum === 113) return "Grand Final";
   if (roundNum >= 106) return `Knockout Round ${roundNum - 100}`;
   return `Round ${roundNum}`;
 };
@@ -25,6 +29,10 @@ export const getShortRoundLabel = (roundNum: number): string => {
   if (roundNum === 103) return "SF";
   if (roundNum === 104) return "3rd";
   if (roundNum === 105) return "F";
+  if (roundNum === 110) return "P1";
+  if (roundNum === 111) return "ELIM";
+  if (roundNum === 112) return "P2";
+  if (roundNum === 113) return "F";
   if (roundNum >= 106) return `KO${roundNum - 100}`;
   return `M${roundNum}`;
 };

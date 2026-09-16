@@ -34,7 +34,8 @@ import {
   recalculateTournamentStandings,
   fetchKnockoutRounds,
   createKnockoutRound,
-  deleteKnockoutRound
+  deleteKnockoutRound,
+  createPlayoffTournament
 } from "@/utils/solo/serverActions";
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +67,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [knockoutPreview, setKnockoutPreview] = useState<any>(null);
   const [showKnockoutPreview, setShowKnockoutPreview] = useState<boolean>(false);
   const [knockoutManualPairings, setKnockoutManualPairings] = useState<Array<{team1: number | null, team2: number | null}>>([]);
+  const [playoffFormat, setPlayoffFormat] = useState<'single' | 'dual'>('dual');
+  const [playoffLegs, setPlayoffLegs] = useState<number>(1);
+  const [playoffCreating, setPlayoffCreating] = useState<boolean>(false);
   
   const viewModeToggled = useRef(false);
   const posterRef = useRef<HTMLDivElement>(null);
@@ -3328,6 +3332,93 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 </div>
               )}
+
+              {/* IPL Playoff Generator Sub-Card */}
+              <div className="sub-card" style={{ marginBottom: "1.5rem", border: "1px solid rgba(168, 85, 247, 0.4)", background: "linear-gradient(135deg, rgba(168,85,247,0.06) 0%, rgba(15,12,27,0.9) 100%)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                  <h3 className="sub-card-title" style={{ margin: 0, color: "#c084fc", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <i className="fa-solid fa-trophy" /> IPL Playoff &amp; Eliminator Generator
+                  </h3>
+                  <span style={{ fontSize: "0.72rem", background: "rgba(168,85,247,0.2)", color: "#c084fc", padding: "2px 8px", borderRadius: "4px", fontWeight: "bold" }}>
+                    PLAYOFFS
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.7)", margin: "0 0 1.25rem 0", lineHeight: 1.4 }}>
+                  Setup Playoff 1 (Qualifier 1), Eliminator, Playoff 2 (Qualifier 2), and Championship Finals with automatic loser/winner branching.
+                </p>
+
+                <div className="admin-form-grid" style={{ marginBottom: "1rem" }}>
+                  <div className="admin-form-group">
+                    <label>Playoff Structure</label>
+                    <select
+                      className="admin-select"
+                      value={playoffFormat}
+                      onChange={(e) => setPlayoffFormat(e.target.value as 'single' | 'dual')}
+                    >
+                      <option value="dual">Dual-Path Playoffs (Group A &amp; Group B Split — 2 Finals, 2 Champions)</option>
+                      <option value="single">Single-Path Playoffs (Top 4 Overall — 1 Final, 1 Champion)</option>
+                    </select>
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>Knockout Match Legs</label>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => setPlayoffLegs(1)}
+                        className={`portal-btn ${playoffLegs === 1 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Single Leg (1)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlayoffLegs(2)}
+                        className={`portal-btn ${playoffLegs === 2 ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1 }}
+                      >
+                        Two Legs (2)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="portal-btn btn-primary"
+                  onClick={async () => {
+                    if (!confirm(`Generate ${playoffFormat === 'dual' ? 'Dual-Path (Group A & B Split)' : 'Single-Path'} IPL Playoffs? This will setup Playoff 1, Eliminator, Playoff 2, and Final rounds/fixtures.`)) return;
+                    setPlayoffCreating(true);
+                    try {
+                      await createPlayoffTournament({
+                        tournamentId,
+                        playoffType: playoffFormat,
+                        legs: playoffLegs
+                      });
+                      showToast('✅ IPL Playoff brackets and fixtures generated successfully!');
+                      loadData();
+                    } catch (err: any) {
+                      showToast(`❌ ${err.message || 'Failed to generate playoffs'}`);
+                    } finally {
+                      setPlayoffCreating(false);
+                    }
+                  }}
+                  disabled={playoffCreating}
+                  style={{ width: "100%", background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff", fontWeight: "bold" }}
+                >
+                  {playoffCreating ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "0.5rem" }} />
+                      Generating Playoff System...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-bolt" style={{ marginRight: "0.5rem" }} />
+                      Generate {playoffFormat === 'dual' ? 'Dual-Path (2 Finals)' : 'Single-Path'} IPL Playoffs
+                    </>
+                  )}
+                </button>
+              </div>
 
               {/* Create Form */}
               <div className="sub-card">
