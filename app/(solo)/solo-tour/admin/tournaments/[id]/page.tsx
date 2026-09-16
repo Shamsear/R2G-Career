@@ -20,6 +20,7 @@ import {
   deleteFixture,
   fetchTournamentTypes,
   updateTournamentDetails,
+  updateTournamentStatus,
   fetchTournamentClubs,
   addClubToTournament,
   addMultipleClubsToTournament,
@@ -199,6 +200,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editFormatType, setEditFormatType] = useState("League");
+  const [editStatus, setEditStatus] = useState("active");
   const [editFinancialRuleId, setEditFinancialRuleId] = useState("");
   const [editTournamentType, setEditTournamentType] = useState("solo");
   const [editNumGroups, setEditNumGroups] = useState("");
@@ -536,6 +538,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       if (tourney) {
         setEditName(tourney.name);
         setEditFormatType(tourney.format_type);
+        setEditStatus(tourney.status || "active");
         setEditFinancialRuleId(tourney.financial_rule_id ? tourney.financial_rule_id.toString() : "");
         setEditTournamentType(tourney.tournament_type || "solo");
         setEditNumGroups(tourney.num_groups !== null ? tourney.num_groups.toString() : "");
@@ -574,6 +577,18 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     loadData();
   }, [tournamentId]);
 
+  const handleToggleStatus = (newStatus: string) => {
+    startTransition(async () => {
+      try {
+        await updateTournamentStatus(tournamentId, newStatus);
+        showToast(`Tournament marked as ${newStatus.toUpperCase()}!`);
+        loadData();
+      } catch {
+        showToast("Error updating tournament status!");
+      }
+    });
+  };
+
   const handleUpdateTournament = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName) return showToast("Tournament name required!");
@@ -608,7 +623,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           totalTeams,
           divTier,
           promo,
-          releg
+          releg,
+          editStatus || "active"
         );
         showToast("Tournament details updated!");
         setIsEditing(false);
@@ -1210,18 +1226,74 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         {/* Header */}
-        <div className="portal-header" style={{ width: "100%" }}>
-          <div className="portal-page-badge">
-            <i className="fa-solid fa-sitemap" />
-            Tournament Console
+        <div className="portal-header" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.25rem" }}>
+              <div className="portal-page-badge" style={{ margin: 0 }}>
+                <i className="fa-solid fa-sitemap" />
+                Tournament Console
+              </div>
+              {tournament.status === "completed" ? (
+                <span className="badge-success" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
+                  <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }} /> COMPLETED
+                </span>
+              ) : tournament.status === "upcoming" ? (
+                <span style={{ background: "rgba(234, 179, 8, 0.15)", color: "#facc15", border: "1px solid rgba(234, 179, 8, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
+                  <i className="fa-solid fa-clock" style={{ marginRight: "4px" }} /> UPCOMING
+                </span>
+              ) : (
+                <span className="badge-info" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
+                  <i className="fa-solid fa-bolt" style={{ marginRight: "4px" }} /> ACTIVE
+                </span>
+              )}
+            </div>
+            <h1 className="portal-title">{tournament.name}</h1>
+            <p className="portal-subtitle">
+              Format: <strong>{tournament.format_type}</strong>
+              {(tournament.tournament_type !== 'special' && tournament.tournament_type !== 'rws') && (
+                <> | Active Season: <strong>Season {tournament.season_number}</strong></>
+              )}
+            </p>
           </div>
-          <h1 className="portal-title">{tournament.name}</h1>
-          <p className="portal-subtitle">
-            Format: <strong>{tournament.format_type}</strong>
-            {(tournament.tournament_type !== 'special' && tournament.tournament_type !== 'rws') && (
-              <> | Active Season: <strong>Season {tournament.season_number}</strong></>
+
+          {/* Instant 1-Click Status Controls */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            {tournament.status === "completed" ? (
+              <button
+                type="button"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 14px", fontSize: "0.8rem", borderColor: "rgba(56, 189, 248, 0.5)", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}
+                onClick={() => handleToggleStatus("active")}
+                disabled={isPending}
+                title="Reactivate this tournament"
+              >
+                <i className="fa-solid fa-bolt" /> Set Active
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 14px", fontSize: "0.8rem", borderColor: "rgba(16, 185, 129, 0.5)", color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}
+                onClick={() => handleToggleStatus("completed")}
+                disabled={isPending}
+                title="Mark this tournament as completed"
+              >
+                <i className="fa-solid fa-circle-check" /> Mark Completed
+              </button>
             )}
-          </p>
+            {tournament.status !== "upcoming" && (
+              <button
+                type="button"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 12px", fontSize: "0.8rem", borderColor: "rgba(234, 179, 8, 0.3)", color: "#facc15", display: "flex", alignItems: "center", gap: "6px" }}
+                onClick={() => handleToggleStatus("upcoming")}
+                disabled={isPending}
+                title="Set status to upcoming"
+              >
+                <i className="fa-solid fa-clock" /> Set Upcoming
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Navigation Tabs */}
@@ -1381,6 +1453,20 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </select>
                   </div>
 
+                  <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Status</label>
+                    <select 
+                      className="admin-select" 
+                      style={{ fontSize: "0.85rem", padding: "6px 10px" }}
+                      value={editStatus} 
+                      onChange={(e) => setEditStatus(e.target.value)}
+                    >
+                      <option value="active">⚡ Active</option>
+                      <option value="completed">🏆 Completed / Concluded</option>
+                      <option value="upcoming">⏳ Upcoming</option>
+                    </select>
+                  </div>
+
                   {(editFormatType === "Group + Knockout" || editFormatType === "League + Knockout") && (() => {
                     const computedTeamsPerGroup = editNumTeams && editNumGroups 
                       ? Math.floor(parseInt(editNumTeams) / parseInt(editNumGroups)) 
@@ -1526,6 +1612,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                   <div>Name: <strong style={{ color: "#fff" }}>{tournament.name}</strong></div>
                   <div>Format: <strong style={{ color: "#fff" }}>{tournament.format_type}</strong></div>
+                  <div>Status: <strong style={{ color: tournament.status === "completed" ? "#34d399" : tournament.status === "upcoming" ? "#facc15" : "#38bdf8", textTransform: "uppercase" }}>{tournament.status || "active"}</strong></div>
                   {(tournament.format_type === "Group + Knockout" || tournament.format_type === "League + Knockout") && tournament.num_groups && (
                     <>
                       <div>Total Teams: <strong style={{ color: "#fff" }}>{tournament.num_teams || "—"}</strong></div>

@@ -14,7 +14,8 @@ import {
   fetchTournamentTypes,
   createTournamentType,
   deleteTournamentType,
-  updateTournamentDetails
+  updateTournamentDetails,
+  updateTournamentStatus
 } from "@/utils/solo/serverActions";
 
 export default function TournamentsManager() {
@@ -29,6 +30,7 @@ export default function TournamentsManager() {
     id: "",
     name: "",
     formatType: "League",
+    status: "active",
     financialRuleId: "",
     tournamentType: "solo",
     numGroups: "",
@@ -74,6 +76,7 @@ export default function TournamentsManager() {
       id: "",
       name: "",
       formatType: "League",
+      status: "active",
       financialRuleId: "",
       tournamentType: "solo",
       numGroups: "",
@@ -91,6 +94,7 @@ export default function TournamentsManager() {
       id: t.id.toString(),
       name: t.name,
       formatType: t.format_type,
+      status: t.status || "active",
       financialRuleId: t.financial_rule_id ? t.financial_rule_id.toString() : "",
       tournamentType: t.tournament_type || "solo",
       numGroups: t.num_groups !== null ? t.num_groups.toString() : "",
@@ -100,6 +104,18 @@ export default function TournamentsManager() {
       divisionTier: t.division_tier !== null && t.division_tier !== undefined ? t.division_tier.toString() : "",
       promotionCount: t.promotion_count !== null && t.promotion_count !== undefined ? t.promotion_count.toString() : "",
       relegationCount: t.relegation_count !== null && t.relegation_count !== undefined ? t.relegation_count.toString() : ""
+    });
+  };
+
+  const handleToggleStatus = (id: number, newStatus: string) => {
+    startTransition(async () => {
+      try {
+        await updateTournamentStatus(id, newStatus);
+        showToast(`Tournament marked as ${newStatus.toUpperCase()}!`);
+        loadData();
+      } catch {
+        showToast("Error updating tournament status!");
+      }
     });
   };
 
@@ -138,7 +154,8 @@ export default function TournamentsManager() {
             totalTeams,
             divTier,
             promo,
-            releg
+            releg,
+            tourneyForm.status || "active"
           );
           showToast("Tournament updated!");
         } else {
@@ -154,7 +171,8 @@ export default function TournamentsManager() {
             totalTeams,
             divTier,
             promo,
-            releg
+            releg,
+            tourneyForm.status || "active"
           );
           showToast("Tournament created!");
         }
@@ -278,6 +296,7 @@ export default function TournamentsManager() {
                   const rule = financialRules.find(r => r.id === t.financial_rule_id);
                   const typeObj = tournamentTypes.find(tp => tp.name === t.tournament_type) || { display_name: t.tournament_type || "Solo" };
                   const isActive = tourneyForm.id === t.id.toString();
+                  const currentStatus = t.status || 'active';
                   return (
                     <div 
                       key={t.id}
@@ -287,11 +306,26 @@ export default function TournamentsManager() {
                     >
                       <div className="rule-card-header">
                         <span className="rule-card-title" style={{ fontSize: "0.95rem" }}>{t.name}</span>
-                        {!(t.tournament_type === 'rws' || t.tournament_type === 'special') && (
-                          <span className="badge-info">
-                            Season {t.season_number}
-                          </span>
-                        )}
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          {currentStatus === "completed" ? (
+                            <span className="badge-success" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
+                              <i className="fa-solid fa-circle-check" style={{ marginRight: "3px" }} /> DONE
+                            </span>
+                          ) : currentStatus === "upcoming" ? (
+                            <span style={{ background: "rgba(234, 179, 8, 0.15)", color: "#facc15", border: "1px solid rgba(234, 179, 8, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
+                              <i className="fa-solid fa-clock" style={{ marginRight: "3px" }} /> UPCOMING
+                            </span>
+                          ) : (
+                            <span className="badge-info" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
+                              <i className="fa-solid fa-bolt" style={{ marginRight: "3px" }} /> ACTIVE
+                            </span>
+                          )}
+                          {!(t.tournament_type === 'rws' || t.tournament_type === 'special') && (
+                            <span className="badge-info">
+                              S{t.season_number}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="rule-card-pills" style={{ marginTop: "0.25rem" }}>
@@ -305,26 +339,50 @@ export default function TournamentsManager() {
                         </div>
                         {!(t.tournament_type === 'rws' || t.tournament_type === 'special') && (
                         <div className="rule-pill">
-                          <span>Rules Template:</span>
+                          <span>Rules:</span>
                           <span style={{ fontWeight: 600, color: rule ? "#10b981" : "var(--text-secondary)" }}>{rule ? rule.name : "None"}</span>
                         </div>
                         )}
                       </div>
 
-                      <div className="club-card-footer" onClick={(e) => e.stopPropagation()}>
+                      <div className="club-card-footer" style={{ display: "flex", gap: "6px" }} onClick={(e) => e.stopPropagation()}>
+                        {currentStatus === "completed" ? (
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1.2, justifyContent: "center", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
+                            onClick={() => handleToggleStatus(t.id, "active")}
+                            disabled={isPending}
+                            title="Reactivate tournament"
+                          >
+                            <i className="fa-solid fa-bolt" /> Set Active
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1.2, justifyContent: "center", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
+                            onClick={() => handleToggleStatus(t.id, "completed")}
+                            disabled={isPending}
+                            title="Mark tournament as completed"
+                          >
+                            <i className="fa-solid fa-circle-check" /> Mark Done
+                          </button>
+                        )}
                         <Link 
                           href={`/solo-tour/admin/tournaments/${t.id}`}
                           className="portal-btn btn-primary" 
-                          style={{ padding: "2px 8px", fontSize: "0.7rem", textDecoration: "none", flex: 1, justifyContent: "center" }}
+                          style={{ padding: "3px 8px", fontSize: "0.72rem", textDecoration: "none", flex: 1, justifyContent: "center" }}
                         >
                           <i className="fa-solid fa-eye" /> Details
                         </Link>
                         <button 
                           className="portal-btn btn-danger" 
-                          style={{ padding: "2px 8px", fontSize: "0.7rem", flex: 1, justifyContent: "center" }}
+                          style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 0.8, justifyContent: "center" }}
                           onClick={() => handleDeleteTournament(t.id)}
+                          disabled={isPending}
                         >
-                          <i className="fa-solid fa-trash" /> Delete
+                          <i className="fa-solid fa-trash" />
                         </button>
                       </div>
                     </div>
@@ -421,6 +479,20 @@ export default function TournamentsManager() {
                         { value: "Knockout", label: "Knockout Format" },
                         { value: "Group + Knockout", label: "Group + Knockout Format" },
                         { value: "League + Knockout", label: "League + Knockout Format" }
+                      ]}
+                      buttonStyle={{ width: "100%", justifyContent: "space-between" }}
+                    />
+                  </div>
+
+                  <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                    <label>Tournament Status</label>
+                    <CustomSelect
+                      value={tourneyForm.status}
+                      onChange={(val) => setTourneyForm(prev => ({ ...prev, status: val }))}
+                      options={[
+                        { value: "active", label: "⚡ Active" },
+                        { value: "completed", label: "🏆 Completed / Concluded" },
+                        { value: "upcoming", label: "⏳ Upcoming" }
                       ]}
                       buttonStyle={{ width: "100%", justifyContent: "space-between" }}
                     />
@@ -591,6 +663,12 @@ export default function TournamentsManager() {
                       </span>
                     </div>
                     )}
+                    <div className="rule-pill">
+                      <span>Status:</span>
+                      <span style={{ fontWeight: 600, color: tourneyForm.status === "completed" ? "#34d399" : tourneyForm.status === "upcoming" ? "#facc15" : "#38bdf8" }}>
+                        {tourneyForm.status === "completed" ? "Completed" : tourneyForm.status === "upcoming" ? "Upcoming" : "Active"}
+                      </span>
+                    </div>
                     <div className="rule-pill">
                       <span>Season:</span>
                       <span style={{ fontWeight: 600, color: "#eab308" }}>

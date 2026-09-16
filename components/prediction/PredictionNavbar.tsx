@@ -20,11 +20,9 @@ export default function PredictionNavbar() {
     ? [
         { href: "/master-of-prediction", label: "01//SEASONS" },
         { href: `/master-of-prediction/${seasonId}`, label: "02//STANDINGS" },
-        { href: "/solo-tour/admin/prediction", label: "03//ADMIN CONSOLE" },
       ]
     : [
         { href: "/master-of-prediction", label: "01//SEASONS ARCHIVE" },
-        { href: "/solo-tour/admin/prediction", label: "02//ADMIN CONSOLE" },
       ];
 
   return (

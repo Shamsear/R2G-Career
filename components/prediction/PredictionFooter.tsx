@@ -15,11 +15,9 @@ export default function PredictionFooter() {
     ? [
         { href: "/master-of-prediction", label: "SEASONS ARCHIVE" },
         { href: `/master-of-prediction/${seasonId}`, label: "STANDINGS HUB" },
-        { href: "/solo-tour/admin/prediction", label: "ADMIN CONSOLE" },
       ]
     : [
         { href: "/master-of-prediction", label: "SEASONS ARCHIVE" },
-        { href: "/solo-tour/admin/prediction", label: "ADMIN CONSOLE" },
       ];
 
   return (

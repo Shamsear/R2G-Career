@@ -893,11 +893,22 @@ export async function fetchSelectedCandidates(tournamentName: string) {
     }
 }
 
+async function ensureTournamentStatusColumn() {
+  try {
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`);
+  } catch (e) {
+    // ignore if table doesn't exist or column exists
+  }
+}
+
 export async function fetchTournaments() {
   try {
+    await ensureTournamentStatusColumn();
     const { rows } = await pool.query(`
       SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number,
-             t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams
+             t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams,
+             t.division_tier, t.promotion_count, t.relegation_count,
+             COALESCE(t.status, 'active') as status
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       ORDER BY t.id DESC
@@ -907,7 +918,9 @@ export async function fetchTournaments() {
     console.error("Error fetching tournaments:", error);
     return [];
   }
-}export async function fetchFixtures(tournamentId?: number) {
+}
+
+export async function fetchFixtures(tournamentId?: number) {
   try {
     let query = `
       SELECT f.id, f.tournament_id, f.season_id, f.home_score, f.away_score, f.match_events, f.round_number,
@@ -1117,9 +1130,12 @@ export async function fetchKnockoutMatches(tournamentId: number) {
 
 export async function fetchTournamentById(tournamentId: number) {
   try {
+    await ensureTournamentStatusColumn();
     const { rows } = await pool.query(`
       SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number,
-             t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams
+             t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams,
+             t.division_tier, t.promotion_count, t.relegation_count,
+             COALESCE(t.status, 'active') as status
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       WHERE t.id = $1
@@ -2035,14 +2051,16 @@ export async function createTournament(
   numTeams: number | null = null,
   divisionTier: number | null = null,
   promotionCount: number | null = 0,
-  relegationCount: number | null = 0
+  relegationCount: number | null = 0,
+  status: string = 'active'
 ) {
   try {
+    await ensureTournamentStatusColumn();
     const { rows } = await pool.query(`
-      INSERT INTO tournaments (name, format_type, season_id, financial_rule_id, tournament_type, num_groups, teams_per_group, qualified_per_group, num_teams, division_tier, promotion_count, relegation_count)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO tournaments (name, format_type, season_id, financial_rule_id, tournament_type, num_groups, teams_per_group, qualified_per_group, num_teams, division_tier, promotion_count, relegation_count, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
-    `, [name, formatType, seasonId, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount]);
+    `, [name, formatType, seasonId, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active']);
     return rows[0];
   } catch (e) {
     console.error("Error creating tournament:", e);
@@ -2085,20 +2103,39 @@ export async function updateTournamentDetails(
   numTeams: number | null = null,
   divisionTier: number | null = null,
   promotionCount: number | null = 0,
-  relegationCount: number | null = 0
+  relegationCount: number | null = 0,
+  status: string = 'active'
 ) {
   try {
+    await ensureTournamentStatusColumn();
     const { rows } = await pool.query(`
       UPDATE tournaments 
       SET name = $1, format_type = $2, financial_rule_id = $3, tournament_type = $4,
           num_groups = $5, teams_per_group = $6, qualified_per_group = $7, num_teams = $8,
-          division_tier = $9, promotion_count = $10, relegation_count = $11
-      WHERE id = $12
+          division_tier = $9, promotion_count = $10, relegation_count = $11,
+          status = $12
+      WHERE id = $13
       RETURNING *
-    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, id]);
+    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', id]);
     return rows[0];
   } catch (e) {
     console.error("Error updating tournament details:", e);
+    throw e;
+  }
+}
+
+export async function updateTournamentStatus(id: number, status: string) {
+  try {
+    await ensureTournamentStatusColumn();
+    const { rows } = await pool.query(`
+      UPDATE tournaments 
+      SET status = $1
+      WHERE id = $2
+      RETURNING *
+    `, [status, id]);
+    return rows[0];
+  } catch (e) {
+    console.error("Error updating tournament status:", e);
     throw e;
   }
 }
@@ -4358,8 +4395,10 @@ export async function fetchManagerTransactions(managerId: number, currencyType: 
 
 export async function fetchTournamentsByType(type: string) {
   try {
+    await ensureTournamentStatusColumn();
     const { rows } = await pool.query(`
-      SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number
+      SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number,
+             COALESCE(t.status, 'active') as status
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       WHERE t.tournament_type = $1

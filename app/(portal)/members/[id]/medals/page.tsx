@@ -39,14 +39,16 @@ const LEVEL_SCHEMES: Record<number, { text: string; bg: string; border: string; 
   1: { text: "#10b981", bg: "rgba(16, 185, 129, 0.03)", border: "rgba(16, 185, 129, 0.15)", glow: "0 0 10px rgba(16,185,129,0.05)", halo: "rgba(16,185,129,0.15)", roman: "I" }, // Green (Tier I)
   2: { text: "#3b82f6", bg: "rgba(59, 130, 246, 0.03)", border: "rgba(59, 130, 246, 0.15)", glow: "0 0 10px rgba(59,130,246,0.05)", halo: "rgba(59,130,246,0.15)", roman: "II" }, // Blue (Tier II)
   3: { text: "#c084fc", bg: "rgba(192, 132, 252, 0.03)", border: "rgba(192, 132, 252, 0.15)", glow: "0 0 10px rgba(192,132,252,0.05)", halo: "rgba(192,132,252,0.15)", roman: "III" }, // Purple (Tier III)
-  4: { text: "#ef4444", bg: "rgba(239, 68, 68, 0.03)", border: "rgba(239, 68, 68, 0.15)", glow: "0 0 10px rgba(239,68,68,0.05)", halo: "rgba(239,68,68,0.15)", roman: "IV" }, // Red (Tier IV - 4th)
-  5: { text: "#fbbf24", bg: "rgba(251, 191, 36, 0.03)", border: "rgba(251, 191, 36, 0.15)", glow: "0 0 15px rgba(251,191,36,0.08)", halo: "rgba(251,191,36,0.25)", roman: "V" }  // Gold (Tier V)
+  4: { text: "#ef4444", bg: "rgba(239, 68, 68, 0.03)", border: "rgba(239, 68, 68, 0.15)", glow: "0 0 10px rgba(239,68,68,0.05)", halo: "rgba(239,68,68,0.15)", roman: "IV" }, // Red (Tier IV)
+  5: { text: "#fbbf24", bg: "rgba(251, 191, 36, 0.03)", border: "rgba(251, 191, 36, 0.15)", glow: "0 0 15px rgba(251,191,36,0.08)", halo: "rgba(251,191,36,0.25)", roman: "V" },  // Gold (Tier V)
+  6: { text: "#06b6d4", bg: "rgba(6, 182, 212, 0.03)", border: "rgba(6, 182, 212, 0.18)", glow: "0 0 15px rgba(6,182,212,0.10)", halo: "rgba(6,182,212,0.28)", roman: "VI" }, // Diamond Cyan (Tier VI)
+  7: { text: "#f43f5e", bg: "rgba(244, 63, 94, 0.03)", border: "rgba(244, 63, 94, 0.22)", glow: "0 0 20px rgba(244,63,94,0.15)", halo: "rgba(244,63,94,0.35)", roman: "VII" } // Mythic Rose (Tier VII)
 };
 
 const EXP_RATES: Record<string, number[]> = {
-  MYTHIC: [0, 400, 800, 1500, 2500, 4000],
-  RARE:   [0, 250, 500, 1000, 1750, 2500],
-  COMMON: [0, 100, 200, 400,  800,  1500],
+  MYTHIC: [0, 400, 800, 1500, 2500, 4000, 6000, 9000],
+  RARE:   [0, 250, 500, 1000, 1750, 2500, 3750, 5500],
+  COMMON: [0, 100, 200, 400,  800,  1500, 2500, 4000],
 };
 
 const MEDAL_IMAGE_MAP: Record<string, string> = {
@@ -55,21 +57,25 @@ const MEDAL_IMAGE_MAP: Record<string, string> = {
   single_match_goals: "/assets/images/medals/medal_boot.jpg",
   claim_golden_boot: "/assets/images/medals/medal_boot.jpg",
   season_goals: "/assets/images/medals/medal_boot.jpg",
+  claim_gerd_muller: "/assets/images/medals/medal_boot.jpg",
 
   // Gloves & Defense / Clean Sheets
   clean_sheets: "/assets/images/medals/medal_glove.jpg",
   single_match_cs_win: "/assets/images/medals/medal_shield.jpg",
   claim_golden_glove: "/assets/images/medals/medal_glove.jpg",
+  claim_yashin_trophy: "/assets/images/medals/medal_glove.jpg",
   season_cs: "/assets/images/medals/medal_shield.jpg",
   cs_journey: "/assets/images/medals/medal_shield.jpg",
+  claim_best_defender: "/assets/images/medals/medal_shield.jpg",
+  claim_maldini_trophy: "/assets/images/medals/medal_shield.jpg",
 
   // Trophies & Cups
   participate_ucl: "/assets/images/medals/medal_trophy.jpg",
   claim_awards: "/assets/images/medals/medal_trophy.jpg",
   claim_golden_ball: "/assets/images/medals/medal_trophy.jpg",
-  claim_maldini_trophy: "/assets/images/medals/medal_shield.jpg",
   claim_ballon_dor: "/assets/images/medals/medal_trophy.jpg",
   claim_r2g_best: "/assets/images/medals/medal_trophy.jpg",
+  claim_star_player: "/assets/images/medals/medal_trophy.jpg",
   claim_career_ucl: "/assets/images/medals/medal_trophy.jpg",
   champion_rws: "/assets/images/medals/medal_trophy.jpg",
   champion_fantasy: "/assets/images/medals/medal_trophy.jpg",
@@ -78,6 +84,10 @@ const MEDAL_IMAGE_MAP: Record<string, string> = {
   claim_trophy_together: "/assets/images/medals/medal_trophy.jpg",
   runner_up_finish: "/assets/images/medals/medal_trophy.jpg",
   runner_up_rws: "/assets/images/medals/medal_trophy.jpg",
+  master_of_week_prediction: "/assets/images/medals/medal_trophy.jpg",
+  medal_collector: "/assets/images/medals/medal_trophy.jpg",
+  special_tour_unbeaten: "/assets/images/medals/medal_shield.jpg",
+  special_tour_matches: "/assets/images/medals/medal_common.jpg",
 
   // Default Circular Medal
   default: "/assets/images/medals/medal_common.jpg"
@@ -214,7 +224,7 @@ export default function MemberMedalsPage() {
   // 2. Build flat list of tier-specific medals
   const allMedalItems: MedalLevelItem[] = [];
   medalInfo.medals.forEach((med: any) => {
-    const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+    const lvl = Math.min(7, Math.max(0, Number(med.level) || 0));
     const imageSrc = getMedalImage(med.key);
 
     if (med.isDirectLevel5) {
@@ -238,13 +248,14 @@ export default function MemberMedalsPage() {
       });
     } else {
       const thresholds = med.thresholds || [];
+      const totalLevels = thresholds.length > 0 ? thresholds.length : 5;
       const SPECIAL_LEVEL_LABELS: Record<string, string[]> = {
         single_match_draw:   ['Draw 1-1', 'Draw 2-2', 'Draw 0-0', 'Draw 3-3', 'Draw 5-5'],
         single_match_cs_win: ['Win 1-0',  'Win 2-0',  'Win 3-0',  'Win 5-0',  'Win 7-0'],
       };
       const specialLabels = SPECIAL_LEVEL_LABELS[med.key];
 
-      for (let l = 1; l <= 5; l++) {
+      for (let l = 1; l <= totalLevels; l++) {
         const isAchieved = med.achievedLevels ? !!med.achievedLevels[l - 1] : lvl >= l;
         const reqLabel = specialLabels ? (specialLabels[l - 1] ?? '—') : (thresholds[l - 1] !== undefined ? String(thresholds[l - 1]) : '—');
         
@@ -266,7 +277,7 @@ export default function MemberMedalsPage() {
           progressPercent = isAchieved ? 100 : 0;
         }
 
-        const roman = LEVEL_SCHEMES[l].roman;
+        const roman = LEVEL_SCHEMES[l]?.roman || String(l);
 
         allMedalItems.push({
           id: `${med.key}-${l}`,

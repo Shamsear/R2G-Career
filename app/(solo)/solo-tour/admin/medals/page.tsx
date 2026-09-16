@@ -389,20 +389,20 @@ export default function MedalsAlignmentDashboard() {
 /* ── Shared medal panel helpers ── */
 
 const EXP_RATES: Record<string, number[]> = {
-  MYTHIC: [0, 400, 800, 1500, 2500, 4000],
-  RARE:   [0, 250, 500, 1000, 1750, 2500],
-  COMMON: [0, 100, 200, 400,  800,  1500],
+  MYTHIC: [0, 400, 800, 1500, 2500, 4000, 6000, 9000],
+  RARE:   [0, 250, 500, 1000, 1750, 2500, 3750, 5500],
+  COMMON: [0, 100, 200, 400,  800,  1500, 2500, 4000],
 };
 
 function getExpForLevel(category: string, level: number): number {
   return EXP_RATES[category]?.[level] ?? 0;
 }
 
-function StarDots({ level, color }: { level: number; color: string }) {
-  const lvl = Math.min(5, Math.max(0, Number(level) || 0));
+function StarDots({ level, color, maxLevels = 5 }: { level: number; color: string; maxLevels?: number }) {
+  const lvl = Math.min(maxLevels, Math.max(0, Number(level) || 0));
   return (
     <div className="star-dots">
-      {Array.from({ length: 5 }, (_, i) => (
+      {Array.from({ length: maxLevels }, (_, i) => (
         <div
           key={i}
           className={`star-dot ${i < lvl ? 'filled' : 'empty'}`}
@@ -428,19 +428,18 @@ function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
       }, 0)
     : Number(med.exp) || 0;
 
-  const lvl = Math.min(5, Math.max(0, Number(med.level) || 0));
+  const thresholds: (number | string)[] = med.thresholds || [];
+  const maxLevels = thresholds.length > 0 ? thresholds.length : (med.isDirectLevel5 ? 1 : 5);
+  const lvl = Math.min(maxLevels, Math.max(0, Number(med.level) || 0));
 
   // Per-key label overrides for medals with custom (non-threshold) logic
   const SPECIAL_LEVEL_LABELS: Record<string, string[]> = {
     single_match_draw:   ['Draw 1-1', 'Draw 2-2', 'Draw 0-0', 'Draw 3-3', 'Draw 5-5'],
     single_match_cs_win: ['Win 1-0',  'Win 2-0',  'Win 3-0',  'Win 5-0',  'Win 7-0'],
-    champion_rws:              ['—', '—', '—', '—', 'Admin grant'],
-    runner_up_rws:             ['—', '—', '—', '—', 'Admin grant'],
-    champion_fantasy:          ['—', '—', '—', '—', 'Admin grant'],
-    player_of_season_team_tour:['—', '—', '—', '—', 'Admin grant'],
+    champion_rws:        ['—', '—', '—', '—', 'Admin grant'],
+    runner_up_rws:       ['—', '—', '—', '—', 'Admin grant'],
   };
 
-  const thresholds: (number | string)[] = med.thresholds || [];
   const specialLabels = SPECIAL_LEVEL_LABELS[med.key];
 
   function getLevelReq(l: number): string {
@@ -458,7 +457,7 @@ function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
         <span style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', color, background: `${color}18`, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>
           {med.category}
         </span>
-        <StarDots level={lvl} color={color} />
+        <StarDots level={lvl} color={color} maxLevels={maxLevels} />
       </div>
 
       {/* Name + description */}
@@ -486,7 +485,7 @@ function MedalCard({ med, dimmed }: { med: any; dimmed?: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3, 4, 5].map(l => {
+            {Array.from({ length: maxLevels }, (_, idx) => idx + 1).map(l => {
               const isAchieved = med.achievedLevels ? med.achievedLevels[l - 1] : l <= lvl;
               // Next required target is the first level that is NOT achieved
               const isNextTarget = med.achievedLevels 

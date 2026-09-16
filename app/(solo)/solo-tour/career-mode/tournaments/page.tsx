@@ -10,6 +10,7 @@ interface Tournament {
   name: string;
   format_type: string;
   season_number: number;
+  status?: string;
 }
 
 export default function TournamentsPage() {
@@ -122,9 +123,16 @@ export default function TournamentsPage() {
                           <i className={icon} />
                           {t.format_type.toUpperCase()}
                         </span>
-                        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                          SEASON {t.season_number}
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {t.status === "completed" && (
+                            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#34d399", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 6px", borderRadius: "4px" }}>
+                              <i className="fa-solid fa-circle-check" style={{ marginRight: "3px" }} /> COMPLETED
+                            </span>
+                          )}
+                          <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                            SEASON {t.season_number}
+                          </span>
+                        </div>
                       </div>
 
                       <h2 style={{ fontSize: "1.2rem", fontWeight: "800", color: "#ffffff", margin: "0.5rem 0 0.25rem", fontFamily: "var(--font-display)" }}>
