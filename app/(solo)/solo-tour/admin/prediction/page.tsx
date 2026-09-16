@@ -17,12 +17,18 @@ import {
   PredictionDay,
   MemberDayScore,
 } from "@/utils/solo/predictionServerActions";
+import {
+  fetchTournaments,
+  fetchTournamentTypes,
+} from "@/utils/solo/serverActions";
 
 export default function PredictionAdminPage() {
   const [seasons, setSeasons] = useState<PredictionSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<PredictionSeason | null>(null);
   const [days, setDays] = useState<PredictionDay[]>([]);
+  const [availableTournaments, setAvailableTournaments] = useState<any[]>([]);
+  const [availableTournamentTypes, setAvailableTournamentTypes] = useState<any[]>([]);
 
   // Navigation State
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
@@ -52,6 +58,8 @@ export default function PredictionAdminPage() {
   const [newSeasonDays, setNewSeasonDays] = useState<number>(36);
   const [newSeasonWeeks, setNewSeasonWeeks] = useState<number>(6);
   const [newSeasonDaysPerWeek, setNewSeasonDaysPerWeek] = useState<number>(6);
+  const [newSeasonTypes, setNewSeasonTypes] = useState<string[]>(["solo"]);
+  const [newSeasonTournamentIds, setNewSeasonTournamentIds] = useState<number[]>([]);
   const [newSeasonNotes, setNewSeasonNotes] = useState<string>("");
   const [creatingSeason, setCreatingSeason] = useState<boolean>(false);
 
@@ -61,6 +69,8 @@ export default function PredictionAdminPage() {
   const [editSeasonDays, setEditSeasonDays] = useState<number>(36);
   const [editSeasonWeeks, setEditSeasonWeeks] = useState<number>(6);
   const [editSeasonDaysPerWeek, setEditSeasonDaysPerWeek] = useState<number>(6);
+  const [editSeasonTypes, setEditSeasonTypes] = useState<string[]>(["solo"]);
+  const [editSeasonTournamentIds, setEditSeasonTournamentIds] = useState<number[]>([]);
   const [editSeasonStatus, setEditSeasonStatus] = useState<"active" | "completed" | "upcoming">("active");
   const [editSeasonNotes, setEditSeasonNotes] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
@@ -75,12 +85,18 @@ export default function PredictionAdminPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // 1. Initial Load: Fetch seasons
+  // 1. Initial Load: Fetch seasons, tournaments and types
   useEffect(() => {
     async function loadSeasons() {
       try {
-        const seasonsList = await fetchPredictionSeasons();
+        const [seasonsList, tourneys, types] = await Promise.all([
+          fetchPredictionSeasons(),
+          fetchTournaments().catch(() => []),
+          fetchTournamentTypes().catch(() => [])
+        ]);
         setSeasons(seasonsList);
+        setAvailableTournaments(tourneys || []);
+        setAvailableTournamentTypes(types || []);
         if (seasonsList.length > 0) {
           const firstSeason = seasonsList[0];
           setSelectedSeasonId(firstSeason.id);
@@ -112,6 +128,8 @@ export default function PredictionAdminPage() {
           setEditSeasonDays(season.total_days || 36);
           setEditSeasonWeeks(season.total_weeks || 6);
           setEditSeasonDaysPerWeek(season.days_per_week || 6);
+          setEditSeasonTypes(season.linked_tournament_types || ["solo"]);
+          setEditSeasonTournamentIds(season.linked_tournament_ids || []);
           setEditSeasonStatus(season.status || "active");
           setEditSeasonNotes(season.notes || "");
         }
@@ -252,6 +270,8 @@ export default function PredictionAdminPage() {
         totalDays: Number(newSeasonDays) || 36,
         totalWeeks: Number(newSeasonWeeks) || 6,
         daysPerWeek: Number(newSeasonDaysPerWeek) || 6,
+        linkedTournamentTypes: newSeasonTypes,
+        linkedTournamentIds: newSeasonTournamentIds,
         notes: newSeasonNotes.trim(),
       });
 
@@ -260,6 +280,8 @@ export default function PredictionAdminPage() {
         setShowCreateSeasonModal(false);
         setNewSeasonName("");
         setNewSeasonNotes("");
+        setNewSeasonTypes(["solo"]);
+        setNewSeasonTournamentIds([]);
         const updated = await fetchPredictionSeasons();
         setSeasons(updated);
         setSelectedSeasonId(res.season.id);
@@ -285,6 +307,8 @@ export default function PredictionAdminPage() {
         total_days: Number(editSeasonDays) || 36,
         total_weeks: Number(editSeasonWeeks) || 6,
         days_per_week: Number(editSeasonDaysPerWeek) || 6,
+        linked_tournament_types: editSeasonTypes,
+        linked_tournament_ids: editSeasonTournamentIds,
         status: editSeasonStatus,
         notes: editSeasonNotes.trim(),
       });
@@ -531,6 +555,77 @@ export default function PredictionAdminPage() {
             </button>
           </div>
         </div>
+
+        {/* Covered Competitions Ribbon */}
+        {selectedSeason && (
+          <div
+            className="portal-card"
+            style={{
+              padding: "0.85rem 1.25rem",
+              margin: 0,
+              background: "rgba(15, 23, 42, 0.45)",
+              border: "1px solid rgba(56, 189, 248, 0.2)",
+              borderRadius: "12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <i className="fa-solid fa-trophy" style={{ color: "#38bdf8", fontSize: "0.9rem" }} />
+                <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Covered Competitions in Season {selectedSeason.season_number} ({selectedSeason.covered_tournaments?.length || 0})
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>Linked Types:</span>
+                {(selectedSeason.linked_tournament_types || ["solo"]).map(t => (
+                  <span key={t} style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", textTransform: "uppercase" }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {(selectedSeason.covered_tournaments && selectedSeason.covered_tournaments.length > 0) ? (
+                selectedSeason.covered_tournaments.map((tourney) => (
+                  <Link
+                    key={tourney.id}
+                    href={`/solo-tour/admin/tournaments/${tourney.id}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "rgba(30, 41, 59, 0.7)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.75rem",
+                      color: "#fff",
+                      textDecoration: "none",
+                      transition: "all 0.2s ease"
+                    }}
+                    title="Click to view tournament details"
+                  >
+                    <span style={{ fontWeight: 700 }}>{tourney.name}</span>
+                    <span style={{ fontSize: "0.65rem", color: "#38bdf8", background: "rgba(56, 189, 248, 0.15)", padding: "1px 5px", borderRadius: "3px" }}>
+                      {tourney.format_type}
+                    </span>
+                    <span style={{ fontSize: "0.65rem", color: tourney.status === "completed" ? "#34d399" : tourney.status === "upcoming" ? "#facc15" : "#38bdf8" }}>
+                      ● {tourney.status || "active"}
+                    </span>
+                  </Link>
+                ))
+              ) : (
+                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic" }}>
+                  No tournaments currently active for this season&apos;s linked types. Go to Tournament Manager or edit Season Settings to link tournaments.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Weeks Tab Bar */}
         <div style={{ margin: 0 }}>
@@ -1246,6 +1341,77 @@ export default function PredictionAdminPage() {
                 </select>
               </div>
 
+              {/* Tournament Types Inclusion */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "#c084fc", fontWeight: 800, marginBottom: "6px" }}>
+                  <i className="fa-solid fa-layer-group" style={{ marginRight: "6px" }} />
+                  Linked Tournament Types (Auto-Include All Tournaments of These Types)
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {availableTournamentTypes.map((tp) => {
+                    const isChecked = editSeasonTypes.includes(tp.name);
+                    return (
+                      <label key={tp.name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", color: "#fff", cursor: "pointer", background: isChecked ? "rgba(168, 85, 247, 0.2)" : "rgba(255, 255, 255, 0.04)", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${isChecked ? "rgba(168, 85, 247, 0.4)" : "rgba(255, 255, 255, 0.08)"}` }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditSeasonTypes((prev) => [...prev, tp.name]);
+                            } else {
+                              setEditSeasonTypes((prev) => prev.filter((t) => t !== tp.name));
+                            }
+                          }}
+                          style={{ accentColor: "#a855f7" }}
+                        />
+                        <span style={{ fontWeight: 600 }}>{tp.display_name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Specific Individual Tournaments Inclusion */}
+              {availableTournaments.length > 0 && (
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "#38bdf8", fontWeight: 800, marginBottom: "6px" }}>
+                    <i className="fa-solid fa-sitemap" style={{ marginRight: "6px" }} />
+                    Individual Tournaments (Force-Include Specific Tournaments)
+                  </label>
+                  <div style={{ maxHeight: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    {availableTournaments.map((t) => {
+                      const isTypeCovered = editSeasonTypes.includes(t.tournament_type);
+                      const isIdChecked = editSeasonTournamentIds.includes(t.id);
+                      const isChecked = isTypeCovered || isIdChecked;
+                      const isExcluded = t.include_in_prediction === false;
+                      return (
+                        <label key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: isExcluded ? "#94a3b8" : "#fff", cursor: "pointer", padding: "4px 6px", borderRadius: "4px", background: isChecked ? "rgba(56, 189, 248, 0.08)" : "transparent" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isTypeCovered}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditSeasonTournamentIds((prev) => [...prev, t.id]);
+                                } else {
+                                  setEditSeasonTournamentIds((prev) => prev.filter((id) => id !== t.id));
+                                }
+                              }}
+                              style={{ accentColor: "#38bdf8" }}
+                            />
+                            <span>{t.name}</span>
+                          </span>
+                          <span style={{ fontSize: "0.7rem", color: isExcluded ? "#ef4444" : isTypeCovered ? "#c084fc" : "#38bdf8" }}>
+                            {isExcluded ? "🚫 Excluded in Tourney" : isTypeCovered ? `via type [${t.tournament_type}]` : "manual"}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
                   Notes / Description
@@ -1306,7 +1472,9 @@ export default function PredictionAdminPage() {
             className="portal-card"
             style={{
               width: "100%",
-              maxWidth: "520px",
+              maxWidth: "540px",
+              maxHeight: "90vh",
+              overflowY: "auto",
               padding: "2rem",
               background: "#0f172a",
               border: "1px solid rgba(168, 85, 247, 0.3)",
@@ -1456,6 +1624,77 @@ export default function PredictionAdminPage() {
                   />
                 </div>
               </div>
+
+              {/* Tournament Types Inclusion */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "#c084fc", fontWeight: 800, marginBottom: "6px" }}>
+                  <i className="fa-solid fa-layer-group" style={{ marginRight: "6px" }} />
+                  Linked Tournament Types (Auto-Include All Tournaments of These Types)
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {availableTournamentTypes.map((tp) => {
+                    const isChecked = newSeasonTypes.includes(tp.name);
+                    return (
+                      <label key={tp.name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", color: "#fff", cursor: "pointer", background: isChecked ? "rgba(168, 85, 247, 0.2)" : "rgba(255, 255, 255, 0.04)", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${isChecked ? "rgba(168, 85, 247, 0.4)" : "rgba(255, 255, 255, 0.08)"}` }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewSeasonTypes((prev) => [...prev, tp.name]);
+                            } else {
+                              setNewSeasonTypes((prev) => prev.filter((t) => t !== tp.name));
+                            }
+                          }}
+                          style={{ accentColor: "#a855f7" }}
+                        />
+                        <span style={{ fontWeight: 600 }}>{tp.display_name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Specific Individual Tournaments Inclusion */}
+              {availableTournaments.length > 0 && (
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "#38bdf8", fontWeight: 800, marginBottom: "6px" }}>
+                    <i className="fa-solid fa-sitemap" style={{ marginRight: "6px" }} />
+                    Individual Tournaments (Force-Include Specific Tournaments)
+                  </label>
+                  <div style={{ maxHeight: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    {availableTournaments.map((t) => {
+                      const isTypeCovered = newSeasonTypes.includes(t.tournament_type);
+                      const isIdChecked = newSeasonTournamentIds.includes(t.id);
+                      const isChecked = isTypeCovered || isIdChecked;
+                      const isExcluded = t.include_in_prediction === false;
+                      return (
+                        <label key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: isExcluded ? "#94a3b8" : "#fff", cursor: "pointer", padding: "4px 6px", borderRadius: "4px", background: isChecked ? "rgba(56, 189, 248, 0.08)" : "transparent" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isTypeCovered}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewSeasonTournamentIds((prev) => [...prev, t.id]);
+                                } else {
+                                  setNewSeasonTournamentIds((prev) => prev.filter((id) => id !== t.id));
+                                }
+                              }}
+                              style={{ accentColor: "#38bdf8" }}
+                            />
+                            <span>{t.name}</span>
+                          </span>
+                          <span style={{ fontSize: "0.7rem", color: isExcluded ? "#ef4444" : isTypeCovered ? "#c084fc" : "#38bdf8" }}>
+                            {isExcluded ? "🚫 Excluded in Tourney" : isTypeCovered ? `via type [${t.tournament_type}]` : "manual"}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>

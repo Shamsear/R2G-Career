@@ -15,7 +15,9 @@ import {
   createTournamentType,
   deleteTournamentType,
   updateTournamentDetails,
-  updateTournamentStatus
+  updateTournamentStatus,
+  updateTournamentPredictionEligibility,
+  updateTournamentTypePredictionDefault
 } from "@/utils/solo/serverActions";
 
 export default function TournamentsManager() {
@@ -39,11 +41,13 @@ export default function TournamentsManager() {
     numTeams: "",
     divisionTier: "",
     promotionCount: "",
-    relegationCount: ""
+    relegationCount: "",
+    includeInPrediction: true
   });
 
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeDisplayName, setNewTypeDisplayName] = useState("");
+  const [newTypeIncludeInPrediction, setNewTypeIncludeInPrediction] = useState(true);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -85,7 +89,8 @@ export default function TournamentsManager() {
       numTeams: "",
       divisionTier: "",
       promotionCount: "",
-      relegationCount: ""
+      relegationCount: "",
+      includeInPrediction: true
     });
   };
 
@@ -103,7 +108,8 @@ export default function TournamentsManager() {
       numTeams: t.num_teams !== null ? t.num_teams.toString() : "",
       divisionTier: t.division_tier !== null && t.division_tier !== undefined ? t.division_tier.toString() : "",
       promotionCount: t.promotion_count !== null && t.promotion_count !== undefined ? t.promotion_count.toString() : "",
-      relegationCount: t.relegation_count !== null && t.relegation_count !== undefined ? t.relegation_count.toString() : ""
+      relegationCount: t.relegation_count !== null && t.relegation_count !== undefined ? t.relegation_count.toString() : "",
+      includeInPrediction: t.include_in_prediction !== false
     });
   };
 
@@ -115,6 +121,30 @@ export default function TournamentsManager() {
         loadData();
       } catch {
         showToast("Error updating tournament status!");
+      }
+    });
+  };
+
+  const handleTogglePrediction = (id: number, eligible: boolean) => {
+    startTransition(async () => {
+      try {
+        await updateTournamentPredictionEligibility(id, eligible);
+        showToast(eligible ? "🎯 Tournament included in Master of Prediction!" : "🚫 Tournament excluded from Master of Prediction!");
+        loadData();
+      } catch {
+        showToast("Error updating prediction eligibility!");
+      }
+    });
+  };
+
+  const handleToggleTypePrediction = (name: string, include: boolean) => {
+    startTransition(async () => {
+      try {
+        await updateTournamentTypePredictionDefault(name, include);
+        showToast(include ? `🎯 Type "${name}" included in Prediction!` : `🚫 Type "${name}" excluded from Prediction!`);
+        loadData();
+      } catch {
+        showToast("Error updating tournament type prediction settings!");
       }
     });
   };
@@ -155,7 +185,8 @@ export default function TournamentsManager() {
             divTier,
             promo,
             releg,
-            tourneyForm.status || "active"
+            tourneyForm.status || "active",
+            tourneyForm.includeInPrediction !== false
           );
           showToast("Tournament updated!");
         } else {
@@ -172,7 +203,8 @@ export default function TournamentsManager() {
             divTier,
             promo,
             releg,
-            tourneyForm.status || "active"
+            tourneyForm.status || "active",
+            tourneyForm.includeInPrediction !== false
           );
           showToast("Tournament created!");
         }
@@ -297,6 +329,7 @@ export default function TournamentsManager() {
                   const typeObj = tournamentTypes.find(tp => tp.name === t.tournament_type) || { display_name: t.tournament_type || "Solo" };
                   const isActive = tourneyForm.id === t.id.toString();
                   const currentStatus = t.status || 'active';
+                  const isPrediction = t.include_in_prediction !== false;
                   return (
                     <div 
                       key={t.id}
@@ -306,7 +339,16 @@ export default function TournamentsManager() {
                     >
                       <div className="rule-card-header">
                         <span className="rule-card-title" style={{ fontSize: "0.95rem" }}>{t.name}</span>
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                          {isPrediction ? (
+                            <span style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
+                              <i className="fa-solid fa-bullseye" style={{ marginRight: "3px" }} /> PREDICTION
+                            </span>
+                          ) : (
+                            <span style={{ background: "rgba(100, 116, 139, 0.15)", color: "#94a3b8", border: "1px solid rgba(100, 116, 139, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
+                              <i className="fa-solid fa-ban" style={{ marginRight: "3px" }} /> NO PREDICTION
+                            </span>
+                          )}
                           {currentStatus === "completed" ? (
                             <span className="badge-success" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 7px", borderRadius: "6px", fontSize: "0.68rem", fontWeight: 700 }}>
                               <i className="fa-solid fa-circle-check" style={{ marginRight: "3px" }} /> DONE
@@ -345,12 +387,29 @@ export default function TournamentsManager() {
                         )}
                       </div>
 
-                      <div className="club-card-footer" style={{ display: "flex", gap: "6px" }} onClick={(e) => e.stopPropagation()}>
+                      <div className="club-card-footer" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="portal-btn btn-secondary"
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "0.72rem",
+                            flex: 1,
+                            justifyContent: "center",
+                            borderColor: isPrediction ? "rgba(168, 85, 247, 0.4)" : "rgba(100, 116, 139, 0.3)",
+                            color: isPrediction ? "#c084fc" : "#94a3b8"
+                          }}
+                          onClick={() => handleTogglePrediction(t.id, !isPrediction)}
+                          disabled={isPending}
+                          title={isPrediction ? "Click to exclude from Master of Prediction" : "Click to include in Master of Prediction"}
+                        >
+                          <i className={`fa-solid ${isPrediction ? "fa-bullseye" : "fa-ban"}`} /> {isPrediction ? "Prediction: ON" : "Prediction: OFF"}
+                        </button>
                         {currentStatus === "completed" ? (
                           <button
                             type="button"
                             className="portal-btn btn-secondary"
-                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1.2, justifyContent: "center", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
+                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1, justifyContent: "center", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
                             onClick={() => handleToggleStatus(t.id, "active")}
                             disabled={isPending}
                             title="Reactivate tournament"
@@ -361,7 +420,7 @@ export default function TournamentsManager() {
                           <button
                             type="button"
                             className="portal-btn btn-secondary"
-                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1.2, justifyContent: "center", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
+                            style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 1, justifyContent: "center", borderColor: "rgba(16, 185, 129, 0.4)", color: "#34d399" }}
                             onClick={() => handleToggleStatus(t.id, "completed")}
                             disabled={isPending}
                             title="Mark tournament as completed"
@@ -372,13 +431,13 @@ export default function TournamentsManager() {
                         <Link 
                           href={`/solo-tour/admin/tournaments/${t.id}`}
                           className="portal-btn btn-primary" 
-                          style={{ padding: "3px 8px", fontSize: "0.72rem", textDecoration: "none", flex: 1, justifyContent: "center" }}
+                          style={{ padding: "3px 8px", fontSize: "0.72rem", textDecoration: "none", flex: 0.8, justifyContent: "center" }}
                         >
                           <i className="fa-solid fa-eye" /> Details
                         </Link>
                         <button 
                           className="portal-btn btn-danger" 
-                          style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 0.8, justifyContent: "center" }}
+                          style={{ padding: "3px 8px", fontSize: "0.72rem", flex: 0.6, justifyContent: "center" }}
                           onClick={() => handleDeleteTournament(t.id)}
                           disabled={isPending}
                         >
@@ -394,6 +453,9 @@ export default function TournamentsManager() {
             {/* Tournament Types Manager */}
             <div className="admin-card" style={{ marginTop: "1.5rem" }}>
               <h3 className="sub-card-title"><i className="fa-solid fa-gear" /> Manage Tournament Types</h3>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.75rem" }}>
+                Configure tournament types and specify whether tournaments under each type default to being part of Master of Prediction.
+              </p>
               <form onSubmit={handleCreateType} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
                 <div className="admin-form-group" style={{ marginBottom: 0 }}>
                   <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Type Code (lowercase, no spaces)</label>
@@ -423,21 +485,43 @@ export default function TournamentsManager() {
               </form>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                {tournamentTypes.map(t => (
-                  <div key={t.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <span style={{ fontWeight: 500 }}>{t.display_name} (<code>{t.name}</code>)</span>
-                    {!["solo", "special", "rws"].includes(t.name) && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteType(t.name)}
-                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}
-                        title="Delete type"
-                      >
-                        <i className="fa-solid fa-trash" style={{ fontSize: "0.7rem" }} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {tournamentTypes.map(t => {
+                  const typePred = t.include_in_prediction !== false;
+                  return (
+                    <div key={t.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", background: "rgba(255,255,255,0.03)", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)", gap: "8px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ fontWeight: 600, color: "#fff" }}>{t.display_name} <code style={{ color: "#38bdf8", fontSize: "0.7rem" }}>({t.name})</code></span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTypePrediction(t.name, !typePred)}
+                          className="portal-btn btn-secondary"
+                          style={{
+                            padding: "2px 6px",
+                            fontSize: "0.68rem",
+                            borderColor: typePred ? "rgba(168, 85, 247, 0.4)" : "rgba(100, 116, 139, 0.3)",
+                            color: typePred ? "#c084fc" : "#94a3b8"
+                          }}
+                          disabled={isPending}
+                          title="Toggle Prediction default for this type"
+                        >
+                          <i className={`fa-solid ${typePred ? "fa-bullseye" : "fa-ban"}`} /> {typePred ? "Pred: ON" : "Pred: OFF"}
+                        </button>
+                        {!["solo", "special", "rws"].includes(t.name) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteType(t.name)}
+                            style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}
+                            title="Delete type"
+                          >
+                            <i className="fa-solid fa-trash" style={{ fontSize: "0.7rem" }} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -558,13 +642,39 @@ export default function TournamentsManager() {
                     <label>Tournament Type</label>
                     <CustomSelect
                       value={tourneyForm.tournamentType}
-                      onChange={(val) => setTourneyForm(prev => ({ ...prev, tournamentType: val }))}
+                      onChange={(val) => {
+                        const typeMatch = tournamentTypes.find(tp => tp.name === val);
+                        setTourneyForm(prev => ({ 
+                          ...prev, 
+                          tournamentType: val,
+                          includeInPrediction: typeMatch?.include_in_prediction !== false
+                        }));
+                      }}
                       options={tournamentTypes.map(t => ({
                         value: t.name,
-                        label: t.display_name
+                        label: `${t.display_name}${t.include_in_prediction === false ? ' (Pred Excluded by Default)' : ''}`
                       }))}
                       buttonStyle={{ width: "100%", justifyContent: "space-between" }}
                     />
+                  </div>
+
+                  {/* Master of Prediction Eligibility Switch */}
+                  <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={tourneyForm.includeInPrediction}
+                        onChange={(e) => setTourneyForm(prev => ({ ...prev, includeInPrediction: e.target.checked }))}
+                        style={{ width: "18px", height: "18px", accentColor: "#a855f7", cursor: "pointer" }}
+                      />
+                      <span style={{ fontWeight: 700, color: tourneyForm.includeInPrediction ? "#c084fc" : "#94a3b8" }}>
+                        <i className="fa-solid fa-bullseye" style={{ marginRight: "6px" }} />
+                        Include in Master of Prediction
+                      </span>
+                    </label>
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "4px 0 0 26px" }}>
+                      When checked, this tournament is counted as an active competition for Master of Prediction points and standings.
+                    </p>
                   </div>
 
                    <div className="admin-form-group">
@@ -651,6 +761,12 @@ export default function TournamentsManager() {
                       <span>Type:</span>
                       <span style={{ fontWeight: 600, color: "#38bdf8" }}>
                         {tournamentTypes.find(t => t.name === tourneyForm.tournamentType)?.display_name || tourneyForm.tournamentType}
+                      </span>
+                    </div>
+                    <div className="rule-pill">
+                      <span>Prediction:</span>
+                      <span style={{ fontWeight: 600, color: tourneyForm.includeInPrediction ? "#c084fc" : "#94a3b8" }}>
+                        {tourneyForm.includeInPrediction ? "🎯 Included" : "🚫 Excluded"}
                       </span>
                     </div>
                     {!(tourneyForm.tournamentType === 'rws' || tourneyForm.tournamentType === 'special') && (

@@ -121,7 +121,9 @@ export default function PredictionSeasonSelection() {
           <div className="rws-dashboard-grid">
             {seasons.map((s) => {
               const isActive = s.status === 'active';
-              const progressPct = Math.round(((s.completed_days || 0) / 36) * 100);
+              const totalDays = s.total_days || 36;
+              const totalWeeks = s.total_weeks || 6;
+              const progressPct = Math.min(100, Math.round(((s.completed_days || 0) / totalDays) * 100));
 
               return (
                 <Link 
@@ -165,9 +167,25 @@ export default function PredictionSeasonSelection() {
                       <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.5rem 0", color: "#fff", fontWeight: "900" }}>
                         {s.name}
                       </h2>
-                      <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 1rem 0" }}>
-                        {s.notes || "36 Matchdays • 6 Weeks • Crown Champion on Day 36"}
+                      <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 0.75rem 0" }}>
+                        {s.notes || `${totalDays} Matchdays • ${totalWeeks} Weeks • Crown Champion on Day ${totalDays}`}
                       </p>
+
+                      {/* Covered Competition Badges */}
+                      {s.covered_tournaments && s.covered_tournaments.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "0.75rem" }}>
+                          {s.covered_tournaments.slice(0, 3).map((t) => (
+                            <span key={t.id} style={{ fontSize: "0.68rem", fontWeight: 600, padding: "2px 7px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.12)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.25)" }}>
+                              {t.name}
+                            </span>
+                          ))}
+                          {s.covered_tournaments.length > 3 && (
+                            <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", padding: "2px 4px" }}>
+                              +{s.covered_tournaments.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Leader Highlight */}
                       {s.leader_name && s.leader_name !== 'TBD' && (
@@ -181,7 +199,7 @@ export default function PredictionSeasonSelection() {
                           border: "1px solid rgba(234, 179, 8, 0.25)",
                           fontSize: "0.8rem",
                           color: "#fbbf24",
-                          marginBottom: "1rem"
+                          marginBottom: "0.75rem"
                         }}>
                           <i className="fa-solid fa-crown" style={{ fontSize: "0.75rem" }} />
                           <span>Leader: <strong>{s.leader_name}</strong> ({s.leader_points} pts)</span>
@@ -192,7 +210,7 @@ export default function PredictionSeasonSelection() {
                       <div style={{ marginTop: "0.5rem" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
                           <span>Campaign Progress</span>
-                          <span style={{ fontWeight: 700, color: "#fff" }}>{s.completed_days || 0} / 36 Days ({progressPct}%)</span>
+                          <span style={{ fontWeight: 700, color: "#fff" }}>{s.completed_days || 0} / {totalDays} Days ({progressPct}%)</span>
                         </div>
                         <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
                           <div style={{

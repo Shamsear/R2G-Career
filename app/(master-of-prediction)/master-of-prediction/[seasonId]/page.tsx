@@ -343,13 +343,13 @@ export default function PredictionSeasonHub() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 10px #22c55e" }} />
             <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#fff", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "1px" }}>
-              36 Days • 6 Weeks Campaign
+              {season.total_days || 36} Days • {season.total_weeks || 6} Weeks Campaign
             </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.4)" }}>
-              {season.completed_days || 0} / 36 Days Completed ({progressPct}%)
+              {season.completed_days || 0} / {season.total_days || 36} Days Completed ({progressPct}%)
             </span>
             <div style={{ width: "100px", height: "5px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
               <div
@@ -363,6 +363,64 @@ export default function PredictionSeasonHub() {
             </div>
           </div>
         </div>
+
+        {/* Covered Competitions Ribbon */}
+        {season.covered_tournaments && season.covered_tournaments.length > 0 && (
+          <div
+            style={{
+              background: "rgba(15, 23, 42, 0.4)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(168, 85, 247, 0.2)",
+              borderRadius: "12px",
+              padding: "0.65rem 1.25rem",
+              margin: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.4rem"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <i className="fa-solid fa-trophy" style={{ color: "#c084fc", fontSize: "0.85rem" }} />
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.75px" }}>
+                  Eligible Competitions ({season.covered_tournaments.length})
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Included Types:</span>
+                {(season.linked_tournament_types || ["solo"]).map((t) => (
+                  <span key={t} style={{ fontSize: "0.65rem", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", textTransform: "uppercase" }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {season.covered_tournaments.map((t) => (
+                <div
+                  key={t.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(255, 255, 255, 0.04)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                    fontSize: "0.72rem",
+                    color: "#fff"
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>{t.name}</span>
+                  <span style={{ fontSize: "0.62rem", color: "#38bdf8", background: "rgba(56, 189, 248, 0.12)", padding: "1px 4px", borderRadius: "3px" }}>
+                    {t.format_type}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════ TABLE TOOLBAR & SEARCH BAR (PERFECTLY ALIGNED) ═══════════════════════ */}
         {activeTab !== "motw" && (

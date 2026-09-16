@@ -21,6 +21,7 @@ import {
   fetchTournamentTypes,
   updateTournamentDetails,
   updateTournamentStatus,
+  updateTournamentPredictionEligibility,
   fetchTournamentClubs,
   addClubToTournament,
   addMultipleClubsToTournament,
@@ -210,6 +211,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [editDivisionTier, setEditDivisionTier] = useState("");
   const [editPromotionCount, setEditPromotionCount] = useState("");
   const [editRelegationCount, setEditRelegationCount] = useState("");
+  const [editIncludeInPrediction, setEditIncludeInPrediction] = useState(true);
 
   // Merge fixtures with knockout matches for display
   const allMatches = useMemo(() => {
@@ -548,6 +550,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         setEditDivisionTier(tourney.division_tier !== null && tourney.division_tier !== undefined ? tourney.division_tier.toString() : "");
         setEditPromotionCount(tourney.promotion_count !== null && tourney.promotion_count !== undefined ? tourney.promotion_count.toString() : "");
         setEditRelegationCount(tourney.relegation_count !== null && tourney.relegation_count !== undefined ? tourney.relegation_count.toString() : "");
+        setEditIncludeInPrediction(tourney.include_in_prediction !== false);
 
         // Auto-set the default knockout round name based on qualifying teams
         const numGroups = tourney.num_groups || 0;
@@ -589,6 +592,18 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     });
   };
 
+  const handleTogglePrediction = (eligible: boolean) => {
+    startTransition(async () => {
+      try {
+        await updateTournamentPredictionEligibility(tournamentId, eligible);
+        showToast(eligible ? "🎯 Tournament included in Master of Prediction!" : "🚫 Tournament excluded from Master of Prediction!");
+        loadData();
+      } catch {
+        showToast("Error updating prediction eligibility!");
+      }
+    });
+  };
+
   const handleUpdateTournament = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName) return showToast("Tournament name required!");
@@ -624,7 +639,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           divTier,
           promo,
           releg,
-          editStatus || "active"
+          editStatus || "active",
+          editIncludeInPrediction !== false
         );
         showToast("Tournament details updated!");
         setIsEditing(false);
@@ -1228,11 +1244,20 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         {/* Header */}
         <div className="portal-header" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.25rem", flexWrap: "wrap" }}>
               <div className="portal-page-badge" style={{ margin: 0 }}>
                 <i className="fa-solid fa-sitemap" />
                 Tournament Console
               </div>
+              {tournament.include_in_prediction !== false ? (
+                <span style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
+                  <i className="fa-solid fa-bullseye" style={{ marginRight: "4px" }} /> PREDICTION ELIGIBLE
+                </span>
+              ) : (
+                <span style={{ background: "rgba(100, 116, 139, 0.15)", color: "#94a3b8", border: "1px solid rgba(100, 116, 139, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
+                  <i className="fa-solid fa-ban" style={{ marginRight: "4px" }} /> NO PREDICTION
+                </span>
+              )}
               {tournament.status === "completed" ? (
                 <span className="badge-success" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#34d399", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700 }}>
                   <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }} /> COMPLETED
@@ -1258,6 +1283,25 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
           {/* Instant 1-Click Status Controls */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="portal-btn btn-secondary"
+              style={{
+                padding: "6px 14px",
+                fontSize: "0.8rem",
+                borderColor: tournament.include_in_prediction !== false ? "rgba(168, 85, 247, 0.5)" : "rgba(100, 116, 139, 0.4)",
+                color: tournament.include_in_prediction !== false ? "#c084fc" : "#94a3b8",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px"
+              }}
+              onClick={() => handleTogglePrediction(tournament.include_in_prediction === false)}
+              disabled={isPending}
+              title="Toggle Master of Prediction inclusion"
+            >
+              <i className={`fa-solid ${tournament.include_in_prediction !== false ? "fa-bullseye" : "fa-ban"}`} />
+              {tournament.include_in_prediction !== false ? "Prediction: ON" : "Prediction: OFF"}
+            </button>
             {tournament.status === "completed" ? (
               <button
                 type="button"
@@ -1530,13 +1574,34 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       className="admin-select" 
                       style={{ fontSize: "0.85rem", padding: "6px 10px" }}
                       value={editTournamentType} 
-                      onChange={(e) => setEditTournamentType(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const match = tournamentTypes.find(tp => tp.name === val);
+                        setEditTournamentType(val);
+                        setEditIncludeInPrediction(match?.include_in_prediction !== false);
+                      }}
                     >
                       {tournamentTypes.map(t => (
-                        <option key={t.name} value={t.name}>{t.display_name}</option>
+                        <option key={t.name} value={t.name}>{t.display_name}{t.include_in_prediction === false ? ' (Pred Excluded)' : ''}</option>
                       ))}
                     </select>
                   </div>
+
+                  <div className="admin-form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8rem", color: "#fff" }}>
+                      <input
+                        type="checkbox"
+                        checked={editIncludeInPrediction}
+                        onChange={(e) => setEditIncludeInPrediction(e.target.checked)}
+                        style={{ width: "16px", height: "16px", accentColor: "#a855f7", cursor: "pointer" }}
+                      />
+                      <span style={{ fontWeight: 700, color: editIncludeInPrediction ? "#c084fc" : "#94a3b8" }}>
+                        <i className="fa-solid fa-bullseye" style={{ marginRight: "4px" }} />
+                        Include in Master of Prediction
+                      </span>
+                    </label>
+                  </div>
+
                   <div className="admin-form-group" style={{ marginBottom: 0 }}>
                     <label style={{ fontSize: "0.75rem", marginBottom: "0.15rem" }}>Financial Template</label>
                     {(editTournamentType === 'rws' || editTournamentType === 'special') ? (
@@ -1613,6 +1678,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <div>Name: <strong style={{ color: "#fff" }}>{tournament.name}</strong></div>
                   <div>Format: <strong style={{ color: "#fff" }}>{tournament.format_type}</strong></div>
                   <div>Status: <strong style={{ color: tournament.status === "completed" ? "#34d399" : tournament.status === "upcoming" ? "#facc15" : "#38bdf8", textTransform: "uppercase" }}>{tournament.status || "active"}</strong></div>
+                  <div>Prediction: <strong style={{ color: tournament.include_in_prediction !== false ? "#c084fc" : "#94a3b8" }}>{tournament.include_in_prediction !== false ? "🎯 Included in Master of Prediction" : "🚫 Excluded"}</strong></div>
                   {(tournament.format_type === "Group + Knockout" || tournament.format_type === "League + Knockout") && tournament.num_groups && (
                     <>
                       <div>Total Teams: <strong style={{ color: "#fff" }}>{tournament.num_teams || "—"}</strong></div>
