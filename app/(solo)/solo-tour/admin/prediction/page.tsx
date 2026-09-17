@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import "../../../../portal.css";
 import "../admin.css";
 import {
@@ -11,44 +10,56 @@ import {
   fetchPredictionDayData,
   savePredictionDayScores,
   createPredictionSeason,
+  createNextSeasonQuickAction,
   updatePredictionSeasonSettings,
   fetchPredictionLeaderboard,
   PredictionSeason,
   PredictionDay,
   MemberDayScore,
 } from "@/utils/solo/predictionServerActions";
-import {
-  fetchTournaments,
-  fetchTournamentTypes,
-} from "@/utils/solo/serverActions";
+
+const SPORTS_PRESETS = [
+  { id: "Football", name: "Football", icon: "⚽" },
+  { id: "Cricket", name: "Cricket", icon: "🏏" },
+  { id: "Basketball", name: "Basketball", icon: "🏀" },
+  { id: "Tennis", name: "Tennis", icon: "🎾" },
+  { id: "Formula 1", name: "Formula 1", icon: "🏎️" },
+  { id: "Boxing / MMA", name: "Boxing / MMA", icon: "🥊" },
+  { id: "Esports", name: "Esports", icon: "🎮" },
+  { id: "Other", name: "Other", icon: "🎯" },
+];
 
 export default function PredictionAdminPage() {
   const [seasons, setSeasons] = useState<PredictionSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<PredictionSeason | null>(null);
   const [days, setDays] = useState<PredictionDay[]>([]);
-  const [availableTournaments, setAvailableTournaments] = useState<any[]>([]);
-  const [availableTournamentTypes, setAvailableTournamentTypes] = useState<any[]>([]);
 
   // Navigation State
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedDayNum, setSelectedDayNum] = useState<number>(1);
 
-  // Day Data & Points
+  // Day Data & Match Details
   const [dayInfo, setDayInfo] = useState<PredictionDay | null>(null);
   const [dayTitle, setDayTitle] = useState<string>("");
+  const [sport, setSport] = useState<string>("Football");
+  const [matchName, setMatchName] = useState<string>("");
+  const [matchResult, setMatchResult] = useState<string>("");
   const [matchDate, setMatchDate] = useState<string>("");
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [dayNotes, setDayNotes] = useState<string>("");
 
+  // Member Scores
   const [members, setMembers] = useState<MemberDayScore[]>([]);
   const [memberScores, setMemberScores] = useState<Record<number, number>>({});
   const [memberNotes, setMemberNotes] = useState<Record<number, string>>({});
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [scoreFilter, setScoreFilter] = useState<"all" | "scored" | "unscored">("all");
 
   // UI States
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [startingNextSeason, setStartingNextSeason] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Create Season Modal
@@ -58,8 +69,6 @@ export default function PredictionAdminPage() {
   const [newSeasonDays, setNewSeasonDays] = useState<number>(36);
   const [newSeasonWeeks, setNewSeasonWeeks] = useState<number>(6);
   const [newSeasonDaysPerWeek, setNewSeasonDaysPerWeek] = useState<number>(6);
-  const [newSeasonTypes, setNewSeasonTypes] = useState<string[]>(["solo"]);
-  const [newSeasonTournamentIds, setNewSeasonTournamentIds] = useState<number[]>([]);
   const [newSeasonNotes, setNewSeasonNotes] = useState<string>("");
   const [creatingSeason, setCreatingSeason] = useState<boolean>(false);
 
@@ -69,8 +78,6 @@ export default function PredictionAdminPage() {
   const [editSeasonDays, setEditSeasonDays] = useState<number>(36);
   const [editSeasonWeeks, setEditSeasonWeeks] = useState<number>(6);
   const [editSeasonDaysPerWeek, setEditSeasonDaysPerWeek] = useState<number>(6);
-  const [editSeasonTypes, setEditSeasonTypes] = useState<string[]>(["solo"]);
-  const [editSeasonTournamentIds, setEditSeasonTournamentIds] = useState<number[]>([]);
   const [editSeasonStatus, setEditSeasonStatus] = useState<"active" | "completed" | "upcoming">("active");
   const [editSeasonNotes, setEditSeasonNotes] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
@@ -85,18 +92,12 @@ export default function PredictionAdminPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // 1. Initial Load: Fetch seasons, tournaments and types
+  // 1. Initial Load: Fetch seasons
   useEffect(() => {
     async function loadSeasons() {
       try {
-        const [seasonsList, tourneys, types] = await Promise.all([
-          fetchPredictionSeasons(),
-          fetchTournaments().catch(() => []),
-          fetchTournamentTypes().catch(() => [])
-        ]);
+        const seasonsList = await fetchPredictionSeasons();
         setSeasons(seasonsList);
-        setAvailableTournaments(tourneys || []);
-        setAvailableTournamentTypes(types || []);
         if (seasonsList.length > 0) {
           const firstSeason = seasonsList[0];
           setSelectedSeasonId(firstSeason.id);
@@ -128,8 +129,6 @@ export default function PredictionAdminPage() {
           setEditSeasonDays(season.total_days || 36);
           setEditSeasonWeeks(season.total_weeks || 6);
           setEditSeasonDaysPerWeek(season.days_per_week || 6);
-          setEditSeasonTypes(season.linked_tournament_types || ["solo"]);
-          setEditSeasonTournamentIds(season.linked_tournament_ids || []);
           setEditSeasonStatus(season.status || "active");
           setEditSeasonNotes(season.notes || "");
         }
@@ -161,6 +160,9 @@ export default function PredictionAdminPage() {
         );
         setDayInfo(fetchedDay);
         setDayTitle(fetchedDay?.title || `Day ${selectedDayNum}`);
+        setSport(fetchedDay?.sport || "Football");
+        setMatchName(fetchedDay?.match_name || "");
+        setMatchResult(fetchedDay?.match_result || "");
         setMatchDate(fetchedDay?.match_date || "");
         setIsCompleted(fetchedDay?.is_completed || false);
         setDayNotes(fetchedDay?.notes || "");
@@ -204,7 +206,7 @@ export default function PredictionAdminPage() {
     });
   };
 
-  // Bulk Save Day Points
+  // Bulk Save Day Match Details and Points
   const handleSaveDay = async () => {
     if (!selectedSeasonId) return;
     setSaving(true);
@@ -217,6 +219,9 @@ export default function PredictionAdminPage() {
 
       const dayPayload = {
         title: dayTitle.trim() || `Day ${selectedDayNum}`,
+        sport: sport.trim() || "Football",
+        match_name: matchName.trim(),
+        match_result: matchResult.trim(),
         match_date: matchDate ? matchDate : null,
         is_completed: isCompleted,
         notes: dayNotes.trim(),
@@ -230,13 +235,16 @@ export default function PredictionAdminPage() {
       );
 
       if (res.success) {
-        showToast(`✅ Day ${selectedDayNum} points saved successfully!`, "success");
+        showToast(`✅ Day ${selectedDayNum} (${dayPayload.sport}: ${dayPayload.match_name || 'Fixture'}) saved!`, "success");
         setDays((prev) =>
           prev.map((d) =>
             d.day_number === selectedDayNum
               ? {
                   ...d,
                   title: dayPayload.title,
+                  sport: dayPayload.sport,
+                  match_name: dayPayload.match_name,
+                  match_result: dayPayload.match_result,
                   match_date: dayPayload.match_date,
                   is_completed: dayPayload.is_completed,
                   notes: dayPayload.notes,
@@ -249,9 +257,34 @@ export default function PredictionAdminPage() {
       }
     } catch (err: any) {
       console.error(err);
-      showToast("Failed to save points", "error");
+      showToast("Failed to save match and points", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 1-Click: Start Next Season
+  const handleStartNextSeason = async () => {
+    const nextNum = (seasons.length > 0 ? seasons[0].season_number : 1) + 1;
+    if (!window.confirm(`Start Season ${nextNum}? This will initialize a new 36-day season (6 weeks × 6 days).`)) {
+      return;
+    }
+    setStartingNextSeason(true);
+    try {
+      const res = await createNextSeasonQuickAction(selectedSeasonId || undefined);
+      if (res.success && res.season) {
+        showToast(`🎉 Season ${res.season.season_number} started successfully!`, "success");
+        const seasonsList = await fetchPredictionSeasons();
+        setSeasons(seasonsList);
+        setSelectedSeasonId(res.season.id);
+      } else {
+        showToast(res.error || "Failed to start next season", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error starting next season", "error");
+    } finally {
+      setStartingNextSeason(false);
     }
   };
 
@@ -270,18 +303,14 @@ export default function PredictionAdminPage() {
         totalDays: Number(newSeasonDays) || 36,
         totalWeeks: Number(newSeasonWeeks) || 6,
         daysPerWeek: Number(newSeasonDaysPerWeek) || 6,
-        linkedTournamentTypes: newSeasonTypes,
-        linkedTournamentIds: newSeasonTournamentIds,
         notes: newSeasonNotes.trim(),
       });
 
       if (res.success && res.season) {
-        showToast(`🎉 Season ${newSeasonNum} created with ${newSeasonDays} custom days & ${newSeasonWeeks} weeks!`, "success");
+        showToast(`🎉 Season ${newSeasonNum} created with ${newSeasonDays} days!`, "success");
         setShowCreateSeasonModal(false);
         setNewSeasonName("");
         setNewSeasonNotes("");
-        setNewSeasonTypes(["solo"]);
-        setNewSeasonTournamentIds([]);
         const updated = await fetchPredictionSeasons();
         setSeasons(updated);
         setSelectedSeasonId(res.season.id);
@@ -307,8 +336,6 @@ export default function PredictionAdminPage() {
         total_days: Number(editSeasonDays) || 36,
         total_weeks: Number(editSeasonWeeks) || 6,
         days_per_week: Number(editSeasonDaysPerWeek) || 6,
-        linked_tournament_types: editSeasonTypes,
-        linked_tournament_ids: editSeasonTournamentIds,
         status: editSeasonStatus,
         notes: editSeasonNotes.trim(),
       });
@@ -348,12 +375,18 @@ export default function PredictionAdminPage() {
     }
   };
 
-  // Filter members by search query
-  const filteredMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (m.r2g_id && m.r2g_id.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter members by search & score status
+  const filteredMembers = members.filter((m) => {
+    const q = searchQuery.toLowerCase();
+    const matchesQuery =
+      m.name.toLowerCase().includes(q) ||
+      (m.r2g_id && m.r2g_id.toLowerCase().includes(q));
+
+    const score = memberScores[m.member_id] || 0;
+    if (scoreFilter === "scored") return matchesQuery && score > 0;
+    if (scoreFilter === "unscored") return matchesQuery && score === 0;
+    return matchesQuery;
+  });
 
   // Dynamic Weeks & Days Calculations
   const totalWeeks = selectedSeason?.total_weeks || 6;
@@ -367,8 +400,10 @@ export default function PredictionAdminPage() {
     (d) => d.day_number >= weekStartDay && d.day_number <= weekEndDay
   );
 
+  const scoredCount = Object.values(memberScores).filter((pts) => pts > 0).length;
+
   return (
-    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "5rem" }}>
+    <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "6rem" }}>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
@@ -428,7 +463,7 @@ export default function PredictionAdminPage() {
             <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
           </Link>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={handleOpenLiveStandings}
               className="portal-btn btn-secondary"
@@ -467,28 +502,28 @@ export default function PredictionAdminPage() {
         {/* Hero Header */}
         <div className="rws-page-hero" style={{ padding: "0.25rem 0 0.5rem", margin: 0 }}>
           <div className="portal-page-badge" style={{ borderColor: "rgba(168, 85, 247, 0.4)", color: "#c084fc", marginBottom: "0.4rem" }}>
-            <i className="fa-solid fa-square-poll-vertical" />
-            100% Admin Configurable Prediction Engine
+            <i className="fa-solid fa-futbol" />
+            Real Sports Matches &amp; Scores Manager
           </div>
           <h1 className="rws-hero-title" style={{ fontSize: "2rem", margin: 0 }}>MASTER OF PREDICTION</h1>
           <p className="rws-hero-sub" style={{ marginTop: "0.35rem", fontSize: "0.82rem" }}>
-            Customize Total Days, Weeks &amp; Days per Week for every Season. Update member round points (10, 12, 15, etc.) and preview live standings.
+            Enter the Sport (Football, Cricket, etc.), Real Match Fixture, and Member Prediction Scores for all 36 Days.
           </p>
         </div>
 
-        {/* Season Selector Bar with Settings Button */}
+        {/* Season Selector Bar with Quick Next Season Action */}
         <div
           className="portal-card"
           style={{
-            padding: "1rem 1.25rem",
+            padding: "0.9rem 1.25rem",
             margin: 0,
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "space-between",
             alignItems: "center",
             gap: "0.75rem",
-            background: "rgba(15, 23, 42, 0.6)",
-            border: "1px solid rgba(168, 85, 247, 0.2)",
+            background: "rgba(15, 23, 42, 0.65)",
+            border: "1px solid rgba(168, 85, 247, 0.25)",
             borderRadius: "12px",
           }}
         >
@@ -513,7 +548,7 @@ export default function PredictionAdminPage() {
             >
               {seasons.map((s) => (
                 <option key={s.id} value={s.id}>
-                  Season {s.season_number} — {s.name} ({s.total_days} Days / {s.total_weeks} Wks)
+                  Season {s.season_number} — {s.name} ({s.total_days} Days / {s.total_weeks} Wks) {s.status === 'completed' ? '✓' : ''}
                 </option>
               ))}
             </select>
@@ -526,11 +561,30 @@ export default function PredictionAdminPage() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {/* 1-Click Start Next Season */}
+            <button
+              onClick={handleStartNextSeason}
+              disabled={startingNextSeason}
+              className="portal-btn btn-secondary"
+              style={{
+                padding: "6px 12px",
+                fontSize: "0.8rem",
+                borderColor: "rgba(34, 197, 94, 0.4)",
+                color: "#22c55e",
+                background: "rgba(34, 197, 94, 0.08)",
+                fontWeight: 700,
+              }}
+              title="Initialize next 36-day season in 1 click"
+            >
+              <i className="fa-solid fa-forward-step" style={{ marginRight: "6px" }} />
+              {startingNextSeason ? "Starting..." : "Start Next Season"}
+            </button>
+
             <button
               onClick={() => setShowEditSettingsModal(true)}
               className="portal-btn btn-secondary"
               style={{
-                padding: "6px 14px",
+                padding: "6px 12px",
                 fontSize: "0.8rem",
                 borderColor: "rgba(234, 179, 8, 0.4)",
                 color: "#fbbf24",
@@ -538,94 +592,23 @@ export default function PredictionAdminPage() {
               }}
             >
               <i className="fa-solid fa-gear" style={{ marginRight: "6px" }} />
-              Season Settings
+              Settings
             </button>
 
             <button
               onClick={() => setShowCreateSeasonModal(true)}
               className="portal-btn btn-primary"
               style={{
-                padding: "6px 14px",
+                padding: "6px 12px",
                 fontSize: "0.8rem",
                 background: "linear-gradient(135deg, #a855f7, #7c3aed)",
               }}
             >
               <i className="fa-solid fa-plus" style={{ marginRight: "6px" }} />
-              New Custom Season
+              New Season
             </button>
           </div>
         </div>
-
-        {/* Covered Competitions Ribbon */}
-        {selectedSeason && (
-          <div
-            className="portal-card"
-            style={{
-              padding: "0.85rem 1.25rem",
-              margin: 0,
-              background: "rgba(15, 23, 42, 0.45)",
-              border: "1px solid rgba(56, 189, 248, 0.2)",
-              borderRadius: "12px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <i className="fa-solid fa-trophy" style={{ color: "#38bdf8", fontSize: "0.9rem" }} />
-                <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Covered Competitions in Season {selectedSeason.season_number} ({selectedSeason.covered_tournaments?.length || 0})
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>Linked Types:</span>
-                {(selectedSeason.linked_tournament_types || ["solo"]).map(t => (
-                  <span key={t} style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", textTransform: "uppercase" }}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {(selectedSeason.covered_tournaments && selectedSeason.covered_tournaments.length > 0) ? (
-                selectedSeason.covered_tournaments.map((tourney) => (
-                  <Link
-                    key={tourney.id}
-                    href={`/solo-tour/admin/tournaments/${tourney.id}`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      background: "rgba(30, 41, 59, 0.7)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                      fontSize: "0.75rem",
-                      color: "#fff",
-                      textDecoration: "none",
-                      transition: "all 0.2s ease"
-                    }}
-                    title="Click to view tournament details"
-                  >
-                    <span style={{ fontWeight: 700 }}>{tourney.name}</span>
-                    <span style={{ fontSize: "0.65rem", color: "#38bdf8", background: "rgba(56, 189, 248, 0.15)", padding: "1px 5px", borderRadius: "3px" }}>
-                      {tourney.format_type}
-                    </span>
-                    <span style={{ fontSize: "0.65rem", color: tourney.status === "completed" ? "#34d399" : tourney.status === "upcoming" ? "#facc15" : "#38bdf8" }}>
-                      ● {tourney.status || "active"}
-                    </span>
-                  </Link>
-                ))
-              ) : (
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic" }}>
-                  No tournaments currently active for this season&apos;s linked types. Go to Tournament Manager or edit Season Settings to link tournaments.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Dynamic Weeks Tab Bar */}
         <div style={{ margin: 0 }}>
@@ -655,7 +638,7 @@ export default function PredictionAdminPage() {
                   }}
                   style={{
                     flex: "1 0 auto",
-                    minWidth: "120px",
+                    minWidth: "125px",
                     padding: "8px 12px",
                     borderRadius: "8px",
                     border: isActive
@@ -689,23 +672,26 @@ export default function PredictionAdminPage() {
           </div>
         </div>
 
-        {/* Dynamic Days of Current Week Selector */}
+        {/* Dynamic Days Selector of Current Week */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(110px, 1fr))`,
+            gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
             gap: "8px",
             margin: 0,
           }}
         >
           {currentWeekDays.map((d) => {
             const isSelected = selectedDayNum === d.day_number;
+            const sportPreset = SPORTS_PRESETS.find((sp) => sp.name.toLowerCase() === (d.sport || "").toLowerCase());
+            const sportIcon = sportPreset ? sportPreset.icon : d.sport ? "🏆" : "";
+
             return (
               <button
                 key={d.day_number}
                 onClick={() => setSelectedDayNum(d.day_number)}
                 style={{
-                  padding: "10px 8px",
+                  padding: "8px 10px",
                   borderRadius: "10px",
                   border: isSelected
                     ? "2px solid #38bdf8"
@@ -714,41 +700,62 @@ export default function PredictionAdminPage() {
                     ? "linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.15))"
                     : "rgba(30, 41, 59, 0.4)",
                   cursor: "pointer",
-                  textAlign: "center",
+                  textAlign: "left",
                   transition: "all 0.2s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  minHeight: "76px",
                 }}
               >
-                <div style={{ fontSize: "0.65rem", color: isSelected ? "#38bdf8" : "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase" }}>
-                  Round {d.day_number}
-                </div>
-                <div style={{ fontSize: "1rem", fontWeight: 900, color: "#fff", margin: "1px 0" }}>
-                  DAY {d.day_number}
-                </div>
-                <div style={{ fontSize: "0.65rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.65rem", color: isSelected ? "#38bdf8" : "var(--text-secondary)", fontWeight: 700 }}>
+                    ROUND {d.day_number}
+                  </span>
                   {d.is_completed ? (
-                    <span style={{ color: "#10b981", fontWeight: 700 }}>
+                    <span style={{ color: "#10b981", fontSize: "0.65rem", fontWeight: 700 }}>
                       <i className="fa-solid fa-check" /> Done
                     </span>
                   ) : (
-                    <span style={{ color: "#f59e0b", fontWeight: 600 }}>
-                      <i className="fa-solid fa-clock" /> Open
+                    <span style={{ color: "#f59e0b", fontSize: "0.65rem", fontWeight: 600 }}>
+                      <i className="fa-solid fa-clock" />
                     </span>
                   )}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#fff" }}>
+                    DAY {d.day_number}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: d.match_name ? "#e2e8f0" : "var(--text-secondary)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      marginTop: "1px",
+                    }}
+                    title={d.match_name ? `${d.sport ? `[${d.sport}] ` : ''}${d.match_name}` : 'No Match Set'}
+                  >
+                    {sportIcon && <span style={{ marginRight: "3px" }}>{sportIcon}</span>}
+                    {d.match_name ? d.match_name : "Set match..."}
+                  </div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Day Header & Editing Panel */}
+        {/* Real Match & Fixture Details Card */}
         <div
           className="portal-card"
           style={{
-            padding: "1.1rem 1.25rem",
+            padding: "1.25rem",
             margin: 0,
-            background: "rgba(15, 23, 42, 0.7)",
-            border: "1px solid rgba(56, 189, 248, 0.2)",
-            borderRadius: "12px",
+            background: "rgba(15, 23, 42, 0.75)",
+            border: "1px solid rgba(56, 189, 248, 0.25)",
+            borderRadius: "14px",
           }}
         >
           <div
@@ -758,11 +765,13 @@ export default function PredictionAdminPage() {
               justifyContent: "space-between",
               alignItems: "center",
               gap: "1rem",
-              marginBottom: "1.25rem",
+              marginBottom: "1rem",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              paddingBottom: "0.85rem",
             }}
           >
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                 <span
                   style={{
                     padding: "2px 8px",
@@ -774,18 +783,18 @@ export default function PredictionAdminPage() {
                     textTransform: "uppercase",
                   }}
                 >
-                  {isCompleted ? "Completed Round" : "In Progress Round"}
+                  {isCompleted ? "Match Completed" : "Open Match"}
                 </span>
                 <span style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
                   Week {selectedWeek} of {totalWeeks} • Day {selectedDayNum} of {totalDays}
                 </span>
               </div>
-              <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#fff", margin: 0 }}>
-                Score Entry: Day {selectedDayNum}
+              <h2 style={{ fontSize: "1.35rem", fontWeight: 900, color: "#fff", margin: 0 }}>
+                Day {selectedDayNum} Fixture &amp; Points Entry
               </h2>
             </div>
 
-            {/* Quick Actions / Save Button */}
+            {/* Complete Toggle & Save Button */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <button
                 onClick={() => setIsCompleted(!isCompleted)}
@@ -797,12 +806,12 @@ export default function PredictionAdminPage() {
                   background: isCompleted ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.05)",
                   color: isCompleted ? "#10b981" : "var(--text-secondary)",
                   fontWeight: 700,
-                  fontSize: "0.85rem",
+                  fontSize: "0.82rem",
                   cursor: "pointer",
                 }}
               >
                 <i className={isCompleted ? "fa-solid fa-circle-check" : "fa-regular fa-circle"} style={{ marginRight: "6px" }} />
-                {isCompleted ? "Round Completed" : "Mark as Completed"}
+                {isCompleted ? "Match Completed" : "Mark as Completed"}
               </button>
 
               <button
@@ -810,8 +819,8 @@ export default function PredictionAdminPage() {
                 disabled={saving}
                 className="portal-btn btn-primary"
                 style={{
-                  padding: "10px 24px",
-                  fontSize: "0.95rem",
+                  padding: "9px 22px",
+                  fontSize: "0.9rem",
                   fontWeight: 800,
                   background: "linear-gradient(135deg, #10b981, #059669)",
                   boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)",
@@ -824,38 +833,97 @@ export default function PredictionAdminPage() {
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-floppy-disk" style={{ marginRight: "8px" }} /> Save Day {selectedDayNum} Points
+                    <i className="fa-solid fa-floppy-disk" style={{ marginRight: "8px" }} /> Save Day {selectedDayNum}
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Meta Fields: Title, Date, Notes */}
+          {/* 1. Sport Quick Picker Chips */}
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              1. Choose Sport:
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {SPORTS_PRESETS.map((sp) => {
+                const isSel = sport.toLowerCase() === sp.name.toLowerCase();
+                return (
+                  <button
+                    key={sp.id}
+                    type="button"
+                    onClick={() => setSport(sp.name)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      border: isSel ? "1.5px solid #38bdf8" : "1px solid rgba(255, 255, 255, 0.1)",
+                      background: isSel ? "rgba(56, 189, 248, 0.2)" : "rgba(30, 41, 59, 0.6)",
+                      color: isSel ? "#38bdf8" : "#fff",
+                      fontWeight: isSel ? 800 : 600,
+                      fontSize: "0.82rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <span>{sp.icon}</span>
+                    <span>{sp.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Real Match / Fixture Details Form */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "1rem",
-              background: "rgba(0, 0, 0, 0.2)",
+              background: "rgba(0, 0, 0, 0.25)",
               padding: "1rem",
-              borderRadius: "8px",
+              borderRadius: "10px",
+              border: "1px solid rgba(255, 255, 255, 0.05)",
             }}
           >
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
-                Round Title / Match Theme (Optional)
+              <label style={{ display: "block", fontSize: "0.78rem", color: "#38bdf8", fontWeight: 800, marginBottom: "4px" }}>
+                ⚽ Real Match / Fixture Name <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
-                value={dayTitle}
-                onChange={(e) => setDayTitle(e.target.value)}
-                placeholder={`Day ${selectedDayNum} (Week ${selectedWeek})`}
+                value={matchName}
+                onChange={(e) => setMatchName(e.target.value)}
+                placeholder="e.g. Manchester City vs Manchester United or India vs Australia"
                 style={{
                   width: "100%",
-                  background: "rgba(30, 41, 59, 0.6)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  padding: "8px 12px",
+                  background: "rgba(30, 41, 59, 0.8)",
+                  border: "1px solid rgba(56, 189, 248, 0.35)",
+                  padding: "9px 12px",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                Match Result / Outcome (Optional)
+              </label>
+              <input
+                type="text"
+                value={matchResult}
+                onChange={(e) => setMatchResult(e.target.value)}
+                placeholder="e.g. 2 - 1, Ind won by 5 wkts, Real Madrid (4-2 pens)"
+                style={{
+                  width: "100%",
+                  background: "rgba(30, 41, 59, 0.8)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  padding: "9px 12px",
                   borderRadius: "6px",
                   color: "#fff",
                   fontSize: "0.9rem",
@@ -864,8 +932,8 @@ export default function PredictionAdminPage() {
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
-                Matchday Date (Optional)
+              <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                Match Date (Optional)
               </label>
               <input
                 type="date"
@@ -873,30 +941,9 @@ export default function PredictionAdminPage() {
                 onChange={(e) => setMatchDate(e.target.value)}
                 style={{
                   width: "100%",
-                  background: "rgba(30, 41, 59, 0.6)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  color: "#fff",
-                  fontSize: "0.9rem",
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
-                Admin Notes (Optional)
-              </label>
-              <input
-                type="text"
-                value={dayNotes}
-                onChange={(e) => setDayNotes(e.target.value)}
-                placeholder="e.g. Round matchday notes"
-                style={{
-                  width: "100%",
-                  background: "rgba(30, 41, 59, 0.6)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  padding: "8px 12px",
+                  background: "rgba(30, 41, 59, 0.8)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  padding: "9px 12px",
                   borderRadius: "6px",
                   color: "#fff",
                   fontSize: "0.9rem",
@@ -906,7 +953,7 @@ export default function PredictionAdminPage() {
           </div>
         </div>
 
-        {/* Member Search & Filter Header */}
+        {/* Member Scoring Section */}
         <div
           style={{
             display: "flex",
@@ -914,55 +961,116 @@ export default function PredictionAdminPage() {
             alignItems: "center",
             flexWrap: "wrap",
             gap: "0.75rem",
-            margin: 0,
+            margin: "0.5rem 0 0 0",
           }}
         >
-          <div style={{ fontSize: "1rem", fontWeight: 800, color: "#fff" }}>
-            Participating Members ({filteredMembers.length})
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "1rem", fontWeight: 800, color: "#fff" }}>
+              Participants &amp; Scores ({filteredMembers.length})
+            </span>
+            <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.12)", padding: "2px 8px", borderRadius: "6px", border: "1px solid rgba(16, 185, 129, 0.25)", fontWeight: 700 }}>
+              {scoredCount} Scored
+            </span>
           </div>
 
-          <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
-            <i
-              className="fa-solid fa-magnifying-glass"
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-secondary)",
-              }}
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search member name or R2G ID..."
-              style={{
-                width: "100%",
-                padding: "8px 12px 8px 36px",
-                background: "rgba(30, 41, 59, 0.7)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                borderRadius: "8px",
-                color: "#fff",
-                fontSize: "0.9rem",
-              }}
-            />
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            {/* Filter Pills */}
+            <div style={{ display: "inline-flex", background: "rgba(30, 41, 59, 0.6)", borderRadius: "8px", padding: "2px" }}>
+              <button
+                type="button"
+                onClick={() => setScoreFilter("all")}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: scoreFilter === "all" ? 700 : 500,
+                  background: scoreFilter === "all" ? "rgba(168, 85, 247, 0.25)" : "transparent",
+                  color: scoreFilter === "all" ? "#c084fc" : "var(--text-secondary)",
+                  cursor: "pointer",
+                }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setScoreFilter("scored")}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: scoreFilter === "scored" ? 700 : 500,
+                  background: scoreFilter === "scored" ? "rgba(168, 85, 247, 0.25)" : "transparent",
+                  color: scoreFilter === "scored" ? "#10b981" : "var(--text-secondary)",
+                  cursor: "pointer",
+                }}
+              >
+                Scored ({scoredCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setScoreFilter("unscored")}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: scoreFilter === "unscored" ? 700 : 500,
+                  background: scoreFilter === "unscored" ? "rgba(239, 68, 68, 0.25)" : "transparent",
+                  color: scoreFilter === "unscored" ? "#ef4444" : "var(--text-secondary)",
+                  cursor: "pointer",
+                }}
+              >
+                Unscored
+              </button>
+            </div>
+
+            {/* Member Search Box */}
+            <div style={{ position: "relative", width: "100%", maxWidth: "260px" }}>
+              <i
+                className="fa-solid fa-magnifying-glass"
+                style={{
+                  position: "absolute",
+                  left: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.8rem",
+                }}
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search member..."
+                style={{
+                  width: "100%",
+                  padding: "7px 10px 7px 32px",
+                  background: "rgba(30, 41, 59, 0.8)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "0.82rem",
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Member Points Scoring List */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {/* Member Points Scoring Cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {filteredMembers.length === 0 ? (
             <div
               className="portal-card"
               style={{
-                padding: "3rem",
+                padding: "2.5rem",
                 textAlign: "center",
                 background: "rgba(255, 255, 255, 0.02)",
               }}
             >
-              <i className="fa-solid fa-user-slash" style={{ fontSize: "2.5rem", color: "var(--text-secondary)", marginBottom: "1rem" }} />
-              <div style={{ color: "#fff", fontSize: "1.1rem", fontWeight: 700 }}>No members found</div>
+              <i className="fa-solid fa-user-slash" style={{ fontSize: "2rem", color: "var(--text-secondary)", marginBottom: "0.75rem" }} />
+              <div style={{ color: "#fff", fontSize: "1rem", fontWeight: 700 }}>No members matching criteria</div>
             </div>
           ) : (
             filteredMembers.map((m) => {
@@ -974,29 +1082,30 @@ export default function PredictionAdminPage() {
                   key={m.member_id}
                   className="portal-card"
                   style={{
-                    padding: "1rem 1.25rem",
+                    padding: "0.75rem 1.15rem",
                     display: "flex",
                     flexWrap: "wrap",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    gap: "1rem",
+                    gap: "0.75rem",
                     background: hasScore
-                      ? "rgba(16, 185, 129, 0.04)"
+                      ? "rgba(16, 185, 129, 0.05)"
                       : "rgba(15, 23, 42, 0.5)",
                     border: hasScore
-                      ? "1px solid rgba(16, 185, 129, 0.25)"
+                      ? "1px solid rgba(16, 185, 129, 0.3)"
                       : "1px solid rgba(255, 255, 255, 0.06)",
                     transition: "all 0.15s ease",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: "220px" }}>
+                  {/* Member Profile */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: "200px" }}>
                     <div
                       style={{
-                        width: "44px",
-                        height: "44px",
+                        width: "38px",
+                        height: "38px",
                         borderRadius: "50%",
                         background: "rgba(168, 85, 247, 0.15)",
-                        border: "1.5px solid rgba(168, 85, 247, 0.4)",
+                        border: hasScore ? "1.5px solid #10b981" : "1.5px solid rgba(168, 85, 247, 0.35)",
                         overflow: "hidden",
                         display: "flex",
                         alignItems: "center",
@@ -1014,21 +1123,21 @@ export default function PredictionAdminPage() {
                           }}
                         />
                       ) : (
-                        <i className="fa-solid fa-user" style={{ color: "#c084fc", fontSize: "1.2rem" }} />
+                        <i className="fa-solid fa-user" style={{ color: "#c084fc", fontSize: "1rem" }} />
                       )}
                     </div>
 
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "#fff" }}>
                           {m.name}
                         </span>
                         {m.r2g_id && (
                           <span
                             style={{
-                              fontSize: "0.7rem",
+                              fontSize: "0.68rem",
                               fontWeight: 700,
-                              padding: "1px 6px",
+                              padding: "1px 5px",
                               borderRadius: "4px",
                               background: "rgba(168, 85, 247, 0.15)",
                               color: "#c084fc",
@@ -1038,27 +1147,28 @@ export default function PredictionAdminPage() {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
                         Member #{m.member_id}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", gap: "6px" }}>
+                  {/* 1-Click Quick Point Buttons & Direct Input */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "4px" }}>
                       {[10, 12, 15, 20].map((pts) => (
                         <button
                           key={pts}
                           type="button"
                           onClick={() => handleQuickPoint(m.member_id, pts, "set")}
                           style={{
-                            padding: "6px 10px",
+                            padding: "5px 9px",
                             borderRadius: "6px",
                             border: currentScore === pts ? "1px solid #10b981" : "1px solid rgba(255, 255, 255, 0.1)",
-                            background: currentScore === pts ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.05)",
+                            background: currentScore === pts ? "rgba(16, 185, 129, 0.25)" : "rgba(255, 255, 255, 0.04)",
                             color: currentScore === pts ? "#10b981" : "#fff",
                             fontWeight: "800",
-                            fontSize: "0.8rem",
+                            fontSize: "0.78rem",
                             cursor: "pointer",
                           }}
                         >
@@ -1070,7 +1180,7 @@ export default function PredictionAdminPage() {
                         type="button"
                         onClick={() => handleQuickPoint(m.member_id, 0, "set")}
                         style={{
-                          padding: "6px 8px",
+                          padding: "5px 8px",
                           borderRadius: "6px",
                           border: "1px solid rgba(239, 68, 68, 0.2)",
                           background: "rgba(239, 68, 68, 0.08)",
@@ -1085,7 +1195,7 @@ export default function PredictionAdminPage() {
                       </button>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                       <input
                         type="number"
                         min={0}
@@ -1094,20 +1204,20 @@ export default function PredictionAdminPage() {
                         onChange={(e) => handleScoreChange(m.member_id, e.target.value)}
                         placeholder="0"
                         style={{
-                          width: "75px",
-                          padding: "8px 10px",
-                          borderRadius: "8px",
+                          width: "70px",
+                          padding: "6px 8px",
+                          borderRadius: "6px",
                           background: "rgba(30, 41, 59, 0.8)",
                           border: hasScore
                             ? "1.5px solid #10b981"
                             : "1px solid rgba(255, 255, 255, 0.15)",
                           color: hasScore ? "#10b981" : "#fff",
                           fontWeight: "900",
-                          fontSize: "1.1rem",
+                          fontSize: "1rem",
                           textAlign: "center",
                         }}
                       />
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>
                         pts
                       </span>
                     </div>
@@ -1118,14 +1228,14 @@ export default function PredictionAdminPage() {
           )}
         </div>
 
-        {/* Floating Save Bar on Scroll */}
+        {/* Floating Sticky Save Bar */}
         <div
           style={{
             position: "sticky",
-            bottom: "20px",
-            marginTop: "2rem",
-            padding: "1rem 1.5rem",
-            borderRadius: "14px",
+            bottom: "15px",
+            marginTop: "1.5rem",
+            padding: "0.85rem 1.25rem",
+            borderRadius: "12px",
             background: "rgba(15, 23, 42, 0.95)",
             backdropFilter: "blur(12px)",
             border: "1.5px solid rgba(16, 185, 129, 0.4)",
@@ -1134,14 +1244,16 @@ export default function PredictionAdminPage() {
             justifyContent: "space-between",
             alignItems: "center",
             zIndex: 100,
+            flexWrap: "wrap",
+            gap: "0.75rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: "0.95rem" }}>
-              Day {selectedDayNum} (Week {selectedWeek} of {totalWeeks})
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: "0.9rem" }}>
+              Day {selectedDayNum}: {sport} — {matchName || "Set Fixture"}
             </span>
-            <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-              • {Object.values(memberScores).filter((pts) => pts > 0).length} members scored
+            <span style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
+              • {scoredCount} members scored
             </span>
           </div>
 
@@ -1150,8 +1262,8 @@ export default function PredictionAdminPage() {
             disabled={saving}
             className="portal-btn btn-primary"
             style={{
-              padding: "10px 28px",
-              fontSize: "0.95rem",
+              padding: "9px 24px",
+              fontSize: "0.9rem",
               fontWeight: 900,
               background: "linear-gradient(135deg, #10b981, #059669)",
               boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)",
@@ -1164,7 +1276,7 @@ export default function PredictionAdminPage() {
               </>
             ) : (
               <>
-                <i className="fa-solid fa-floppy-disk" style={{ marginRight: "8px" }} /> Save Day {selectedDayNum} Points
+                <i className="fa-solid fa-floppy-disk" style={{ marginRight: "8px" }} /> Save Day {selectedDayNum} Match &amp; Scores
               </>
             )}
           </button>
@@ -1191,16 +1303,16 @@ export default function PredictionAdminPage() {
             style={{
               width: "100%",
               maxWidth: "520px",
-              padding: "2rem",
+              padding: "1.75rem",
               background: "#0f172a",
               border: "1px solid rgba(234, 179, 8, 0.4)",
               borderRadius: "16px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", margin: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#fff", margin: 0 }}>
                 <i className="fa-solid fa-gear" style={{ color: "#fbbf24", marginRight: "8px" }} />
-                Customize Season {selectedSeason?.season_number} Settings
+                Season {selectedSeason?.season_number} Settings
               </h2>
               <button
                 onClick={() => setShowEditSettingsModal(false)}
@@ -1210,9 +1322,9 @@ export default function PredictionAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSeasonSettings} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <form onSubmit={handleSaveSeasonSettings} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                   Season Name
                 </label>
                 <input
@@ -1222,7 +1334,7 @@ export default function PredictionAdminPage() {
                   required
                   style={{
                     width: "100%",
-                    padding: "10px 14px",
+                    padding: "9px 12px",
                     background: "rgba(30, 41, 59, 0.8)",
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     borderRadius: "8px",
@@ -1231,11 +1343,10 @@ export default function PredictionAdminPage() {
                 />
               </div>
 
-              {/* Grid: Total Days, Total Weeks, Days Per Week */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                    Total Days / Rounds
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                    Total Days
                   </label>
                   <input
                     type="number"
@@ -1252,7 +1363,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1264,7 +1375,7 @@ export default function PredictionAdminPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                     Days per Week
                   </label>
                   <input
@@ -1282,7 +1393,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1294,7 +1405,7 @@ export default function PredictionAdminPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                     Total Weeks
                   </label>
                   <input
@@ -1306,7 +1417,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1319,7 +1430,7 @@ export default function PredictionAdminPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                   Season Status
                 </label>
                 <select
@@ -1327,7 +1438,7 @@ export default function PredictionAdminPage() {
                   onChange={(e) => setEditSeasonStatus(e.target.value as any)}
                   style={{
                     width: "100%",
-                    padding: "10px 14px",
+                    padding: "9px 12px",
                     background: "rgba(30, 41, 59, 0.8)",
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     borderRadius: "8px",
@@ -1339,96 +1450,6 @@ export default function PredictionAdminPage() {
                   <option value="completed">Completed</option>
                   <option value="upcoming">Upcoming</option>
                 </select>
-              </div>
-
-              {/* Tournament Types Inclusion */}
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "#c084fc", fontWeight: 800, marginBottom: "6px" }}>
-                  <i className="fa-solid fa-layer-group" style={{ marginRight: "6px" }} />
-                  Linked Tournament Types (Auto-Include All Tournaments of These Types)
-                </label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  {availableTournamentTypes.map((tp) => {
-                    const isChecked = editSeasonTypes.includes(tp.name);
-                    return (
-                      <label key={tp.name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", color: "#fff", cursor: "pointer", background: isChecked ? "rgba(168, 85, 247, 0.2)" : "rgba(255, 255, 255, 0.04)", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${isChecked ? "rgba(168, 85, 247, 0.4)" : "rgba(255, 255, 255, 0.08)"}` }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditSeasonTypes((prev) => [...prev, tp.name]);
-                            } else {
-                              setEditSeasonTypes((prev) => prev.filter((t) => t !== tp.name));
-                            }
-                          }}
-                          style={{ accentColor: "#a855f7" }}
-                        />
-                        <span style={{ fontWeight: 600 }}>{tp.display_name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Specific Individual Tournaments Inclusion */}
-              {availableTournaments.length > 0 && (
-                <div>
-                  <label style={{ display: "block", fontSize: "0.8rem", color: "#38bdf8", fontWeight: 800, marginBottom: "6px" }}>
-                    <i className="fa-solid fa-sitemap" style={{ marginRight: "6px" }} />
-                    Individual Tournaments (Force-Include Specific Tournaments)
-                  </label>
-                  <div style={{ maxHeight: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    {availableTournaments.map((t) => {
-                      const isTypeCovered = editSeasonTypes.includes(t.tournament_type);
-                      const isIdChecked = editSeasonTournamentIds.includes(t.id);
-                      const isChecked = isTypeCovered || isIdChecked;
-                      const isExcluded = t.include_in_prediction === false;
-                      return (
-                        <label key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: isExcluded ? "#94a3b8" : "#fff", cursor: "pointer", padding: "4px 6px", borderRadius: "4px", background: isChecked ? "rgba(56, 189, 248, 0.08)" : "transparent" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={isTypeCovered}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEditSeasonTournamentIds((prev) => [...prev, t.id]);
-                                } else {
-                                  setEditSeasonTournamentIds((prev) => prev.filter((id) => id !== t.id));
-                                }
-                              }}
-                              style={{ accentColor: "#38bdf8" }}
-                            />
-                            <span>{t.name}</span>
-                          </span>
-                          <span style={{ fontSize: "0.7rem", color: isExcluded ? "#ef4444" : isTypeCovered ? "#c084fc" : "#38bdf8" }}>
-                            {isExcluded ? "🚫 Excluded in Tourney" : isTypeCovered ? `via type [${t.tournament_type}]` : "manual"}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                  Notes / Description
-                </label>
-                <textarea
-                  value={editSeasonNotes}
-                  onChange={(e) => setEditSeasonNotes(e.target.value)}
-                  rows={2}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    background: "rgba(30, 41, 59, 0.8)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "0.5rem" }}>
@@ -1445,7 +1466,7 @@ export default function PredictionAdminPage() {
                   className="portal-btn btn-primary"
                   style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", color: "#000", fontWeight: 800 }}
                 >
-                  {savingSettings ? "Saving..." : "Apply & Sync Days"}
+                  {savingSettings ? "Saving..." : "Apply Settings"}
                 </button>
               </div>
             </form>
@@ -1472,19 +1493,17 @@ export default function PredictionAdminPage() {
             className="portal-card"
             style={{
               width: "100%",
-              maxWidth: "540px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              padding: "2rem",
+              maxWidth: "520px",
+              padding: "1.75rem",
               background: "#0f172a",
               border: "1px solid rgba(168, 85, 247, 0.3)",
               borderRadius: "16px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", margin: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#fff", margin: 0 }}>
                 <i className="fa-solid fa-folder-plus" style={{ color: "#c084fc", marginRight: "8px" }} />
-                Create Custom Prediction Season
+                Create New Prediction Season
               </h2>
               <button
                 onClick={() => setShowCreateSeasonModal(false)}
@@ -1494,9 +1513,9 @@ export default function PredictionAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSeason} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <form onSubmit={handleCreateSeason} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                   Season Number
                 </label>
                 <input
@@ -1507,7 +1526,7 @@ export default function PredictionAdminPage() {
                   required
                   style={{
                     width: "100%",
-                    padding: "10px 14px",
+                    padding: "9px 12px",
                     background: "rgba(30, 41, 59, 0.8)",
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     borderRadius: "8px",
@@ -1518,7 +1537,7 @@ export default function PredictionAdminPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
                   Season Name
                 </label>
                 <input
@@ -1529,7 +1548,7 @@ export default function PredictionAdminPage() {
                   required
                   style={{
                     width: "100%",
-                    padding: "10px 14px",
+                    padding: "9px 12px",
                     background: "rgba(30, 41, 59, 0.8)",
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     borderRadius: "8px",
@@ -1538,11 +1557,10 @@ export default function PredictionAdminPage() {
                 />
               </div>
 
-              {/* Total Days, Weeks, Days Per Week */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                    Total Days / Rounds
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                    Total Days (36)
                   </label>
                   <input
                     type="number"
@@ -1559,7 +1577,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1571,8 +1589,8 @@ export default function PredictionAdminPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                    Days per Week
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                    Days per Wk (6)
                   </label>
                   <input
                     type="number"
@@ -1589,7 +1607,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1601,8 +1619,8 @@ export default function PredictionAdminPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                    Total Weeks
+                  <label style={{ display: "block", fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "4px" }}>
+                    Total Weeks (6)
                   </label>
                   <input
                     type="number"
@@ -1613,7 +1631,7 @@ export default function PredictionAdminPage() {
                     required
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "rgba(30, 41, 59, 0.8)",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       borderRadius: "8px",
@@ -1623,97 +1641,6 @@ export default function PredictionAdminPage() {
                     }}
                   />
                 </div>
-              </div>
-
-              {/* Tournament Types Inclusion */}
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "#c084fc", fontWeight: 800, marginBottom: "6px" }}>
-                  <i className="fa-solid fa-layer-group" style={{ marginRight: "6px" }} />
-                  Linked Tournament Types (Auto-Include All Tournaments of These Types)
-                </label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  {availableTournamentTypes.map((tp) => {
-                    const isChecked = newSeasonTypes.includes(tp.name);
-                    return (
-                      <label key={tp.name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", color: "#fff", cursor: "pointer", background: isChecked ? "rgba(168, 85, 247, 0.2)" : "rgba(255, 255, 255, 0.04)", padding: "4px 10px", borderRadius: "6px", border: `1px solid ${isChecked ? "rgba(168, 85, 247, 0.4)" : "rgba(255, 255, 255, 0.08)"}` }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewSeasonTypes((prev) => [...prev, tp.name]);
-                            } else {
-                              setNewSeasonTypes((prev) => prev.filter((t) => t !== tp.name));
-                            }
-                          }}
-                          style={{ accentColor: "#a855f7" }}
-                        />
-                        <span style={{ fontWeight: 600 }}>{tp.display_name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Specific Individual Tournaments Inclusion */}
-              {availableTournaments.length > 0 && (
-                <div>
-                  <label style={{ display: "block", fontSize: "0.8rem", color: "#38bdf8", fontWeight: 800, marginBottom: "6px" }}>
-                    <i className="fa-solid fa-sitemap" style={{ marginRight: "6px" }} />
-                    Individual Tournaments (Force-Include Specific Tournaments)
-                  </label>
-                  <div style={{ maxHeight: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", background: "rgba(30, 41, 59, 0.5)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    {availableTournaments.map((t) => {
-                      const isTypeCovered = newSeasonTypes.includes(t.tournament_type);
-                      const isIdChecked = newSeasonTournamentIds.includes(t.id);
-                      const isChecked = isTypeCovered || isIdChecked;
-                      const isExcluded = t.include_in_prediction === false;
-                      return (
-                        <label key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: isExcluded ? "#94a3b8" : "#fff", cursor: "pointer", padding: "4px 6px", borderRadius: "4px", background: isChecked ? "rgba(56, 189, 248, 0.08)" : "transparent" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={isTypeCovered}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewSeasonTournamentIds((prev) => [...prev, t.id]);
-                                } else {
-                                  setNewSeasonTournamentIds((prev) => prev.filter((id) => id !== t.id));
-                                }
-                              }}
-                              style={{ accentColor: "#38bdf8" }}
-                            />
-                            <span>{t.name}</span>
-                          </span>
-                          <span style={{ fontSize: "0.7rem", color: isExcluded ? "#ef4444" : isTypeCovered ? "#c084fc" : "#38bdf8" }}>
-                            {isExcluded ? "🚫 Excluded in Tourney" : isTypeCovered ? `via type [${t.tournament_type}]` : "manual"}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>
-                  Notes / Description (Optional)
-                </label>
-                <textarea
-                  value={newSeasonNotes}
-                  onChange={(e) => setNewSeasonNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Details regarding this custom season campaign..."
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    background: "rgba(30, 41, 59, 0.8)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "0.5rem" }}>
@@ -1730,7 +1657,7 @@ export default function PredictionAdminPage() {
                   className="portal-btn btn-primary"
                   style={{ background: "linear-gradient(135deg, #a855f7, #7c3aed)" }}
                 >
-                  {creatingSeason ? "Creating..." : "Initialize Custom Season"}
+                  {creatingSeason ? "Creating..." : "Create Season"}
                 </button>
               </div>
             </form>
@@ -1768,7 +1695,7 @@ export default function PredictionAdminPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
               <div>
-                <h2 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#fff", margin: 0 }}>
+                <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", margin: 0 }}>
                   <i className="fa-solid fa-trophy" style={{ color: "#fbbf24", marginRight: "8px" }} />
                   Live Standings Preview
                 </h2>

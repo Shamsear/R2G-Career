@@ -896,8 +896,6 @@ export async function fetchSelectedCandidates(tournamentName: string) {
 async function ensureTournamentColumns() {
   try {
     await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`);
-    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
-    await pool.query(`ALTER TABLE tournament_types ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
   } catch (e) {
     // ignore if table doesn't exist or column exists
   }
@@ -910,8 +908,7 @@ export async function fetchTournaments() {
       SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number,
              t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams,
              t.division_tier, t.promotion_count, t.relegation_count,
-             COALESCE(t.status, 'active') as status,
-             COALESCE(t.include_in_prediction, true) as include_in_prediction
+             COALESCE(t.status, 'active') as status
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       ORDER BY t.id DESC
@@ -1138,8 +1135,7 @@ export async function fetchTournamentById(tournamentId: number) {
       SELECT t.id, t.name, t.format_type, t.financial_rule_id, t.tournament_type, s.season_number,
              t.num_groups, t.teams_per_group, t.qualified_per_group, t.num_teams,
              t.division_tier, t.promotion_count, t.relegation_count,
-             COALESCE(t.status, 'active') as status,
-             COALESCE(t.include_in_prediction, true) as include_in_prediction
+             COALESCE(t.status, 'active') as status
       FROM tournaments t
       JOIN seasons s ON t.season_id = s.id
       WHERE t.id = $1
@@ -2056,16 +2052,15 @@ export async function createTournament(
   divisionTier: number | null = null,
   promotionCount: number | null = 0,
   relegationCount: number | null = 0,
-  status: string = 'active',
-  includeInPrediction: boolean = true
+  status: string = 'active'
 ) {
   try {
     await ensureTournamentColumns();
     const { rows } = await pool.query(`
-      INSERT INTO tournaments (name, format_type, season_id, financial_rule_id, tournament_type, num_groups, teams_per_group, qualified_per_group, num_teams, division_tier, promotion_count, relegation_count, status, include_in_prediction)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      INSERT INTO tournaments (name, format_type, season_id, financial_rule_id, tournament_type, num_groups, teams_per_group, qualified_per_group, num_teams, division_tier, promotion_count, relegation_count, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
-    `, [name, formatType, seasonId, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', includeInPrediction !== false]);
+    `, [name, formatType, seasonId, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active']);
     return rows[0];
   } catch (e) {
     console.error("Error creating tournament:", e);
@@ -2109,8 +2104,7 @@ export async function updateTournamentDetails(
   divisionTier: number | null = null,
   promotionCount: number | null = 0,
   relegationCount: number | null = 0,
-  status: string = 'active',
-  includeInPrediction: boolean = true
+  status: string = 'active'
 ) {
   try {
     await ensureTournamentColumns();
@@ -2119,10 +2113,10 @@ export async function updateTournamentDetails(
       SET name = $1, format_type = $2, financial_rule_id = $3, tournament_type = $4,
           num_groups = $5, teams_per_group = $6, qualified_per_group = $7, num_teams = $8,
           division_tier = $9, promotion_count = $10, relegation_count = $11,
-          status = $12, include_in_prediction = $13
-      WHERE id = $14
+          status = $12
+      WHERE id = $13
       RETURNING *
-    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', includeInPrediction !== false, id]);
+    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', id]);
     return rows[0];
   } catch (e) {
     console.error("Error updating tournament details:", e);
@@ -2146,27 +2140,11 @@ export async function updateTournamentStatus(id: number, status: string) {
   }
 }
 
-export async function updateTournamentPredictionEligibility(id: number, eligible: boolean) {
-  try {
-    await ensureTournamentColumns();
-    const { rows } = await pool.query(`
-      UPDATE tournaments 
-      SET include_in_prediction = $1
-      WHERE id = $2
-      RETURNING *
-    `, [eligible, id]);
-    return rows[0];
-  } catch (e) {
-    console.error("Error updating tournament prediction eligibility:", e);
-    throw e;
-  }
-}
-
 export async function fetchTournamentTypes() {
   try {
     await ensureTournamentColumns();
     const { rows } = await pool.query(`
-      SELECT name, display_name, COALESCE(include_in_prediction, true) as include_in_prediction
+      SELECT name, display_name
       FROM tournament_types
       ORDER BY id ASC
     `);
@@ -2177,34 +2155,18 @@ export async function fetchTournamentTypes() {
   }
 }
 
-export async function createTournamentType(name: string, displayName: string, includeInPrediction: boolean = true) {
+export async function createTournamentType(name: string, displayName: string) {
   try {
     await ensureTournamentColumns();
     const { rows } = await pool.query(`
-      INSERT INTO tournament_types (name, display_name, include_in_prediction)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (name) DO UPDATE SET display_name = $2, include_in_prediction = $3
+      INSERT INTO tournament_types (name, display_name)
+      VALUES ($1, $2)
+      ON CONFLICT (name) DO UPDATE SET display_name = $2
       RETURNING *
-    `, [name, displayName, includeInPrediction !== false]);
+    `, [name, displayName]);
     return rows[0];
   } catch (error) {
     console.error("Error creating tournament type:", error);
-    throw error;
-  }
-}
-
-export async function updateTournamentTypePredictionDefault(name: string, include: boolean) {
-  try {
-    await ensureTournamentColumns();
-    const { rows } = await pool.query(`
-      UPDATE tournament_types
-      SET include_in_prediction = $1
-      WHERE name = $2
-      RETURNING *
-    `, [include, name]);
-    return rows[0];
-  } catch (error) {
-    console.error("Error updating tournament type prediction default:", error);
     throw error;
   }
 }

@@ -14,16 +14,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-export interface CoveredTournament {
-  id: number;
-  name: string;
-  format_type: string;
-  tournament_type: string;
-  season_number: number;
-  status: string;
-  num_teams: number | null;
-}
-
 export interface PredictionSeason {
   id: number;
   season_number: number;
@@ -34,9 +24,6 @@ export interface PredictionSeason {
   status: 'active' | 'completed' | 'upcoming';
   current_day: number;
   notes?: string;
-  linked_tournament_types?: string[];
-  linked_tournament_ids?: number[];
-  covered_tournaments?: CoveredTournament[];
   completed_days?: number;
   total_members?: number;
   leader_name?: string;
@@ -57,44 +44,33 @@ async function ensurePredictionSchema() {
         status VARCHAR(50) DEFAULT 'active',
         current_day INTEGER DEFAULT 1,
         notes TEXT,
-        linked_tournament_types TEXT[] DEFAULT '{"solo"}',
-        linked_tournament_ids INT[] DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS prediction_days (
+        id SERIAL PRIMARY KEY,
+        season_id INTEGER NOT NULL REFERENCES prediction_seasons(id) ON DELETE CASCADE,
+        day_number INTEGER NOT NULL,
+        week_number INTEGER NOT NULL,
+        title VARCHAR(150),
+        sport VARCHAR(100),
+        match_name VARCHAR(255),
+        match_result VARCHAR(100),
+        match_date DATE,
+        is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (season_id, day_number)
+      );
+
+      ALTER TABLE prediction_days ADD COLUMN IF NOT EXISTS sport VARCHAR(100);
+      ALTER TABLE prediction_days ADD COLUMN IF NOT EXISTS match_name VARCHAR(255);
+      ALTER TABLE prediction_days ADD COLUMN IF NOT EXISTS match_result VARCHAR(100);
     `);
-    await pool.query(`ALTER TABLE prediction_seasons ADD COLUMN IF NOT EXISTS linked_tournament_types TEXT[] DEFAULT '{"solo"}'`);
-    await pool.query(`ALTER TABLE prediction_seasons ADD COLUMN IF NOT EXISTS linked_tournament_ids INT[] DEFAULT '{}'`);
-    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
-    await pool.query(`ALTER TABLE tournament_types ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
   } catch (e) {
     // ignore
-  }
-}
-
-export async function fetchCoveredTournamentsForSeason(
-  linkedTypes: string[] = ['solo'], 
-  linkedIds: number[] = []
-): Promise<CoveredTournament[]> {
-  try {
-    await ensurePredictionSchema();
-    const types = linkedTypes && linkedTypes.length > 0 ? linkedTypes : ['solo'];
-    const ids = linkedIds && linkedIds.length > 0 ? linkedIds : [];
-
-    const { rows } = await pool.query(`
-      SELECT t.id, t.name, t.format_type, t.tournament_type, s.season_number, 
-             COALESCE(t.status, 'active') as status, t.num_teams
-      FROM tournaments t
-      JOIN seasons s ON t.season_id = s.id
-      WHERE (t.tournament_type = ANY($1::text[]) OR t.id = ANY($2::int[]))
-        AND COALESCE(t.include_in_prediction, true) = true
-      ORDER BY t.id DESC
-    `, [types, ids]);
-
-    return rows;
-  } catch (error) {
-    console.error("Error fetching covered tournaments:", error);
-    return [];
   }
 }
 
@@ -104,6 +80,9 @@ export interface PredictionDay {
   day_number: number;
   week_number: number;
   title: string;
+  sport?: string;
+  match_name?: string;
+  match_result?: string;
   match_date: string | null;
   is_completed: boolean;
   notes?: string;
@@ -196,10 +175,6 @@ export async function fetchPredictionSeasons(): Promise<PredictionSeason[]> {
         LIMIT 1
       `, [s.id]);
 
-      const linkedTypes = s.linked_tournament_types || ['solo'];
-      const linkedIds = s.linked_tournament_ids || [];
-      const covered = await fetchCoveredTournamentsForSeason(linkedTypes, linkedIds);
-
       result.push({
         id: s.id,
         season_number: s.season_number,
@@ -210,9 +185,6 @@ export async function fetchPredictionSeasons(): Promise<PredictionSeason[]> {
         status: s.status || 'active',
         current_day: s.current_day || 1,
         notes: s.notes,
-        linked_tournament_types: linkedTypes,
-        linked_tournament_ids: linkedIds,
-        covered_tournaments: covered,
         completed_days: Number(s.completed_days) || 0,
         total_members: Number(s.active_scorers) || 0,
         leader_name: topLeader[0]?.leader_name || 'TBD',
@@ -267,10 +239,6 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
       SELECT COUNT(*) as count FROM prediction_days WHERE season_id = $1 AND is_completed = true
     `, [seasonData.id]);
 
-    const linkedTypes = seasonData.linked_tournament_types || ['solo'];
-    const linkedIds = seasonData.linked_tournament_ids || [];
-    const covered = await fetchCoveredTournamentsForSeason(linkedTypes, linkedIds);
-
     return {
       season: {
         id: seasonData.id,
@@ -282,9 +250,6 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
         status: seasonData.status || 'active',
         current_day: seasonData.current_day || 1,
         notes: seasonData.notes,
-        linked_tournament_types: linkedTypes,
-        linked_tournament_ids: linkedIds,
-        covered_tournaments: covered,
         completed_days: Number(completedDaysCount[0]?.count) || 0,
         created_at: seasonData.created_at
       },
@@ -294,6 +259,9 @@ export async function fetchPredictionSeasonById(seasonIdentifier: number | strin
         day_number: d.day_number,
         week_number: d.week_number,
         title: d.title || `Day ${d.day_number}`,
+        sport: d.sport || '',
+        match_name: d.match_name || '',
+        match_result: d.match_result || '',
         match_date: d.match_date ? d.match_date.toISOString().split('T')[0] : null,
         is_completed: Boolean(d.is_completed),
         notes: d.notes || ''
@@ -316,8 +284,6 @@ export async function createPredictionSeason(params: {
   daysPerWeek: number;
   status?: 'active' | 'completed' | 'upcoming';
   notes?: string;
-  linkedTournamentTypes?: string[];
-  linkedTournamentIds?: number[];
 }) {
   try {
     await ensurePredictionSchema();
@@ -329,16 +295,14 @@ export async function createPredictionSeason(params: {
       totalWeeks = 6,
       daysPerWeek = 6,
       status = 'active',
-      notes = '',
-      linkedTournamentTypes = ['solo'],
-      linkedTournamentIds = []
+      notes = ''
     } = params;
 
     const { rows: newSeason } = await pool.query(`
-      INSERT INTO prediction_seasons (season_number, name, total_days, total_weeks, days_per_week, status, current_day, notes, linked_tournament_types, linked_tournament_ids)
-      VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $9)
+      INSERT INTO prediction_seasons (season_number, name, total_days, total_weeks, days_per_week, status, current_day, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
       RETURNING *
-    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes, linkedTournamentTypes, linkedTournamentIds]);
+    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes]);
 
     const seasonId = newSeason[0].id;
 
@@ -359,8 +323,6 @@ export async function createPredictionSeason(params: {
       total_days: totalDays,
       total_weeks: totalWeeks,
       days_per_week: daysPerWeek,
-      linked_tournament_types: linkedTournamentTypes,
-      linked_tournament_ids: linkedTournamentIds,
       admin
     });
 
@@ -372,7 +334,7 @@ export async function createPredictionSeason(params: {
 }
 
 /**
- * Update Season Settings (Total Days, Weeks, Days Per Week, Status, Title, Linked Tournaments, etc.)
+ * Update Season Settings (Total Days, Weeks, Days Per Week, Status, Title, Notes, etc.)
  */
 export async function updatePredictionSeasonSettings(
   seasonId: number,
@@ -384,8 +346,6 @@ export async function updatePredictionSeasonSettings(
     days_per_week?: number;
     status?: 'active' | 'completed' | 'upcoming';
     notes?: string;
-    linked_tournament_types?: string[];
-    linked_tournament_ids?: number[];
   }
 ) {
   try {
@@ -406,8 +366,6 @@ export async function updatePredictionSeasonSettings(
     const daysPerWeek = params.days_per_week ?? current.days_per_week;
     const status = params.status ?? current.status;
     const notes = params.notes ?? current.notes;
-    const linkedTypes = params.linked_tournament_types ?? current.linked_tournament_types ?? ['solo'];
-    const linkedIds = params.linked_tournament_ids ?? current.linked_tournament_ids ?? [];
 
     // 2. Update season row
     const { rows: updatedRows } = await pool.query(`
@@ -420,12 +378,10 @@ export async function updatePredictionSeasonSettings(
         days_per_week = $5,
         status = $6,
         notes = $7,
-        linked_tournament_types = $8,
-        linked_tournament_ids = $9,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $10
+      WHERE id = $8
       RETURNING *
-    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes, linkedTypes, linkedIds, seasonId]);
+    `, [seasonNumber, name, totalDays, totalWeeks, daysPerWeek, status, notes, seasonId]);
 
     // 3. Synchronize prediction_days table with new totalDays and daysPerWeek
     // Update week_number and title for all days 1..totalDays
@@ -477,6 +433,9 @@ export async function fetchPredictionDayData(seasonId: number, dayNumber: number
       day_number: dayRows[0].day_number,
       week_number: dayRows[0].week_number,
       title: dayRows[0].title || `Day ${dayNumber}`,
+      sport: dayRows[0].sport || '',
+      match_name: dayRows[0].match_name || '',
+      match_result: dayRows[0].match_result || '',
       match_date: dayRows[0].match_date ? dayRows[0].match_date.toISOString().split('T')[0] : null,
       is_completed: Boolean(dayRows[0].is_completed),
       notes: dayRows[0].notes || ''
@@ -526,7 +485,15 @@ export async function savePredictionDayScores(
   seasonId: number,
   dayNumber: number,
   scores: { member_id: number; points: number; notes?: string }[],
-  dayInfo?: { title?: string; match_date?: string | null; is_completed?: boolean; notes?: string }
+  dayInfo?: {
+    title?: string;
+    sport?: string;
+    match_name?: string;
+    match_result?: string;
+    match_date?: string | null;
+    is_completed?: boolean;
+    notes?: string;
+  }
 ) {
   try {
     const admin = await getCurrentAdminUsername();
@@ -543,13 +510,19 @@ export async function savePredictionDayScores(
         UPDATE prediction_days
         SET 
           title = COALESCE($1, title),
-          match_date = $2,
-          is_completed = COALESCE($3, is_completed),
-          notes = COALESCE($4, notes),
+          sport = $2,
+          match_name = $3,
+          match_result = $4,
+          match_date = $5,
+          is_completed = COALESCE($6, is_completed),
+          notes = COALESCE($7, notes),
           updated_at = CURRENT_TIMESTAMP
-        WHERE season_id = $5 AND day_number = $6
+        WHERE season_id = $8 AND day_number = $9
       `, [
         dayInfo.title || `Day ${dayNumber} (Week ${weekNumber})`,
+        dayInfo.sport || null,
+        dayInfo.match_name || null,
+        dayInfo.match_result || null,
         dayInfo.match_date ? new Date(dayInfo.match_date) : null,
         dayInfo.is_completed !== undefined ? dayInfo.is_completed : false,
         dayInfo.notes || null,
@@ -859,10 +832,13 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
         id: d.id,
         day_number: d.day_number,
         week_number: d.week_number,
-        title: d.title,
+        title: d.title || `Day ${d.day_number}`,
+        sport: d.sport || '',
+        match_name: d.match_name || '',
+        match_result: d.match_result || '',
         match_date: d.match_date ? d.match_date.toISOString().split('T')[0] : null,
         is_completed: Boolean(d.is_completed),
-        notes: d.notes
+        notes: d.notes || ''
       })),
       overallStandings,
       weeklyStandings,
@@ -871,6 +847,62 @@ export async function fetchPredictionLeaderboard(seasonId: number) {
   } catch (error) {
     console.error("Error fetching prediction leaderboard:", error);
     return null;
+  }
+}
+
+/**
+ * 1-Click Quick Action: Create Next Season
+ * Automatically sets 36 days (6 weeks × 6 days), increments season_number, and names it "Master of Prediction - Season X".
+ */
+export async function createNextSeasonQuickAction(previousSeasonId?: number) {
+  try {
+    await ensurePredictionSchema();
+    const admin = await getCurrentAdminUsername();
+
+    // 1. Determine next season number
+    const { rows: maxRows } = await pool.query(`SELECT COALESCE(MAX(season_number), 0) as max_num FROM prediction_seasons`);
+    const nextSeasonNum = (Number(maxRows[0]?.max_num) || 0) + 1;
+    const nextSeasonName = `Master of Prediction - Season ${nextSeasonNum}`;
+
+    // 2. If previousSeasonId provided, complete it
+    if (previousSeasonId) {
+      await pool.query(`
+        UPDATE prediction_seasons
+        SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [previousSeasonId]);
+    }
+
+    // 3. Create the new 36-day season
+    const { rows: newSeason } = await pool.query(`
+      INSERT INTO prediction_seasons (season_number, name, total_days, total_weeks, days_per_week, status, current_day, notes)
+      VALUES ($1, $2, 36, 6, 6, 'active', 1, $3)
+      RETURNING *
+    `, [nextSeasonNum, nextSeasonName, `Official 36-Day Season ${nextSeasonNum} Championship across 6 Weeks.`]);
+
+    const seasonId = newSeason[0].id;
+
+    // 4. Seed all 36 days for the 6 weeks
+    for (let d = 1; d <= 36; d++) {
+      const w = Math.ceil(d / 6);
+      await pool.query(`
+        INSERT INTO prediction_days (season_id, day_number, week_number, title, is_completed)
+        VALUES ($1, $2, $3, $4, FALSE)
+        ON CONFLICT (season_id, day_number) DO NOTHING
+      `, [seasonId, d, w, `Day ${d} (Week ${w})`]);
+    }
+
+    await logSoloAdminAction('CREATE_NEXT_PREDICTION_SEASON', {
+      season_id: seasonId,
+      season_number: nextSeasonNum,
+      previous_season_id: previousSeasonId,
+      admin
+    });
+
+    return { success: true, season: newSeason[0] };
+  } catch (error: any) {
+    console.error("Error creating next prediction season:", error);
+    return { success: false, error: error.message || 'Failed to start next season' };
   }
 }
 

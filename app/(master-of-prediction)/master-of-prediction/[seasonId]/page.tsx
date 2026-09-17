@@ -15,6 +15,19 @@ import RwsFullPageLoading from "@/components/common/RwsFullPageLoading";
 import "../../../portal.css";
 import "../../../(rws)/rws/rws.css";
 
+const SPORTS_ICONS: Record<string, string> = {
+  football: "⚽",
+  cricket: "🏏",
+  basketball: "🏀",
+  tennis: "🎾",
+  "formula 1": "🏎️",
+  "boxing / mma": "🥊",
+  boxing: "🥊",
+  mma: "🥊",
+  esports: "🎮",
+  other: "🎯",
+};
+
 export default function PredictionSeasonHub() {
   const params = useParams();
   const seasonParam = params.seasonId as string;
@@ -30,7 +43,7 @@ export default function PredictionSeasonHub() {
   const [matrixEntries, setMatrixEntries] = useState<ScoreMatrixEntry[]>([]);
 
   // Active View Tabs
-  const [activeTab, setActiveTab] = useState<"standings" | "weekly" | "matrix" | "motw">("standings");
+  const [activeTab, setActiveTab] = useState<"standings" | "fixtures" | "weekly" | "matrix" | "motw">("standings");
   const [selectedWeekNum, setSelectedWeekNum] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -59,7 +72,7 @@ export default function PredictionSeasonHub() {
         setWeeklyStandings(data.weeklyStandings || []);
         setMatrixEntries(data.matrixEntries || []);
 
-        document.title = `${data.season.name} | Standings & Leaderboard`;
+        document.title = `${data.season.name} | Standings & Real Matches`;
       } catch (err: any) {
         console.error(err);
         setError("Failed to load prediction standings.");
@@ -69,6 +82,17 @@ export default function PredictionSeasonHub() {
     }
     loadData();
   }, [seasonParam]);
+
+  // Current active day and week
+  const currentActiveDayNum = season?.current_day || 1;
+  const currentDayObj = useMemo(() => {
+    return days.find((d) => d.day_number === currentActiveDayNum) || days[0] || null;
+  }, [days, currentActiveDayNum]);
+
+  const currentActiveWeek = useMemo(() => {
+    const done = season?.completed_days || 0;
+    return Math.min(6, Math.max(1, Math.ceil((done + 1) / 6)));
+  }, [season]);
 
   // Filtered Overall Standings
   const filteredOverall = useMemo(() => {
@@ -108,52 +132,46 @@ export default function PredictionSeasonHub() {
     );
   }, [matrixEntries, searchQuery]);
 
-  // Active top scorers (with points > 0)
-  const activeScorers = useMemo(() => {
-    return overallStandings.filter((m) => m.total_points > 0);
-  }, [overallStandings]);
-
-  // Top 3 Podium (only when points > 0)
-  const top3 = useMemo(() => {
-    return activeScorers.slice(0, 3);
-  }, [activeScorers]);
-
-  // Champion (Day 36 completed)
-  const champion = useMemo(() => {
-    if (overallStandings.length === 0) return null;
-    const top = overallStandings[0];
-    const isCompleted = (season?.completed_days || 0) >= 36 || season?.status === "completed";
-    return isCompleted && top.total_points > 0 ? top : null;
-  }, [overallStandings, season]);
-
-  // Current active week number (1 to 6)
-  const currentActiveWeek = useMemo(() => {
-    const done = season?.completed_days || 0;
-    return Math.min(6, Math.max(1, Math.ceil((done + 1) / 6)));
-  }, [season]);
-
   // Generate WhatsApp Share Text
   const generateWhatsAppText = () => {
     if (!season) return "";
-    let text = `❇️ *${season.name.toUpperCase()}*\n`;
-    text += `📊 *STANDINGS AFTER DAY ${season.completed_days || 0} OF 36 (WEEK ${currentActiveWeek})*\n\n`;
+    let text = `❇️ *${season.name.toUpperCase()}*
+`;
+    text += `📊 *STANDINGS AFTER DAY ${season.completed_days || 0} OF 36 (WEEK ${currentActiveWeek})*
+`;
 
+    if (currentDayObj && currentDayObj.match_name) {
+      const icon = SPORTS_ICONS[(currentDayObj.sport || "").toLowerCase()] || "🏆";
+      text += `
+${icon} *TODAY'S MATCH (Day ${currentDayObj.day_number})*: ${currentDayObj.match_name}`;
+      if (currentDayObj.match_result) text += ` (${currentDayObj.match_result})`;
+      text += `
+`;
+    }
+
+    text += `
+`;
     const displayStandings = overallStandings.slice(0, 15);
     displayStandings.forEach((m) => {
       const medal = m.rank === 1 ? "👑" : m.rank === 2 ? "🥈" : m.rank === 3 ? "🥉" : `${m.rank}.`;
-      text += `${medal} *${m.name}* (${m.r2g_id || `ID:${m.member_id}`}) — *${m.total_points} pts*\n`;
+      text += `${medal} *${m.name}* (${m.r2g_id || `ID:${m.member_id}`}) — *${m.total_points} pts*
+`;
     });
 
     if (overallStandings.length > 15) {
-      text += `... and ${overallStandings.length - 15} more members\n`;
+      text += `... and ${overallStandings.length - 15} more members
+`;
     }
 
     const activeWeekObj = weeklyStandings.find((w) => w.week_number === currentActiveWeek);
     if (activeWeekObj && activeWeekObj.motw) {
-      text += `\n🌟 *WEEK ${currentActiveWeek} MOTW*: ${activeWeekObj.motw.name} (${activeWeekObj.motw.points} pts)\n`;
+      text += `
+🌟 *WEEK ${currentActiveWeek} MOTW*: ${activeWeekObj.motw.name} (${activeWeekObj.motw.points} pts)
+`;
     }
 
-    text += `\n🌐 *Full Leaderboard & 36-Day Matrix*: ${typeof window !== "undefined" ? window.location.href : ""}`;
+    text += `
+🌐 *Full Leaderboard & 36-Day Matrix*: ${typeof window !== "undefined" ? window.location.href : ""}`;
     return text;
   };
 
@@ -205,6 +223,7 @@ export default function PredictionSeasonHub() {
 
   const TABS = [
     { key: "standings", icon: "fa-solid fa-list-ol", label: "Standings" },
+    { key: "fixtures", icon: "fa-solid fa-futbol", label: "Real Matches" },
     { key: "weekly", icon: "fa-solid fa-calendar-days", label: "Weekly" },
     { key: "matrix", icon: "fa-solid fa-table-cells", label: "36-Day Matrix" },
     { key: "motw", icon: "fa-solid fa-medal", label: "MOTW Honours" },
@@ -212,12 +231,11 @@ export default function PredictionSeasonHub() {
 
   return (
     <div className="portal-root-wrapper" style={{ minHeight: "100vh", paddingBottom: "4rem" }}>
-      {/* Background ambient lighting */}
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" style={{ background: "radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%)" }} />
       <div className="portal-glow-orb-2" style={{ background: "radial-gradient(circle, rgba(234, 179, 8, 0.12) 0%, transparent 70%)" }} />
 
-      <div className="portal-container" style={{ maxWidth: "1050px", width: "100%", padding: "1rem 1rem 2.5rem", gap: "0.85rem", alignItems: "stretch" }}>
+      <div className="portal-container" style={{ maxWidth: "1100px", width: "100%", padding: "1rem 1rem 2.5rem", gap: "0.85rem", alignItems: "stretch" }}>
         
         {/* Navigation Breadcrumb Bar */}
         <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", margin: 0 }}>
@@ -262,66 +280,14 @@ export default function PredictionSeasonHub() {
         <div className="rws-page-hero" style={{ padding: "0.25rem 0 0.5rem" }}>
           <div className="portal-page-badge" style={{ marginBottom: "0.4rem" }}>
             <i className="fa-solid fa-crown" />
-            Special Tour Series // Season 0{season.season_number}
+            Season 0{season.season_number} // Real Match Predictions
           </div>
           <h1 className="rws-hero-title" style={{ fontSize: "2rem", margin: 0 }}>
             {season.name.toUpperCase()}
           </h1>
           <p className="rws-hero-sub" style={{ marginTop: "0.35rem", fontSize: "0.82rem" }}>
-            Track points standings, 6-week matchday breakdowns, weekly MOTW medals, and round performance matrix.
+            Real-world sports fixtures (Football, Cricket, etc.) across 36 Days and 6 Weeks.
           </p>
-        </div>
-
-        {/* ═══════════════════ SEGMENTED TAB BAR ═══════════════════ */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "0.5rem",
-            margin: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "inline-flex",
-              background: "rgba(255, 255, 255, 0.03)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              borderRadius: "12px",
-              padding: "4px",
-              gap: "4px",
-            }}
-          >
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key as any)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "7px 18px",
-                    borderRadius: "8px",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "0.82rem",
-                    fontWeight: isActive ? 700 : 500,
-                    fontFamily: "var(--font-display)",
-                    background: isActive ? "linear-gradient(135deg, #a855f7, #7c3aed)" : "transparent",
-                    color: isActive ? "#fff" : "rgba(255, 255, 255, 0.45)",
-                    boxShadow: isActive ? "0 4px 16px rgba(168, 85, 247, 0.3)" : "none",
-                    transition: "all 0.25s ease",
-                  }}
-                >
-                  <i className={tab.icon} style={{ fontSize: "0.75rem" }} /> {tab.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Campaign Progress Ribbon */}
@@ -364,66 +330,136 @@ export default function PredictionSeasonHub() {
           </div>
         </div>
 
-        {/* Covered Competitions Ribbon */}
-        {season.covered_tournaments && season.covered_tournaments.length > 0 && (
+        {/* Featured Latest / Active Real Match Card */}
+        {currentDayObj && (
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.4)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(168, 85, 247, 0.2)",
-              borderRadius: "12px",
-              padding: "0.65rem 1.25rem",
-              margin: 0,
+              background: "linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.05))",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: "14px",
+              padding: "1rem 1.25rem",
               display: "flex",
-              flexDirection: "column",
-              gap: "0.4rem"
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "1rem",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <i className="fa-solid fa-trophy" style={{ color: "#c084fc", fontSize: "0.85rem" }} />
-                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.75px" }}>
-                  Eligible Competitions ({season.covered_tournaments.length})
-                </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: "rgba(56, 189, 248, 0.15)",
+                  border: "1.5px solid rgba(56, 189, 248, 0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.6rem",
+                  flexShrink: 0,
+                }}
+              >
+                {SPORTS_ICONS[(currentDayObj.sport || "").toLowerCase()] || "🏆"}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Included Types:</span>
-                {(season.linked_tournament_types || ["solo"]).map((t) => (
-                  <span key={t} style={{ fontSize: "0.65rem", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)", textTransform: "uppercase" }}>
-                    {t}
+
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.75px" }}>
+                    {currentDayObj.sport || "Sports"} • DAY {currentDayObj.day_number}
                   </span>
-                ))}
+                  {currentDayObj.is_completed ? (
+                    <span style={{ fontSize: "0.65rem", padding: "1px 6px", borderRadius: "4px", background: "rgba(34, 197, 94, 0.15)", color: "#86efac", fontWeight: 700 }}>
+                      Completed
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: "0.65rem", padding: "1px 6px", borderRadius: "4px", background: "rgba(245, 158, 11, 0.15)", color: "#fbbf24", fontWeight: 700 }}>
+                      Live / Open
+                    </span>
+                  )}
+                </div>
+
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 900, color: "#fff", margin: "2px 0 0 0" }}>
+                  {currentDayObj.match_name || `Day ${currentDayObj.day_number} Matchday`}
+                </h3>
+
+                {currentDayObj.match_date && (
+                  <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: "2px" }}>
+                    <i className="fa-regular fa-calendar" style={{ marginRight: "4px" }} />
+                    {currentDayObj.match_date}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {season.covered_tournaments.map((t) => (
-                <div
-                  key={t.id}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "rgba(255, 255, 255, 0.04)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    padding: "3px 8px",
-                    borderRadius: "6px",
-                    fontSize: "0.72rem",
-                    color: "#fff"
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>{t.name}</span>
-                  <span style={{ fontSize: "0.62rem", color: "#38bdf8", background: "rgba(56, 189, 248, 0.12)", padding: "1px 4px", borderRadius: "3px" }}>
-                    {t.format_type}
-                  </span>
+            {currentDayObj.match_result && (
+              <div style={{ textAlign: "right", background: "rgba(0,0,0,0.3)", padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Result</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#86efac" }}>
+                  {currentDayObj.match_result}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ═══════════════════════ TABLE TOOLBAR & SEARCH BAR (PERFECTLY ALIGNED) ═══════════════════════ */}
-        {activeTab !== "motw" && (
+        {/* ═══════════════════ SEGMENTED TAB BAR ═══════════════════ */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.5rem",
+            margin: "0.25rem 0 0 0",
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              borderRadius: "12px",
+              padding: "4px",
+              gap: "4px",
+              overflowX: "auto",
+            }}
+          >
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as any)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "7px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.82rem",
+                    fontWeight: isActive ? 700 : 500,
+                    fontFamily: "var(--font-display)",
+                    background: isActive ? "linear-gradient(135deg, #a855f7, #7c3aed)" : "transparent",
+                    color: isActive ? "#fff" : "rgba(255, 255, 255, 0.45)",
+                    boxShadow: isActive ? "0 4px 16px rgba(168, 85, 247, 0.3)" : "none",
+                    transition: "all 0.25s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <i className={tab.icon} style={{ fontSize: "0.75rem" }} /> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Search Bar for Table Tabs */}
+        {activeTab !== "motw" && activeTab !== "fixtures" && (
           <div
             style={{
               display: "flex",
@@ -434,7 +470,6 @@ export default function PredictionSeasonHub() {
               margin: 0,
             }}
           >
-            {/* Left: Section Sub-Header & Member Count */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7" }} />
               <span
@@ -472,14 +507,7 @@ export default function PredictionSeasonHub() {
               </span>
             </div>
 
-            {/* Right: Modern Aligned Search Input */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: "290px",
-              }}
-            >
+            <div style={{ position: "relative", width: "100%", maxWidth: "280px" }}>
               <i
                 className="fa-solid fa-magnifying-glass"
                 style={{
@@ -496,28 +524,16 @@ export default function PredictionSeasonHub() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search member name or ID..."
+                placeholder="Search member..."
                 style={{
                   width: "100%",
-                  padding: "8px 32px 8px 34px",
+                  padding: "7px 30px 7px 32px",
                   background: "rgba(255, 255, 255, 0.03)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                   borderRadius: "8px",
                   color: "#fff",
                   fontSize: "0.82rem",
                   outline: "none",
-                  transition: "all 0.2s ease",
-                  backdropFilter: "blur(10px)",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(168, 85, 247, 0.5)";
-                  e.target.style.background = "rgba(255, 255, 255, 0.06)";
-                  e.target.style.boxShadow = "0 0 12px rgba(168, 85, 247, 0.2)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(255, 255, 255, 0.08)";
-                  e.target.style.background = "rgba(255, 255, 255, 0.03)";
-                  e.target.style.boxShadow = "none";
                 }}
               />
               {searchQuery && (
@@ -534,9 +550,7 @@ export default function PredictionSeasonHub() {
                     color: "rgba(255, 255, 255, 0.4)",
                     cursor: "pointer",
                     fontSize: "0.8rem",
-                    padding: "2px",
                   }}
-                  title="Clear search"
                 >
                   <i className="fa-solid fa-xmark" />
                 </button>
@@ -614,7 +628,6 @@ export default function PredictionSeasonHub() {
                               (e.currentTarget.style.background = isRank1 ? "rgba(234, 179, 8, 0.04)" : "transparent")
                             }
                           >
-                            {/* Pos */}
                             <td style={{ padding: "0.6rem 0.85rem" }}>
                               <span
                                 style={{
@@ -640,7 +653,6 @@ export default function PredictionSeasonHub() {
                               </span>
                             </td>
 
-                            {/* Manager */}
                             <td style={{ padding: "0.6rem 0.85rem" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
                                 <div
@@ -683,22 +695,18 @@ export default function PredictionSeasonHub() {
                               </div>
                             </td>
 
-                            {/* Days Played */}
                             <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: "rgba(255, 255, 255, 0.5)", fontSize: "0.78rem" }}>
                               {row.days_played} / 36
                             </td>
 
-                            {/* Avg */}
                             <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: "#fff", fontWeight: 600, fontSize: "0.78rem" }}>
                               {row.avg_points}
                             </td>
 
-                            {/* Best */}
                             <td style={{ padding: "0.6rem 0.65rem", textAlign: "center", color: row.max_day_points > 0 ? "#86efac" : "rgba(255, 255, 255, 0.3)", fontWeight: 700, fontSize: "0.78rem" }}>
                               {row.max_day_points > 0 ? `+${row.max_day_points}` : "-"}
                             </td>
 
-                            {/* Form */}
                             <td style={{ padding: "0.6rem 0.65rem", textAlign: "center" }}>
                               <div style={{ display: "flex", justifyContent: "center", gap: "3px" }}>
                                 {row.recent_form && row.recent_form.length > 0 ? (
@@ -723,7 +731,6 @@ export default function PredictionSeasonHub() {
                               </div>
                             </td>
 
-                            {/* Points */}
                             <td
                               style={{
                                 padding: "0.6rem 1rem",
@@ -746,10 +753,122 @@ export default function PredictionSeasonHub() {
           </div>
         )}
 
-        {/* ═══════════════════════ TAB 2 — WEEKLY ═══════════════════════ */}
+        {/* ═══════════════════════ TAB 2 — REAL MATCHES FIXTURES ═══════════════════════ */}
+        {activeTab === "fixtures" && (
+          <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {/* Week Filter Pills */}
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: "10px",
+                  padding: "3px",
+                  gap: "3px",
+                  overflowX: "auto",
+                }}
+              >
+                {[1, 2, 3, 4, 5, 6].map((w) => {
+                  const isSel = selectedWeekNum === w;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setSelectedWeekNum(w)}
+                      style={{
+                        padding: "5px 14px",
+                        borderRadius: "7px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.78rem",
+                        fontWeight: isSel ? 700 : 500,
+                        fontFamily: "var(--font-display)",
+                        background: isSel ? "linear-gradient(135deg, #38bdf8, #0284c7)" : "transparent",
+                        color: isSel ? "#fff" : "rgba(255, 255, 255, 0.45)",
+                        boxShadow: isSel ? "0 4px 12px rgba(56, 189, 248, 0.25)" : "none",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      Week {w}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fixture Cards Grid for Selected Week */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "0.85rem" }}>
+              {days
+                .filter((d) => d.week_number === selectedWeekNum)
+                .map((d) => {
+                  const sportIcon = SPORTS_ICONS[(d.sport || "").toLowerCase()] || "🏆";
+                  return (
+                    <div
+                      key={d.id || d.day_number}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: d.is_completed ? "1px solid rgba(34, 197, 94, 0.25)" : "1px solid rgba(255, 255, 255, 0.06)",
+                        borderRadius: "12px",
+                        padding: "1rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "1.2rem" }}>{sportIcon}</span>
+                          <div>
+                            <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "#38bdf8", textTransform: "uppercase" }}>
+                              {d.sport || "Sport"} • Day {d.day_number}
+                            </span>
+                            <h4 style={{ fontSize: "0.95rem", fontWeight: 800, color: "#fff", margin: "2px 0 0 0" }}>
+                              {d.match_name || `Round ${d.day_number}`}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: "0.65rem",
+                            padding: "2px 7px",
+                            borderRadius: "4px",
+                            background: d.is_completed ? "rgba(34, 197, 94, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                            color: d.is_completed ? "#86efac" : "#fbbf24",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {d.is_completed ? "Completed" : "Scheduled"}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: "0.5rem" }}>
+                        <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>
+                          {d.match_date ? d.match_date : `Week ${d.week_number}`}
+                        </span>
+
+                        {d.match_result ? (
+                          <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#86efac" }}>
+                            {d.match_result}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>
+                            -
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════ TAB 3 — WEEKLY ═══════════════════════ */}
         {activeTab === "weekly" && (
           <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {/* Week Sub-Tab Bar */}
             <div style={{ display: "flex", justifyContent: "center", margin: 0 }}>
               <div
                 style={{
@@ -934,7 +1053,7 @@ export default function PredictionSeasonHub() {
           </div>
         )}
 
-        {/* ═══════════════════════ TAB 3 — 36-DAY FULL MATRIX ═══════════════════════ */}
+        {/* ═══════════════════════ TAB 4 — 36-DAY FULL MATRIX ═══════════════════════ */}
         {activeTab === "matrix" && (
           <div style={{ animation: "rwsFadeUp 0.3s ease-out both", width: "100%" }}>
             <div
@@ -1003,23 +1122,27 @@ export default function PredictionSeasonHub() {
                       </th>
                     </tr>
 
-                    {/* Sub Header: Days 1 to 36 */}
+                    {/* Sub Header: Days 1 to 36 with Match details */}
                     <tr style={{ background: "rgba(0, 0, 0, 0.3)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)", color: "rgba(255, 255, 255, 0.35)", fontSize: "0.65rem" }}>
                       <th style={{ padding: "5px 12px", position: "sticky", left: 0, background: "#0b0f19", zIndex: 3, textAlign: "left" }}>
                         Name (ID)
                       </th>
-                      {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => (
-                        <th
-                          key={d}
-                          style={{
-                            padding: "5px 6px",
-                            minWidth: "30px",
-                            borderLeft: d % 6 === 1 ? "1.5px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.03)",
-                          }}
-                        >
-                          D{d}
-                        </th>
-                      ))}
+                      {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => {
+                        const dayObj = days.find((day) => day.day_number === d);
+                        return (
+                          <th
+                            key={d}
+                            style={{
+                              padding: "5px 6px",
+                              minWidth: "32px",
+                              borderLeft: d % 6 === 1 ? "1.5px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.03)",
+                            }}
+                            title={dayObj?.match_name ? `Day ${d}: [${dayObj.sport || 'Match'}] ${dayObj.match_name}` : `Day ${d}`}
+                          >
+                            D{d}
+                          </th>
+                        );
+                      })}
                       <th style={{ padding: "5px 14px", position: "sticky", right: 0, background: "#0b0f19", zIndex: 3, borderLeft: "2px solid rgba(255, 255, 255, 0.15)" }}>
                         PTS
                       </th>
@@ -1034,7 +1157,6 @@ export default function PredictionSeasonHub() {
                           background: row.rank === 1 && row.total_points > 0 ? "rgba(234, 179, 8, 0.04)" : "transparent",
                         }}
                       >
-                        {/* Sticky Name */}
                         <td
                           style={{
                             padding: "6px 12px",
@@ -1055,7 +1177,6 @@ export default function PredictionSeasonHub() {
                           {row.name}
                         </td>
 
-                        {/* 36 Days */}
                         {Array.from({ length: 36 }, (_, i) => i + 1).map((d) => {
                           const score = row.daily_scores[d];
                           return (
@@ -1074,7 +1195,6 @@ export default function PredictionSeasonHub() {
                           );
                         })}
 
-                        {/* Sticky Total */}
                         <td
                           style={{
                             padding: "6px 14px",
@@ -1099,7 +1219,7 @@ export default function PredictionSeasonHub() {
           </div>
         )}
 
-        {/* ═══════════════════════ TAB 4 — MOTW HONOURS ═══════════════════════ */}
+        {/* ═══════════════════════ TAB 5 — MOTW HONOURS ═══════════════════════ */}
         {activeTab === "motw" && (
           <div
             style={{

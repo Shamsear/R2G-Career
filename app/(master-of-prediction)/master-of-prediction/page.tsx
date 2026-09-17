@@ -167,25 +167,9 @@ export default function PredictionSeasonSelection() {
                       <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.5rem 0", color: "#fff", fontWeight: "900" }}>
                         {s.name}
                       </h2>
-                      <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 0.75rem 0" }}>
+                      <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 1rem 0" }}>
                         {s.notes || `${totalDays} Matchdays • ${totalWeeks} Weeks • Crown Champion on Day ${totalDays}`}
                       </p>
-
-                      {/* Covered Competition Badges */}
-                      {s.covered_tournaments && s.covered_tournaments.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "0.75rem" }}>
-                          {s.covered_tournaments.slice(0, 3).map((t) => (
-                            <span key={t.id} style={{ fontSize: "0.68rem", fontWeight: 600, padding: "2px 7px", borderRadius: "4px", background: "rgba(168, 85, 247, 0.12)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.25)" }}>
-                              {t.name}
-                            </span>
-                          ))}
-                          {s.covered_tournaments.length > 3 && (
-                            <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", padding: "2px 4px" }}>
-                              +{s.covered_tournaments.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
 
                       {/* Leader Highlight */}
                       {s.leader_name && s.leader_name !== 'TBD' && (

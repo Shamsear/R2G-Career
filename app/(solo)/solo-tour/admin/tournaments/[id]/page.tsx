@@ -21,7 +21,6 @@ import {
   fetchTournamentTypes,
   updateTournamentDetails,
   updateTournamentStatus,
-  updateTournamentPredictionEligibility,
   fetchTournamentClubs,
   addClubToTournament,
   addMultipleClubsToTournament,
