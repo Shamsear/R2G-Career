@@ -619,15 +619,28 @@ export async function fetchPlayerById(id: string | number) {
         `);
         const activeSeason = activeSeasonResult[0] || { season_number: 9, is_mid_season: false };
 
-        // Fallback stats history using current contract value or base value
-        const stats = p.club_name ? [
+        // Fetch all contract/history timeline entries
+        const { rows: historyContracts } = await pool.query(`
+            SELECT pc.start_season, pc.expire_season, pc.signed_value, c.name as club_name
+            FROM player_contracts pc
+            JOIN clubs c ON pc.current_club_id = c.id
+            WHERE pc.player_id = $1
+            ORDER BY pc.id DESC
+        `, [playerId]);
+
+        const stats = historyContracts.length > 0 ? historyContracts.map((hc: any) => ({
+            season: hc.start_season ? hc.start_season.replace(/[^0-9.]/g, '') : '9',
+            expireSeason: hc.expire_season ? hc.expire_season.replace(/[^0-9.]/g, '') : '11',
+            team: hc.club_name,
+            value: hc.signed_value || p.value || 0
+        })) : (p.club_name ? [
             {
-                season: p.start_season ? p.start_season.replace(/[^0-9.]/g, '') : '6',
-                expireSeason: p.expire_season ? p.expire_season.replace(/[^0-9.]/g, '') : '9.5',
+                season: p.start_season ? p.start_season.replace(/[^0-9.]/g, '') : '9',
+                expireSeason: p.expire_season ? p.expire_season.replace(/[^0-9.]/g, '') : '11',
                 team: p.club_name,
                 value: p.value || 0
             }
-        ] : [];
+        ] : []);
 
         return {
             id: p.id,
