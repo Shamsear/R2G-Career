@@ -729,18 +729,86 @@ export async function fetchPlayerAuctionData() {
     }
 }
 
-export async function fetchManagerRanking() {
+export async function fetchManagerRanking(seasonId?: number) {
     try {
+        let targetSeasonId = seasonId;
+        if (!targetSeasonId) {
+            // Find the latest season with rankings (manager_rank is not null)
+            const { rows: latestRankedSeason } = await pool.query(`
+                SELECT s.id 
+                FROM seasons s
+                JOIN manager_seasons ms ON s.id = ms.season_id
+                WHERE ms.manager_rank IS NOT NULL
+                GROUP BY s.id, s.season_number
+                ORDER BY s.season_number DESC
+                LIMIT 1
+            `);
+            if (latestRankedSeason.length > 0) {
+                targetSeasonId = latestRankedSeason[0].id;
+            } else {
+                const { rows: fallbackSeason } = await pool.query(`
+                    SELECT id FROM seasons ORDER BY season_number DESC LIMIT 1
+                `);
+                targetSeasonId = fallbackSeason[0]?.id;
+            }
+        }
+
+        if (!targetSeasonId) return [];
+
         const { rows: result } = await pool.query(`
-            SELECT m.name, ms.manager_rank as rank, ms.rank_points as score, m.avatar_path as img 
+            SELECT 
+                m.id,
+                m.name,
+                m.r2g_id,
+                ms.manager_rank as rank,
+                ms.rank_points as score,
+                m.avatar_path as img,
+                ms.season_id,
+                s.season_number,
+                COALESCE(c.name, m.name) as club_name,
+                c.logo_path as club_logo,
+                ms.matches_played,
+                ms.wins,
+                ms.draws,
+                ms.losses,
+                ms.goals_scored,
+                ms.goals_conceded,
+                ms.clean_sheets,
+                ms.team_profit,
+                ms.session_rewards,
+                ms.awards,
+                ms.competitions
             FROM managers m 
             JOIN manager_seasons ms ON m.id = ms.manager_id 
+            JOIN seasons s ON ms.season_id = s.id
+            LEFT JOIN clubs c ON ms.club_id = c.id
             WHERE m.is_active IS NOT FALSE 
-              AND ms.season_id = (SELECT id FROM seasons ORDER BY season_number DESC LIMIT 1)
-            ORDER BY ms.manager_rank ASC NULLS LAST
-        `);
-        return result;
-    } catch (e) { console.error(e); return []; }
+              AND ms.season_id = $1
+            ORDER BY 
+              CASE WHEN ms.manager_rank IS NOT NULL THEN 0 ELSE 1 END,
+              ms.manager_rank ASC,
+              CAST(COALESCE(ms.rank_points, '0') AS NUMERIC) DESC
+        `, [targetSeasonId]);
+
+        return result.map(r => ({
+            ...r,
+            rank: r.rank != null ? Number(r.rank) : null,
+            score: r.score != null ? parseFloat(r.score) : 0,
+            matches_played: Number(r.matches_played || 0),
+            wins: Number(r.wins || 0),
+            draws: Number(r.draws || 0),
+            losses: Number(r.losses || 0),
+            goals_scored: Number(r.goals_scored || 0),
+            goals_conceded: Number(r.goals_conceded || 0),
+            clean_sheets: Number(r.clean_sheets || 0),
+            team_profit: Number(r.team_profit || 0),
+            session_rewards: Number(r.session_rewards || 0),
+            awards: Array.isArray(r.awards) ? r.awards : []
+        }));
+    } catch (e) { 
+        console.error("Error in fetchManagerRanking:", e); 
+        return []; 
+    }
 }
 
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
