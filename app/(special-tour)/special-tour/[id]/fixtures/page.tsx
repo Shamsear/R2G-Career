@@ -150,6 +150,7 @@ export default function SpecialTourFixtures() {
         return f.roundNumber === activeRound && f.groupName === activeGroup;
       }
       return f.groupName === activeGroup;
+    });
   }, [fixtures, activeRound, activeGroup]);
 
   // Dynamically calculate wins, draws, losses, goals for/against on client side

@@ -42,7 +42,6 @@ export default function RoundsManagementPage() {
     duration_hours: '2',
     max_bids_per_team: '5',
   });
-  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -113,7 +112,6 @@ export default function RoundsManagementPage() {
     const interval = setInterval(fetchRounds, 10000);
     return () => clearInterval(interval);
   }, [currentSeasonId]);
-  }, [currentSeasonId, filterStatus, filterRoundType]);
 
   // Timer management for active rounds
   useEffect(() => {
