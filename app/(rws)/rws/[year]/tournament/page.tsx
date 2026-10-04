@@ -187,16 +187,14 @@ export default function RwsYearTournament() {
   // Filtered fixtures based on activeRound and activeGroup
   const filteredFixtures = useMemo(() => {
     return fixtures.filter(f => {
-      const matchRound = f.roundNumber === activeRound;
-      let matchGroup = true;
-      if (activeGroup !== "All") {
-        if (activeGroup === "Knockout") {
-          matchGroup = !f.groupName;
-        } else {
-          matchGroup = f.groupName === activeGroup;
-        }
+      if (f.roundNumber !== activeRound) return false;
+      if (activeGroup === "Knockout") {
+        return !f.groupName || (f.roundNumber || 0) >= 100 || f.is_knockout;
       }
-      return matchRound && matchGroup;
+      if (activeGroup === "All") {
+        return true;
+      }
+      return f.groupName === activeGroup;
     });
   }, [fixtures, activeRound, activeGroup]);
 
@@ -449,14 +447,46 @@ export default function RwsYearTournament() {
     return { champA, runnerA, champB, runnerB, singleChamp, singleRunner };
   }, [pathAFixtures, pathBFixtures, playoffFixtures]);
 
+  const relevantRounds = useMemo(() => {
+    if (activeGroup === "Knockout") {
+      const ko = roundsList.filter(r => 
+        r >= 100 || fixtures.some(f => f.roundNumber === r && (!f.groupName || (f.roundNumber || 0) >= 100 || f.is_knockout))
+      );
+      return ko.length > 0 ? ko : roundsList;
+    }
+    if (activeGroup !== "All") {
+      const grp = roundsList.filter(r => 
+        fixtures.some(f => f.roundNumber === r && f.groupName === activeGroup)
+      );
+      return grp.length > 0 ? grp : roundsList;
+    }
+    return roundsList;
+  }, [roundsList, fixtures, activeGroup]);
+
+  // Keep activeRound in sync when activeGroup / relevantRounds changes
+  useEffect(() => {
+    if (relevantRounds.length > 0 && !relevantRounds.includes(activeRound)) {
+      const playedInRelevant = fixtures.filter(f => 
+        relevantRounds.includes(f.roundNumber) && 
+        f.homeScore !== null && f.awayScore !== null &&
+        (activeGroup === "Knockout" ? (!f.groupName || (f.roundNumber || 0) >= 100 || f.is_knockout) : activeGroup === "All" ? true : f.groupName === activeGroup)
+      );
+      if (playedInRelevant.length > 0) {
+        setActiveRound(Math.max(...playedInRelevant.map(f => f.roundNumber)));
+      } else {
+        setActiveRound(relevantRounds[0]);
+      }
+    }
+  }, [relevantRounds, activeRound, fixtures, activeGroup]);
+
   const handlePrevRound = () => {
-    const idx = roundsList.indexOf(activeRound);
-    if (idx > 0) setActiveRound(roundsList[idx - 1]);
+    const idx = relevantRounds.indexOf(activeRound);
+    if (idx > 0) setActiveRound(relevantRounds[idx - 1]);
   };
 
   const handleNextRound = () => {
-    const idx = roundsList.indexOf(activeRound);
-    if (idx < roundsList.length - 1) setActiveRound(roundsList[idx + 1]);
+    const idx = relevantRounds.indexOf(activeRound);
+    if (idx >= 0 && idx < relevantRounds.length - 1) setActiveRound(relevantRounds[idx + 1]);
   };
 
   // Dynamic round name helper
@@ -1178,23 +1208,27 @@ export default function RwsYearTournament() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.5rem", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px" }}>
               {/* Round Nav */}
               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <button type="button" onClick={handlePrevRound} disabled={roundsList.indexOf(activeRound) === 0}
-                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: roundsList.indexOf(activeRound) === 0 ? 0.3 : 1, transition: "all 0.2s" }}>
+                <button type="button" onClick={handlePrevRound} disabled={relevantRounds.indexOf(activeRound) <= 0}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: relevantRounds.indexOf(activeRound) <= 0 ? 0.3 : 1, transition: "all 0.2s" }}>
                   <i className="fa-solid fa-chevron-left" style={{ fontSize: "0.65rem" }} />
                 </button>
-                <div style={{ padding: "0 0.75rem", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: "#fff", minWidth: "120px", textAlign: "center" }}>
+                <div style={{ padding: "0 0.75rem", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: activeRound >= 100 ? "#c084fc" : "#fff", minWidth: "120px", textAlign: "center" }}>
                   {getRoundName(activeRound)}
                 </div>
-                <button type="button" onClick={handleNextRound} disabled={roundsList.indexOf(activeRound) === roundsList.length - 1}
-                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: roundsList.indexOf(activeRound) === roundsList.length - 1 ? 0.3 : 1, transition: "all 0.2s" }}>
+                <button type="button" onClick={handleNextRound} disabled={relevantRounds.indexOf(activeRound) === -1 || relevantRounds.indexOf(activeRound) >= relevantRounds.length - 1}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: (relevantRounds.indexOf(activeRound) === -1 || relevantRounds.indexOf(activeRound) >= relevantRounds.length - 1) ? 0.3 : 1, transition: "all 0.2s" }}>
                   <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.65rem" }} />
                 </button>
               </div>
 
               {/* Group Tabs */}
               {availableGroups.length > 0 && (
-                <div style={{ display: "flex", gap: "3px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "8px" }}>
-                  {[{ key: "All", label: "All" }, ...availableGroups.map(g => ({ key: g, label: `Grp ${g}` })), ...(fixtures.some(f => !f.groupName) ? [{ key: "Knockout", label: "KO" }] : [])].map(g => (
+                <div style={{ display: "flex", gap: "3px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "8px", flexWrap: "wrap" }}>
+                  {[
+                    { key: "All", label: "All" },
+                    ...availableGroups.map(g => ({ key: g, label: `Grp ${g}` })),
+                    ...(fixtures.some(f => !f.groupName || (f.roundNumber || 0) >= 100 || f.is_knockout) ? [{ key: "Knockout", label: "KO" }] : [])
+                  ].map(g => (
                     <button key={g.key} type="button" onClick={() => setActiveGroup(g.key)}
                       style={{ padding: "4px 12px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "0.72rem", fontWeight: activeGroup === g.key ? 700 : 500, background: activeGroup === g.key ? "rgba(168,85,247,0.85)" : "transparent", color: activeGroup === g.key ? "#fff" : "rgba(255,255,255,0.45)", transition: "all 0.2s" }}>
                       {g.label}

@@ -136,18 +136,12 @@ export default function SpecialTourFixtures() {
   // Filtered fixtures based on activeRound and activeGroup
   const filteredFixtures = useMemo(() => {
     return fixtures.filter(f => {
+      if (f.roundNumber !== activeRound) return false;
       if (activeGroup === "Knockout") {
-        if (activeRound >= 100) {
-          return f.roundNumber === activeRound;
-        }
-        return (f.roundNumber || 0) >= 100 || !f.groupName;
+        return (f.roundNumber || 0) >= 100 || !f.groupName || f.is_knockout;
       }
       if (activeGroup === "All") {
-        return f.roundNumber === activeRound;
-      }
-      // Specific group filter (e.g. "A", "B", "C", "D")
-      if (activeRound < 100) {
-        return f.roundNumber === activeRound && f.groupName === activeGroup;
+        return true;
       }
       return f.groupName === activeGroup;
     });
@@ -334,56 +328,51 @@ export default function SpecialTourFixtures() {
 
   const relevantRounds = useMemo(() => {
     if (activeGroup === "Knockout") {
-      const ko = roundsList.filter(r => r >= 100);
+      const ko = roundsList.filter(r => 
+        r >= 100 || fixtures.some(f => f.roundNumber === r && (!f.groupName || (f.roundNumber || 0) >= 100 || f.is_knockout))
+      );
       return ko.length > 0 ? ko : roundsList;
     }
     if (activeGroup !== "All") {
-      const grp = roundsList.filter(r => r < 100);
+      const grp = roundsList.filter(r => 
+        fixtures.some(f => f.roundNumber === r && f.groupName === activeGroup)
+      );
       return grp.length > 0 ? grp : roundsList;
     }
     return roundsList;
-  }, [roundsList, activeGroup]);
+  }, [roundsList, fixtures, activeGroup]);
+
+  // Keep activeRound in sync when activeGroup / relevantRounds changes
+  useEffect(() => {
+    if (relevantRounds.length > 0 && !relevantRounds.includes(activeRound)) {
+      const playedInRelevant = fixtures.filter(f => 
+        relevantRounds.includes(f.roundNumber) && 
+        f.homeScore !== null && f.awayScore !== null &&
+        (activeGroup === "Knockout" ? ((f.roundNumber || 0) >= 100 || !f.groupName || f.is_knockout) : activeGroup === "All" ? true : f.groupName === activeGroup)
+      );
+      if (playedInRelevant.length > 0) {
+        setActiveRound(Math.max(...playedInRelevant.map(f => f.roundNumber)));
+      } else {
+        setActiveRound(relevantRounds[0]);
+      }
+    }
+  }, [relevantRounds, activeRound, fixtures, activeGroup]);
 
   const handleGroupChange = (groupKey: string) => {
     setActiveGroup(groupKey);
-    if (groupKey === "Knockout") {
-      const koRounds = roundsList.filter(r => r >= 100);
-      if (koRounds.length > 0 && activeRound < 100) {
-        setActiveRound(koRounds[0]);
-      }
-    } else if (groupKey !== "All") {
-      if (activeRound >= 100) {
-        const groupRounds = roundsList.filter(r => r < 100);
-        if (groupRounds.length > 0) {
-          setActiveRound(groupRounds[groupRounds.length - 1]);
-        }
-      }
-    }
   };
 
   const handlePrevRound = () => {
     const curIdx = relevantRounds.indexOf(activeRound);
     if (curIdx > 0) {
-      const prev = relevantRounds[curIdx - 1];
-      setActiveRound(prev);
-      if (prev >= 100 && activeGroup !== "Knockout" && activeGroup !== "All") {
-        setActiveGroup("Knockout");
-      } else if (prev < 100 && activeGroup === "Knockout") {
-        setActiveGroup("All");
-      }
+      setActiveRound(relevantRounds[curIdx - 1]);
     }
   };
 
   const handleNextRound = () => {
     const curIdx = relevantRounds.indexOf(activeRound);
-    if (curIdx < relevantRounds.length - 1) {
-      const next = relevantRounds[curIdx + 1];
-      setActiveRound(next);
-      if (next >= 100 && activeGroup !== "Knockout" && activeGroup !== "All") {
-        setActiveGroup("Knockout");
-      } else if (next < 100 && activeGroup === "Knockout") {
-        setActiveGroup("All");
-      }
+    if (curIdx >= 0 && curIdx < relevantRounds.length - 1) {
+      setActiveRound(relevantRounds[curIdx + 1]);
     }
   };
 
@@ -815,28 +804,28 @@ export default function SpecialTourFixtures() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.5rem", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px" }}>
               {/* Round Nav */}
               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <button type="button" onClick={handlePrevRound} disabled={relevantRounds.indexOf(activeRound) === 0}
-                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: relevantRounds.indexOf(activeRound) === 0 ? 0.3 : 1, transition: "all 0.2s" }}>
+                <button type="button" onClick={handlePrevRound} disabled={relevantRounds.indexOf(activeRound) <= 0}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: relevantRounds.indexOf(activeRound) <= 0 ? 0.3 : 1, transition: "all 0.2s" }}>
                   <i className="fa-solid fa-chevron-left" style={{ fontSize: "0.65rem" }} />
                 </button>
                 <div style={{ padding: "0 0.75rem", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: activeRound >= 100 ? "#c084fc" : "#fff", minWidth: "120px", textAlign: "center" }}>
                   {getRoundName(activeRound)}
                 </div>
-                <button type="button" onClick={handleNextRound} disabled={relevantRounds.indexOf(activeRound) === relevantRounds.length - 1}
-                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: relevantRounds.indexOf(activeRound) === relevantRounds.length - 1 ? 0.3 : 1, transition: "all 0.2s" }}>
+                <button type="button" onClick={handleNextRound} disabled={relevantRounds.indexOf(activeRound) === -1 || relevantRounds.indexOf(activeRound) >= relevantRounds.length - 1}
+                  style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: (relevantRounds.indexOf(activeRound) === -1 || relevantRounds.indexOf(activeRound) >= relevantRounds.length - 1) ? 0.3 : 1, transition: "all 0.2s" }}>
                   <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.65rem" }} />
                 </button>
               </div>
 
               {/* Group Tabs */}
-              {(availableGroups.length > 0 || knockoutRounds.length > 0 || fixtures.some(f => (f.roundNumber || 0) >= 100)) && (
+              {(availableGroups.length > 0 || knockoutRounds.length > 0 || fixtures.some(f => (f.roundNumber || 0) >= 100 || !f.groupName || f.is_knockout)) && (
                 <div style={{ display: "flex", gap: "3px", background: "rgba(0,0,0,0.25)", padding: "3px", borderRadius: "8px", flexWrap: "wrap" }}>
                   {[
                     { key: "All", label: "All" },
                     ...availableGroups.map(g => ({ key: g, label: `Grp ${g}` })),
-                    ...(fixtures.some(f => (f.roundNumber || 0) >= 100 || !f.groupName) || knockoutRounds.length > 0 ? [{ key: "Knockout", label: "KO" }] : [])
+                    ...(fixtures.some(f => (f.roundNumber || 0) >= 100 || !f.groupName || f.is_knockout) || knockoutRounds.length > 0 ? [{ key: "Knockout", label: "KO" }] : [])
                   ].map(g => {
-                    const isSelected = (activeGroup === g.key) || (activeRound >= 100 && g.key === "Knockout" && activeGroup !== "All");
+                    const isSelected = activeGroup === g.key;
                     return (
                       <button key={g.key} type="button" onClick={() => handleGroupChange(g.key)}
                         style={{ padding: "4px 12px", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "0.72rem", fontWeight: isSelected ? 700 : 500, background: isSelected ? "rgba(168,85,247,0.85)" : "transparent", color: isSelected ? "#fff" : "rgba(255,255,255,0.45)", transition: "all 0.2s" }}>
