@@ -278,59 +278,67 @@ export default function RwsYearTournament() {
     const cleanSheets: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
     const defensiveStats: Record<string, { name: string; logo: string; manager: string; conceded: number; matches: number; value: number }> = {};
 
+    const registerTeam = (id: string | number, name: string, logo: string, manager: string) => {
+      const sId = String(id);
+      if (!goalsScored[sId]) {
+        goalsScored[sId] = { name, logo: logo || "", manager: manager || "Unknown", value: 0 };
+        goalDiff[sId] = { name, logo: logo || "", manager: manager || "Unknown", value: 0 };
+        cleanSheets[sId] = { name, logo: logo || "", manager: manager || "Unknown", value: 0 };
+        defensiveStats[sId] = { name, logo: logo || "", manager: manager || "Unknown", conceded: 0, matches: 0, value: 0 };
+      }
+    };
+
     // Initialize all participating teams
     tournamentClubs.forEach(tc => {
-      const id = tc.club_id;
-      const name = tc.name;
-      const logo = tc.logo_path || "";
-      const manager = tc.manager || "Unknown";
-      goalsScored[id] = { name, logo, manager, value: 0 };
-      goalDiff[id] = { name, logo, manager, value: 0 };
-      cleanSheets[id] = { name, logo, manager, value: 0 };
-      defensiveStats[id] = { name, logo, manager, conceded: 0, matches: 0, value: 0 };
+      registerTeam(tc.club_id, tc.name, tc.logo_path, tc.manager);
     });
 
-    // Parse standings for goals and goal difference (already calculated)
     standings.forEach(row => {
-      const id = row.club_id;
-      const name = row.club_name;
-      const logo = row.club_logo || "";
-      const manager = row.manager || "Unknown";
-      if (goalsScored[id]) {
-        goalsScored[id].value = row.goals_scored || 0;
-      }
-      if (goalDiff[id]) {
-        goalDiff[id].value = row.goal_difference || 0;
-      }
+      registerTeam(row.club_id, row.club_name, row.club_logo, row.manager);
     });
 
-    // Parse fixtures for clean sheets and concedes
+    // Parse all tournament fixtures for goals, concedes, and clean sheets
     fixtures.forEach(f => {
-      const isFinished = f.homeScore !== null && f.awayScore !== null;
-      if (isFinished) {
-        const hs = f.homeScore || 0;
-        const as = f.awayScore || 0;
-        const homeId = f.homeClubId;
-        const awayId = f.awayClubId;
+      const homeId = String(f.homeClubId);
+      const awayId = String(f.awayClubId);
+      registerTeam(homeId, f.homeClub || f.homeManager || "Unknown", f.homeLogo, f.homeManager || "Unknown");
+      registerTeam(awayId, f.awayClub || f.awayManager || "Unknown", f.awayLogo, f.awayManager || "Unknown");
 
-        // Clean Sheets
-        if (hs === 0) {
-          if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
-        }
-        if (as === 0) {
-          if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
-        }
+      if (f.match_status === 'void') return;
+      const isFinished = f.homeScore !== null && f.homeScore !== undefined && f.awayScore !== null && f.awayScore !== undefined;
+      if (isFinished) {
+        const hs = Number(f.homeScore) || 0;
+        const as_ = Number(f.awayScore) || 0;
+
+        // Goals Scored (Boot)
+        if (goalsScored[homeId]) goalsScored[homeId].value += hs;
+        if (goalsScored[awayId]) goalsScored[awayId].value += as_;
 
         // Conceded and matches count
         if (defensiveStats[homeId]) {
-          defensiveStats[homeId].conceded += as;
+          defensiveStats[homeId].conceded += as_;
           defensiveStats[homeId].matches += 1;
         }
         if (defensiveStats[awayId]) {
           defensiveStats[awayId].conceded += hs;
           defensiveStats[awayId].matches += 1;
         }
+
+        // Clean Sheets (Glove)
+        if (as_ === 0) {
+          if (cleanSheets[homeId]) cleanSheets[homeId].value += 1;
+        }
+        if (hs === 0) {
+          if (cleanSheets[awayId]) cleanSheets[awayId].value += 1;
+        }
       }
+    });
+
+    // Compute Goal Difference (Ball) = Goals Scored - Goals Conceded
+    Object.keys(goalDiff).forEach(id => {
+      const gf = goalsScored[id]?.value || 0;
+      const ga = defensiveStats[id]?.conceded || 0;
+      goalDiff[id].value = gf - ga;
     });
 
     // Map defensive stats values (conceded / matches)
