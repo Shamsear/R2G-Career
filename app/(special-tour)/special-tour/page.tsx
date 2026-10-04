@@ -133,17 +133,85 @@ export default function SpecialTourYearSelection() {
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
                       <i className="fa-solid fa-folder-open" style={{ fontSize: "2.5rem", color: "var(--solo-primary)" }} />
-                      <span style={{
-                        fontSize: "0.65rem",
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        background: activeSeason && t.season_number === activeSeason.season_number ? "rgba(34, 197, 94, 0.15)" : "rgba(148, 163, 184, 0.15)",
-                        color: activeSeason && t.season_number === activeSeason.season_number ? "#22c55e" : "#94a3b8",
-                        fontWeight: "bold",
-                        textTransform: "uppercase"
-                      }}>
-                        {activeSeason && t.season_number === activeSeason.season_number ? "Active" : "Archived"}
-                      </span>
+                      {(() => {
+                        const status = (t.status || "active").toLowerCase();
+                        const isCurrentSeason = !activeSeason || t.season_number === activeSeason.season_number;
+
+                        if (status === "completed" || status === "done") {
+                          return (
+                            <span style={{
+                              fontSize: "0.68rem",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "rgba(16, 185, 129, 0.15)",
+                              color: "#34d399",
+                              border: "1px solid rgba(16, 185, 129, 0.3)",
+                              fontWeight: "bold",
+                              textTransform: "uppercase",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}>
+                              <i className="fa-solid fa-circle-check" style={{ fontSize: "0.65rem" }} /> Completed
+                            </span>
+                          );
+                        }
+                        if (status === "upcoming") {
+                          return (
+                            <span style={{
+                              fontSize: "0.68rem",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "rgba(234, 179, 8, 0.15)",
+                              color: "#facc15",
+                              border: "1px solid rgba(234, 179, 8, 0.3)",
+                              fontWeight: "bold",
+                              textTransform: "uppercase",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}>
+                              <i className="fa-solid fa-clock" style={{ fontSize: "0.65rem" }} /> Upcoming
+                            </span>
+                          );
+                        }
+                        if (!isCurrentSeason) {
+                          return (
+                            <span style={{
+                              fontSize: "0.68rem",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "rgba(148, 163, 184, 0.15)",
+                              color: "#94a3b8",
+                              border: "1px solid rgba(148, 163, 184, 0.3)",
+                              fontWeight: "bold",
+                              textTransform: "uppercase",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}>
+                              <i className="fa-solid fa-box-archive" style={{ fontSize: "0.65rem" }} /> Archived
+                            </span>
+                          );
+                        }
+                        return (
+                          <span style={{
+                            fontSize: "0.68rem",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            background: "rgba(56, 189, 248, 0.15)",
+                            color: "#38bdf8",
+                            border: "1px solid rgba(56, 189, 248, 0.3)",
+                            fontWeight: "bold",
+                            textTransform: "uppercase",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}>
+                            <i className="fa-solid fa-bolt" style={{ fontSize: "0.65rem" }} /> Active
+                          </span>
+                        );
+                      })()}
                     </div>
                     <h2 style={{ fontSize: "1.5rem", margin: "0 0 0.25rem 0", color: "#fff", fontWeight: "800" }}>{t.name}</h2>
                     <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: 0 }}>

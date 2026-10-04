@@ -103,9 +103,24 @@ export default function SpecialTourHub() {
 
         {/* Hero Section */}
         <div className="rws-page-hero">
-          <div className="portal-page-badge">
-            <i className="fa-solid fa-trophy" />
-            Special Tour Invitational
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+            <div className="portal-page-badge" style={{ marginBottom: 0 }}>
+              <i className="fa-solid fa-trophy" />
+              Special Tour Invitational
+            </div>
+            {tournament.status === "completed" ? (
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#34d399", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "4px 10px", borderRadius: "999px", display: "inline-flex", alignItems: "center", gap: "5px", textTransform: "uppercase" }}>
+                <i className="fa-solid fa-circle-check" /> Completed
+              </span>
+            ) : tournament.status === "upcoming" ? (
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#facc15", background: "rgba(234, 179, 8, 0.15)", border: "1px solid rgba(234, 179, 8, 0.3)", padding: "4px 10px", borderRadius: "999px", display: "inline-flex", alignItems: "center", gap: "5px", textTransform: "uppercase" }}>
+                <i className="fa-solid fa-clock" /> Upcoming
+              </span>
+            ) : (
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.3)", padding: "4px 10px", borderRadius: "999px", display: "inline-flex", alignItems: "center", gap: "5px", textTransform: "uppercase" }}>
+                <i className="fa-solid fa-bolt" /> Active Stage
+              </span>
+            )}
           </div>
           <h1 className="rws-hero-title">
             {tournament.name.toUpperCase()}

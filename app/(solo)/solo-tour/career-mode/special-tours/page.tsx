@@ -12,6 +12,7 @@ interface Tournament {
   format_type: string;
   tournament_type: string;
   season_number: number;
+  status?: string;
 }
 
 function SpecialLoadingState({ text }: { text: string }) {
@@ -132,17 +133,29 @@ export default function SpecialToursPage() {
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
                         <i className="fa-solid fa-trophy" style={{ fontSize: "2.2rem", color: "var(--solo-primary)" }} />
-                        <span style={{
-                          fontSize: "0.65rem",
-                          padding: "2px 8px",
-                          borderRadius: "4px",
-                          background: "rgba(168, 85, 247, 0.15)",
-                          color: "#c084fc",
-                          fontWeight: "bold",
-                          textTransform: "uppercase"
-                        }}>
-                          SEASON {t.season_number}
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {t.status === "completed" && (
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#34d399", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "2px 6px", borderRadius: "4px", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                              <i className="fa-solid fa-circle-check" style={{ fontSize: "0.65rem" }} /> COMPLETED
+                            </span>
+                          )}
+                          {t.status === "upcoming" && (
+                            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#facc15", background: "rgba(234, 179, 8, 0.15)", border: "1px solid rgba(234, 179, 8, 0.3)", padding: "2px 6px", borderRadius: "4px", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                              <i className="fa-solid fa-clock" style={{ fontSize: "0.65rem" }} /> UPCOMING
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: "0.65rem",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            background: "rgba(168, 85, 247, 0.15)",
+                            color: "#c084fc",
+                            fontWeight: "bold",
+                            textTransform: "uppercase"
+                          }}>
+                            SEASON {t.season_number}
+                          </span>
+                        </div>
                       </div>
 
                       <h2 style={{ fontSize: "1.4rem", fontWeight: "800", color: "#ffffff", margin: "0 0 0.25rem", fontFamily: "var(--font-display)" }}>
