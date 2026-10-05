@@ -162,12 +162,12 @@ export default function PublicTransfersLogPage() {
         </div>
 
         {/* Interactive filters card */}
-        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem" }}>
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", overflow: "visible", position: "relative", zIndex: clubDDOpen ? 50 : 5 }}>
           <h3 style={{ fontSize: "0.9rem", color: "#fff", marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>Filter Transactions</h3>
           
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
             {/* Custom dropdown: Choose club */}
-            <div style={{ position: "relative" }} data-club-dd>
+            <div style={{ position: "relative", zIndex: clubDDOpen ? 60 : 10 }} data-club-dd>
               <label style={{ display: "block", fontSize: "0.7rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Filter by Club</label>
               <div
                 style={{
@@ -186,7 +186,7 @@ export default function PublicTransfersLogPage() {
               </div>
 
               {clubDDOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 12, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                   <div style={{ padding: "6px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"

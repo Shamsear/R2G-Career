@@ -68,8 +68,14 @@ export default function CustomSelect({
         left = Math.max(10, window.innerWidth - targetWidth - 10);
       }
 
+      let top = rect.bottom + 6;
+      // If menu would overflow screen bottom and there is space above, flip upwards
+      if (top + 260 > window.innerHeight && rect.top > 260) {
+        top = Math.max(10, rect.top - 266);
+      }
+
       setDropdownPos({
-        top: rect.bottom + 6,
+        top: top,
         left: left,
         width: targetWidth
       });

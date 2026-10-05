@@ -1160,8 +1160,7 @@
   .admin-card {
     padding: 1.25rem;
     border-radius: 14px;
-    /* Contain children — stops any inner table from expanding the page */
-    overflow-x: hidden;
+    overflow: visible !important;
   }
   .admin-card-title {
     font-size: 1.05rem;
@@ -1192,9 +1191,8 @@
   .financial-main {
     min-width: 0;
   }
-  /* Inline overflow-hidden table containers should scroll on mobile */
   .sub-card {
-    overflow-x: hidden;
+    overflow: visible !important;
   }
 }
 
@@ -1224,7 +1222,7 @@
     padding: 1rem;
     border-radius: 12px;
     margin-top: 0.25rem;
-    overflow-x: hidden;
+    overflow: visible !important;
   }
   .admin-card-title {
     font-size: 0.95rem;
@@ -1238,7 +1236,7 @@
   .sub-card {
     padding: 0.85rem;
     border-radius: 10px;
-    overflow-x: hidden;
+    overflow: visible !important;
   }
   /* Tightly packed stats: single column on small phones */
   .admin-stats-row {

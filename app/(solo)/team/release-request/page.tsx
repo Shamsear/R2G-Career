@@ -294,7 +294,7 @@ export default function PublicReleasePage() {
             </div>
 
             {/* Franchise selector custom dropdown */}
-            <div style={{ marginBottom: "1.5rem", position: "relative" }} data-club-dd>
+            <div style={{ marginBottom: "1.5rem", position: "relative", zIndex: clubDropdownOpen ? 100 : 20 }} data-club-dd>
               <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: "6px", fontWeight: 600 }}>
                 Select Your Team / Club
               </label>
@@ -319,7 +319,7 @@ export default function PublicReleasePage() {
               </div>
 
               {clubDropdownOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                   <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"

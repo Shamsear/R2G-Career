@@ -87,13 +87,16 @@ iframe {
   -webkit-overflow-scrolling: touch !important;
 }
 
-/* Ensure all admin table wrappers never cause body overflow */
-@media (max-width: 768px) {
-  .admin-card,
-  .sub-card {
-    overflow-x: hidden;
-  }
+/* Ensure cards and toolbars never clip dropdowns */
+.admin-card,
+.sub-card,
+.filter-toolbar,
+.filter-toolbar-row {
+  overflow: visible !important;
+}
 
+/* Ensure all tables scroll horizontally inside their wrappers without clipping outer dropdowns */
+@media (max-width: 768px) {
   /* Any raw table not wrapped in .table-responsive gets its own scroll container */
   .admin-card > table,
   .sub-card > table {

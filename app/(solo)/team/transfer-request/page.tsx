@@ -383,7 +383,7 @@ export default function PublicTransferRequestPage() {
             </div>
 
             {/* Step 1: Select Your Club dropdown */}
-            <div style={{ marginBottom: "1.5rem", position: "relative" }} data-my-club-dd>
+            <div style={{ marginBottom: "1.5rem", position: "relative", zIndex: myClubDDOpen ? 100 : 20 }} data-my-club-dd>
               <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: "6px", fontWeight: 600 }}>
                 1. Select Your Club Franchise
               </label>
@@ -408,7 +408,7 @@ export default function PublicTransferRequestPage() {
               </div>
 
               {myClubDDOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                   <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"
@@ -471,7 +471,7 @@ export default function PublicTransferRequestPage() {
                         </div>
 
                         {/* Select Buyer franchise */}
-                        <div style={{ position: "relative" }} data-other-club-dd>
+                        <div style={{ position: "relative", zIndex: otherClubDDOpen ? 100 : 15 }} data-other-club-dd>
                           <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
                             Select Buying franchise
                           </label>
@@ -492,7 +492,7 @@ export default function PublicTransferRequestPage() {
                           </div>
 
                           {otherClubDDOpen && (
-                            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 12, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                               <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                                 <input
                                   type="text"
@@ -554,7 +554,7 @@ export default function PublicTransferRequestPage() {
                     <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "16px", padding: "1.5rem" }}>
                       
                       {/* Select swap counterpart dropdown */}
-                      <div style={{ position: "relative", marginBottom: "1.25rem" }} data-other-club-dd>
+                      <div style={{ position: "relative", marginBottom: "1.25rem", zIndex: otherClubDDOpen ? 100 : 15 }} data-other-club-dd>
                         <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
                           2. Select Swap Counterpart Team
                         </label>
@@ -575,7 +575,7 @@ export default function PublicTransferRequestPage() {
                         </div>
 
                         {otherClubDDOpen && (
-                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 12, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                             <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                               <input
                                 type="text"
