@@ -7009,6 +7009,95 @@ export async function removePlayerPrime(playerId: number) {
   }
 }
 
+export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: number, clubId: number, tokenCost: number = 0) {
+  try {
+    const fromId = parseInt(fromPlayerId.toString(), 10);
+    const toId = parseInt(toPlayerId.toString(), 10);
+    const cId = parseInt(clubId.toString(), 10);
+    if (isNaN(fromId) || isNaN(toId) || isNaN(cId)) {
+      return { success: false, error: "Invalid parameters" };
+    }
+    if (fromId === toId) {
+      return { success: false, error: "Source and destination players must be different" };
+    }
+
+    const { rows: seasonRows } = await pool.query(`
+      SELECT id, season_number, is_mid_season FROM seasons ORDER BY season_number DESC LIMIT 1
+    `);
+    const activeSeason = seasonRows[0] || { id: 1, season_number: 9, is_mid_season: false };
+    const curSeasonNum = activeSeason.season_number || 9;
+    const nextSeasonNum = curSeasonNum + 1;
+    const defaultValidUntil = `season ${nextSeasonNum}.0 (1 Season)`;
+
+    // Check if source player has Prime status
+    const { rows: sourcePrimeRows } = await pool.query(`
+      SELECT * FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'
+    `, [fromId]);
+    if (sourcePrimeRows.length === 0) {
+      return { success: false, error: "Source player does not have Prime status" };
+    }
+    const validUntilStr = sourcePrimeRows[0].valid_until || defaultValidUntil;
+
+    // Check if destination player is already primed
+    const { rows: destPrimeRows } = await pool.query(`
+      SELECT * FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'
+    `, [toId]);
+    if (destPrimeRows.length > 0) {
+      return { success: false, error: "Destination player is already Primed" };
+    }
+
+    const cost = Math.max(0, Number(tokenCost) || 0);
+
+    await pool.query('BEGIN');
+
+    // Deduct RT if tokenCost is set
+    if (cost > 0) {
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_token_balance FROM manager_wallets 
+        WHERE manager_id = $1 AND season_id = $2
+      `, [cId, activeSeason.id]);
+
+      const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
+      if (currentRt < cost) {
+        await pool.query('ROLLBACK');
+        return { success: false, error: `Insufficient RT balance (requires ${cost} RT, club has ${currentRt} RT)` };
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets 
+        SET r2g_token_balance = r2g_token_balance - $1 
+        WHERE manager_id = $2 AND season_id = $3
+      `, [cost, cId, activeSeason.id]);
+
+      const { rows: p1Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [fromId]);
+      const { rows: p2Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [toId]);
+      const fromName = p1Rows[0]?.name || `Player #${fromId}`;
+      const toName = p2Rows[0]?.name || `Player #${toId}`;
+
+      await logTransaction(cId, activeSeason.id, 'token', -cost, 'prime_transfer', `Prime Transfer: Transferred Prime from ${fromName} to ${toName} for ${cost} RT`);
+    }
+
+    // Delete Prime from source player
+    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'`, [fromId]);
+
+    // Insert Prime for destination player
+    await pool.query(`
+      INSERT INTO player_seasonal_statuses (player_id, season_id, status_type, valid_until)
+      VALUES ($1, $2, 'Prime', $3)
+    `, [toId, activeSeason.id, validUntilStr]);
+
+    await pool.query('COMMIT');
+
+    await logSoloAdminAction("TRANSFER_PRIME_PLAYER", { fromPlayerId: fromId, toPlayerId: toId, clubId: cId, tokenCost: cost, validUntil: validUntilStr });
+
+    return { success: true, validUntil: validUntilStr };
+  } catch (err: any) {
+    await pool.query('ROLLBACK').catch(() => {});
+    console.error("Error transferring prime status:", err);
+    return { success: false, error: err.message || "Failed to transfer prime status" };
+  }
+}
+
 export async function fetchPrimedPlayersList() {
   try {
     const { rows } = await pool.query(`

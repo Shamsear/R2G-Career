@@ -20,6 +20,7 @@ import {
   fetchClubPlayersWithContracts,
   fetchPlayersToBeReleased,
   primePlayerForTeam,
+  transferPlayerPrime,
   removePlayerPrime,
   fetchPrimedPlayersList,
   fetchAdminPlayersList
@@ -581,10 +582,14 @@ export default function AuctionManager() {
   const [bulkSwaps, setBulkSwaps] = useState<any[]>([]);
 
   // Prime tab state
+  const [primeActiveMode, setPrimeActiveMode] = useState<"assign" | "transfer">("assign");
   const [primeClubId, setPrimeClubId] = useState<string>("");
   const [primeSelectedPlayerIds, setPrimeSelectedPlayerIds] = useState<number[]>([]);
   const [primeSearchQuery, setPrimeSearchQuery] = useState<string>("");
   const [primeRtCost, setPrimeRtCost] = useState<number>(50);
+  const [primeTransferSourceId, setPrimeTransferSourceId] = useState<string>("");
+  const [primeTransferDestId, setPrimeTransferDestId] = useState<string>("");
+  const [primeTransferRtCost, setPrimeTransferRtCost] = useState<number>(50);
   const [primeClubDDOpen, setPrimeClubDDOpen] = useState<boolean>(false);
   const [primeClubDDSearch, setPrimeClubDDSearch] = useState<string>("");
   const [primedPlayers, setPrimedPlayers] = useState<any[]>([]);
@@ -2383,33 +2388,82 @@ export default function AuctionManager() {
             
             {/* Left Column: Form Controls */}
             <div className="admin-card" style={{ padding: "1.5rem" }}>
-              <h3 style={{ fontSize: "1rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
-                Prime Player Console
-              </h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+                <h3 style={{ fontSize: "1rem", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
+                  Prime Player Console
+                </h3>
+                <div style={{ display: "flex", background: "rgba(0,0,0,0.4)", borderRadius: "8px", padding: "3px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPrimeActiveMode("assign")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      background: primeActiveMode === "assign" ? "linear-gradient(135deg, #eab308, #ca8a04)" : "transparent",
+                      color: primeActiveMode === "assign" ? "#000" : "rgba(255,255,255,0.6)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-plus" style={{ marginRight: "4px" }} /> Assign
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrimeActiveMode("transfer")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      background: primeActiveMode === "transfer" ? "linear-gradient(135deg, #eab308, #ca8a04)" : "transparent",
+                      color: primeActiveMode === "transfer" ? "#000" : "rgba(255,255,255,0.6)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <i className="fa-solid fa-repeat" style={{ marginRight: "4px" }} /> Transfer
+                  </button>
+                </div>
+              </div>
 
               {(() => {
-                // Filter all players by club or search query
+                const selectedClubObj = clubs.find(c => String(c.id) === primeClubId);
+
+                // Available for Assign mode (unprimed players matching filter)
                 const availablePlayers = primeAllPlayers.filter((p) => {
                   let matchClub = true;
                   if (primeClubId) {
-                    const selClub = clubs.find(c => String(c.id) === primeClubId);
-                    matchClub = String(p.clubId) === primeClubId || p.clubName === selClub?.name;
+                    matchClub = String(p.clubId) === primeClubId || p.clubName === selectedClubObj?.name;
                   }
                   let matchSearch = true;
                   if (primeSearchQuery) {
                     const query = primeSearchQuery.toLowerCase();
                     matchSearch = p.name.toLowerCase().includes(query) || (p.clubName && p.clubName.toLowerCase().includes(query)) || p.position.toLowerCase().includes(query);
                   }
-                  // Hide already primed players
                   const isAlreadyPrimed = primedPlayers.some(pp => pp.id === p.id);
                   return matchClub && matchSearch && !isAlreadyPrimed;
                 });
 
-                const selectedClubObj = clubs.find(c => String(c.id) === primeClubId);
-                const filteredDropdownClubs = clubs.filter(c =>
-                  c.name.toLowerCase().includes(primeClubDDSearch.toLowerCase())
-                );
+                // Source players for Transfer mode (primed players belonging to selected club)
+                const transferSourceList = primedPlayers.filter(p => {
+                  if (!primeClubId) return true;
+                  return String(p.clubId) === primeClubId || p.clubName === selectedClubObj?.name;
+                });
+
+                // Destination players for Transfer mode (unprimed players belonging to selected club)
+                const transferDestList = primeAllPlayers.filter(p => {
+                  let matchClub = true;
+                  if (primeClubId) {
+                    matchClub = String(p.clubId) === primeClubId || p.clubName === selectedClubObj?.name;
+                  }
+                  const isAlreadyPrimed = primedPlayers.some(pp => pp.id === p.id);
+                  return matchClub && !isAlreadyPrimed;
+                });
 
                 const handleTogglePlayer = (playerId: number) => {
                   setPrimeSelectedPlayerIds(prev =>
@@ -2463,7 +2517,36 @@ export default function AuctionManager() {
                   });
                 };
 
-                return (
+                const handlePrimeTransferSubmit = async (e: React.FormEvent) => {
+                  e.preventDefault();
+                  if (!primeClubId) return showToast("Please select a franchise/club first!");
+                  if (!primeTransferSourceId) return showToast("Please choose the current Prime player to transfer from!");
+                  if (!primeTransferDestId) return showToast("Please choose the target player to receive Prime!");
+                  if (primeTransferSourceId === primeTransferDestId) return showToast("Source and target player cannot be the same!");
+
+                  startTransition(async () => {
+                    try {
+                      const res = await transferPlayerPrime(
+                        Number(primeTransferSourceId),
+                        Number(primeTransferDestId),
+                        Number(primeClubId),
+                        primeTransferRtCost
+                      );
+                      if (res.success) {
+                        showToast(`Prime transferred successfully for 1 Season! (${res.validUntil})`);
+                        setPrimeTransferSourceId("");
+                        setPrimeTransferDestId("");
+                        loadPrimeData();
+                      } else {
+                        showToast(res.error || "Failed to transfer Prime status.");
+                      }
+                    } catch (err: any) {
+                      showToast(err?.message || "Error transferring Prime status!");
+                    }
+                  });
+                };
+
+                return primeActiveMode === "assign" ? (
                   <form onSubmit={handlePrimeSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                     
                     <div>
@@ -2476,6 +2559,8 @@ export default function AuctionManager() {
                         onSelect={(id) => {
                           setPrimeClubId(id);
                           setPrimeSelectedPlayerIds([]);
+                          setPrimeTransferSourceId("");
+                          setPrimeTransferDestId("");
                         }}
                         placeholder="-- Choose franchise --"
                         showAllOption={true}
@@ -2596,6 +2681,144 @@ export default function AuctionManager() {
                       Set Prime Selected ({primeSelectedPlayerIds.length})
                     </button>
 
+                  </form>
+                ) : (
+                  /* TRANSFER PRIME FORM */
+                  <form onSubmit={handlePrimeTransferSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
+                        1. Select franchise / club
+                      </label>
+                      <AdminClubDropdown
+                        clubs={clubs}
+                        selectedClubId={primeClubId}
+                        onSelect={(id) => {
+                          setPrimeClubId(id);
+                          setPrimeSelectedPlayerIds([]);
+                          setPrimeTransferSourceId("");
+                          setPrimeTransferDestId("");
+                        }}
+                        placeholder="-- Choose franchise (Required) --"
+                        showAllOption={false}
+                      />
+                    </div>
+
+                    {/* Source Prime Player */}
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "#eab308", marginBottom: "6px", fontWeight: 700 }}>
+                        2. Current Prime Player (Transfer From)
+                      </label>
+                      {!primeClubId ? (
+                        <div style={{ padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", color: "var(--text-secondary)", fontSize: "0.78rem", textAlign: "center" }}>
+                          Select a club first
+                        </div>
+                      ) : transferSourceList.length === 0 ? (
+                        <div style={{ padding: "10px", borderRadius: "8px", background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", color: "#f87171", fontSize: "0.78rem", textAlign: "center" }}>
+                          No Primed players on this team
+                        </div>
+                      ) : (
+                        <select
+                          value={primeTransferSourceId}
+                          onChange={(e) => setPrimeTransferSourceId(e.target.value)}
+                          style={{
+                            width: "100%", padding: "9px 12px", borderRadius: "8px", background: "rgba(0,0,0,0.4)",
+                            border: "1px solid rgba(234,179,8,0.3)", color: "#fff", fontSize: "0.85rem", outline: "none", boxSizing: "border-box"
+                          }}
+                        >
+                          <option value="" style={{ background: "#18181b" }}>-- Select Prime Player --</option>
+                          {transferSourceList.map(p => (
+                            <option key={p.id} value={p.id} style={{ background: "#18181b" }}>
+                              ⭐ {p.name} ({p.position}) · {p.validUntil}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Arrow indicator */}
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", margin: "-6px 0 -2px 0" }}>
+                      <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)", fontSize: "0.75rem" }}>
+                        <i className="fa-solid fa-arrow-down" />
+                      </div>
+                    </div>
+
+                    {/* Destination Player */}
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "#60a5fa", marginBottom: "6px", fontWeight: 700 }}>
+                        3. Target Player to Receive Prime (Transfer To)
+                      </label>
+                      {!primeClubId ? (
+                        <div style={{ padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", color: "var(--text-secondary)", fontSize: "0.78rem", textAlign: "center" }}>
+                          Select a club first
+                        </div>
+                      ) : transferDestList.length === 0 ? (
+                        <div style={{ padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-secondary)", fontSize: "0.78rem", textAlign: "center" }}>
+                          No available squad players
+                        </div>
+                      ) : (
+                        <select
+                          value={primeTransferDestId}
+                          onChange={(e) => setPrimeTransferDestId(e.target.value)}
+                          style={{
+                            width: "100%", padding: "9px 12px", borderRadius: "8px", background: "rgba(0,0,0,0.4)",
+                            border: "1px solid rgba(96,165,250,0.3)", color: "#fff", fontSize: "0.85rem", outline: "none", boxSizing: "border-box"
+                          }}
+                        >
+                          <option value="" style={{ background: "#18181b" }}>-- Select Target Player --</option>
+                          {transferDestList.map(p => (
+                            <option key={p.id} value={p.id} style={{ background: "#18181b" }}>
+                              {p.name} ({p.position}) · Base: {p.value || p.base_value} Coins
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Transfer RT fee */}
+                    <div style={{ padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ fontSize: "0.72rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                          <i className="fa-solid fa-coins" /> 4. RT Transfer Fee
+                        </label>
+                        <span style={{ fontSize: "0.75rem", color: "#eab308", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                          {Number(primeTransferRtCost) || 0} RT
+                        </span>
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={primeTransferRtCost}
+                          onChange={(e) => setPrimeTransferRtCost(Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="Enter RT transfer fee (e.g. 50)"
+                          style={{
+                            width: "100%", padding: "10px 14px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(234,179,8,0.3)",
+                            borderRadius: "8px", color: "#fff", fontSize: "0.9rem", fontWeight: 600, outline: "none", boxSizing: "border-box"
+                          }}
+                        />
+                        <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
+                          RT
+                        </span>
+                      </div>
+                      <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--text-secondary)" }}>
+                        Deducted from the manager's R2G Token wallet to transfer Prime status.
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isPending || !primeClubId || !primeTransferSourceId || !primeTransferDestId}
+                      style={{
+                        width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
+                        fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase",
+                        background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
+                        opacity: isPending || !primeClubId || !primeTransferSourceId || !primeTransferDestId ? 0.5 : 1,
+                        transition: "all 0.25s ease"
+                      }}
+                    >
+                      Transfer Prime Status ({primeTransferRtCost} RT)
+                    </button>
                   </form>
                 );
               })()}

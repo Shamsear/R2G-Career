@@ -11,6 +11,7 @@ import {
   fetchRegisteredClubs,
   fetchAdminPlayersList,
   primePlayerForTeam,
+  transferPlayerPrime,
   removePlayerPrime,
   fetchPrimedPlayersList
 } from "@/utils/solo/serverActions";
@@ -20,6 +21,9 @@ export default function AdminPrimeManager() {
   const [clubs, setClubs] = useState<any[]>([]);
   const [allPlayers, setAllPlayers] = useState<any[]>([]);
   const [primedPlayers, setPrimedPlayers] = useState<any[]>([]);
+
+  // Mode: Assign new Prime vs Transfer existing Prime
+  const [activeMode, setActiveMode] = useState<"assign" | "transfer">("assign");
 
   // Selected Club State (Custom Dropdown)
   const [selectedClubId, setSelectedClubId] = useState<string>("");
@@ -46,10 +50,15 @@ export default function AdminPrimeManager() {
     }
   };
 
-  // Selected Players for Priming (Multi-select)
+  // Assign Mode State
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [playerSearch, setPlayerSearch] = useState<string>("");
   const [rtCost, setRtCost] = useState<number>(50);
+
+  // Transfer Mode State
+  const [transferSourcePlayerId, setTransferSourcePlayerId] = useState<string>("");
+  const [transferDestPlayerId, setTransferDestPlayerId] = useState<string>("");
+  const [transferRtCost, setTransferRtCost] = useState<number>(50);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -217,6 +226,52 @@ export default function AdminPrimeManager() {
     });
   };
 
+  // Transfer Mode: Source players (primed players belonging to the selected club)
+  const transferSourcePlayers = useMemo(() => {
+    if (!selectedClubId) return primedPlayers;
+    return primedPlayers.filter(p => String(p.clubId) === selectedClubId || p.clubName === selectedClub?.name);
+  }, [primedPlayers, selectedClubId, selectedClub]);
+
+  // Transfer Mode: Destination players (unprimed players belonging to the selected club)
+  const transferDestPlayers = useMemo(() => {
+    return allPlayers.filter((p) => {
+      let matchClub = true;
+      if (selectedClubId) {
+        matchClub = String(p.clubId) === selectedClubId || p.clubName === selectedClub?.name;
+      }
+      const isAlreadyPrimed = primedPlayers.some(pp => pp.id === p.id);
+      return matchClub && !isAlreadyPrimed;
+    });
+  }, [allPlayers, selectedClubId, selectedClub, primedPlayers]);
+
+  const handleTransferPrime = async () => {
+    if (!selectedClubId) return showToast("Please select a franchise/club first!");
+    if (!transferSourcePlayerId) return showToast("Please choose the current Prime player to transfer from!");
+    if (!transferDestPlayerId) return showToast("Please choose the target player to receive Prime!");
+    if (transferSourcePlayerId === transferDestPlayerId) return showToast("Source and destination cannot be the same player!");
+
+    startTransition(async () => {
+      try {
+        const res = await transferPlayerPrime(
+          Number(transferSourcePlayerId),
+          Number(transferDestPlayerId),
+          Number(selectedClubId),
+          transferRtCost
+        );
+        if (res.success) {
+          showToast(`Prime transferred successfully for 1 Season! (${res.validUntil})`);
+          setTransferSourcePlayerId("");
+          setTransferDestPlayerId("");
+          loadData();
+        } else {
+          showToast(res.error || "Failed to transfer Prime status.");
+        }
+      } catch (err: any) {
+        showToast(err?.message || "Error transferring Prime status!");
+      }
+    });
+  };
+
   return (
     <div className="portal-root-wrapper">
       <div className="portal-bg-grid" />
@@ -260,10 +315,48 @@ export default function AdminPrimeManager() {
           
           {/* Left Column: Selector Form & Player Checklist */}
           <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "16px", padding: "1.75rem" }}>
-            <h3 style={{ fontSize: "1.05rem", color: "#fff", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font-display)" }}>
-              <i className="fa-solid fa-square-plus" style={{ color: "#eab308" }} />
-              Prime Player Console
-            </h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h3 style={{ fontSize: "1.05rem", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font-display)" }}>
+                <i className="fa-solid fa-square-plus" style={{ color: "#eab308" }} />
+                Prime Player Console
+              </h3>
+              <div style={{ display: "flex", background: "rgba(0,0,0,0.4)", borderRadius: "8px", padding: "3px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("assign")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    background: activeMode === "assign" ? "linear-gradient(135deg, #eab308, #ca8a04)" : "transparent",
+                    color: activeMode === "assign" ? "#000" : "rgba(255,255,255,0.6)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <i className="fa-solid fa-plus" style={{ marginRight: "4px" }} /> Assign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("transfer")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    background: activeMode === "transfer" ? "linear-gradient(135deg, #eab308, #ca8a04)" : "transparent",
+                    color: activeMode === "transfer" ? "#000" : "rgba(255,255,255,0.6)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <i className="fa-solid fa-repeat" style={{ marginRight: "4px" }} /> Transfer
+                </button>
+              </div>
+            </div>
 
             {/* Step 1: Franchise custom dropdown */}
             <div style={{ marginBottom: "1.25rem", position: "relative" }} data-club-dropdown>
@@ -288,7 +381,7 @@ export default function AdminPrimeManager() {
                     <i className="fa-solid fa-shield-halved" style={{ color: "#eab308", fontSize: "0.85rem" }} />
                   )}
                   <strong style={{ fontWeight: selectedClubId ? 600 : 400, color: selectedClubId ? "#fff" : "rgba(255,255,255,0.4)" }}>
-                    {selectedClub ? selectedClub.name : "-- Choose franchise --"}
+                    {selectedClub ? selectedClub.name : (activeMode === "transfer" ? "-- Choose franchise (Required) --" : "-- Choose franchise --")}
                   </strong>
                 </div>
                 <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
@@ -323,16 +416,24 @@ export default function AdminPrimeManager() {
                     />
                   </div>
                   <div style={{ maxHeight: "200px", overflowY: "auto" }}>
-                    <div
-                      onClick={() => { setSelectedClubId(""); setClubDropdownOpen(false); setSelectedPlayerIds([]); }}
-                      style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", fontSize: "0.82rem" }}
-                    >
-                      All Clubs / All Players
-                    </div>
+                    {activeMode !== "transfer" && (
+                      <div
+                        onClick={() => { setSelectedClubId(""); setClubDropdownOpen(false); setSelectedPlayerIds([]); }}
+                        style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", fontSize: "0.82rem" }}
+                      >
+                        All Clubs / All Players
+                      </div>
+                    )}
                     {filteredClubs.map(c => (
                       <div
                         key={c.id}
-                        onClick={() => { setSelectedClubId(c.id.toString()); setClubDropdownOpen(false); setSelectedPlayerIds([]); }}
+                        onClick={() => {
+                          setSelectedClubId(c.id.toString());
+                          setClubDropdownOpen(false);
+                          setSelectedPlayerIds([]);
+                          setTransferSourcePlayerId("");
+                          setTransferDestPlayerId("");
+                        }}
                         style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.02)", fontSize: "0.82rem" }}
                       >
                         {c.logo_path && <img src={c.logo_path} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} />}
@@ -345,135 +446,263 @@ export default function AdminPrimeManager() {
               )}
             </div>
 
-            {/* Step 2: Player Selection List with checklist */}
-            <div style={{ marginBottom: "1.5rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
-                  2. Choose players ({selectedPlayerIds.length} selected)
-                </label>
-                {filteredPlayers.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    style={{ background: "none", border: "none", color: "#eab308", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700, padding: 0 }}
-                  >
-                    {filteredPlayers.every(p => selectedPlayerIds.includes(p.id)) ? "Deselect All" : "Select All"}
-                  </button>
-                )}
-              </div>
-
-              {/* Mini Search inside player checklist */}
-              <input
-                type="text"
-                placeholder="Quick search players by name / position..."
-                value={playerSearch}
-                onChange={(e) => setPlayerSearch(e.target.value)}
-                style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.82rem", outline: "none", marginBottom: "10px", boxSizing: "border-box" }}
-              />
-
-              <div style={{ maxHeight: "300px", overflowY: "auto", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "10px", padding: "4px" }}>
-                {loading ? (
-                  <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem" }}>Loading players list...</div>
-                ) : filteredPlayers.length === 0 ? (
-                  <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.8rem" }}>
-                    No players matching the filters.
-                  </div>
-                ) : (
-                  filteredPlayers.map((p) => {
-                    const isChecked = selectedPlayerIds.includes(p.id);
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => handleTogglePlayer(p.id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", cursor: "pointer",
-                          background: isChecked ? "rgba(234,179,8,0.05)" : "transparent",
-                          borderBottom: "1px solid rgba(255,255,255,0.03)", transition: "all 0.2s"
-                        }}
+            {/* ASSIGN MODE */}
+            {activeMode === "assign" ? (
+              <>
+                {/* Step 2: Player Selection List with checklist */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                      2. Choose players ({selectedPlayerIds.length} selected)
+                    </label>
+                    {filteredPlayers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        style={{ background: "none", border: "none", color: "#eab308", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700, padding: 0 }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}} // toggled by row click
-                          style={{ cursor: "pointer", accentColor: "#eab308" }}
-                        />
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                          {p.image_path ? (
-                            <img src={p.image_path} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} />
-                          ) : (
-                            <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>
-                              {p.name.slice(0,2).toUpperCase()}
-                            </div>
-                          )}
-                          <div>
-                            <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem" }}>{p.name}</div>
-                            <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{p.position} · {p.clubName || "Free Agent"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                        {filteredPlayers.every(p => selectedPlayerIds.includes(p.id)) ? "Deselect All" : "Select All"}
+                      </button>
+                    )}
+                  </div>
 
-            {/* Step 3: RT Cost Configuration */}
-            <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-                  <i className="fa-solid fa-coins" /> 3. RT Deduction Cost Per Player
-                </label>
-                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-mono)" }}>
-                  Total: <strong style={{ color: "#eab308" }}>{selectedPlayerIds.length * (Number(rtCost) || 0)} RT</strong>
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ position: "relative", flex: 1 }}>
+                  {/* Mini Search inside player checklist */}
                   <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={rtCost}
-                    onChange={(e) => setRtCost(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="Enter RT cost (e.g. 50)"
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      background: "rgba(0,0,0,0.4)",
-                      border: "1px solid rgba(234,179,8,0.3)",
-                      borderRadius: "8px",
-                      color: "#fff",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      outline: "none",
-                      boxSizing: "border-box"
-                    }}
+                    type="text"
+                    placeholder="Quick search players by name / position..."
+                    value={playerSearch}
+                    onChange={(e) => setPlayerSearch(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.82rem", outline: "none", marginBottom: "10px", boxSizing: "border-box" }}
                   />
-                  <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
-                    RT
-                  </span>
-                </div>
-              </div>
-              <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
-                Deducted from the manager's R2G Token wallet. Card type and base value remain untouched.
-              </div>
-            </div>
 
-            {/* Action Buttons */}
-            <button
-              type="button"
-              onClick={handlePrimeSelected}
-              disabled={isPending || selectedPlayerIds.length === 0}
-              style={{
-                width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
-                fontWeight: 700, fontSize: "0.85rem", fontFamily: "var(--font-display)", textTransform: "uppercase",
-                background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
-                opacity: isPending || selectedPlayerIds.length === 0 ? 0.5 : 1, transition: "all 0.25s ease",
-                boxShadow: selectedPlayerIds.length > 0 ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
-              }}
-            >
-              <i className="fa-solid fa-crown" style={{ marginRight: "6px" }} /> Prime Selected Players ({selectedPlayerIds.length})
-            </button>
+                  <div style={{ maxHeight: "300px", overflowY: "auto", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "10px", padding: "4px" }}>
+                    {loading ? (
+                      <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem" }}>Loading players list...</div>
+                    ) : filteredPlayers.length === 0 ? (
+                      <div style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.8rem" }}>
+                        No players matching the filters.
+                      </div>
+                    ) : (
+                      filteredPlayers.map((p) => {
+                        const isChecked = selectedPlayerIds.includes(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => handleTogglePlayer(p.id)}
+                            style={{
+                              display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", cursor: "pointer",
+                              background: isChecked ? "rgba(234,179,8,0.05)" : "transparent",
+                              borderBottom: "1px solid rgba(255,255,255,0.03)", transition: "all 0.2s"
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}} // toggled by row click
+                              style={{ cursor: "pointer", accentColor: "#eab308" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                              {p.image_path ? (
+                                <img src={p.image_path} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "rgba(255,255,255,0.4)" }}>
+                                  {p.name.slice(0,2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem" }}>{p.name}</div>
+                                <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)" }}>{p.position} · {p.clubName || "Free Agent"}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Step 3: RT Cost Configuration */}
+                <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                      <i className="fa-solid fa-coins" /> 3. RT Deduction Cost Per Player
+                    </label>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-mono)" }}>
+                      Total: <strong style={{ color: "#eab308" }}>{selectedPlayerIds.length * (Number(rtCost) || 0)} RT</strong>
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={rtCost}
+                        onChange={(e) => setRtCost(Math.max(0, parseInt(e.target.value) || 0))}
+                        placeholder="Enter RT cost (e.g. 50)"
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          background: "rgba(0,0,0,0.4)",
+                          border: "1px solid rgba(234,179,8,0.3)",
+                          borderRadius: "8px",
+                          color: "#fff",
+                          fontSize: "0.9rem",
+                          fontWeight: 600,
+                          outline: "none",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                      <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
+                        RT
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                    Deducted from the manager's R2G Token wallet. Card type and base value remain untouched.
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <button
+                  type="button"
+                  onClick={handlePrimeSelected}
+                  disabled={isPending || selectedPlayerIds.length === 0}
+                  style={{
+                    width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
+                    fontWeight: 700, fontSize: "0.85rem", fontFamily: "var(--font-display)", textTransform: "uppercase",
+                    background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
+                    opacity: isPending || selectedPlayerIds.length === 0 ? 0.5 : 1, transition: "all 0.25s ease",
+                    boxShadow: selectedPlayerIds.length > 0 ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
+                  }}
+                >
+                  <i className="fa-solid fa-crown" style={{ marginRight: "6px" }} /> Prime Selected Players ({selectedPlayerIds.length})
+                </button>
+              </>
+            ) : (
+              /* TRANSFER MODE */
+              <div>
+                {/* Source Prime Player */}
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", marginBottom: "6px", fontWeight: 700 }}>
+                    2. Select Current Primed Player (Transfer From)
+                  </label>
+                  {!selectedClubId ? (
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", textAlign: "center" }}>
+                      Please select a franchise first.
+                    </div>
+                  ) : transferSourcePlayers.length === 0 ? (
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", color: "#f87171", fontSize: "0.8rem", textAlign: "center" }}>
+                      This club currently has no Primed players to transfer from.
+                    </div>
+                  ) : (
+                    <select
+                      value={transferSourcePlayerId}
+                      onChange={(e) => setTransferSourcePlayerId(e.target.value)}
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "8px", background: "rgba(0,0,0,0.4)",
+                        border: "1px solid rgba(234,179,8,0.3)", color: "#fff", fontSize: "0.88rem", outline: "none", boxSizing: "border-box"
+                      }}
+                    >
+                      <option value="" style={{ background: "#18181b" }}>-- Select Prime Player --</option>
+                      {transferSourcePlayers.map(p => (
+                        <option key={p.id} value={p.id} style={{ background: "#18181b" }}>
+                          ⭐ {p.name} ({p.position}) · {p.validUntil}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Transfer Arrow Indicator */}
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", margin: "-6px 0 10px 0" }}>
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)" }}>
+                    <i className="fa-solid fa-arrow-down" />
+                  </div>
+                </div>
+
+                {/* Destination Player */}
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "#60a5fa", marginBottom: "6px", fontWeight: 700 }}>
+                    3. Select New Player to Receive Prime (Transfer To)
+                  </label>
+                  {!selectedClubId ? (
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", textAlign: "center" }}>
+                      Please select a franchise first.
+                    </div>
+                  ) : transferDestPlayers.length === 0 ? (
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", textAlign: "center" }}>
+                      No available squad players found for this club.
+                    </div>
+                  ) : (
+                    <select
+                      value={transferDestPlayerId}
+                      onChange={(e) => setTransferDestPlayerId(e.target.value)}
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: "8px", background: "rgba(0,0,0,0.4)",
+                        border: "1px solid rgba(96,165,250,0.3)", color: "#fff", fontSize: "0.88rem", outline: "none", boxSizing: "border-box"
+                      }}
+                    >
+                      <option value="" style={{ background: "#18181b" }}>-- Select Destination Player --</option>
+                      {transferDestPlayers.map(p => (
+                        <option key={p.id} value={p.id} style={{ background: "#18181b" }}>
+                          {p.name} ({p.position}) · Base: {p.value || p.base_value} Coins
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* RT Transfer Fee */}
+                <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                      <i className="fa-solid fa-coins" /> 4. RT Transfer Fee
+                    </label>
+                    <span style={{ fontSize: "0.75rem", color: "#eab308", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                      {Number(transferRtCost) || 0} RT
+                    </span>
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={transferRtCost}
+                      onChange={(e) => setTransferRtCost(Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="Enter RT transfer fee (e.g. 50)"
+                      style={{
+                        width: "100%", padding: "10px 14px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(234,179,8,0.3)",
+                        borderRadius: "8px", color: "#fff", fontSize: "0.9rem", fontWeight: 600, outline: "none", boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
+                      RT
+                    </span>
+                  </div>
+                  <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                    Deducted from the manager's R2G Token wallet to reassign Prime status.
+                  </div>
+                </div>
+
+                {/* Submit Transfer Button */}
+                <button
+                  type="button"
+                  onClick={handleTransferPrime}
+                  disabled={isPending || !selectedClubId || !transferSourcePlayerId || !transferDestPlayerId}
+                  style={{
+                    width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
+                    fontWeight: 700, fontSize: "0.85rem", fontFamily: "var(--font-display)", textTransform: "uppercase",
+                    background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
+                    opacity: isPending || !selectedClubId || !transferSourcePlayerId || !transferDestPlayerId ? 0.5 : 1,
+                    transition: "all 0.25s ease",
+                    boxShadow: selectedClubId && transferSourcePlayerId && transferDestPlayerId ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
+                  }}
+                >
+                  <i className="fa-solid fa-repeat" style={{ marginRight: "6px" }} /> Transfer Prime Status ({transferRtCost} RT)
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Active Primed Players List */}
