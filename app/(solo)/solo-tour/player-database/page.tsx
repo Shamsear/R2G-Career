@@ -239,15 +239,17 @@ export default function PlayerStatus() {
       try {
         setLoadingMsg("Loading players...");
         const data = await fetchPlayersDb();
-        data.sort((a: any, b: any) => {
-          if (a.value !== b.value) return b.value - a.value;
-          return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        const sorted = (data || []).slice().sort((a: any, b: any) => {
+          const valA = Number(a.value) || 0;
+          const valB = Number(b.value) || 0;
+          if (valA !== valB) return valB - valA;
+          return (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase());
         });
-        setPlayers(data);
+        setPlayers(sorted);
       } catch (err) {
         console.error(err);
       } finally {
-        setTimeout(() => setLoading(false), 500);
+        setTimeout(() => setLoading(false), 300);
       }
     }
     loadData();
@@ -275,19 +277,24 @@ export default function PlayerStatus() {
   };
 
   const filteredPlayers = useMemo(() => {
+    const term = (searchTerm || "").trim().toLowerCase();
     return players.filter((player) => {
-      if (searchTerm && !player.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        return false;
+      if (term) {
+        const nameMatch = (player.name || "").toLowerCase().includes(term);
+        const clubMatch = (player.club || "").toLowerCase().includes(term);
+        const posMatch = (player.position || "").toLowerCase().includes(term);
+        if (!nameMatch && !clubMatch && !posMatch) return false;
+      }
       if (starFilter !== "all") {
-        const baseVal = player.value || 0;
-        if (starFilter === "legend" && baseVal < 150) return false;
+        const baseVal = Number(player.value) || 0;
+        if (starFilter === "legend" && player.star !== "legend" && baseVal < 150) return false;
         if (starFilter === "5-star" && (baseVal < 120 || baseVal >= 150)) return false;
         if (starFilter === "4-star" && (baseVal < 100 || baseVal >= 120)) return false;
         if (starFilter === "3-star" && baseVal >= 100) return false;
       }
       if (clubFilter !== "ALL" && player.club !== clubFilter) return false;
       if (positionFilters.length > 0) {
-        const pos = player.position.split(",").map((p: string) => p.trim());
+        const pos = (player.position || "").split(",").map((p: string) => p.trim());
         if (!pos.some((p: string) => positionFilters.includes(p))) return false;
       }
       return true;
@@ -295,6 +302,13 @@ export default function PlayerStatus() {
   }, [players, searchTerm, starFilter, clubFilter, positionFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / itemsPerPage));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
   const currentPlayers = filteredPlayers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage

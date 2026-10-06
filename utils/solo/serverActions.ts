@@ -594,30 +594,25 @@ export async function fetchPlayerById(id: string | number) {
         const playerId = parseInt(id.toString(), 10);
         if (isNaN(playerId)) return null;
 
+        const activeSeason = await fetchActiveSeason();
+        const seasonId = activeSeason ? activeSeason.id : 7;
+
         const { rows: playerResult } = await pool.query(`
             SELECT 
                 p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagePath,
                 c.name as club_name, pc.salary, pc.start_season, pc.expire_season, pc.status as contract_status,
                 pss.status_type as tier_status, pss.valid_until
             FROM players p
-            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
+            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active' AND pc.season_id = $2
             LEFT JOIN clubs c ON pc.current_club_id = c.id
-            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id
+            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id AND pss.season_id = $2
             WHERE p.id = $1
             LIMIT 1
-        `, [playerId]);
+        `, [playerId, seasonId]);
 
         if (playerResult.length === 0) return null;
 
         const p = playerResult[0];
-
-        const { rows: activeSeasonResult } = await pool.query(`
-            SELECT season_number, is_mid_season
-            FROM seasons
-            ORDER BY season_number DESC
-            LIMIT 1
-        `);
-        const activeSeason = activeSeasonResult[0] || { season_number: 9, is_mid_season: false };
 
         // Fetch all contract/history timeline entries
         const { rows: historyContracts } = await pool.query(`
@@ -647,18 +642,18 @@ export async function fetchPlayerById(id: string | number) {
             name: p.name,
             club: p.club_name || 'FREE AGENT',
             position: p.position || '',
-            value: p.value || 0,
+            value: Number(p.value) || 0,
             star: p.star || '3-star-standard',
             level: p.tier_status || 'undefined',
-            imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
+            imagePath: resolvePlayerImageUrl(p.imagePath, p.id),
             salary: p.salary || 0,
             startSeason: p.start_season || '',
             expireSeason: p.expire_season || '',
             contractStatus: p.contract_status || '',
             validUntil: p.valid_until || '',
             stats: stats,
-            activeSeasonNumber: Number(activeSeason.season_number) || 9,
-            activeSeasonIsMid: !!activeSeason.is_mid_season
+            activeSeasonNumber: Number(activeSeason?.season_number) || 10,
+            activeSeasonIsMid: !!activeSeason?.is_mid_season
         };
     } catch (error) {
         console.error("Error fetching player by ID:", error);
@@ -668,22 +663,26 @@ export async function fetchPlayerById(id: string | number) {
 
 export async function fetchPlayersDb() {
     try {
+        const activeSeason = await fetchActiveSeason();
+        const seasonId = activeSeason ? activeSeason.id : 7;
+
         const { rows: playersResult } = await pool.query(`
             SELECT 
                 p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagepath, p.updated_at,
                 c.name as club_name, pc.status, pss.status_type as tier_status
             FROM players p
-            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
+            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active' AND pc.season_id = $1
             LEFT JOIN clubs c ON pc.current_club_id = c.id
-            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id AND LOWER(pss.status_type) = 'prime'
-        `);
+            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id AND LOWER(pss.status_type) = 'prime' AND pss.season_id = $1
+            ORDER BY p.name ASC
+        `, [seasonId]);
         
         return playersResult.map((p: any) => ({
             id: p.id,
             name: p.name,
             club: p.club_name || 'FREE AGENT',
             position: p.position || '',
-            value: p.value || 0,
+            value: Number(p.value) || 0,
             star: p.tier_status === 'Prime' || p.star === 'legend' ? 'legend' : (p.star || '3-star-standard'),
             level: 'undefined',
             imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
