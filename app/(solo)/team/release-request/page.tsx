@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../solo-tour/admin/admin.css";
 import "../../../portal.css";
@@ -26,6 +27,10 @@ export default function PublicReleasePage() {
   // Custom dropdown states
   const [clubDropdownOpen, setClubDropdownOpen] = useState(false);
   const [clubSearch, setClubSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [clubPos, setClubPos] = useState({ top: 0, left: 0, width: 280 });
+  const clubTriggerRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -37,6 +42,22 @@ export default function PublicReleasePage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const updateClubPosition = () => {
+    if (clubTriggerRef.current) {
+      const rect = clubTriggerRef.current.getBoundingClientRect();
+      const targetWidth = rect.width;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 260 > window.innerHeight && rect.top > 260) {
+        top = Math.max(10, rect.top - 266);
+      }
+      setClubPos({ top, left, width: targetWidth });
+    }
+  };
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -45,6 +66,7 @@ export default function PublicReleasePage() {
         fetchActiveSeason(),
         fetchRegisteredClubs()
       ]);
+
       setActiveWindow(windowData);
       setActiveSeason(seasonData);
       setClubs(clubsData || []);
@@ -56,17 +78,41 @@ export default function PublicReleasePage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     loadInitialData();
 
     // Click outside listener to close custom dropdown
     const clickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest("[data-club-dd]")) {
+      const target = e.target as Node;
+      if (
+        clubTriggerRef.current && !clubTriggerRef.current.contains(target) &&
+        clubMenuRef.current && !clubMenuRef.current.contains(target)
+      ) {
         setClubDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", clickOutside);
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
+
+  useEffect(() => {
+    if (clubDropdownOpen) {
+      updateClubPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-club-menu]")) {
+          return;
+        }
+        updateClubPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateClubPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateClubPosition);
+      };
+    }
+  }, [clubDropdownOpen]);
 
   // Load squad players & history when club is selected
   const loadSquadAndHistory = async (clubId: string) => {
@@ -294,11 +340,12 @@ export default function PublicReleasePage() {
             </div>
 
             {/* Franchise selector custom dropdown */}
-            <div style={{ marginBottom: "1.5rem", position: "relative", zIndex: clubDropdownOpen ? 100 : 20 }} data-club-dd>
+            <div style={{ marginBottom: "1.5rem", position: "relative" }} data-club-dd>
               <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: "6px", fontWeight: 600 }}>
                 Select Your Team / Club
               </label>
               <div
+                ref={clubTriggerRef}
                 style={{
                   padding: "12px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)",
                   color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
@@ -318,8 +365,24 @@ export default function PublicReleasePage() {
                 <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
               </div>
 
-              {clubDropdownOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+              {clubDropdownOpen && mounted && typeof document !== "undefined" && createPortal(
+                <div
+                  ref={clubMenuRef}
+                  data-club-menu
+                  style={{
+                    position: "fixed",
+                    top: `${clubPos.top}px`,
+                    left: `${clubPos.left}px`,
+                    width: `${clubPos.width}px`,
+                    maxWidth: "calc(100vw - 20px)",
+                    zIndex: 999999,
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                    boxShadow: "0 14px 40px rgba(0,0,0,0.85), 0 0 20px rgba(168,85,247,0.2)"
+                  }}
+                >
                   <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"
@@ -328,6 +391,7 @@ export default function PublicReleasePage() {
                       onChange={(e) => setClubSearch(e.target.value)}
                       style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.8rem", outline: "none", boxSizing: "border-box" }}
                       onClick={(e) => e.stopPropagation()}
+                      autoFocus
                     />
                   </div>
                   <div style={{ maxHeight: "200px", overflowY: "auto" }}>
@@ -342,7 +406,8 @@ export default function PublicReleasePage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -20,20 +21,59 @@ export default function RwsNomineesManager() {
   const [isPending, startTransition] = useTransition();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 240 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updateDropdownPosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 240);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 240 > window.innerHeight && rect.top > 240) {
+        top = Math.max(10, rect.top - 246);
+      }
+      setDropdownPos({ top, left, width: targetWidth });
+    }
+  };
 
   useEffect(() => {
+    setMounted(true);
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        menuRef.current && !menuRef.current.contains(target)
+      ) {
         setDropdownOpen(false);
       }
     }
-    if (dropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      updateDropdownPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-nominee-menu]")) return;
+        updateDropdownPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateDropdownPosition);
+      };
+    }
   }, [dropdownOpen]);
 
   const [nomineeForm, setNomineeForm] = useState({
@@ -218,8 +258,9 @@ export default function RwsNomineesManager() {
                     const selectedClubObj = clubs.find(c => c.id.toString() === nomineeForm.clubId);
 
                     return (
-                      <div ref={dropdownRef} style={{ position: "relative" }}>
+                      <div style={{ position: "relative" }}>
                         <button 
+                          ref={triggerRef}
                           type="button"
                           className="admin-select"
                           style={{ 
@@ -237,7 +278,10 @@ export default function RwsNomineesManager() {
                             color: "#fff",
                             height: "34px"
                           }}
-                          onClick={() => setDropdownOpen(!dropdownOpen)}
+                          onClick={() => {
+                            updateDropdownPosition();
+                            setDropdownOpen(!dropdownOpen);
+                          }}
                         >
                           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {selectedClubObj ? `${selectedClubObj.r2g_id || '—'} (${selectedClubObj.manager})` : "-- Select Club --"}
@@ -245,20 +289,24 @@ export default function RwsNomineesManager() {
                           <i className={`fa-solid fa-chevron-${dropdownOpen ? 'up' : 'down'}`} style={{ opacity: 0.5, fontSize: "0.75rem", marginLeft: "8px" }} />
                         </button>
 
-                        {dropdownOpen && (
-                          <div style={{ 
-                            position: "absolute", 
-                            top: "40px", 
-                            left: 0, 
-                            right: 0, 
-                            background: "#242427", 
-                            border: "1px solid rgba(255,255,255,0.25)", 
-                            borderRadius: "8px", 
-                            zIndex: 9999, 
-                            padding: "6px",
-                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.7)", 
-                            minWidth: "220px"
-                          }}>
+                        {mounted && dropdownOpen && createPortal(
+                          <div
+                            ref={menuRef}
+                            data-nominee-menu
+                            style={{ 
+                              position: "fixed", 
+                              top: `${dropdownPos.top}px`, 
+                              left: `${dropdownPos.left}px`, 
+                              width: `${dropdownPos.width}px`, 
+                              background: "#242427", 
+                              border: "1px solid rgba(255,255,255,0.25)", 
+                              borderRadius: "8px", 
+                              zIndex: 999999, 
+                              padding: "6px",
+                              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.7)", 
+                              boxSizing: "border-box"
+                            }}
+                          >
                             <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", padding: "4px 8px", marginBottom: "6px" }}>
                               <i className="fa-solid fa-magnifying-glass" style={{ opacity: 0.4, fontSize: "0.75rem", marginRight: "6px" }} />
                               <input 
@@ -320,7 +368,8 @@ export default function RwsNomineesManager() {
                                 ))
                               )}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     );

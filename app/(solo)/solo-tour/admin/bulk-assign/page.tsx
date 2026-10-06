@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo, useCallback } from "react";
+import { useEffect, useState, useTransition, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -46,6 +47,26 @@ export default function BulkAssignPlayersPage() {
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [clubDropdownOpen, setClubDropdownOpen] = useState<boolean>(false);
   const [clubDropdownSearch, setClubDropdownSearch] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
+  const [clubPos, setClubPos] = useState({ top: 0, left: 0, width: 280 });
+  const clubTriggerRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
+
+  const updateClubPosition = () => {
+    if (clubTriggerRef.current) {
+      const rect = clubTriggerRef.current.getBoundingClientRect();
+      const targetWidth = rect.width;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 280 > window.innerHeight && rect.top > 280) {
+        top = Math.max(10, rect.top - 286);
+      }
+      setClubPos({ top, left, width: targetWidth });
+    }
+  };
 
   // Selected Players & Individual Contract Mapping
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
@@ -75,6 +96,7 @@ export default function BulkAssignPlayersPage() {
 
   // Restore filters from sessionStorage
   useEffect(() => {
+    setMounted(true);
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -84,7 +106,36 @@ export default function BulkAssignPlayersPage() {
         if (parsed.positionFilter !== undefined) setPositionFilter(parsed.positionFilter);
       }
     } catch (e) {}
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        clubTriggerRef.current && !clubTriggerRef.current.contains(target) &&
+        clubMenuRef.current && !clubMenuRef.current.contains(target)
+      ) {
+        setClubDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (clubDropdownOpen) {
+      updateClubPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-bulk-club-menu]")) return;
+        updateClubPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateClubPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateClubPosition);
+      };
+    }
+  }, [clubDropdownOpen]);
 
   // Save filters to sessionStorage
   useEffect(() => {
@@ -568,6 +619,7 @@ export default function BulkAssignPlayersPage() {
               <div className="admin-form-group" style={{ position: "relative", marginBottom: 0 }} data-club-dropdown="true">
                 <label className="admin-form-label" style={{ marginBottom: "6px" }}>Select Target Club</label>
                 <div
+                  ref={clubTriggerRef}
                   style={{
                     border: "1px solid var(--admin-input-border)",
                     borderRadius: "10px",
@@ -582,7 +634,10 @@ export default function BulkAssignPlayersPage() {
                     gap: "10px",
                     userSelect: "none"
                   }}
-                  onClick={() => setClubDropdownOpen(prev => !prev)}
+                  onClick={() => {
+                    updateClubPosition();
+                    setClubDropdownOpen(prev => !prev);
+                  }}
                 >
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "10px" }}>
                     {selectedClubId && (() => {
@@ -598,20 +653,21 @@ export default function BulkAssignPlayersPage() {
                   <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.8rem", opacity: 0.6, flexShrink: 0 }} />
                 </div>
 
-                {clubDropdownOpen && (
+                {mounted && clubDropdownOpen && createPortal(
                   <div
+                    ref={clubMenuRef}
+                    data-bulk-club-menu
                     style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      zIndex: 100,
+                      position: "fixed",
+                      top: `${clubPos.top}px`,
+                      left: `${clubPos.left}px`,
+                      width: `${clubPos.width}px`,
+                      zIndex: 999999,
                       background: "#181d28",
                       border: "1px solid var(--admin-accent-border)",
                       borderRadius: "12px",
-                      boxShadow: "0 16px 40px rgba(0,0,0,0.6)",
+                      boxShadow: "0 16px 40px rgba(0,0,0,0.75)",
                       overflow: "hidden",
-                      marginTop: "6px",
                       animation: "adminFadeIn 0.2s ease"
                     }}
                   >
@@ -690,7 +746,8 @@ export default function BulkAssignPlayersPage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
 

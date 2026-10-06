@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../solo-tour/admin/admin.css";
 import "../../../portal.css";
@@ -27,6 +28,10 @@ export default function PublicTransfersLogPage() {
   // Custom dropdown
   const [clubDDOpen, setClubDDOpen] = useState(false);
   const [clubSearch, setClubSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [clubPos, setClubPos] = useState({ top: 0, left: 0, width: 280 });
+  const clubTriggerRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -35,6 +40,22 @@ export default function PublicTransfersLogPage() {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const updateClubPosition = () => {
+    if (clubTriggerRef.current) {
+      const rect = clubTriggerRef.current.getBoundingClientRect();
+      const targetWidth = rect.width;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 240 > window.innerHeight && rect.top > 240) {
+        top = Math.max(10, rect.top - 246);
+      }
+      setClubPos({ top, left, width: targetWidth });
+    }
   };
 
   const loadData = async () => {
@@ -58,16 +79,38 @@ export default function PublicTransfersLogPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     loadData();
 
     const clickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest("[data-club-dd]")) {
+      const target = e.target as Node;
+      if (
+        clubTriggerRef.current && !clubTriggerRef.current.contains(target) &&
+        clubMenuRef.current && !clubMenuRef.current.contains(target)
+      ) {
         setClubDDOpen(false);
       }
     };
     document.addEventListener("mousedown", clickOutside);
     return () => document.removeEventListener("mousedown", clickOutside);
   }, []);
+
+  useEffect(() => {
+    if (clubDDOpen) {
+      updateClubPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-club-menu]")) return;
+        updateClubPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateClubPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateClubPosition);
+      };
+    }
+  }, [clubDDOpen]);
 
   const selectedClubObj = useMemo(() => clubs.find(c => String(c.id) === selectedClubId), [clubs, selectedClubId]);
   const filteredDropdownClubs = useMemo(() => clubs.filter(c => c.name.toLowerCase().includes(clubSearch.toLowerCase())), [clubs, clubSearch]);
@@ -167,14 +210,18 @@ export default function PublicTransfersLogPage() {
           
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
             {/* Custom dropdown: Choose club */}
-            <div style={{ position: "relative", zIndex: clubDDOpen ? 60 : 10 }} data-club-dd>
+            <div style={{ position: "relative" }} data-club-dd>
               <label style={{ display: "block", fontSize: "0.7rem", color: "var(--text-secondary)", marginBottom: "4px", textTransform: "uppercase" }}>Filter by Club</label>
               <div
+                ref={clubTriggerRef}
                 style={{
                   padding: "10px 12px", borderRadius: "8px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)",
                   color: "#fff", fontSize: "0.82rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
                 }}
-                onClick={() => setClubDDOpen(prev => !prev)}
+                onClick={() => {
+                  updateClubPosition();
+                  setClubDDOpen(prev => !prev);
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {selectedClubObj?.logo_path && <img src={selectedClubObj.logo_path} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
@@ -185,8 +232,23 @@ export default function PublicTransfersLogPage() {
                 <i className={`fa-solid fa-chevron-${clubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6 }} />
               </div>
 
-              {clubDDOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+              {mounted && clubDDOpen && createPortal(
+                <div
+                  ref={clubMenuRef}
+                  data-club-menu
+                  style={{
+                    position: "fixed",
+                    top: `${clubPos.top}px`,
+                    left: `${clubPos.left}px`,
+                    width: `${clubPos.width}px`,
+                    zIndex: 999999,
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                    boxShadow: "0 12px 36px rgba(0,0,0,0.75)"
+                  }}
+                >
                   <div style={{ padding: "6px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"
@@ -195,9 +257,10 @@ export default function PublicTransfersLogPage() {
                       onChange={(e) => setClubSearch(e.target.value)}
                       style={{ width: "100%", padding: "6px 10px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", color: "#fff", fontSize: "0.78rem", outline: "none", boxSizing: "border-box" }}
                       onClick={(e) => e.stopPropagation()}
+                      autoFocus
                     />
                   </div>
-                  <div style={{ maxHeight: "160px", overflowY: "auto" }}>
+                  <div style={{ maxHeight: "180px", overflowY: "auto" }}>
                     <div
                       onClick={() => { setSelectedClubId(""); setClubDDOpen(false); }}
                       style={{ padding: "8px 12px", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}
@@ -215,7 +278,8 @@ export default function PublicTransfersLogPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
 

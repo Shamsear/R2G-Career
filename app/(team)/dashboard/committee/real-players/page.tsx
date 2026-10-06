@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getSeasonById } from '@/lib/firebase/seasons';
 import { Season } from '@/types/season';
@@ -53,7 +54,49 @@ export default function RealPlayersPage() {
   const [updateCounter, setUpdateCounter] = useState(0);
   const [dropdownSearchTerms, setDropdownSearchTerms] = useState<Map<string, string>>(new Map());
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 250 });
+  const [mounted, setMounted] = useState(false);
   const dropdownRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const dropdownMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updateDropdownPos = (teamId: string) => {
+    const trigger = dropdownRefs.current.get(teamId);
+    if (trigger) {
+      const rect = trigger.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 260);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 4;
+      if (top + 250 > window.innerHeight && rect.top > 250) {
+        top = Math.max(10, rect.top - 256);
+      }
+      setDropdownPos({ top, left, width: targetWidth });
+    }
+  };
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      updateDropdownPos(dropdownOpen);
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-portal-menu]")) return;
+        updateDropdownPos(dropdownOpen);
+      };
+      const handleResize = () => updateDropdownPos(dropdownOpen);
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+  }, [dropdownOpen]);
 
   // Quick assign state
   const [quickAssignPlayer, setQuickAssignPlayer] = useState<Player | null>(null);
@@ -78,7 +121,11 @@ export default function RealPlayersPage() {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownOpen) {
         const dropdownElement = dropdownRefs.current.get(dropdownOpen);
-        if (dropdownElement && !dropdownElement.contains(event.target as Node)) {
+        const menuElement = dropdownMenuRef.current;
+        if (
+          dropdownElement && !dropdownElement.contains(event.target as Node) &&
+          menuElement && !menuElement.contains(event.target as Node)
+        ) {
           setDropdownOpen(null);
         }
       }
@@ -1223,8 +1270,24 @@ export default function RealPlayersPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                               </svg>
 
-                              {dropdownOpen === team.id && availablePlayers.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {mounted && dropdownOpen === team.id && availablePlayers.length > 0 && createPortal(
+                                <div
+                                  ref={dropdownMenuRef}
+                                  data-portal-menu="true"
+                                  style={{
+                                    position: "fixed",
+                                    top: `${dropdownPos.top}px`,
+                                    left: `${dropdownPos.left}px`,
+                                    width: `${dropdownPos.width}px`,
+                                    maxHeight: "240px",
+                                    overflowY: "auto",
+                                    background: "#ffffff",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "8px",
+                                    boxShadow: "0 12px 36px rgba(0,0,0,0.25)",
+                                    zIndex: 999999
+                                  }}
+                                >
                                   {availablePlayers
                                     .filter(p => {
                                       const searchTerm = (dropdownSearchTerms.get(team.id) || '').toLowerCase();
@@ -1277,7 +1340,8 @@ export default function RealPlayersPage() {
                                         No players found
                                       </div>
                                     )}
-                                </div>
+                                </div>,
+                                document.body
                               )}
                             </div>
                           )}

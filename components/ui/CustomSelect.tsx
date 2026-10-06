@@ -223,6 +223,14 @@ export default function CustomSelect({
     }
   }, [focusedIndex, isOpen]);
 
+  const renderIcon = (ic?: string, isSel?: boolean, size: number = 18) => {
+    if (!ic) return null;
+    if (ic.startsWith("/") || ic.startsWith("http")) {
+      return <img src={ic} alt="" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} />;
+    }
+    return <i className={ic} style={{ fontSize: `${Math.round(size * 0.45)}px`, color: isSel ? "#fbbf24" : "#c084fc", flexShrink: 0 }} />;
+  };
+
   const menuContent = isOpen && (
     <div
       ref={dropdownRef}
@@ -326,8 +334,8 @@ export default function CustomSelect({
                 opacity: opt.disabled ? 0.5 : 1
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                {opt.icon && <i className={opt.icon} style={{ fontSize: "0.7rem", color: isSelected ? "#fbbf24" : "#c084fc" }} />}
+              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {renderIcon(opt.icon, isSelected, 18)}
                 {opt.label}
               </span>
               {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem", color: "#fbbf24" }} />}
@@ -377,7 +385,7 @@ export default function CustomSelect({
           </span>
         )}
         <span style={{ color: "#fbbf24", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-          {icon && <i className={icon} style={{ fontSize: "0.65rem", color: "#c084fc" }} />}
+          {renderIcon(selectedOption?.icon || icon, false, 16)}
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <i

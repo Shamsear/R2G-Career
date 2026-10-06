@@ -161,20 +161,59 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [uploadingLogosMap, setUploadingLogosMap] = useState<Record<number, boolean>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 240 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updateDropdownPosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 240);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 280 > window.innerHeight && rect.top > 280) {
+        top = Math.max(10, rect.top - 286);
+      }
+      setDropdownPos({ top, left, width: targetWidth });
+    }
+  };
 
   useEffect(() => {
+    setMounted(true);
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        menuRef.current && !menuRef.current.contains(target)
+      ) {
         setDropdownOpen(false);
       }
     }
-    if (dropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      updateDropdownPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-tourney-teams-menu]")) return;
+        updateDropdownPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateDropdownPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateDropdownPosition);
+      };
+    }
   }, [dropdownOpen]);
   const [useExistingClubToAdd, setUseExistingClubToAdd] = useState(true);
   const [customTeamNameToAdd, setCustomTeamNameToAdd] = useState("");
@@ -1929,10 +1968,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     );
 
                     return (
-                      <div ref={dropdownRef} style={{ position: "relative", flex: 1 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
                         <button 
+                          ref={triggerRef}
                           type="button"
-                          onClick={() => setDropdownOpen(!dropdownOpen)}
+                          onClick={() => {
+                            updateDropdownPosition();
+                            setDropdownOpen(!dropdownOpen);
+                          }}
                           className="admin-select"
                           style={{ 
                             textAlign: "left", 
@@ -1956,20 +1999,24 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           <i className="fa-solid fa-chevron-down" style={{ fontSize: "0.75rem", opacity: 0.7 }} />
                         </button>
 
-                        {dropdownOpen && (
-                          <div style={{ 
-                            position: "absolute", 
-                            top: "40px", 
-                            left: 0, 
-                            right: 0, 
-                            background: "#242427", 
-                            border: "1px solid rgba(255,255,255,0.25)", 
-                            borderRadius: "8px", 
-                            zIndex: 9999, 
-                            padding: "6px",
-                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.7)", 
-                            minWidth: "240px"
-                          }}>
+                        {mounted && dropdownOpen && createPortal(
+                          <div
+                            ref={menuRef}
+                            data-tourney-teams-menu
+                            style={{ 
+                              position: "fixed", 
+                              top: `${dropdownPos.top}px`, 
+                              left: `${dropdownPos.left}px`, 
+                              width: `${dropdownPos.width}px`, 
+                              background: "#242427", 
+                              border: "1px solid rgba(255,255,255,0.25)", 
+                              borderRadius: "8px", 
+                              zIndex: 999999, 
+                              padding: "6px",
+                              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.7)", 
+                              boxSizing: "border-box"
+                            }}
+                          >
                             <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "6px", padding: "4px 8px", marginBottom: "6px" }}>
                               <i className="fa-solid fa-magnifying-glass" style={{ opacity: 0.4, fontSize: "0.75rem", marginRight: "6px" }} />
                               <input 
@@ -2044,8 +2091,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                         borderRadius: "4px", 
                                         padding: "6px 8px", 
                                         color: isChecked ? "#fbbf24" : "#ccc", 
-                                        cursor: "pointer",
-                                        textAlign: "left",
+                                        cursor: "pointer", 
+                                        textAlign: "left", 
                                         fontSize: "0.75rem", 
                                         transition: "background 0.15s ease"
                                       }}
@@ -2071,7 +2118,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 })
                               )}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     );

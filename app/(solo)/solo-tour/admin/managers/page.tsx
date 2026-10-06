@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -62,6 +63,58 @@ export default function ClubsManager() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState("");
   const [managerSearchQuery, setManagerSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [countryPos, setCountryPos] = useState({ top: 0, left: 0, width: 250 });
+  const countryTriggerRef = useRef<HTMLButtonElement>(null);
+  const countryMenuRef = useRef<HTMLDivElement>(null);
+
+  const updateCountryPosition = () => {
+    if (countryTriggerRef.current) {
+      const rect = countryTriggerRef.current.getBoundingClientRect();
+      const targetWidth = 250;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 240 > window.innerHeight && rect.top > 240) {
+        top = Math.max(10, rect.top - 246);
+      }
+      setCountryPos({ top, left, width: targetWidth });
+    }
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        countryTriggerRef.current && !countryTriggerRef.current.contains(target) &&
+        countryMenuRef.current && !countryMenuRef.current.contains(target)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isDropdownOpen) {
+      updateCountryPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-country-menu]")) return;
+        updateCountryPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateCountryPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateCountryPosition);
+      };
+    }
+  }, [isDropdownOpen]);
 
   const [clubForm, setClubForm] = useState({
     id: "",
@@ -672,6 +725,7 @@ export default function ClubsManager() {
                         {/* Custom Searchable Country Code Dropdown */}
                         <div style={{ position: "relative", width: "120px", flexShrink: 0, zIndex: 999 }}>
                           <button
+                            ref={countryTriggerRef}
                             type="button"
                             className="admin-input"
                             style={{ 
@@ -691,109 +745,91 @@ export default function ClubsManager() {
                             <i className="fa-solid fa-chevron-down" style={{ fontSize: "0.7rem", opacity: 0.6 }} />
                           </button>
 
-                          {isDropdownOpen && (
-                            <>
-                              {/* Fullscreen Backdrop click-outside handle */}
-                              <div 
+                          {mounted && isDropdownOpen && createPortal(
+                            <div 
+                              ref={countryMenuRef}
+                              data-country-menu="true"
+                              style={{ 
+                                position: "fixed", 
+                                top: `${countryPos.top}px`, 
+                                left: `${countryPos.left}px`, 
+                                width: `${countryPos.width}px`, 
+                                maxHeight: "240px", 
+                                overflowY: "auto", 
+                                background: "#161b22", 
+                                border: "1px solid rgba(255, 255, 255, 0.15)", 
+                                borderRadius: "8px", 
+                                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.8)", 
+                                zIndex: 999999, 
+                                padding: "8px" 
+                              }}
+                            >
+                              {/* Search input */}
+                              <input 
+                                type="text" 
+                                className="admin-input"
                                 style={{ 
-                                  position: "fixed", 
-                                  top: 0, 
-                                  left: 0, 
-                                  right: 0, 
-                                  bottom: 0, 
-                                  zIndex: 998,
-                                  background: "transparent"
-                                }} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsDropdownOpen(false);
-                                  setCountrySearchQuery("");
-                                }} 
+                                  width: "100%", 
+                                  padding: "6px 10px", 
+                                  fontSize: "0.8rem", 
+                                  marginBottom: "6px",
+                                  background: "#0d1117"
+                                }}
+                                placeholder="Search country / code..."
+                                value={countrySearchQuery}
+                                onChange={(e) => setCountrySearchQuery(e.target.value)}
+                                autoFocus
                               />
                               
-                              {/* Dropdown Menu Option list overlay */}
-                              <div 
-                                style={{ 
-                                  position: "absolute", 
-                                  top: "calc(100% + 4px)", 
-                                  left: 0, 
-                                  width: "250px", 
-                                  maxHeight: "220px", 
-                                  overflowY: "auto", 
-                                  background: "#161b22", 
-                                  border: "1px solid rgba(255, 255, 255, 0.15)", 
-                                  borderRadius: "6px", 
-                                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)", 
-                                  zIndex: 999,
-                                  padding: "6px"
-                                }}
-                              >
-                                {/* Search input */}
-                                <input 
-                                  type="text" 
-                                  className="admin-input"
-                                  style={{ 
-                                    width: "100%", 
-                                    padding: "6px 10px", 
-                                    fontSize: "0.8rem", 
-                                    marginBottom: "6px",
-                                    background: "#0d1117"
-                                  }}
-                                  placeholder="Search country / code..."
-                                  value={countrySearchQuery}
-                                  onChange={(e) => setCountrySearchQuery(e.target.value)}
-                                  autoFocus
-                                />
-                                
-                                {/* Scrollable List */}
-                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                  {countriesList
-                                    .filter(c => 
-                                      c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) ||
-                                      c.code.includes(countrySearchQuery)
-                                    )
-                                    .map(c => (
-                                      <button
-                                        key={c.code + c.name}
-                                        type="button"
-                                        style={{
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "space-between",
-                                          width: "100%",
-                                          padding: "8px 10px",
-                                          background: "transparent",
-                                          border: "none",
-                                          borderRadius: "4px",
-                                          color: "#fff",
-                                          fontSize: "0.82rem",
-                                          textAlign: "left",
-                                          cursor: "pointer",
-                                          transition: "background 0.2s"
-                                        }}
-                                        onClick={() => {
-                                          setSelectedCountryCode(c.code);
-                                          setIsDropdownOpen(false);
-                                          setCountrySearchQuery("");
-                                        }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)")}
-                                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                      >
-                                        <span>{c.flag} {c.name}</span>
-                                        <span style={{ color: "#a855f7", fontWeight: 600 }}>{c.code}</span>
-                                      </button>
-                                    ))}
-                                  {countriesList.filter(c => 
+                              {/* Scrollable List */}
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                {countriesList
+                                  .filter(c => 
                                     c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) ||
                                     c.code.includes(countrySearchQuery)
-                                  ).length === 0 && (
-                                    <div style={{ padding: "10px", fontSize: "0.75rem", color: "#8b949e", textAlign: "center" }}>
-                                      No matches found
-                                    </div>
-                                  )}
-                                </div>
+                                  )
+                                  .map(c => (
+                                    <button
+                                      key={c.code + c.name}
+                                      type="button"
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        width: "100%",
+                                        padding: "8px 10px",
+                                        background: "transparent",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        color: "#fff",
+                                        fontSize: "0.82rem",
+                                        textAlign: "left",
+                                        cursor: "pointer",
+                                        transition: "background 0.2s"
+                                      }}
+                                      onClick={() => {
+                                        setSelectedCountryCode(c.code);
+                                        setIsDropdownOpen(false);
+                                        setCountrySearchQuery("");
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                      <span>{c.flag} {c.name}</span>
+                                      <span style={{ color: "#a855f7", fontWeight: 600 }}>{c.code}</span>
+                                    </button>
+                                  ))}
+                                {countriesList.filter(c => 
+                                  c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) ||
+                                  c.code.includes(countrySearchQuery)
+                                ).length === 0 && (
+                                  <div style={{ padding: "10px", fontSize: "0.75rem", color: "#8b949e", textAlign: "center" }}>
+                                    No matches found
+                                  </div>
+                                )}
                               </div>
-                            </>
+                            </div>,
+                            document.body
                           )}
                         </div>
 

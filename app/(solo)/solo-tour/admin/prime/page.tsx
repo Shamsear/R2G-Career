@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -24,6 +25,26 @@ export default function AdminPrimeManager() {
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [clubDropdownOpen, setClubDropdownOpen] = useState<boolean>(false);
   const [clubDropdownSearch, setClubDropdownSearch] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
+  const [clubPos, setClubPos] = useState({ top: 0, left: 0, width: 280 });
+  const clubTriggerRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
+
+  const updateClubPosition = () => {
+    if (clubTriggerRef.current) {
+      const rect = clubTriggerRef.current.getBoundingClientRect();
+      const targetWidth = rect.width;
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 260 > window.innerHeight && rect.top > 260) {
+        top = Math.max(10, rect.top - 266);
+      }
+      setClubPos({ top, left, width: targetWidth });
+    }
+  };
 
   // Selected Players for Priming (Multi-select)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
@@ -61,18 +82,39 @@ export default function AdminPrimeManager() {
   };
 
   useEffect(() => {
+    setMounted(true);
     loadData();
 
     // Close dropdown on click outside
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Element;
-      if (!target.closest("[data-club-dropdown]")) {
+      const target = e.target as Node;
+      if (
+        clubTriggerRef.current && !clubTriggerRef.current.contains(target) &&
+        clubMenuRef.current && !clubMenuRef.current.contains(target)
+      ) {
         setClubDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (clubDropdownOpen) {
+      updateClubPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-prime-club-menu]")) return;
+        updateClubPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateClubPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateClubPosition);
+      };
+    }
+  }, [clubDropdownOpen]);
 
   const selectedClub = useMemo(() => {
     return clubs.find(c => String(c.id) === selectedClubId);
@@ -219,11 +261,15 @@ export default function AdminPrimeManager() {
                 1. Select franchise / club
               </label>
               <div
+                ref={clubTriggerRef}
                 style={{
                   padding: "12px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)",
                   color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
                 }}
-                onClick={() => setClubDropdownOpen(prev => !prev)}
+                onClick={() => {
+                  updateClubPosition();
+                  setClubDropdownOpen(prev => !prev);
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   {selectedClub?.logo_path ? (
@@ -238,8 +284,23 @@ export default function AdminPrimeManager() {
                 <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
               </div>
 
-              {clubDropdownOpen && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+              {mounted && clubDropdownOpen && createPortal(
+                <div
+                  ref={clubMenuRef}
+                  data-prime-club-menu
+                  style={{
+                    position: "fixed",
+                    top: `${clubPos.top}px`,
+                    left: `${clubPos.left}px`,
+                    width: `${clubPos.width}px`,
+                    zIndex: 999999,
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                    boxShadow: "0 12px 36px rgba(0,0,0,0.75)"
+                  }}
+                >
                   <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <input
                       type="text"
@@ -248,12 +309,13 @@ export default function AdminPrimeManager() {
                       onChange={(e) => setClubDropdownSearch(e.target.value)}
                       style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.8rem", outline: "none", boxSizing: "border-box" }}
                       onClick={(e) => e.stopPropagation()}
+                      autoFocus
                     />
                   </div>
                   <div style={{ maxHeight: "200px", overflowY: "auto" }}>
                     <div
                       onClick={() => { setSelectedClubId(""); setClubDropdownOpen(false); setSelectedPlayerIds([]); }}
-                      style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", hover: { background: "rgba(255,255,255,0.03)" }, fontSize: "0.82rem" }}
+                      style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", fontSize: "0.82rem" }}
                     >
                       All Clubs / All Players
                     </div>
@@ -268,7 +330,8 @@ export default function AdminPrimeManager() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
 

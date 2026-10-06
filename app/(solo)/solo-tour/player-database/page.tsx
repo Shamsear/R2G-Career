@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../portal.css";
 import "./player-database.css";
@@ -36,20 +37,101 @@ export default function PlayerStatus() {
   const [starDropdownOpen, setStarDropdownOpen] = useState(false);
   const [starSearch, setStarSearch] = useState("");
 
+  const [mounted, setMounted] = useState(false);
+  const [starPos, setStarPos] = useState({ top: 0, left: 0, width: 200 });
+  const [clubPos, setClubPos] = useState({ top: 0, left: 0, width: 220 });
+  const starTriggerRef = useRef<HTMLDivElement>(null);
+  const starMenuRef = useRef<HTMLDivElement>(null);
+  const clubTriggerRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
+
+  const updateStarPosition = () => {
+    if (starTriggerRef.current) {
+      const rect = starTriggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 180);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 280 > window.innerHeight && rect.top > 280) {
+        top = Math.max(10, rect.top - 286);
+      }
+      setStarPos({ top, left, width: targetWidth });
+    }
+  };
+
+  const updateClubPosition = () => {
+    if (clubTriggerRef.current) {
+      const rect = clubTriggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 220);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 6;
+      if (top + 280 > window.innerHeight && rect.top > 280) {
+        top = Math.max(10, rect.top - 286);
+      }
+      setClubPos({ top, left, width: targetWidth });
+    }
+  };
+
   // Close custom dropdowns on outside click
   useEffect(() => {
+    setMounted(true);
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Element;
-      if (!target.closest("[data-club-filter-dropdown]")) {
-        setClubDropdownOpen(false);
-      }
-      if (!target.closest("[data-star-filter-dropdown]")) {
+      const target = e.target as Node;
+      if (
+        starTriggerRef.current && !starTriggerRef.current.contains(target) &&
+        starMenuRef.current && !starMenuRef.current.contains(target)
+      ) {
         setStarDropdownOpen(false);
+      }
+      if (
+        clubTriggerRef.current && !clubTriggerRef.current.contains(target) &&
+        clubMenuRef.current && !clubMenuRef.current.contains(target)
+      ) {
+        setClubDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (starDropdownOpen) {
+      updateStarPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-star-menu]")) return;
+        updateStarPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateStarPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateStarPosition);
+      };
+    }
+  }, [starDropdownOpen]);
+
+  useEffect(() => {
+    if (clubDropdownOpen) {
+      updateClubPosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-club-menu]")) return;
+        updateClubPosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updateClubPosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updateClubPosition);
+      };
+    }
+  }, [clubDropdownOpen]);
 
   const isPopStateRef = useRef(false);
 
@@ -499,8 +581,12 @@ export default function PlayerStatus() {
             {/* CUSTOM SEARCHABLE TIER DROPDOWN */}
             <div className={`custom-filter-dropdown ${starDropdownOpen ? "dropdown-active" : ""}`} data-star-filter-dropdown="true">
               <div
+                ref={starTriggerRef}
                 className="custom-dropdown-trigger"
-                onClick={() => setStarDropdownOpen(prev => !prev)}
+                onClick={() => {
+                  updateStarPosition();
+                  setStarDropdownOpen(prev => !prev);
+                }}
               >
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
                   <i className="fa-solid fa-layer-group" style={{ color: "var(--solo-primary)", fontSize: "0.8rem" }} />
@@ -509,8 +595,20 @@ export default function PlayerStatus() {
                 <i className={`fa-solid fa-chevron-${starDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
               </div>
 
-              {starDropdownOpen && (
-                <div className="custom-dropdown-menu">
+              {mounted && starDropdownOpen && createPortal(
+                <div
+                  ref={starMenuRef}
+                  data-star-menu
+                  className="custom-dropdown-menu"
+                  style={{
+                    position: "fixed",
+                    top: `${starPos.top}px`,
+                    left: `${starPos.left}px`,
+                    width: `${starPos.width}px`,
+                    zIndex: 999999,
+                    margin: 0
+                  }}
+                >
                   <div className="custom-dropdown-search">
                     <input
                       type="text"
@@ -547,15 +645,20 @@ export default function PlayerStatus() {
                       </div>
                     )}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
 
             {/* CUSTOM SEARCHABLE CLUB DROPDOWN */}
             <div className={`custom-filter-dropdown ${clubDropdownOpen ? "dropdown-active" : ""}`} data-club-filter-dropdown="true">
               <div
+                ref={clubTriggerRef}
                 className="custom-dropdown-trigger"
-                onClick={() => setClubDropdownOpen(prev => !prev)}
+                onClick={() => {
+                  updateClubPosition();
+                  setClubDropdownOpen(prev => !prev);
+                }}
               >
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
                   {clubFilter === "FREE AGENT" ? (
@@ -575,8 +678,20 @@ export default function PlayerStatus() {
                 <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
               </div>
 
-              {clubDropdownOpen && (
-                <div className="custom-dropdown-menu">
+              {mounted && clubDropdownOpen && createPortal(
+                <div
+                  ref={clubMenuRef}
+                  data-club-menu
+                  className="custom-dropdown-menu"
+                  style={{
+                    position: "fixed",
+                    top: `${clubPos.top}px`,
+                    left: `${clubPos.left}px`,
+                    width: `${clubPos.width}px`,
+                    zIndex: 999999,
+                    margin: 0
+                  }}
+                >
                   <div className="custom-dropdown-search">
                     <input
                       type="text"
@@ -627,7 +742,8 @@ export default function PlayerStatus() {
                       </div>
                     )}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           </div>

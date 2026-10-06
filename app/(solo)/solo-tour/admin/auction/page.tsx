@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -23,6 +24,468 @@ import {
   fetchPrimedPlayersList,
   fetchAdminPlayersList
 } from "@/utils/solo/serverActions";
+
+function AdminClubDropdown({
+  clubs,
+  selectedClubId,
+  onSelect,
+  placeholder = "-- Select Club --",
+  excludeClubId,
+  showAllOption = false,
+  allOptionLabel = "All Clubs",
+  style
+}: {
+  clubs: any[];
+  selectedClubId: string;
+  onSelect: (clubId: string) => void;
+  placeholder?: string;
+  excludeClubId?: string;
+  showAllOption?: boolean;
+  allOptionLabel?: string;
+  style?: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 220 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        menuRef.current && !menuRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const updatePosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 220);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 4;
+      if (top + 240 > window.innerHeight && rect.top > 240) {
+        top = Math.max(10, rect.top - 246);
+      }
+      setPos({ top, left, width: targetWidth });
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      updatePosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-portal-menu]")) return;
+        updatePosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [open]);
+
+  const selectedClub = clubs.find(c => c.id.toString() === selectedClubId);
+  const filteredClubs = clubs
+    .filter(c => !excludeClubId || c.id.toString() !== excludeClubId)
+    .filter(c => search === "" || c.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div style={{ position: "relative", width: "100%", ...style }}>
+      <div
+        ref={triggerRef}
+        onClick={() => {
+          if (!open) {
+            updatePosition();
+            setSearch("");
+          }
+          setOpen(prev => !prev);
+        }}
+        style={{
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: "8px",
+          background: "rgba(255,255,255,0.04)",
+          cursor: "pointer",
+          padding: "9px 12px",
+          fontSize: "0.85rem",
+          color: selectedClubId ? "#fff" : "rgba(255,255,255,0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+          userSelect: "none"
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {selectedClub && (
+            (selectedClub.image || selectedClub.logo_path)
+              ? <img src={selectedClub.image || selectedClub.logo_path} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} />
+              : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />
+          )}
+          {selectedClub ? selectedClub.name : placeholder}
+        </span>
+        <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+      </div>
+
+      {mounted && open && createPortal(
+        <div
+          ref={menuRef}
+          data-portal-menu="true"
+          style={{
+            position: "fixed",
+            top: `${pos.top}px`,
+            left: `${pos.left}px`,
+            width: `${pos.width}px`,
+            maxHeight: "240px",
+            background: "#161b22",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "10px",
+            boxShadow: "0 12px 36px rgba(0,0,0,0.7)",
+            overflow: "hidden",
+            zIndex: 999999,
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "#0d1117" }}>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search club..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "6px",
+                padding: "6px 10px",
+                fontSize: "0.8rem",
+                color: "#fff",
+                outline: "none",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+          <div style={{ maxHeight: "190px", overflowY: "auto" }}>
+            {showAllOption && (
+              <div
+                onClick={() => {
+                  onSelect("");
+                  setOpen(false);
+                  setSearch("");
+                }}
+                style={{
+                  padding: "9px 14px",
+                  cursor: "pointer",
+                  color: selectedClubId === "" ? "#0066ff" : "rgba(255,255,255,0.7)",
+                  fontSize: "0.85rem",
+                  borderBottom: "1px solid rgba(255,255,255,0.05)"
+                }}
+              >
+                {allOptionLabel}
+              </div>
+            )}
+            {filteredClubs.map(c => {
+              const isSelected = selectedClubId === c.id.toString();
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    onSelect(c.id.toString());
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  style={{
+                    padding: "9px 14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    background: isSelected ? "rgba(0,102,255,0.12)" : "transparent",
+                    borderLeft: isSelected ? "3px solid #0066ff" : "3px solid transparent",
+                    fontSize: "0.85rem",
+                    color: isSelected ? "#0066ff" : "#fff",
+                    transition: "background 0.12s"
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                  }}
+                >
+                  {(c.image || c.logo_path) ? (
+                    <img src={c.image || c.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
+                  ) : (
+                    <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+                  )}
+                  {c.name}
+                </div>
+              );
+            })}
+            {filteredClubs.length === 0 && (
+              <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>
+                No clubs found
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function AdminPlayerAuctionDropdown({
+  freeAgents,
+  selectedPlayerId,
+  onSelect,
+  getPositionColor
+}: {
+  freeAgents: any[];
+  selectedPlayerId: string;
+  onSelect: (playerId: string) => void;
+  getPositionColor: (pos: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [posFilter, setPosFilter] = useState("ALL");
+  const [mounted, setMounted] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 260 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        menuRef.current && !menuRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const updatePosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const targetWidth = Math.max(rect.width, 280);
+      let left = rect.left;
+      if (left + targetWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      }
+      let top = rect.bottom + 4;
+      if (top + 280 > window.innerHeight && rect.top > 280) {
+        top = Math.max(10, rect.top - 286);
+      }
+      setPos({ top, left, width: targetWidth });
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      updatePosition();
+      const handleScroll = (e: Event) => {
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-portal-menu]")) return;
+        updatePosition();
+      };
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [open]);
+
+  const selectedPlayer = freeAgents.find(x => x.id.toString() === selectedPlayerId);
+  const filteredPlayers = freeAgents.filter(p =>
+    (posFilter === "ALL" || p.position === posFilter) &&
+    (search === "" || p.name.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <div
+        ref={triggerRef}
+        onClick={() => {
+          if (!open) {
+            updatePosition();
+            setSearch("");
+          }
+          setOpen(prev => !prev);
+        }}
+        style={{
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: "8px",
+          background: "rgba(255,255,255,0.04)",
+          cursor: "pointer",
+          padding: "9px 12px",
+          fontSize: "0.85rem",
+          color: selectedPlayerId ? "#fff" : "rgba(255,255,255,0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+          userSelect: "none"
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {selectedPlayer ? `${selectedPlayer.name} (${selectedPlayer.position})` : "-- Choose Player --"}
+        </span>
+        <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+      </div>
+
+      {mounted && open && createPortal(
+        <div
+          ref={menuRef}
+          data-portal-menu="true"
+          style={{
+            position: "fixed",
+            top: `${pos.top}px`,
+            left: `${pos.left}px`,
+            width: `${pos.width}px`,
+            maxHeight: "300px",
+            background: "#161b22",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "10px",
+            boxShadow: "0 12px 36px rgba(0,0,0,0.7)",
+            overflow: "hidden",
+            zIndex: 999999,
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
+          {/* Position filter chips */}
+          <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", flexWrap: "wrap", gap: "5px", background: "#0d1117" }}>
+            {["ALL", "GK", "CB", "LB", "RB", "DM", "CM", "AM", "LW", "RW", "ST", "FW"].map(pos => (
+              <button
+                key={pos}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPosFilter(pos); }}
+                style={{
+                  padding: "2px 7px",
+                  borderRadius: "16px",
+                  fontSize: "0.68rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  border: `1px solid ${posFilter === pos ? getPositionColor(pos === "ALL" ? "CM" : pos) : "rgba(255,255,255,0.15)"}`,
+                  background: posFilter === pos ? `${getPositionColor(pos === "ALL" ? "CM" : pos)}22` : "transparent",
+                  color: posFilter === pos ? getPositionColor(pos === "ALL" ? "CM" : pos) : "rgba(255,255,255,0.5)",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                {pos}
+              </button>
+            ))}
+          </div>
+
+          {/* Search bar */}
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "#0d1117" }}>
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search player name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "6px",
+                padding: "6px 10px",
+                fontSize: "0.8rem",
+                color: "#fff",
+                outline: "none",
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+
+          {/* Player list */}
+          <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+            {filteredPlayers.map(p => {
+              const isSelected = selectedPlayerId === p.id.toString();
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => {
+                    onSelect(p.id.toString());
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    background: isSelected ? "rgba(0,102,255,0.12)" : "transparent",
+                    borderLeft: isSelected ? "3px solid #0066ff" : "3px solid transparent",
+                    transition: "background 0.12s ease"
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      minWidth: "32px",
+                      textAlign: "center",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontSize: "0.68rem",
+                      fontWeight: "700",
+                      background: `${getPositionColor(p.position)}22`,
+                      color: getPositionColor(p.position),
+                      border: `1px solid ${getPositionColor(p.position)}44`
+                    }}
+                  >
+                    {p.position}
+                  </span>
+                  <span style={{ flex: 1, fontSize: "0.85rem", color: isSelected ? "#0066ff" : "#fff" }}>
+                    {p.name}
+                  </span>
+                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)" }}>
+                    {p.star ? p.star.replace("-", " ") : ""}
+                  </span>
+                </div>
+              );
+            })}
+            {filteredPlayers.length === 0 && (
+              <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>
+                No players found
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
 
 export default function AuctionManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
@@ -797,280 +1260,24 @@ export default function AuctionManager() {
                   </h2>
                   <form onSubmit={handleRapidAssign}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                      <div className="admin-form-group" style={{ position: "relative" }} data-player-dropdown="true">
+                      <div className="admin-form-group">
                         <label>Select Player</label>
-                        {/* Custom searchable player dropdown */}
-                        <div
-                          style={{
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: "8px",
-                            background: "rgba(255,255,255,0.04)",
-                            cursor: "pointer",
-                            padding: "9px 12px",
-                            fontSize: "0.85rem",
-                            color: selectedPlayerId ? "#fff" : "rgba(255,255,255,0.4)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: "8px",
-                            userSelect: "none"
-                          }}
-                          onClick={() => setPlayerDropdownOpen(prev => !prev)}
-                        >
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {selectedPlayerId
-                              ? (() => { const p = freeAgents.find(x => x.id.toString() === selectedPlayerId); return p ? `${p.name} (${p.position})` : "-- Choose Player --"; })()
-                              : "-- Choose Player --"}
-                          </span>
-                          <i className={`fa-solid fa-chevron-${playerDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                        </div>
-
-                        {playerDropdownOpen && (
-                          <div style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            right: 0,
-                            zIndex: 100,
-                            background: "#1a1f2e",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: "10px",
-                            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
-                            overflow: "hidden",
-                            marginTop: "4px"
-                          }}>
-                            {/* Position filter chips */}
-                            <div style={{ padding: "10px 10px 6px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                              {["ALL", "GK", "CB", "LB", "RB", "DM", "CM", "AM", "LW", "RW", "ST", "FW"].map(pos => (
-                                <button
-                                  key={pos}
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); setPlayerPositionFilter(pos); }}
-                                  style={{
-                                    padding: "3px 9px",
-                                    borderRadius: "20px",
-                                    fontSize: "0.7rem",
-                                    fontWeight: "600",
-                                    cursor: "pointer",
-                                    border: `1px solid ${playerPositionFilter === pos ? getPositionColor(pos === "ALL" ? "CM" : pos) : "rgba(255,255,255,0.15)"}`,
-                                    background: playerPositionFilter === pos ? `${getPositionColor(pos === "ALL" ? "CM" : pos)}22` : "transparent",
-                                    color: playerPositionFilter === pos ? getPositionColor(pos === "ALL" ? "CM" : pos) : "rgba(255,255,255,0.5)",
-                                    transition: "all 0.15s ease"
-                                  }}
-                                >
-                                  {pos}
-                                </button>
-                              ))}
-                            </div>
-
-                            {/* Search bar */}
-                            <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                              <input
-                                type="text"
-                                autoFocus
-                                placeholder="Search player name..."
-                                value={playerDropdownSearch}
-                                onChange={(e) => setPlayerDropdownSearch(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  width: "100%",
-                                  background: "rgba(255,255,255,0.06)",
-                                  border: "1px solid rgba(255,255,255,0.1)",
-                                  borderRadius: "6px",
-                                  padding: "6px 10px",
-                                  fontSize: "0.8rem",
-                                  color: "#fff",
-                                  outline: "none",
-                                  boxSizing: "border-box"
-                                }}
-                              />
-                            </div>
-
-                            {/* Player list */}
-                            <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                              {freeAgents
-                                .filter(p =>
-                                  (playerPositionFilter === "ALL" || p.position === playerPositionFilter) &&
-                                  (playerDropdownSearch === "" || p.name.toLowerCase().includes(playerDropdownSearch.toLowerCase()))
-                                )
-                                .map(p => (
-                                  <div
-                                    key={p.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPlayerId(p.id.toString());
-                                      setPlayerDropdownOpen(false);
-                                      setPlayerDropdownSearch("");
-                                    }}
-                                    style={{
-                                      padding: "9px 12px",
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "10px",
-                                      background: selectedPlayerId === p.id.toString() ? "rgba(0,102,255,0.12)" : "transparent",
-                                      borderLeft: selectedPlayerId === p.id.toString() ? "3px solid #0066ff" : "3px solid transparent",
-                                      transition: "background 0.12s ease"
-                                    }}
-                                    onMouseEnter={(e) => { if (selectedPlayerId !== p.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                                    onMouseLeave={(e) => { if (selectedPlayerId !== p.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-                                  >
-                                    <span
-                                      style={{
-                                        display: "inline-block",
-                                        minWidth: "32px",
-                                        textAlign: "center",
-                                        padding: "2px 6px",
-                                        borderRadius: "4px",
-                                        fontSize: "0.68rem",
-                                        fontWeight: "700",
-                                        background: `${getPositionColor(p.position)}22`,
-                                        color: getPositionColor(p.position),
-                                        border: `1px solid ${getPositionColor(p.position)}44`
-                                      }}
-                                    >
-                                      {p.position}
-                                    </span>
-                                    <span style={{ flex: 1, fontSize: "0.85rem", color: selectedPlayerId === p.id.toString() ? "#0066ff" : "#fff" }}>
-                                      {p.name}
-                                    </span>
-                                    <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)" }}>
-                                      {p.star.replace("-", " ")}
-                                    </span>
-                                  </div>
-                                ))}
-                              {freeAgents.filter(p =>
-                                (playerPositionFilter === "ALL" || p.position === playerPositionFilter) &&
-                                (playerDropdownSearch === "" || p.name.toLowerCase().includes(playerDropdownSearch.toLowerCase()))
-                              ).length === 0 && (
-                                <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>
-                                  No players found
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <AdminPlayerAuctionDropdown
+                          freeAgents={freeAgents}
+                          selectedPlayerId={selectedPlayerId}
+                          onSelect={(id) => setSelectedPlayerId(id)}
+                          getPositionColor={getPositionColor}
+                        />
                       </div>
 
-                      <div className="admin-form-group" style={{ position: "relative" }} data-club-dropdown="true">
+                      <div className="admin-form-group">
                         <label>Select Bidding Club</label>
-                        {/* Custom searchable club dropdown */}
-                        <div
-                          style={{
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: "8px",
-                            background: "rgba(255,255,255,0.04)",
-                            cursor: "pointer",
-                            padding: "9px 12px",
-                            fontSize: "0.85rem",
-                            color: winningClubId ? "#fff" : "rgba(255,255,255,0.4)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: "8px",
-                            userSelect: "none"
-                          }}
-                          onClick={() => setClubDropdownOpen(prev => !prev)}
-                        >
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "8px" }}>
-                            {winningClubId && (() => {
-                              const c = clubs.find(c => c.id.toString() === winningClubId);
-                              return c?.image
-                                ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} />
-                                : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />;
-                            })()}
-                            {winningClubId
-                              ? (clubs.find(c => c.id.toString() === winningClubId)?.name ?? "-- Select Winner --")
-                              : "-- Select Winner --"}
-                          </span>
-                          <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                        </div>
-
-                        {clubDropdownOpen && (
-                          <div style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            right: 0,
-                            zIndex: 100,
-                            background: "#1a1f2e",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: "10px",
-                            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
-                            overflow: "hidden",
-                            marginTop: "4px"
-                          }}>
-                            {/* Search bar */}
-                            <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                              <input
-                                type="text"
-                                autoFocus
-                                placeholder="Search club name..."
-                                value={clubDropdownSearch}
-                                onChange={(e) => setClubDropdownSearch(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  width: "100%",
-                                  background: "rgba(255,255,255,0.06)",
-                                  border: "1px solid rgba(255,255,255,0.1)",
-                                  borderRadius: "6px",
-                                  padding: "6px 10px",
-                                  fontSize: "0.8rem",
-                                  color: "#fff",
-                                  outline: "none",
-                                  boxSizing: "border-box"
-                                }}
-                              />
-                            </div>
-
-                            {/* Club list */}
-                            <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                              {clubs
-                                .filter(c =>
-                                  clubDropdownSearch === "" ||
-                                  c.name.toLowerCase().includes(clubDropdownSearch.toLowerCase())
-                                )
-                                .map(c => (
-                                  <div
-                                    key={c.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setWinningClubId(c.id.toString());
-                                      setClubDropdownOpen(false);
-                                      setClubDropdownSearch("");
-                                    }}
-                                    style={{
-                                      padding: "9px 14px",
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "10px",
-                                      background: winningClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent",
-                                      borderLeft: winningClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent",
-                                      fontSize: "0.85rem",
-                                      color: winningClubId === c.id.toString() ? "#0066ff" : "#fff",
-                                      transition: "background 0.12s ease"
-                                    }}
-                                    onMouseEnter={(e) => { if (winningClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                                    onMouseLeave={(e) => { if (winningClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-                                  >
-                                    {c.image
-                                      ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
-                                      : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: winningClubId === c.id.toString() ? "#0066ff" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                                    {c.name}
-                                  </div>
-                                ))}
-                              {clubs.filter(c =>
-                                clubDropdownSearch === "" ||
-                                c.name.toLowerCase().includes(clubDropdownSearch.toLowerCase())
-                              ).length === 0 && (
-                                <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>
-                                  No clubs found
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <AdminClubDropdown
+                          clubs={clubs}
+                          selectedClubId={winningClubId}
+                          onSelect={(id) => setWinningClubId(id)}
+                          placeholder="-- Select Winner --"
+                        />
                       </div>
 
                       <div className="admin-form-group">
@@ -1194,35 +1401,18 @@ export default function AuctionManager() {
             {/* â-€â-€ Selling Club â-€â-€ */}
             <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
               <div className="sub-card-title">Selling Club</div>
-              <div className="admin-form-group" style={{ position: "relative" }} data-sell-club-dd="true">
+              <div className="admin-form-group">
                 <label>Select Club to Sell From</label>
-                <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                  onClick={() => setSellClubDDOpen(p => !p)}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {sellClubId && (() => { const c = clubs.find(c => c.id.toString() === sellClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                    {sellClubId ? (clubs.find(c => c.id.toString() === sellClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
-                  </span>
-                  <i className={`fa-solid fa-chevron-${sellClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                </div>
-                {sellClubDDOpen && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
-                    <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                      <input autoFocus type="text" placeholder="Search club..." value={sellClubDDSearch} onChange={e => setSellClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                      {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).map(c => (
-                        <div key={c.id} onClick={e => { e.stopPropagation(); setSellClubId(c.id.toString()); setSellClubDDOpen(false); setSellClubDDSearch(""); setSellSelectedPlayer(null); setSellBuyingClubId(""); }}
-                          style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                          onMouseEnter={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                          onMouseLeave={e => { if (sellClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
-                          {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                          {c.name}
-                        </div>
-                      ))}
-                      {clubs.filter(c => sellClubDDSearch === "" || c.name.toLowerCase().includes(sellClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
-                    </div>
-                  </div>
-                )}
+                <AdminClubDropdown
+                  clubs={clubs}
+                  selectedClubId={sellClubId}
+                  onSelect={(id) => {
+                    setSellClubId(id);
+                    setSellSelectedPlayer(null);
+                    setSellBuyingClubId("");
+                  }}
+                  placeholder="-- Select Club --"
+                />
               </div>
 
               {/* Player table -- appears after club selected */}
@@ -1303,35 +1493,15 @@ export default function AuctionManager() {
                 <div className="sub-card-title">Buying Club &amp; Price</div>
 
                 {/* Buying Club Dropdown */}
-                <div className="admin-form-group" style={{ position: "relative", marginBottom: "1rem" }} data-sell-buying-dd="true">
+                <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
                   <label>Buying Club</label>
-                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: sellBuyingClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                    onClick={() => setSellBuyingDDOpen(p => !p)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {sellBuyingClubId && (() => { const c = clubs.find(c => c.id.toString() === sellBuyingClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                      {sellBuyingClubId ? (clubs.find(c => c.id.toString() === sellBuyingClubId)?.name ?? "-- Select Buying Club --") : "-- Select Buying Club --"}
-                    </span>
-                    <i className={`fa-solid fa-chevron-${sellBuyingDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                  </div>
-                  {sellBuyingDDOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
-                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                        <input autoFocus type="text" placeholder="Search club..." value={sellBuyingDDSearch} onChange={e => setSellBuyingDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ maxHeight: "200px", overflowY: "auto" }}>
-                        {clubs.filter(c => c.id.toString() !== sellClubId && (sellBuyingDDSearch === "" || c.name.toLowerCase().includes(sellBuyingDDSearch.toLowerCase()))).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setSellBuyingClubId(c.id.toString()); setSellBuyingDDOpen(false); setSellBuyingDDSearch(""); }}
-                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: sellBuyingClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: sellBuyingClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: sellBuyingClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                            onMouseEnter={e => { if (sellBuyingClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                            onMouseLeave={e => { if (sellBuyingClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
-                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                            {c.name}
-                          </div>
-                        ))}
-                        {clubs.filter(c => c.id.toString() !== sellClubId && (sellBuyingDDSearch === "" || c.name.toLowerCase().includes(sellBuyingDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
-                      </div>
-                    </div>
-                  )}
+                  <AdminClubDropdown
+                    clubs={clubs}
+                    selectedClubId={sellBuyingClubId}
+                    excludeClubId={sellClubId}
+                    onSelect={(id) => setSellBuyingClubId(id)}
+                    placeholder="-- Select Buying Club --"
+                  />
                 </div>
 
                 {/* Price */}
@@ -1456,35 +1626,17 @@ export default function AuctionManager() {
                   </div>
                 </div>
 
-                <div style={{ flex: 1.5, minWidth: "220px", position: "relative" }} data-release-club-dd="true">
+                <div style={{ flex: 1.5, minWidth: "220px" }}>
                   <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Select Club</label>
-                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: releaseClubId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                    onClick={() => setReleaseClubDDOpen(p => !p)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {releaseClubId && (() => { const c = clubs.find(c => c.id.toString() === releaseClubId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                      {releaseClubId ? (clubs.find(c => c.id.toString() === releaseClubId)?.name ?? "-- Select Club --") : "-- Select Club --"}
-                    </span>
-                    <i className={`fa-solid fa-chevron-${releaseClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                  </div>
-                  {releaseClubDDOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
-                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                        <input autoFocus type="text" placeholder="Search club..." value={releaseClubDDSearch} onChange={e => setReleaseClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ maxHeight: "200px", overflowY: "auto" }}>
-                        {clubs.filter(c => releaseClubDDSearch === "" || c.name.toLowerCase().includes(releaseClubDDSearch.toLowerCase())).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setReleaseClubId(c.id.toString()); setReleaseClubDDOpen(false); setReleaseClubDDSearch(""); setReleaseSelectedPlayer(null); }}
-                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: releaseClubId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: releaseClubId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: releaseClubId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                            onMouseEnter={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                            onMouseLeave={e => { if (releaseClubId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
-                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                            {c.name}
-                          </div>
-                        ))}
-                        {clubs.filter(c => releaseClubDDSearch === "" || c.name.toLowerCase().includes(releaseClubDDSearch.toLowerCase())).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
-                      </div>
-                    </div>
-                  )}
+                  <AdminClubDropdown
+                    clubs={clubs}
+                    selectedClubId={releaseClubId}
+                    onSelect={(id) => {
+                      setReleaseClubId(id);
+                      setReleaseSelectedPlayer(null);
+                    }}
+                    placeholder="-- Select Club --"
+                  />
                 </div>
               </div>
 
@@ -1641,35 +1793,15 @@ export default function AuctionManager() {
             <form onSubmit={addSwapToQueue}>
               <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Club A Setup</div>
-                <div className="admin-form-group" style={{ position: "relative" }} data-swapa-club-dd="true">
+                <div className="admin-form-group">
                   <label>Club A</label>
-                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: swapClubAId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                    onClick={() => setSwapAClubDDOpen(p => !p)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {swapClubAId && (() => { const c = clubs.find(c => c.id.toString() === swapClubAId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                      {swapClubAId ? (clubs.find(c => c.id.toString() === swapClubAId)?.name ?? "-- Select Club --") : "-- Select Club --"}
-                    </span>
-                    <i className={`fa-solid fa-chevron-${swapAClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                  </div>
-                  {swapAClubDDOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
-                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                        <input autoFocus type="text" placeholder="Search club..." value={swapAClubDDSearch} onChange={e => setSwapAClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                        {clubs.filter(c => c.id.toString() !== swapClubBId && (swapAClubDDSearch === "" || c.name.toLowerCase().includes(swapAClubDDSearch.toLowerCase()))).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setSwapClubAId(c.id.toString()); setSwapAClubDDOpen(false); setSwapAClubDDSearch(""); }}
-                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: swapClubAId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: swapClubAId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: swapClubAId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                            onMouseEnter={e => { if (swapClubAId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                            onMouseLeave={e => { if (swapClubAId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
-                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                            {c.name}
-                          </div>
-                        ))}
-                        {clubs.filter(c => c.id.toString() !== swapClubBId && (swapAClubDDSearch === "" || c.name.toLowerCase().includes(swapAClubDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
-                      </div>
-                    </div>
-                  )}
+                  <AdminClubDropdown
+                    clubs={clubs}
+                    selectedClubId={swapClubAId}
+                    excludeClubId={swapClubBId}
+                    onSelect={(id) => setSwapClubAId(id)}
+                    placeholder="-- Select Club --"
+                  />
                 </div>
                 {swapClubAPlayers.length > 0 && (
                   <>
@@ -1747,35 +1879,15 @@ export default function AuctionManager() {
 
               <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Club B Setup</div>
-                <div className="admin-form-group" style={{ position: "relative" }} data-swapb-club-dd="true">
+                <div className="admin-form-group">
                   <label>Club B</label>
-                  <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", background: "rgba(255,255,255,0.04)", cursor: "pointer", padding: "9px 12px", fontSize: "0.85rem", color: swapClubBId ? "#fff" : "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", userSelect: "none" }}
-                    onClick={() => setSwapBClubDDOpen(p => !p)}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {swapClubBId && (() => { const c = clubs.find(c => c.id.toString() === swapClubBId); return c?.image ? <img src={c.image} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />; })()}
-                      {swapClubBId ? (clubs.find(c => c.id.toString() === swapClubBId)?.name ?? "-- Select Club --") : "-- Select Club --"}
-                    </span>
-                    <i className={`fa-solid fa-chevron-${swapBClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
-                  </div>
-                  {swapBClubDDOpen && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "10px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", overflow: "hidden", marginTop: "4px" }}>
-                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                        <input autoFocus type="text" placeholder="Search club..." value={swapBClubDDSearch} onChange={e => setSwapBClubDDSearch(e.target.value)} onClick={e => e.stopPropagation()} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "6px 10px", fontSize: "0.8rem", color: "#fff", outline: "none", boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                        {clubs.filter(c => c.id.toString() !== swapClubAId && (swapBClubDDSearch === "" || c.name.toLowerCase().includes(swapBClubDDSearch.toLowerCase()))).map(c => (
-                          <div key={c.id} onClick={e => { e.stopPropagation(); setSwapClubBId(c.id.toString()); setSwapBClubDDOpen(false); setSwapBClubDDSearch(""); }}
-                            style={{ padding: "9px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", background: swapClubBId === c.id.toString() ? "rgba(0,102,255,0.12)" : "transparent", borderLeft: swapClubBId === c.id.toString() ? "3px solid #0066ff" : "3px solid transparent", fontSize: "0.85rem", color: swapClubBId === c.id.toString() ? "#0066ff" : "#fff", transition: "background 0.12s" }}
-                            onMouseEnter={e => { if (swapClubBId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)"; }}
-                            onMouseLeave={e => { if (swapClubBId !== c.id.toString()) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
-                            {c.image ? <img src={c.image} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} /> : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />}
-                            {c.name}
-                          </div>
-                        ))}
-                        {clubs.filter(c => c.id.toString() !== swapClubAId && (swapBClubDDSearch === "" || c.name.toLowerCase().includes(swapBClubDDSearch.toLowerCase()))).length === 0 && <div style={{ padding: "16px", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: "0.8rem" }}>No clubs found</div>}
-                      </div>
-                    </div>
-                  )}
+                  <AdminClubDropdown
+                    clubs={clubs}
+                    selectedClubId={swapClubBId}
+                    excludeClubId={swapClubAId}
+                    onSelect={(id) => setSwapClubBId(id)}
+                    placeholder="-- Select Club --"
+                  />
                 </div>
                 {swapClubBPlayers.length > 0 && (
                   <>
@@ -2310,63 +2422,21 @@ export default function AuctionManager() {
                 return (
                   <form onSubmit={handlePrimeSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                     
-                    {/* Club Selection custom dropdown */}
-                    <div style={{ position: "relative" }} data-prime-club-dd>
+                    <div>
                       <label style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: 600 }}>
                         1. Select franchise / club
                       </label>
-                      <div
-                        style={{
-                          padding: "12px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)",
-                          color: "#fff", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
+                      <AdminClubDropdown
+                        clubs={clubs}
+                        selectedClubId={primeClubId}
+                        onSelect={(id) => {
+                          setPrimeClubId(id);
+                          setPrimeSelectedPlayerIds([]);
                         }}
-                        onClick={() => setPrimeClubDDOpen(prev => !prev)}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          {selectedClubObj?.logo_path ? (
-                            <img src={selectedClubObj.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
-                          ) : (
-                            <i className="fa-solid fa-shield-halved" style={{ color: "#eab308", fontSize: "0.8rem" }} />
-                          )}
-                          <strong style={{ fontWeight: primeClubId ? 600 : 400, color: primeClubId ? "#fff" : "rgba(255,255,255,0.4)" }}>
-                            {selectedClubObj ? selectedClubObj.name : "-- Choose franchise --"}
-                          </strong>
-                        </div>
-                        <i className={`fa-solid fa-chevron-${primeClubDDOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
-                      </div>
-
-                      {primeClubDDOpen && (
-                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginTop: "6px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
-                          <div style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                            <input
-                              type="text"
-                              placeholder="Search club..."
-                              value={primeClubDDSearch}
-                              onChange={(e) => setPrimeClubDDSearch(e.target.value)}
-                              style={{ width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.8rem", outline: "none", boxSizing: "border-box" }}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                          <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                            <div
-                              onClick={() => { setPrimeClubId(""); setPrimeClubDDOpen(false); setPrimeSelectedPlayerIds([]); }}
-                              style={{ padding: "10px 14px", cursor: "pointer", color: "rgba(255,255,255,0.6)", fontSize: "0.8rem" }}
-                            >
-                              All Clubs / All Players
-                            </div>
-                            {filteredDropdownClubs.map(c => (
-                              <div
-                                key={c.id}
-                                onClick={() => { setPrimeClubId(c.id.toString()); setPrimeClubDDOpen(false); setPrimeSelectedPlayerIds([]); }}
-                                style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.02)", fontSize: "0.8rem" }}
-                              >
-                                {c.logo_path && <img src={c.logo_path} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />}
-                                <span style={{ color: "#fff" }}>{c.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                        placeholder="-- Choose franchise --"
+                        showAllOption={true}
+                        allOptionLabel="All Clubs / All Players"
+                      />
                     </div>
 
                     {/* Players checklist */}
