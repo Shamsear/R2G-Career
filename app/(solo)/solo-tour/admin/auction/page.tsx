@@ -584,6 +584,7 @@ export default function AuctionManager() {
   const [primeClubId, setPrimeClubId] = useState<string>("");
   const [primeSelectedPlayerIds, setPrimeSelectedPlayerIds] = useState<number[]>([]);
   const [primeSearchQuery, setPrimeSearchQuery] = useState<string>("");
+  const [primeRtCost, setPrimeRtCost] = useState<number>(50);
   const [primeClubDDOpen, setPrimeClubDDOpen] = useState<boolean>(false);
   const [primeClubDDSearch, setPrimeClubDDSearch] = useState<string>("");
   const [primedPlayers, setPrimedPlayers] = useState<any[]>([]);
@@ -2435,18 +2436,29 @@ export default function AuctionManager() {
                     try {
                       let count = 0;
                       let lastValidUntil = "1 Season";
+                      let lastError = "";
+
                       for (const pId of primeSelectedPlayerIds) {
-                        const res = await primePlayerForTeam(pId, primeClubId ? Number(primeClubId) : undefined);
+                        const res = await primePlayerForTeam(pId, primeClubId ? Number(primeClubId) : undefined, primeRtCost);
                         if (res.success) {
                           count++;
                           if (res.validUntil) lastValidUntil = res.validUntil;
+                        } else if (res.error) {
+                          lastError = res.error;
                         }
                       }
-                      showToast(`Successfully Primed ${count} players for 1 Season! (${lastValidUntil})`);
-                      setPrimeSelectedPlayerIds([]);
-                      loadPrimeData();
-                    } catch {
-                      showToast("Error priming players!");
+
+                      if (count > 0) {
+                        showToast(`Successfully Primed ${count} players for 1 Season! (${lastValidUntil})`);
+                        setPrimeSelectedPlayerIds([]);
+                        loadPrimeData();
+                      } else if (lastError) {
+                        showToast(`Failed: ${lastError}`);
+                      } else {
+                        showToast("Failed to prime players.");
+                      }
+                    } catch (err: any) {
+                      showToast(err?.message || "Error priming players!");
                     }
                   });
                 };
@@ -2528,6 +2540,46 @@ export default function AuctionManager() {
                             );
                           })
                         )}
+                      </div>
+                    </div>
+
+                    {/* Step 3: RT Cost Configuration */}
+                    <div style={{ padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ fontSize: "0.72rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                          <i className="fa-solid fa-coins" /> 3. RT Deduction Cost Per Player
+                        </label>
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                          Total: <strong style={{ color: "#eab308" }}>{primeSelectedPlayerIds.length * (Number(primeRtCost) || 0)} RT</strong>
+                        </span>
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={primeRtCost}
+                          onChange={(e) => setPrimeRtCost(Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="Enter RT cost (e.g. 50)"
+                          style={{
+                            width: "100%",
+                            padding: "10px 14px",
+                            background: "rgba(0,0,0,0.4)",
+                            border: "1px solid rgba(234,179,8,0.3)",
+                            borderRadius: "8px",
+                            color: "#fff",
+                            fontSize: "0.9rem",
+                            fontWeight: 600,
+                            outline: "none",
+                            boxSizing: "border-box"
+                          }}
+                        />
+                        <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
+                          RT
+                        </span>
+                      </div>
+                      <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--text-secondary)" }}>
+                        Deducted from the manager's R2G Token wallet. Card type and base value remain untouched.
                       </div>
                     </div>
 

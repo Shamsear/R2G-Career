@@ -6919,7 +6919,7 @@ export async function bulkAssignPlayersWithContracts(
   }
 }
 
-export async function primePlayerForTeam(playerId: number, clubId?: number) {
+export async function primePlayerForTeam(playerId: number, clubId?: number, tokenCost: number = 0) {
   try {
     const pId = parseInt(playerId.toString(), 10);
     if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
@@ -6932,23 +6932,62 @@ export async function primePlayerForTeam(playerId: number, clubId?: number) {
     const nextSeasonNum = curSeasonNum + 1;
     const validUntilStr = `season ${nextSeasonNum}.0 (1 Season)`;
 
-    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1`, [pId]);
+    let targetClubId = clubId ? parseInt(clubId.toString(), 10) : undefined;
+    if (!targetClubId) {
+      const { rows: contractRows } = await pool.query(`
+        SELECT current_club_id FROM player_contracts 
+        WHERE player_id = $1 AND (LOWER(status) = 'active' OR status IS NULL)
+        ORDER BY id DESC LIMIT 1
+      `, [pId]);
+      if (contractRows.length > 0) {
+        targetClubId = contractRows[0].current_club_id;
+      }
+    }
+
+    const cost = Math.max(0, Number(tokenCost) || 0);
+
+    await pool.query('BEGIN');
+
+    // Deduct RT if tokenCost is set and club is known
+    if (cost > 0 && targetClubId) {
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_token_balance FROM manager_wallets 
+        WHERE manager_id = $1 AND season_id = $2
+      `, [targetClubId, activeSeason.id]);
+
+      const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
+      if (currentRt < cost) {
+        await pool.query('ROLLBACK');
+        return { success: false, error: `Insufficient RT balance (requires ${cost} RT, club has ${currentRt} RT)` };
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets 
+        SET r2g_token_balance = r2g_token_balance - $1 
+        WHERE manager_id = $2 AND season_id = $3
+      `, [cost, targetClubId, activeSeason.id]);
+
+      const { rows: pRows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [pId]);
+      const pName = pRows.length > 0 ? pRows[0].name : `Player #${pId}`;
+
+      await logTransaction(targetClubId, activeSeason.id, 'token', -cost, 'prime_upgrade', `Prime Upgrade: Made ${pName} Prime for ${cost} RT`);
+    }
+
+    // Update seasonal status only (card_type and base_value remain unchanged)
+    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'`, [pId]);
 
     await pool.query(`
       INSERT INTO player_seasonal_statuses (player_id, season_id, status_type, valid_until)
       VALUES ($1, $2, 'Prime', $3)
     `, [pId, activeSeason.id, validUntilStr]);
 
-    await pool.query(`
-      UPDATE players
-      SET card_type = 'legend', base_value = GREATEST(base_value, 150), updated_at = NOW()
-      WHERE id = $1
-    `, [pId]);
+    await pool.query('COMMIT');
 
-    await logSoloAdminAction("PRIME_PLAYER", { playerId: pId, clubId, validUntil: validUntilStr });
+    await logSoloAdminAction("PRIME_PLAYER", { playerId: pId, clubId: targetClubId, tokenCost: cost, validUntil: validUntilStr });
 
     return { success: true, validUntil: validUntilStr };
   } catch (err: any) {
+    await pool.query('ROLLBACK').catch(() => {});
     console.error("Error priming player:", err);
     return { success: false, error: err.message || "Failed to prime player" };
   }
@@ -6959,13 +6998,7 @@ export async function removePlayerPrime(playerId: number) {
     const pId = parseInt(playerId.toString(), 10);
     if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
 
-    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1`, [pId]);
-
-    await pool.query(`
-      UPDATE players
-      SET card_type = '3-star-standard', updated_at = NOW()
-      WHERE id = $1 AND card_type = 'legend'
-    `, [pId]);
+    await pool.query(`DELETE FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'`, [pId]);
 
     await logSoloAdminAction("REMOVE_PRIME_PLAYER", { playerId: pId });
 

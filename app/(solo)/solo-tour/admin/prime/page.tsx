@@ -49,6 +49,7 @@ export default function AdminPrimeManager() {
   // Selected Players for Priming (Multi-select)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [playerSearch, setPlayerSearch] = useState<string>("");
+  const [rtCost, setRtCost] = useState<number>(50);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -170,21 +171,30 @@ export default function AdminPrimeManager() {
       try {
         let successCount = 0;
         let lastValidUntil = "1 Season";
+        let lastError = "";
 
         for (const pId of selectedPlayerIds) {
-          const res = await primePlayerForTeam(pId, selectedClubId ? Number(selectedClubId) : undefined);
+          const res = await primePlayerForTeam(pId, selectedClubId ? Number(selectedClubId) : undefined, rtCost);
           if (res.success) {
             successCount++;
             if (res.validUntil) lastValidUntil = res.validUntil;
+          } else if (res.error) {
+            lastError = res.error;
           }
         }
 
-        showToast(`Successfully Primed ${successCount} players for 1 Season! (${lastValidUntil})`);
-        setSelectedPlayerIds([]);
-        loadData();
-      } catch (err) {
+        if (successCount > 0) {
+          showToast(`Successfully Primed ${successCount} players for 1 Season! (${lastValidUntil})`);
+          setSelectedPlayerIds([]);
+          loadData();
+        } else if (lastError) {
+          showToast(`Failed: ${lastError}`);
+        } else {
+          showToast("Failed to prime selected players.");
+        }
+      } catch (err: any) {
         console.error(err);
-        showToast("Error priming selected players!");
+        showToast(err?.message || "Error priming selected players!");
       }
     });
   };
@@ -404,6 +414,48 @@ export default function AdminPrimeManager() {
                     );
                   })
                 )}
+              </div>
+            </div>
+
+            {/* Step 3: RT Cost Configuration */}
+            <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                  <i className="fa-solid fa-coins" /> 3. RT Deduction Cost Per Player
+                </label>
+                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-mono)" }}>
+                  Total: <strong style={{ color: "#eab308" }}>{selectedPlayerIds.length * (Number(rtCost) || 0)} RT</strong>
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={rtCost}
+                    onChange={(e) => setRtCost(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="Enter RT cost (e.g. 50)"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      background: "rgba(0,0,0,0.4)",
+                      border: "1px solid rgba(234,179,8,0.3)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontSize: "0.9rem",
+                      fontWeight: 600,
+                      outline: "none",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", fontWeight: 700, color: "#eab308" }}>
+                    RT
+                  </span>
+                </div>
+              </div>
+              <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                Deducted from the manager's R2G Token wallet. Card type and base value remain untouched.
               </div>
             </div>
 
