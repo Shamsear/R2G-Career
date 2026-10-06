@@ -50,6 +50,7 @@ function AdminClubDropdown({
   const [pos, setPos] = useState({ top: 0, left: 0, width: 220 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const placementRef = useRef<"bottom" | "top">("bottom");
 
   useEffect(() => {
     setMounted(true);
@@ -66,17 +67,27 @@ function AdminClubDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updatePosition = () => {
+  const updatePosition = (isInitial = false) => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      const targetWidth = Math.max(rect.width, 220);
-      let left = rect.left;
-      if (left + targetWidth > window.innerWidth - 10) {
-        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      const targetWidth = Math.min(window.innerWidth - 20, Math.max(rect.width, 220));
+      let left = Math.max(10, Math.min(rect.left, window.innerWidth - targetWidth - 10));
+
+      if (isInitial) {
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+          placementRef.current = "top";
+        } else {
+          placementRef.current = "bottom";
+        }
       }
-      let top = rect.bottom + 4;
-      if (top + 240 > window.innerHeight && rect.top > 240) {
+
+      let top = 0;
+      if (placementRef.current === "top") {
         top = Math.max(10, rect.top - 246);
+      } else {
+        top = rect.bottom + 4;
       }
       setPos({ top, left, width: targetWidth });
     }
@@ -84,17 +95,18 @@ function AdminClubDropdown({
 
   useEffect(() => {
     if (open) {
-      updatePosition();
+      updatePosition(true);
       const handleScroll = (e: Event) => {
         const target = e.target;
         if (target instanceof HTMLElement && target.closest("[data-portal-menu]")) return;
-        updatePosition();
+        updatePosition(false);
       };
       window.addEventListener("scroll", handleScroll, true);
-      window.addEventListener("resize", updatePosition);
+      const handleResize = () => updatePosition(false);
+      window.addEventListener("resize", handleResize);
       return () => {
         window.removeEventListener("scroll", handleScroll, true);
-        window.removeEventListener("resize", updatePosition);
+        window.removeEventListener("resize", handleResize);
       };
     }
   }, [open]);
@@ -110,7 +122,7 @@ function AdminClubDropdown({
         ref={triggerRef}
         onClick={() => {
           if (!open) {
-            updatePosition();
+            updatePosition(true);
             setSearch("");
           }
           setOpen(prev => !prev);
@@ -267,9 +279,10 @@ function AdminPlayerAuctionDropdown({
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
   const [mounted, setMounted] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 260 });
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 280 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const placementRef = useRef<"bottom" | "top">("bottom");
 
   useEffect(() => {
     setMounted(true);
@@ -286,17 +299,27 @@ function AdminPlayerAuctionDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const updatePosition = () => {
+  const updatePosition = (isInitial = false) => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      const targetWidth = Math.max(rect.width, 280);
-      let left = rect.left;
-      if (left + targetWidth > window.innerWidth - 10) {
-        left = Math.max(10, window.innerWidth - targetWidth - 10);
+      const targetWidth = Math.min(window.innerWidth - 20, Math.max(rect.width, 280));
+      let left = Math.max(10, Math.min(rect.left, window.innerWidth - targetWidth - 10));
+
+      if (isInitial) {
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 260 && spaceAbove > spaceBelow) {
+          placementRef.current = "top";
+        } else {
+          placementRef.current = "bottom";
+        }
       }
-      let top = rect.bottom + 4;
-      if (top + 280 > window.innerHeight && rect.top > 280) {
+
+      let top = 0;
+      if (placementRef.current === "top") {
         top = Math.max(10, rect.top - 286);
+      } else {
+        top = rect.bottom + 4;
       }
       setPos({ top, left, width: targetWidth });
     }
@@ -304,17 +327,18 @@ function AdminPlayerAuctionDropdown({
 
   useEffect(() => {
     if (open) {
-      updatePosition();
+      updatePosition(true);
       const handleScroll = (e: Event) => {
         const target = e.target;
         if (target instanceof HTMLElement && target.closest("[data-portal-menu]")) return;
-        updatePosition();
+        updatePosition(false);
       };
       window.addEventListener("scroll", handleScroll, true);
-      window.addEventListener("resize", updatePosition);
+      const handleResize = () => updatePosition(false);
+      window.addEventListener("resize", handleResize);
       return () => {
         window.removeEventListener("scroll", handleScroll, true);
-        window.removeEventListener("resize", updatePosition);
+        window.removeEventListener("resize", handleResize);
       };
     }
   }, [open]);
@@ -331,7 +355,7 @@ function AdminPlayerAuctionDropdown({
         ref={triggerRef}
         onClick={() => {
           if (!open) {
-            updatePosition();
+            updatePosition(true);
             setSearch("");
           }
           setOpen(prev => !prev);
@@ -887,6 +911,14 @@ export default function AuctionManager() {
     });
   };
 
+  const handleSelectAuctionPlayer = (id: string) => {
+    setSelectedPlayerId(id);
+    const p = freeAgents.find(x => x.id.toString() === id);
+    if (p && p.value !== undefined && p.value !== null) {
+      setBidAmount(Number(p.value) || 80);
+    }
+  };
+
   // WhatsApp Auction Handler
   const handleRapidAssign = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1265,7 +1297,7 @@ export default function AuctionManager() {
                         <AdminPlayerAuctionDropdown
                           freeAgents={freeAgents}
                           selectedPlayerId={selectedPlayerId}
-                          onSelect={(id) => setSelectedPlayerId(id)}
+                          onSelect={(id) => handleSelectAuctionPlayer(id)}
                           getPositionColor={getPositionColor}
                         />
                       </div>
@@ -1354,7 +1386,7 @@ export default function AuctionManager() {
                               transition: "all 0.15s ease",
                               boxShadow: isSelected ? "0 4px 20px rgba(0,102,255,0.15)" : "none"
                             }}
-                            onClick={() => setSelectedPlayerId(p.id.toString())}
+                            onClick={() => handleSelectAuctionPlayer(p.id.toString())}
                             onMouseEnter={e => { if(!isSelected) e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
                             onMouseLeave={e => { if(!isSelected) e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; }}
                           >
