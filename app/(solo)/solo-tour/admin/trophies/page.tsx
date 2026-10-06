@@ -655,7 +655,7 @@ export default function SoloTrophyCabinetManager() {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "1rem" }}>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap", marginTop: "1rem" }}>
                 <button type="button" onClick={() => setShowModal(false)} className="portal-btn btn-secondary" style={{ padding: "8px 18px", fontSize: "0.8rem" }}>
                   Cancel
                 </button>

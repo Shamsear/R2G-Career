@@ -460,8 +460,8 @@ export default function FinancialRulesManager() {
                       
                       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                         {(ruleForm.position_rewards || []).map((item, idx) => (
-                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px", background: "rgba(255,255,255,0.01)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                            <div className="admin-form-group" style={{ marginBottom: 0, width: "120px" }}>
+                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", background: "rgba(255,255,255,0.01)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div className="admin-form-group" style={{ marginBottom: 0, width: "100%", maxWidth: "120px" }}>
                               <label style={{ fontSize: "0.7rem", marginBottom: "2px" }}>Finish Position</label>
                               <input
                                 type="number"
@@ -617,7 +617,7 @@ export default function FinancialRulesManager() {
                   </div>
                 </div>
 
-                <div className="admin-btn-row" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div className="admin-btn-row" style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                   <button type="submit" className="portal-btn btn-primary" disabled={isPending}>
                     {ruleForm.id ? "Update Template" : "Save New Template"}
                   </button>

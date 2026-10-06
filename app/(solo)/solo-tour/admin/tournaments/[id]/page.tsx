@@ -2444,7 +2444,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                       <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "2px" }}>PTS</span>
                                     </div>
                                   </div>
-                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
+                                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(65px, 1fr))", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
                                     <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
                                       <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Played</span>
                                       <strong style={{ color: "#fff", fontSize: "0.8rem", marginTop: "2px" }}>{row.matches_played}</strong>
@@ -2561,7 +2561,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "2px" }}>PTS</span>
                               </div>
                             </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(65px, 1fr))", gap: "0.4rem", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "center" }}>
                               <div style={{ background: "rgba(255,255,255,0.02)", padding: "6px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center" }}>
                                 <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Played</span>
                                 <strong style={{ color: "#fff", fontSize: "0.8rem", marginTop: "2px" }}>{row.matches_played}</strong>
@@ -2719,7 +2719,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <h3 className="sub-card-title" style={{ margin: 0 }}>
                     <i className="fa-solid fa-futbol" style={{ marginRight: "0.5rem", color: "#fbbf24" }} /> Golden Boot (Most Goals Scored by Team)
                   </h3>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       onClick={() => handleSharePoster("stats", "boot")}
@@ -2792,7 +2792,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <h3 className="sub-card-title" style={{ margin: 0 }}>
                     <i className="fa-solid fa-award" style={{ marginRight: "0.5rem", color: "#38bdf8" }} /> Golden Ball (Best Goal Difference)
                   </h3>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       onClick={() => handleSharePoster("stats", "ball")}
@@ -2865,7 +2865,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <h3 className="sub-card-title" style={{ margin: 0 }}>
                     <i className="fa-solid fa-shield-halved" style={{ marginRight: "0.5rem", color: "#a855f7" }} /> Golden Glove (Most Clean Sheets by Team)
                   </h3>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       onClick={() => handleSharePoster("stats", "glove")}
@@ -2938,7 +2938,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   <h3 className="sub-card-title" style={{ margin: 0 }}>
                     <i className="fa-solid fa-user-shield" style={{ marginRight: "0.5rem", color: "#10b981" }} /> Best Defender (Lowest Goals Conceded per Match)
                   </h3>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       onClick={() => handleSharePoster("stats", "defender")}

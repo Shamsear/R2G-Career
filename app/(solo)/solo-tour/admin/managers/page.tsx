@@ -483,7 +483,7 @@ export default function ClubsManager() {
                 <input type="number" className="admin-input" value={fineModal.voucher} onChange={(e) => setFineModal(prev => ({ ...prev, voucher: parseInt(e.target.value) || 0 }))} />
               </div>
             </div>
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button className="portal-btn btn-secondary" onClick={() => setFineModal({ show: false, targetId: "", targetName: "", rc: 0, rt: 0, voucher: 0 })}>Cancel</button>
               <button className="portal-btn btn-danger" onClick={executeBanWithFine} disabled={isPending}>
                 {isPending ? <><i className="fa-solid fa-spinner fa-spin" /> Processing...</> : <><i className="fa-solid fa-gavel" /> Confirm & Ban</>}
@@ -639,7 +639,7 @@ export default function ClubsManager() {
                           <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>
                             Record: {m.wins || 0}W-{m.draws || 0}D-{m.losses || 0}L
                           </span>
-                          <div style={{ display: "flex", gap: "0.3rem" }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
                             <button 
                               className={`portal-btn ${m.is_banned ? 'btn-primary' : 'btn-danger'}`}
                               style={{ padding: "1px 6px", fontSize: "0.62rem", height: "20px", borderRadius: "4px" }}

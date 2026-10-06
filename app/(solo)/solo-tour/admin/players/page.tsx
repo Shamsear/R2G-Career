@@ -441,7 +441,7 @@ export default function PlayersManager() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "1.25rem" }}>
+                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", flexWrap: "wrap", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "1.25rem" }}>
                   <button
                     type="button"
                     className="portal-btn btn-secondary"
@@ -827,7 +827,7 @@ export default function PlayersManager() {
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "1.5rem" }}>
                   <button
                     type="button"
                     className="portal-btn btn-secondary"

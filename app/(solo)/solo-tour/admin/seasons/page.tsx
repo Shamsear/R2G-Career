@@ -329,8 +329,8 @@ export default function SeasonsManager() {
                   <h3 style={{ fontSize: "0.85rem", color: "#f1f5f9", fontWeight: 600, marginBottom: "0.75rem" }}>
                     Season Starting Bonus
                   </h3>
-                  <div style={{ display: "flex", gap: "6px", marginBottom: "1rem" }}>
-                    <div style={{ position: "relative", flex: 1 }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "1rem" }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-coins" style={{ position: "absolute", left: "10px", top: "9px", color: "#eab308", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -341,7 +341,7 @@ export default function SeasonsManager() {
                         style={{ paddingLeft: "26px", fontSize: "0.8rem", height: "32px", width: "100%" }}
                       />
                     </div>
-                    <div style={{ position: "relative", flex: 1 }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-star" style={{ position: "absolute", left: "10px", top: "9px", color: "#3b82f6", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -352,7 +352,7 @@ export default function SeasonsManager() {
                         style={{ paddingLeft: "26px", fontSize: "0.8rem", height: "32px", width: "100%" }}
                       />
                     </div>
-                    <div style={{ position: "relative", flex: 1 }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-ticket" style={{ position: "absolute", left: "10px", top: "9px", color: "#ec4899", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -368,8 +368,8 @@ export default function SeasonsManager() {
                   <h3 style={{ fontSize: "0.85rem", color: "#f1f5f9", fontWeight: 600, marginBottom: "0.75rem" }}>
                     Season Finale Bonus
                   </h3>
-                  <div style={{ display: "flex", gap: "6px", marginBottom: "1rem" }}>
-                    <div style={{ position: "relative", flex: 1 }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "1rem" }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-coins" style={{ position: "absolute", left: "10px", top: "9px", color: "#eab308", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -380,7 +380,7 @@ export default function SeasonsManager() {
                         style={{ paddingLeft: "26px", fontSize: "0.8rem", height: "32px", width: "100%" }}
                       />
                     </div>
-                    <div style={{ position: "relative", flex: 1 }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-star" style={{ position: "absolute", left: "10px", top: "9px", color: "#3b82f6", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -391,7 +391,7 @@ export default function SeasonsManager() {
                         style={{ paddingLeft: "26px", fontSize: "0.8rem", height: "32px", width: "100%" }}
                       />
                     </div>
-                    <div style={{ position: "relative", flex: 1 }}>
+                    <div style={{ position: "relative", flex: "1 1 80px" }}>
                       <i className="fa-solid fa-ticket" style={{ position: "absolute", left: "10px", top: "9px", color: "#ec4899", fontSize: "0.8rem" }} />
                       <input
                         type="number"
@@ -570,7 +570,7 @@ export default function SeasonsManager() {
                           </div>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleEditClick(season)}
                             disabled={isPending}

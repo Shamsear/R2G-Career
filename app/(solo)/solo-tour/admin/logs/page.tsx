@@ -72,7 +72,7 @@ export default function AdminLogsPage() {
       <div className="portal-container">
         
         {/* Header Navigation */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem" }}>
           <div>
             <div className="portal-page-badge">
               <i className="fa-solid fa-receipt" /> Audit Trail
@@ -80,7 +80,7 @@ export default function AdminLogsPage() {
             <h1 className="portal-title">ADMIN AUDIT LOGS</h1>
             <p className="portal-subtitle">Track and inspect all administrative edits, database mutations, and updates in real time.</p>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button 
               type="button" 
               onClick={loadLogs} 

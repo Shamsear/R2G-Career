@@ -1400,4 +1400,52 @@ select option,
   }
 }
 
+/* ─── Global Admin Mobile Overflow Safeguards ────────────────────────────── */
+.admin-input,
+.admin-select,
+.admin-card input,
+.admin-card select,
+.modal-content input,
+.modal-content select {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 900px) {
+  .bulk-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+  .financial-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .portal-breadcrumb,
+  .portal-breadcrumb > div {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .admin-btn-row,
+  .modal-actions,
+  .admin-filter-bar,
+  .filter-row,
+  .admin-form-row {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .fine-modal-content,
+  .admin-modal,
+  .modal-content,
+  .admin-modal-card {
+    max-width: calc(100vw - 20px) !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+  }
+}
+
+
 

@@ -550,8 +550,8 @@ export default function BulkAssignPlayersPage() {
 
       <div className="portal-container" style={{ maxWidth: "1400px" }}>
         {/* Breadcrumb Navigation */}
-        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <div className="portal-breadcrumb" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn">
               <i className="fas fa-arrow-left" /> Admin Hub
             </Link>
@@ -856,7 +856,7 @@ export default function BulkAssignPlayersPage() {
                   Available Free Agents: <strong style={{ color: "var(--admin-accent)" }}>{filteredPlayers.length}</strong> (Selected: {selectedPlayerIds.length})
                 </span>
 
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                   <button
                     onClick={handleSelectAllFiltered}
                     className="portal-btn btn-secondary"

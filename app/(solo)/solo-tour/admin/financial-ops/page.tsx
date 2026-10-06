@@ -232,8 +232,8 @@ export default function FinancialOperations() {
                 Manual matchday processing from this panel is deprecated.
               </p>
             </div>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
-              <div className="admin-form-group" style={{ width: "200px", opacity: 0.5 }}>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div className="admin-form-group" style={{ width: "100%", maxWidth: "200px", opacity: 0.5 }}>
                 <label>Select Matchday</label>
                 <CustomSelect
                   value={finOp.matchday}
@@ -338,8 +338,8 @@ export default function FinancialOperations() {
               Fetch final standings for a completed tournament, preview reward distributions mapped to the financial template, and disburse coins/tokens to managers in bulk.
             </p>
             
-            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
-              <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
+            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "1rem" }}>
+              <div className="admin-form-group" style={{ width: "100%", maxWidth: "300px", marginBottom: 0 }}>
                 <label>Select Tournament</label>
                 <CustomSelect
                   value={selectedDisburseTourneyId}
@@ -416,8 +416,8 @@ export default function FinancialOperations() {
               Fetch the standings of the primary division tournament to calculate the final season champion payouts (combines season finale awards plus template season winner bonuses) in bulk.
             </p>
             
-            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginBottom: "1rem" }}>
-              <div className="admin-form-group" style={{ width: "300px", marginBottom: 0 }}>
+            <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "1rem" }}>
+              <div className="admin-form-group" style={{ width: "100%", maxWidth: "300px", marginBottom: 0 }}>
                 <label>Division Standings Source Tournament</label>
                 <CustomSelect
                   value={selectedSeasonTourneyId}

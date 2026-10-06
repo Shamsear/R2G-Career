@@ -264,7 +264,7 @@ export default function DivisionsManager() {
                   {clubs.map((c: any) => {
                     const currentTier = proposedAssignments[c.id] || 1;
                     return (
-                      <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", padding: "8px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           {c.logo_path && <img src={c.logo_path} style={{ width: "20px", height: "20px", objectFit: "contain" }} alt="" />}
                           <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#fff" }}>{c.name}</span>
@@ -272,7 +272,7 @@ export default function DivisionsManager() {
                         
                         <select
                           className="admin-select"
-                          style={{ width: "160px", padding: "4px 8px", fontSize: "0.8rem", margin: 0 }}
+                          style={{ width: "160px", maxWidth: "100%", padding: "4px 8px", fontSize: "0.8rem", margin: 0 }}
                           value={currentTier}
                           onChange={(e) => handleManualAssignmentChange(c.id, parseInt(e.target.value, 10))}
                         >
@@ -287,7 +287,7 @@ export default function DivisionsManager() {
                   })}
                 </div>
 
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button
                     type="submit"
                     className="portal-btn btn-primary"
