@@ -189,15 +189,6 @@ export default function BulkAssignPlayersPage() {
 
   useEffect(() => {
     loadData();
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Element;
-      if (!target.closest("[data-club-dropdown]")) {
-        setClubDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [loadData]);
 
   // Selected Club details
@@ -251,12 +242,13 @@ export default function BulkAssignPlayersPage() {
         return prev.filter(pId => pId !== id);
       } else {
         if (!playerContractsMap[id]) {
+          const pObj = players.find(p => p.id === id);
           setPlayerContractsMap(mapPrev => ({
             ...mapPrev,
             [id]: {
               startSeason: globalStartSeason,
               expireSeason: globalExpireSeason,
-              signedValue: globalPrice
+              signedValue: Number(pObj?.value) || 0
             }
           }));
         }
@@ -275,10 +267,11 @@ export default function BulkAssignPlayersPage() {
       const updated = { ...prev };
       filteredIds.forEach(id => {
         if (!updated[id]) {
+          const pObj = players.find(p => p.id === id);
           updated[id] = {
             startSeason: globalStartSeason,
             expireSeason: globalExpireSeason,
-            signedValue: globalPrice
+            signedValue: Number(pObj?.value) || 0
           };
         }
       });
@@ -311,16 +304,42 @@ export default function BulkAssignPlayersPage() {
     showToast(`Applied defaults to ${selectedPlayerIds.length} selected players!`);
   };
 
+  // Reset Selected Players Price to their Base Price
+  const handleResetSelectedToBasePrice = () => {
+    if (selectedPlayerIds.length === 0) {
+      showToast("No players selected to reset price!");
+      return;
+    }
+    setPlayerContractsMap(prev => {
+      const updated = { ...prev };
+      selectedPlayerIds.forEach(id => {
+        const pObj = players.find(p => p.id === id);
+        const curr = updated[id] || {
+          startSeason: globalStartSeason,
+          expireSeason: globalExpireSeason,
+          signedValue: 0
+        };
+        updated[id] = {
+          ...curr,
+          signedValue: Number(pObj?.value) || 0
+        };
+      });
+      return updated;
+    });
+    showToast(`Reset prices to base value for ${selectedPlayerIds.length} players!`);
+  };
+
   // Contract row editor handlers (Numbers only for seasons)
   const handleRowStartSeasonChange = (id: number, val: string) => {
     const cleanDigits = val.replace(/\D/g, '');
+    const pObj = players.find(p => p.id === id);
     setPlayerContractsMap(prev => ({
       ...prev,
       [id]: {
         ...(prev[id] || {
           startSeason: globalStartSeason,
           expireSeason: globalExpireSeason,
-          signedValue: globalPrice
+          signedValue: Number(pObj?.value) || 0
         }),
         startSeason: cleanDigits
       }
@@ -329,13 +348,14 @@ export default function BulkAssignPlayersPage() {
 
   const handleRowExpireSeasonChange = (id: number, val: string) => {
     const cleanDigits = val.replace(/\D/g, '');
+    const pObj = players.find(p => p.id === id);
     setPlayerContractsMap(prev => ({
       ...prev,
       [id]: {
         ...(prev[id] || {
           startSeason: globalStartSeason,
           expireSeason: globalExpireSeason,
-          signedValue: globalPrice
+          signedValue: Number(pObj?.value) || 0
         }),
         expireSeason: cleanDigits
       }
@@ -343,11 +363,12 @@ export default function BulkAssignPlayersPage() {
   };
 
   const handleRowPriceChange = (id: number, val: number) => {
+    const pObj = players.find(p => p.id === id);
     setPlayerContractsMap(prev => {
       const curr = prev[id] || {
         startSeason: globalStartSeason,
         expireSeason: globalExpireSeason,
-        signedValue: globalPrice
+        signedValue: Number(pObj?.value) || 0
       };
       return {
         ...prev,
@@ -370,17 +391,21 @@ export default function BulkAssignPlayersPage() {
   const totalContractPrice = useMemo(() => {
     return selectedPlayerIds.reduce((sum, id) => {
       const row = playerContractsMap[id];
-      return sum + (row ? Number(row.signedValue) || 0 : globalPrice);
+      const pObj = players.find(p => p.id === id);
+      const price = row !== undefined ? Number(row.signedValue) : (Number(pObj?.value) || 0);
+      return sum + (isNaN(price) ? 0 : price);
     }, 0);
-  }, [selectedPlayerIds, playerContractsMap, globalPrice]);
+  }, [selectedPlayerIds, playerContractsMap, players]);
 
   const totalPayrollSalary = useMemo(() => {
     return selectedPlayerIds.reduce((sum, id) => {
       const row = playerContractsMap[id];
-      const price = row ? Number(row.signedValue) || 0 : globalPrice;
-      return sum + calculateSalary(price);
+      const pObj = players.find(p => p.id === id);
+      const price = row !== undefined ? Number(row.signedValue) : (Number(pObj?.value) || 0);
+      const validPrice = isNaN(price) ? 0 : price;
+      return sum + calculateSalary(validPrice);
     }, 0);
-  }, [selectedPlayerIds, playerContractsMap, globalPrice]);
+  }, [selectedPlayerIds, playerContractsMap, players]);
 
   // Submit Bulk Assignment
   const handleSubmitAssignments = () => {
@@ -398,10 +423,11 @@ export default function BulkAssignPlayersPage() {
     startTransition(async () => {
       try {
         const assignmentsPayload = selectedPlayerIds.map(id => {
+          const pObj = players.find(x => x.id === id);
           const row = playerContractsMap[id] || {
             startSeason: globalStartSeason,
             expireSeason: globalExpireSeason,
-            signedValue: globalPrice
+            signedValue: Number(pObj?.value) || 0
           };
           return {
             playerId: id,
@@ -1060,15 +1086,26 @@ export default function BulkAssignPlayersPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleApplyGlobalDefaultsToSelected}
-                className="portal-btn btn-secondary"
-                style={{ width: "100%", padding: "0.65rem", justifyContent: "center" }}
-                disabled={selectedPlayerIds.length === 0}
-              >
-                <i className="fa-solid fa-wand-magic-sparkles" /> Apply Defaults to Selected ({selectedPlayerIds.length})
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem", flexDirection: "column" }}>
+                <button
+                  type="button"
+                  onClick={handleApplyGlobalDefaultsToSelected}
+                  className="portal-btn btn-secondary"
+                  style={{ width: "100%", padding: "0.65rem", justifyContent: "center" }}
+                  disabled={selectedPlayerIds.length === 0}
+                >
+                  <i className="fa-solid fa-wand-magic-sparkles" /> Apply Custom Defaults ({globalPrice} Coins) to Selected ({selectedPlayerIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetSelectedToBasePrice}
+                  className="portal-btn btn-secondary"
+                  style={{ width: "100%", padding: "0.65rem", justifyContent: "center", background: "rgba(255, 255, 255, 0.05)" }}
+                  disabled={selectedPlayerIds.length === 0}
+                >
+                  <i className="fa-solid fa-rotate-left" /> Reset Selected to Base Price ({selectedPlayerIds.length})
+                </button>
+              </div>
 
               {/* Quick Presets for Price */}
               <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
@@ -1145,7 +1182,7 @@ export default function BulkAssignPlayersPage() {
                         const row = playerContractsMap[p.id] || {
                           startSeason: globalStartSeason,
                           expireSeason: globalExpireSeason,
-                          signedValue: globalPrice
+                          signedValue: Number(p.value) || 0
                         };
                         const autoCalcSalary = calculateSalary(row.signedValue);
                         const posColor = getPositionColor(p.position);
@@ -1277,7 +1314,7 @@ export default function BulkAssignPlayersPage() {
                     const row = playerContractsMap[p.id] || {
                       startSeason: globalStartSeason,
                       expireSeason: globalExpireSeason,
-                      signedValue: globalPrice
+                      signedValue: Number(p.value) || 0
                     };
                     const autoCalcSalary = calculateSalary(row.signedValue);
                     const posColor = getPositionColor(p.position);
