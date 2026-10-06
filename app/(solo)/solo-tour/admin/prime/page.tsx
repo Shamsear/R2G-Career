@@ -367,25 +367,49 @@ export default function AdminPrimeManager() {
                 ref={clubTriggerRef}
                 style={{
                   padding: "12px 14px", borderRadius: "10px", background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer"
+                  color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: "10px"
                 }}
                 onClick={() => {
                   updateClubPosition();
                   setClubDropdownOpen(prev => !prev);
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0, overflow: "hidden" }}>
                   {selectedClub?.logo_path ? (
-                    <img src={selectedClub.logo_path} alt="" style={{ width: "22px", height: "22px", objectFit: "contain" }} />
+                    <img src={selectedClub.logo_path} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", flexShrink: 0 }} />
                   ) : (
-                    <i className="fa-solid fa-shield-halved" style={{ color: "#eab308", fontSize: "0.85rem" }} />
+                    <i className="fa-solid fa-shield-halved" style={{ color: "#eab308", fontSize: "0.85rem", flexShrink: 0 }} />
                   )}
-                  <strong style={{ fontWeight: selectedClubId ? 600 : 400, color: selectedClubId ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                  <strong style={{ fontWeight: selectedClubId ? 600 : 400, color: selectedClubId ? "#fff" : "rgba(255,255,255,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {selectedClub ? selectedClub.name : (activeMode === "transfer" ? "-- Choose franchise (Required) --" : "-- Choose franchise --")}
                   </strong>
                 </div>
-                <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                  {selectedClub && (
+                    <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)", padding: "2px 6px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                      🪙 {Number(selectedClub.coins || 0).toLocaleString()} | 🟡 {selectedClub.tokens || 0} RT
+                    </span>
+                  )}
+                  <i className={`fa-solid fa-chevron-${clubDropdownOpen ? "up" : "down"}`} style={{ fontSize: "0.75rem", opacity: 0.6 }} />
+                </div>
               </div>
+
+              {selectedClub && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(234,179,8,0.04)", border: "1px solid rgba(234,179,8,0.15)", borderRadius: "8px", padding: "8px 12px", marginTop: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <i className="fa-solid fa-wallet" style={{ color: "#eab308", fontSize: "0.85rem" }} />
+                    <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.7)" }}>Club Wallet:</span>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.25)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                      🪙 {Number(selectedClub.coins || 0).toLocaleString()} Coins
+                    </span>
+                    <span style={{ fontSize: "0.72rem", color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                      🟡 {selectedClub.tokens || 0} RT Balance
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {mounted && clubDropdownOpen && createPortal(
                 <div
@@ -434,10 +458,20 @@ export default function AdminPrimeManager() {
                           setTransferSourcePlayerId("");
                           setTransferDestPlayerId("");
                         }}
-                        style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.02)", fontSize: "0.82rem" }}
+                        style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.02)", fontSize: "0.82rem" }}
                       >
-                        {c.logo_path && <img src={c.logo_path} alt="" style={{ width: "18px", height: "18px", objectFit: "contain" }} />}
-                        <span style={{ color: "#fff" }}>{c.name}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, overflow: "hidden" }}>
+                          {c.logo_path && <img src={c.logo_path} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", flexShrink: 0 }} />}
+                          <span style={{ color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.7rem", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                          <span style={{ color: "#eab308", background: "rgba(234,179,8,0.1)", padding: "1px 5px", borderRadius: "4px" }}>
+                            🪙 {Number(c.coins || 0).toLocaleString()}
+                          </span>
+                          <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "1px 5px", borderRadius: "4px" }}>
+                            🟡 {c.tokens || 0} RT
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

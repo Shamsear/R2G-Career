@@ -149,9 +149,16 @@ function AdminClubDropdown({
               ? <img src={selectedClub.image || selectedClub.logo_path} alt="" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "2px", flexShrink: 0 }} />
               : <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />
           )}
-          {selectedClub ? selectedClub.name : placeholder}
+          <span>{selectedClub ? selectedClub.name : placeholder}</span>
         </span>
-        <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+          {selectedClub && (
+            <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)", padding: "1px 6px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+              🪙 {Number(selectedClub.coins || 0).toLocaleString()} | 🟡 {selectedClub.tokens || 0} RT
+            </span>
+          )}
+          <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6 }} />
+        </div>
       </div>
 
       {mounted && open && createPortal(
@@ -225,11 +232,12 @@ function AdminClubDropdown({
                     setSearch("");
                   }}
                   style={{
-                    padding: "9px 14px",
+                    padding: "9px 12px",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "10px",
+                    justifyContent: "space-between",
+                    gap: "8px",
                     background: isSelected ? "rgba(0,102,255,0.12)" : "transparent",
                     borderLeft: isSelected ? "3px solid #0066ff" : "3px solid transparent",
                     fontSize: "0.85rem",
@@ -243,12 +251,24 @@ function AdminClubDropdown({
                     if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent";
                   }}
                 >
-                  {(c.image || c.logo_path) ? (
-                    <img src={c.image || c.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
-                  ) : (
-                    <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
-                  )}
-                  {c.name}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, overflow: "hidden" }}>
+                    {(c.image || c.logo_path) ? (
+                      <img src={c.image || c.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
+                    ) : (
+                      <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+                    )}
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.name}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.7rem", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                    <span style={{ color: "#eab308", background: "rgba(234,179,8,0.1)", padding: "1px 5px", borderRadius: "4px" }}>
+                      🪙 {Number(c.coins || 0).toLocaleString()}
+                    </span>
+                    <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "1px 5px", borderRadius: "4px" }}>
+                      🟡 {c.tokens || 0} RT
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -1317,6 +1337,53 @@ export default function AuctionManager() {
                           placeholder="-- Select Winner --"
                         />
                       </div>
+
+                      {(() => {
+                        const selPlayer = freeAgents.find(p => p.id.toString() === selectedPlayerId);
+                        const selClub = clubs.find(c => c.id.toString() === winningClubId);
+                        const isLegend = Boolean(
+                          selPlayer &&
+                          ((selPlayer.star || '').toLowerCase() === 'legend' || (selPlayer.card_type || '').toLowerCase() === 'legend')
+                        );
+                        return (
+                          <>
+                            {selClub && (
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "8px 12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                  {(selClub.image || selClub.logo_path) ? (
+                                    <img src={selClub.image || selClub.logo_path} alt="" style={{ width: "22px", height: "22px", objectFit: "contain" }} />
+                                  ) : (
+                                    <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }} />
+                                  )}
+                                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff" }}>{selClub.name}</span>
+                                </div>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                  <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.25)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                                    🪙 {Number(selClub.coins || 0).toLocaleString()}
+                                  </span>
+                                  <span style={{ fontSize: "0.72rem", color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                                    🟡 {selClub.tokens || 0} RT
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {isLegend && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px", background: "rgba(234, 179, 8, 0.08)", border: "1px solid rgba(234, 179, 8, 0.25)", borderRadius: "8px", padding: "8px 12px", fontSize: "0.78rem", color: "#eab308" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <i className="fa-solid fa-crown" />
+                                  <span><strong>Legend Player:</strong> 10 RT fee will be deducted from club wallet upon signing.</span>
+                                </div>
+                                {selClub && (selClub.tokens || 0) < 10 && (
+                                  <div style={{ color: "#ef4444", fontWeight: 600, marginTop: "2px" }}>
+                                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "4px" }} />
+                                    Club only has {selClub.tokens || 0} RT (requires 10 RT).
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
 
                       <div className="admin-form-group">
                         <label>Winning Bid Amount (Coins)</label>

@@ -30,6 +30,9 @@ interface ClubItem {
   name: string;
   logo_path?: string | null;
   image?: string | null;
+  coins?: number;
+  tokens?: number;
+  vouchers?: number;
 }
 
 interface ContractRow {
@@ -386,6 +389,11 @@ export default function BulkAssignPlayersPage() {
       .map(id => players.find(p => p.id === id))
       .filter((p): p is PlayerItem => p !== undefined);
   }, [players, selectedPlayerIds]);
+
+  // Selected Legend count
+  const selectedLegendCount = useMemo(() => {
+    return selectedPlayersList.filter(p => (p.star || '').toLowerCase() === 'legend' || ((p as any).card_type || '').toLowerCase() === 'legend').length;
+  }, [selectedPlayersList]);
 
   // Aggregate totals
   const totalContractPrice = useMemo(() => {
@@ -750,19 +758,27 @@ export default function BulkAssignPlayersPage() {
                               if (!isCurrSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent";
                             }}
                           >
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
                               {logo ? (
-                                <img src={logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain", borderRadius: "3px" }} />
+                                <img src={logo} alt="" style={{ width: "24px", height: "24px", objectFit: "contain", borderRadius: "3px", flexShrink: 0 }} />
                               ) : (
-                                <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }} />
+                                <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.9rem", color: "var(--text-secondary)", flexShrink: 0 }} />
                               )}
-                              <span style={{ fontSize: "0.9rem", fontWeight: isCurrSelected ? 700 : 500, color: "#fff" }}>
+                              <span style={{ fontSize: "0.9rem", fontWeight: isCurrSelected ? 700 : 500, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {c.name}
                               </span>
                             </div>
-                            {isCurrSelected && (
-                              <i className="fa-solid fa-check" style={{ color: "var(--admin-accent)", fontSize: "0.85rem" }} />
-                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.72rem", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                              <span style={{ color: "#eab308", background: "rgba(234,179,8,0.1)", padding: "2px 6px", borderRadius: "4px" }}>
+                                🪙 {Number(c.coins || 0).toLocaleString()}
+                              </span>
+                              <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "2px 6px", borderRadius: "4px" }}>
+                                🟡 {c.tokens || 0} RT
+                              </span>
+                              {isCurrSelected && (
+                                <i className="fa-solid fa-check" style={{ color: "var(--admin-accent)", fontSize: "0.85rem", marginLeft: "4px" }} />
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -814,11 +830,21 @@ export default function BulkAssignPlayersPage() {
                       <i className="fa-solid fa-shield-halved" />
                     </div>
                   )}
-                  <div>
-                    <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>
-                      {selectedClub.name}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                      <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>
+                        {selectedClub.name}
+                      </div>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <span style={{ background: "rgba(234,179,8,0.12)", color: "#eab308", border: "1px solid rgba(234,179,8,0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                          🪙 {Number(selectedClub.coins || 0).toLocaleString()} Coins
+                        </span>
+                        <span style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                          🟡 {selectedClub.tokens || 0} RT Balance
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", gap: "1rem", marginTop: "2px" }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", gap: "1rem", marginTop: "4px" }}>
                       <span>Current Roster: <strong style={{ color: "#fff" }}>{selectedClubRosterCount} players</strong></span>
                       <span>Targeting: <strong style={{ color: "var(--admin-accent)" }}>+{selectedPlayerIds.length} players</strong></span>
                     </div>
@@ -1448,9 +1474,21 @@ export default function BulkAssignPlayersPage() {
                     <div style={{ fontWeight: 700, fontSize: "1rem", color: "#fff" }}>
                       Assign {selectedPlayerIds.length} free agents to {selectedClub ? selectedClub.name : "target team"}
                     </div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Total Value: <strong style={{ color: "var(--solo-primary)" }}>{totalContractPrice} Coins</strong> • Payroll: <strong style={{ color: "#34d399" }}>{totalPayrollSalary.toFixed(2)} Coins</strong>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "2px" }}>
+                      <span>Total Value: <strong style={{ color: "var(--solo-primary)" }}>{totalContractPrice} Coins</strong></span>
+                      <span>• Payroll: <strong style={{ color: "#34d399" }}>{totalPayrollSalary.toFixed(2)} Coins</strong></span>
+                      {selectedLegendCount > 0 && (
+                        <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                          ⭐ {selectedLegendCount} Legend ({selectedLegendCount * 10} RT fee)
+                        </span>
+                      )}
                     </div>
+                    {selectedLegendCount > 0 && selectedClub && (selectedClub.tokens || 0) < selectedLegendCount * 10 && (
+                      <div style={{ color: "#ef4444", fontSize: "0.78rem", fontWeight: 600, marginTop: "4px" }}>
+                        <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "4px" }} />
+                        Club RT balance ({selectedClub.tokens || 0} RT) is less than required ({selectedLegendCount * 10} RT).
+                      </div>
+                    )}
                   </div>
 
                   <button

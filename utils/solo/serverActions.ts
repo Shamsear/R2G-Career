@@ -813,8 +813,17 @@ export async function fetchManagerRanking(seasonId?: number) {
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
         const queryStr = includeInactive 
-          ? `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image FROM managers m LEFT JOIN clubs c ON m.id = c.id`
-          : `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image FROM managers m LEFT JOIN clubs c ON m.id = c.id WHERE m.is_active IS NOT FALSE`;
+          ? `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image, c.logo_path,
+                    COALESCE(mw.r2g_coin_balance, 0) as coins, COALESCE(mw.r2g_token_balance, 0) as tokens, COALESCE(mw.r2g_voucher_balance, 0) as vouchers
+             FROM managers m 
+             LEFT JOIN clubs c ON m.id = c.id
+             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)`
+          : `SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image, c.logo_path,
+                    COALESCE(mw.r2g_coin_balance, 0) as coins, COALESCE(mw.r2g_token_balance, 0) as tokens, COALESCE(mw.r2g_voucher_balance, 0) as vouchers
+             FROM managers m 
+             LEFT JOIN clubs c ON m.id = c.id 
+             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             WHERE m.is_active IS NOT FALSE`;
         const { rows: result } = await pool.query(queryStr);
         return result;
     } catch (e) { console.error(e); return []; }
@@ -5789,14 +5798,39 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
 
     await pool.query('BEGIN');
 
+    // 1. Check player details (name & card_type)
+    const { rows: pRows } = await pool.query('SELECT name, card_type FROM players WHERE id = $1', [playerId]);
+    const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
+    const isLegend = (pRows[0]?.card_type || '').toLowerCase() === 'legend';
+
+    // 2. If Legend player, verify and deduct 10 RT fee
+    if (isLegend) {
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_token_balance FROM manager_wallets
+        WHERE manager_id = $1 AND season_id = $2
+      `, [clubId, seasonId]);
+
+      const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
+      if (currentRt < 10) {
+        throw new Error(`Insufficient RT balance to sign Legend player ${pName}. Requires 10 RT, but club only has ${currentRt} RT.`);
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_token_balance = r2g_token_balance - 10
+        WHERE manager_id = $1 AND season_id = $2
+      `, [clubId, seasonId]);
+
+      await logTransaction(clubId, seasonId, 'token', -10, 'legend_signing', `Legend Signing Fee: Signed ${pName} (Legend) for 10 RT`);
+    }
+
+    // 3. Deduct coins for auction price
     await pool.query(`
       UPDATE manager_wallets
       SET r2g_coin_balance = r2g_coin_balance - $1
       WHERE manager_id = $2 AND season_id = $3
     `, [price, clubId, seasonId]);
 
-    const { rows: pRows } = await pool.query('SELECT name FROM players WHERE id = $1', [playerId]);
-    const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
     await logTransaction(clubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: signed ${pName} for ${price} Coins`);
 
     await pool.query(`
@@ -6700,7 +6734,15 @@ export async function fetchClubPlayersWithContracts(clubId: string | number, sea
 
 export async function fetchAllClubs() {
   try {
-    const { rows } = await pool.query('SELECT id, name, logo_path FROM clubs ORDER BY name ASC');
+    const { rows } = await pool.query(`
+      SELECT c.id, c.name, c.logo_path,
+             COALESCE(mw.r2g_coin_balance, 0) as coins,
+             COALESCE(mw.r2g_token_balance, 0) as tokens,
+             COALESCE(mw.r2g_voucher_balance, 0) as vouchers
+      FROM clubs c
+      LEFT JOIN manager_wallets mw ON c.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+      ORDER BY c.name ASC
+    `);
     return rows;
   } catch (e) {
     console.error("Error fetching all clubs:", e);
@@ -6881,8 +6923,47 @@ export async function bulkAssignPlayersWithContracts(
 
     const activeSeason = await fetchActiveSeason();
     const seasonId = activeSeason ? activeSeason.id : 6;
+    const targetClubId = parseInt(clubId.toString(), 10);
 
     await pool.query('BEGIN');
+
+    // 1. Check for Legend players and deduct 10 RT per Legend player
+    const playerIds = assignments.map(a => a.playerId);
+    const { rows: assignedPlayerRows } = await pool.query(`
+      SELECT id, name, card_type FROM players WHERE id = ANY($1::int[])
+    `, [playerIds]);
+
+    const legendPlayers = assignedPlayerRows.filter(p => (p.card_type || '').toLowerCase() === 'legend');
+    const legendCount = legendPlayers.length;
+    const requiredRt = legendCount * 10;
+
+    if (requiredRt > 0) {
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_token_balance FROM manager_wallets
+        WHERE manager_id = $1 AND season_id = $2
+      `, [targetClubId, seasonId]);
+
+      const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
+      if (currentRt < requiredRt) {
+        throw new Error(`Insufficient RT balance for assigning ${legendCount} Legend player(s). Requires ${requiredRt} RT (10 RT each), but club only has ${currentRt} RT.`);
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_token_balance = r2g_token_balance - $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [requiredRt, targetClubId, seasonId]);
+
+      const legendNames = legendPlayers.map(p => p.name).join(', ');
+      await logTransaction(
+        targetClubId,
+        seasonId,
+        'token',
+        -requiredRt,
+        'legend_signing',
+        `Legend Signing Fee: Assigned ${legendCount} Legend player(s) (${legendNames}) for ${requiredRt} RT (10 RT each)`
+      );
+    }
 
     for (const item of assignments) {
       const cleanStart = (item.startSeason || '').toString().replace(/\D/g, '');
@@ -6901,17 +6982,19 @@ export async function bulkAssignPlayersWithContracts(
       await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-      `, [item.playerId, seasonId, parseInt(clubId.toString()), price, salary, cleanStart, cleanExpire]);
+      `, [item.playerId, seasonId, targetClubId, price, salary, cleanStart, cleanExpire]);
     }
 
     await logSoloAdminAction('bulk_assign_players', {
-      clubId,
+      clubId: targetClubId,
       assignedCount: assignments.length,
+      legendCount,
+      rtDeducted: requiredRt,
       playerIds: assignments.map(a => a.playerId)
     });
 
     await pool.query('COMMIT');
-    return { success: true, count: assignments.length };
+    return { success: true, count: assignments.length, legendCount, rtDeducted: requiredRt };
   } catch (e: any) {
     await pool.query('ROLLBACK');
     console.error("Error bulk assigning players:", e);
@@ -7579,10 +7662,12 @@ export async function rejectTransferRequest(requestId: number, reason?: string) 
 export async function fetchRegisteredClubsForSeason(seasonId: string | number) {
   try {
     const { rows } = await pool.query(`
-      SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image
+      SELECT m.id, COALESCE(c.name, m.name) as name, m.name as manager, m.r2g_id, c.logo_path as image, c.logo_path,
+             COALESCE(mw.r2g_coin_balance, 0) as coins, COALESCE(mw.r2g_token_balance, 0) as tokens, COALESCE(mw.r2g_voucher_balance, 0) as vouchers
       FROM managers m
       JOIN manager_seasons ms ON m.id = ms.manager_id
       LEFT JOIN clubs c ON ms.club_id = c.id
+      LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = $1
       WHERE ms.season_id = $1 AND m.is_active IS NOT FALSE
     `, [seasonId.toString()]);
     if (rows.length === 0) {
