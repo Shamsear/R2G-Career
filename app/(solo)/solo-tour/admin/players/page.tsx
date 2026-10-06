@@ -484,23 +484,23 @@ export default function PlayersManager() {
 
         {/* Player Registry Table */}
         <div className="admin-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-            <h2 className="admin-card-title" style={{ marginBottom: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem", paddingBottom: "0.75rem", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+            <h2 className="admin-card-title" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
               <i className="fa-solid fa-table-list" />
               Player Registry
             </h2>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
               <Link
                 href="/solo-tour/admin/bulk-assign"
                 className="portal-btn btn-secondary"
-                style={{ padding: "6px 15px", fontSize: "0.8rem", gap: "6px" }}
+                style={{ padding: "6px 14px", fontSize: "0.8rem", gap: "6px", whiteSpace: "nowrap" }}
               >
                 <i className="fa-solid fa-file-contract" /> Bulk Assign Players
               </Link>
               <button
                 type="button"
                 className="portal-btn btn-primary"
-                style={{ padding: "6px 15px", fontSize: "0.8rem" }}
+                style={{ padding: "6px 14px", fontSize: "0.8rem", gap: "6px", whiteSpace: "nowrap" }}
                 onClick={handleOpenAddPlayerModal}
               >
                 <i className="fa-solid fa-user-plus" /> Register Player
