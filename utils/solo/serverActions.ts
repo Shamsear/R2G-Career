@@ -6627,7 +6627,11 @@ export async function fetchAdminPlayersList() {
         p.updated_at,
         p.is_suspended,
         pc.current_club_id as club_id,
-        c.name as club_name
+        c.name as club_name,
+        pc.start_season,
+        pc.expire_season,
+        pc.signed_value,
+        pc.salary
       FROM players p
       LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active' AND pc.season_id = $1
       LEFT JOIN clubs c ON pc.current_club_id = c.id
@@ -6638,12 +6642,16 @@ export async function fetchAdminPlayersList() {
       id: p.id,
       name: p.name,
       position: p.position || '',
-      value: p.value || 80,
+      value: Number(p.value) || 80,
       star: p.star || '3-star-standard',
       imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
       isSuspended: p.is_suspended || false,
       clubId: p.club_id,
-      clubName: p.club_name || null
+      clubName: p.club_name || null,
+      startSeason: p.start_season || null,
+      expireSeason: p.expire_season || null,
+      signedValue: p.signed_value !== null && p.signed_value !== undefined ? Number(p.signed_value) : null,
+      salary: p.salary !== null && p.salary !== undefined ? Number(p.salary) : null
     }));
   } catch (e) {
     console.error("Error fetching admin players list:", e);

@@ -244,6 +244,24 @@ export default function PlayersManager() {
 
   return (
     <div className="portal-root-wrapper" data-module="players">
+      <style jsx global>{`
+        .desktop-only-table {
+          display: block;
+        }
+        .mobile-only-cards {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          .desktop-only-table {
+            display: none !important;
+          }
+          .mobile-only-cards {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+          }
+        }
+      `}</style>
       <div className="portal-bg-grid" />
       <div className="portal-glow-orb-1" />
       <div className="portal-glow-orb-2" />
@@ -531,7 +549,8 @@ export default function PlayersManager() {
             </div>
           ) : (
             <>
-              <div className="table-responsive">
+              {/* DESKTOP TABLE VIEW */}
+              <div className="desktop-only-table table-responsive">
                 <table className="admin-list-table">
                   <thead>
                     <tr>
@@ -539,67 +558,271 @@ export default function PlayersManager() {
                       <th>Position</th>
                       <th>Card Tier</th>
                       <th>Assigned Club</th>
+                      <th>Contract</th>
+                      <th>Price / Salary</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedPlayers.map(p => (
-                      <tr key={p.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div style={{
-                              width: "36px",
-                              height: "36px",
+                    {paginatedPlayers.map(p => {
+                      const posColor = getPositionColor(p.position);
+                      const displayPrice = p.signedValue !== null && p.signedValue !== undefined ? p.signedValue : p.value;
+                      const displaySalary = p.salary !== null && p.salary !== undefined ? p.salary : Math.round(displayPrice * 0.05);
+
+                      return (
+                        <tr key={p.id}>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <div style={{
+                                width: "36px",
+                                height: "36px",
+                                borderRadius: "50%",
+                                overflow: "hidden",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                background: "rgba(255,255,255,0.05)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0
+                              }}>
+                                <img
+                                  src={p.imagePath || `https://ik.imagekit.io/6dbhhctcf/players/${p.id}.png`}
+                                  alt={p.name}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                  onError={(e: any) => { (e.target as any).src = '/assets/images/players/default.png'; }}
+                                />
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <strong style={{ color: "#fff" }}>{p.name}</strong>
+                                {p.isSuspended && (
+                                  <span style={{ fontSize: "0.68rem", color: "#ef4444", fontWeight: 700 }}>
+                                    Suspended
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge-info" style={{ 
+                              background: `${getPositionColor(p.position)}18`, 
+                              color: getPositionColor(p.position), 
+                              borderColor: `${getPositionColor(p.position)}40` 
+                            }}>
+                              {p.position}
+                            </span>
+                          </td>
+                          <td style={{ textTransform: "capitalize" }}>{p.star.replace(/-/g, " ")}</td>
+                          <td>
+                            {p.clubName ? (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600, color: "#fff" }}>
+                                <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
+                                {p.clubName}
+                              </span>
+                            ) : (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "rgba(255,255,255,0.45)", fontSize: "0.85rem" }}>
+                                <img src="/assets/images/freeagent.WEBP" alt="Free Agent" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+                                <em>Free Agent</em>
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {p.startSeason ? (
+                              <span className="badge-active" style={{ fontSize: "0.72rem", background: "rgba(56, 189, 248, 0.12)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.25)" }}>
+                                Season {p.startSeason} - {p.expireSeason}
+                              </span>
+                            ) : (
+                              <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                                No contract
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                              <span style={{ fontWeight: 700, color: "#fbbf24", fontSize: "0.85rem" }}>
+                                {displayPrice} Coins
+                              </span>
+                              <span style={{ fontSize: "0.7rem", color: "#34d399", fontWeight: 600 }}>
+                                Salary: {displaySalary} Coins (5%)
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button className="portal-btn btn-secondary" style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleEditPlayer(p)}>
+                              <i className="fa-solid fa-pen" /> Edit
+                            </button>
+                            <button className="portal-btn btn-danger" style={{ padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleDeletePlayer(p.id)}>
+                              <i className="fa-solid fa-trash" /> Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE CARD VIEW (FOR SMALL SCREENS) */}
+              <div className="mobile-only-cards">
+                {paginatedPlayers.map(p => {
+                  const posColor = getPositionColor(p.position);
+                  const displayPrice = p.signedValue !== null && p.signedValue !== undefined ? p.signedValue : p.value;
+                  const displaySalary = p.salary !== null && p.salary !== undefined ? p.salary : Math.round(displayPrice * 0.05);
+
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        padding: "1rem",
+                        borderRadius: "14px",
+                        background: "rgba(255, 255, 255, 0.025)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.85rem",
+                        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)"
+                      }}
+                    >
+                      {/* Header: Player Info + Position Badge */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+                          <div
+                            style={{
+                              width: "42px",
+                              height: "42px",
                               borderRadius: "50%",
                               overflow: "hidden",
-                              border: "1px solid rgba(255,255,255,0.1)",
+                              border: "1px solid rgba(255,255,255,0.15)",
                               background: "rgba(255,255,255,0.05)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
                               flexShrink: 0
-                            }}>
-                              {p.imagePath ? (
-                                <img src={p.imagePath} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
-                              ) : (
-                                <img src={`/assets/images/players/${p.id}.png`} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png' }} />
-                              )}
-                            </div>
-                            <strong style={{ color: "#fff" }}>{p.name}</strong>
+                            }}
+                          >
+                            <img
+                              src={p.imagePath || `https://ik.imagekit.io/6dbhhctcf/players/${p.id}.png`}
+                              alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              onError={(e: any) => { (e.target as any).src = '/assets/images/players/default.png'; }}
+                            />
                           </div>
-                        </td>
-                        <td>
-                          <span className="badge-info" style={{ 
-                            background: `${getPositionColor(p.position)}18`, 
-                            color: getPositionColor(p.position), 
-                            borderColor: `${getPositionColor(p.position)}40` 
-                          }}>
-                            {p.position}
-                          </span>
-                        </td>
-                        <td style={{ textTransform: "capitalize" }}>{p.star.replace(/-/g, " ")}</td>
-                        <td>
-                          {p.clubName ? (
-                            p.clubName
-                          ) : (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "rgba(255,255,255,0.45)", fontSize: "0.85rem" }}>
-                              <img src="/assets/images/freeagent.WEBP" alt="Free Agent" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
-                              <em>Free Agent</em>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {p.name}
+                            </div>
+                            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "capitalize", marginTop: "2px" }}>
+                              {p.star.replace(/-/g, " ")}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                          {p.isSuspended && (
+                            <span style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "0.68rem", fontWeight: 700, background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.4)" }}>
+                              Suspended
                             </span>
                           )}
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="portal-btn btn-secondary" style={{ marginRight: "0.25rem", padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleEditPlayer(p)}>
-                            <i className="fa-solid fa-pen" /> Edit
-                          </button>
-                          <button className="portal-btn btn-danger" style={{ padding: "3px 10px", fontSize: "0.75rem" }} onClick={() => handleDeletePlayer(p.id)}>
-                            <i className="fa-solid fa-trash" /> Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              background: `${posColor}22`,
+                              color: posColor,
+                              border: `1px solid ${posColor}44`
+                            }}
+                          >
+                            {p.position}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Middle Details Grid: Club, Contract, Price, Salary */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "0.6rem",
+                          padding: "0.75rem",
+                          borderRadius: "10px",
+                          background: "rgba(0, 0, 0, 0.3)",
+                          border: "1px solid rgba(255, 255, 255, 0.04)"
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", display: "block", marginBottom: "2px" }}>
+                            Assigned Club
+                          </span>
+                          {p.clubName ? (
+                            <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "5px" }}>
+                              <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clubName}</span>
+                            </div>
+                          ) : (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>
+                              <img src="/assets/images/freeagent.WEBP" alt="" style={{ width: "13px", height: "13px", objectFit: "contain" }} />
+                              Free Agent
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", display: "block", marginBottom: "2px" }}>
+                            Contract Duration
+                          </span>
+                          {p.startSeason ? (
+                            <span style={{ fontWeight: 600, color: "#38bdf8", fontSize: "0.82rem" }}>
+                              Season {p.startSeason} - {p.expireSeason}
+                            </span>
+                          ) : (
+                            <span style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
+                              No active contract
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", display: "block", marginBottom: "2px" }}>
+                            Valuation / Signed Price
+                          </span>
+                          <span style={{ fontWeight: 700, color: "#fbbf24", fontSize: "0.85rem" }}>
+                            {displayPrice} Coins
+                          </span>
+                        </div>
+
+                        <div>
+                          <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", display: "block", marginBottom: "2px" }}>
+                            Salary (5%)
+                          </span>
+                          <span style={{ fontWeight: 700, color: "#34d399", fontSize: "0.85rem" }}>
+                            {displaySalary} Coins
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions Footer */}
+                      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "6px 14px", fontSize: "0.8rem", flex: 1, justifyContent: "center" }}
+                          onClick={() => handleEditPlayer(p)}
+                        >
+                          <i className="fa-solid fa-pen" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="portal-btn btn-danger"
+                          style={{ padding: "6px 14px", fontSize: "0.8rem", flex: 1, justifyContent: "center" }}
+                          onClick={() => handleDeletePlayer(p.id)}
+                        >
+                          <i className="fa-solid fa-trash" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Pagination Controls */}
