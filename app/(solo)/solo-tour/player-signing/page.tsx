@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import "../../../portal.css";
+import "./player-signing.css";
 import { POSITIONS } from "@/utils/solo/playerAuctionFetcher";
 import { fetchPlayerAuctionData } from "@/utils/solo/serverActions";
 
@@ -425,20 +426,22 @@ function PlayerSigningContent() {
         {!loading && filteredPlayers.length > 0 && (
           <div className="pagination-container">
             <div className="pagination-info">
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredPlayers.length)} of {filteredPlayers.length} players
+              Showing <span className="highlight">{startIndex + 1}–{Math.min(endIndex, filteredPlayers.length)}</span> of <span className="highlight">{filteredPlayers.length}</span> players
             </div>
             <div className="pagination-controls">
               <button
-                className="page-btn"
+                className="page-btn nav-btn"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
+                title="Previous Page"
               >
                 <i className="fas fa-chevron-left" />
+                <span>Prev</span>
               </button>
               
               {getPageNumbers().map((page, idx) =>
                 page === "ellipsis" ? (
-                  <span className="page-ellipsis" key={`ellipsis-${idx}`}>...</span>
+                  <span className="page-ellipsis" key={`ellipsis-${idx}`}>•••</span>
                 ) : (
                   <button
                     key={page}
@@ -451,10 +454,12 @@ function PlayerSigningContent() {
               )}
               
               <button
-                className="page-btn"
+                className="page-btn nav-btn"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
+                title="Next Page"
               >
+                <span>Next</span>
                 <i className="fas fa-chevron-right" />
               </button>
             </div>
