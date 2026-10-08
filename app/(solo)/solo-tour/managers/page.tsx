@@ -3,22 +3,28 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import "../../../portal.css";
+import "./managers.css";
 import { fetchManagers } from "@/utils/solo/serverActions";
 
 function generateStarRating(rating: any) {
-  if (!rating) rating = 0;
-  const stars = [];
-  rating = parseInt(rating);
-  for (let i = 1; i <= 5; i++) {
-    if (i === 3 && rating >= 6) {
-      stars.push(<i key={i} className="fas fa-sun" style={{ color: "gold" }} />);
-    } else if (i <= rating) {
-      stars.push(<i key={i} className="fas fa-star" />);
-    } else {
-      stars.push(<i key={i} className="fas fa-star empty" />);
-    }
+  const count = Math.max(0, parseInt(rating) || 0);
+  if (count === 0) {
+    return (
+      <div className="star-rating" title="0 Stars">
+        {[...Array(5)].map((_, i) => (
+          <i key={i} className="fas fa-star empty" />
+        ))}
+      </div>
+    );
   }
-  return stars;
+
+  return (
+    <div className="star-rating" title={`${count} Stars`}>
+      {[...Array(count)].map((_, i) => (
+        <i key={i} className="fas fa-star" />
+      ))}
+    </div>
+  );
 }
 
 export default function Managers() {
@@ -186,7 +192,7 @@ export default function Managers() {
                       )}
                     </p>
                     <div className="manager-rating">
-                      <div className="star-rating">{generateStarRating(manager.star_rating)}</div>
+                      {generateStarRating(manager.star_rating)}
                     </div>
                   </div>
                 </div>

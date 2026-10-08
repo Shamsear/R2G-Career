@@ -123,13 +123,22 @@
 
 .star-rating {
   display: flex;
-  gap: 0.15rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
   color: #ffd700; /* Gold stars */
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.star-rating i {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
 }
 
 .star-rating i.empty {
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.18);
+  text-shadow: none;
 }
 
 /* Card Stats Grid */
