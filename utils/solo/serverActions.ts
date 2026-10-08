@@ -255,27 +255,70 @@ export async function fetchManagerByName(name: string) {
     try {
         const decodedName = decodeURIComponent(name);
         const { rows: managersResult } = await pool.query(`
-            SELECT 
-                m.id, m.name, m.avatar_path as photo, m.r2g_id,
+            WITH career_stats AS (
+              SELECT 
+                ms.manager_id,
+                COALESCE(SUM(ms.matches_played), 0)::int as matches_played,
+                COALESCE(SUM(ms.wins), 0)::int as wins,
+                COALESCE(SUM(ms.draws), 0)::int as draws,
+                COALESCE(SUM(ms.losses), 0)::int as losses,
+                COALESCE(SUM(ms.goals_scored), 0)::int as goals_scored,
+                COALESCE(SUM(ms.goals_conceded), 0)::int as goals_conceded,
+                COALESCE(SUM(ms.clean_sheets), 0)::int as clean_sheets,
+                COALESCE(SUM(ms.rank_points), 0)::int as total_rank_points,
+                json_agg(ms.competitions) FILTER (WHERE ms.competitions IS NOT NULL) as competitions_raw,
+                json_agg(ms.awards) FILTER (WHERE ms.awards IS NOT NULL) as awards_raw
+              FROM manager_seasons ms
+              GROUP BY ms.manager_id
+            ),
+            active_contracts AS (
+              SELECT 
+                pc.current_club_id,
+                COALESCE(SUM(p.base_value), 0)::int as contract_club_value
+              FROM player_contracts pc
+              JOIN players p ON pc.player_id = p.id
+              WHERE LOWER(pc.status) = 'active'
+                AND pc.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+              GROUP BY pc.current_club_id
+            ),
+            ranked_managers AS (
+              SELECT 
+                m.id,
+                m.name,
+                m.avatar_path as photo,
+                m.r2g_id,
                 c.name as club_name,
-                ms.manager_rank as age,
-                mw.overall_rating,
-                mw.star_rating,
-                mw.r2g_token_balance,
-                mw.r2g_coin_balance,
-                mw.r2g_voucher_balance,
-                ms.session_rewards as total_earnings,
-                ms.awards,
-                ms.competitions,
-                ms.wins, ms.draws, ms.losses, ms.matches_played,
-                ms.goals_scored, ms.goals_conceded, ms.clean_sheets,
-                mw.current_club_id as club_id
-            FROM managers m
-            LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-            LEFT JOIN clubs c ON mw.current_club_id = c.id
-            LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-            WHERE LOWER(m.name) = LOWER($1)
-            LIMIT 1
+                mw.current_club_id as club_id,
+                COALESCE(mw.overall_rating, '0') as overall_rating,
+                COALESCE(mw.star_rating, 0) as star_rating,
+                COALESCE(mw.r2g_coin_balance, 0) as r2g_coin_balance,
+                COALESCE(mw.r2g_token_balance, 0) as r2g_token_balance,
+                COALESCE(mw.r2g_voucher_balance, 0) as r2g_voucher_balance,
+                COALESCE(NULLIF(mw.club_total_value, 0), ac.contract_club_value, 0) as club_total_value,
+                ROW_NUMBER() OVER (
+                  ORDER BY 
+                    CAST(COALESCE(mw.overall_rating, '0') AS NUMERIC) DESC,
+                    COALESCE(cs.total_rank_points, 0) DESC,
+                    COALESCE(cs.wins, 0) DESC,
+                    m.name ASC
+                )::int as global_rank,
+                COALESCE(cs.matches_played, 0) as matches_played,
+                COALESCE(cs.wins, 0) as wins,
+                COALESCE(cs.draws, 0) as draws,
+                COALESCE(cs.losses, 0) as losses,
+                COALESCE(cs.goals_scored, 0) as goals_scored,
+                COALESCE(cs.goals_conceded, 0) as goals_conceded,
+                COALESCE(cs.clean_sheets, 0) as clean_sheets,
+                cs.competitions_raw,
+                cs.awards_raw
+              FROM managers m
+              LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+              LEFT JOIN clubs c ON mw.current_club_id = c.id
+              LEFT JOIN career_stats cs ON m.id = cs.manager_id
+              LEFT JOIN active_contracts ac ON mw.current_club_id = ac.current_club_id
+              WHERE m.is_active IS NOT FALSE
+            )
+            SELECT * FROM ranked_managers WHERE LOWER(name) = LOWER($1) LIMIT 1
         `, [decodedName]);
 
         if (managersResult.length === 0) return null;
@@ -568,19 +611,40 @@ export async function fetchManagerByName(name: string) {
         const seasonsAwardsCount = seasons.reduce((acc: number, s: any) => acc + (Array.isArray(s.awards) ? s.awards.length : 0), 0);
         const totalAwardsCount = Math.max(directAwardsCount, seasonsAwardsCount, allPlayerAwards.length + newAwards.length);
 
+        let careerTrophies = 0;
+        if (m.competitions_raw) {
+            m.competitions_raw.forEach((comp: any) => {
+                try {
+                    const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
+                    careerTrophies += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
+                } catch (e) { console.error("Error parsing competitions:", e); }
+            });
+        }
+        if (careerTrophies === 0 && seasonsResult.length > 0) {
+            seasonsResult.forEach((s: any) => {
+                try {
+                    if (!s.competitions) return;
+                    const parsed = typeof s.competitions === 'string' ? JSON.parse(s.competitions) : s.competitions;
+                    careerTrophies += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
+                } catch (e) {}
+            });
+        }
+
         return {
             id: m.id,
             name: m.name,
             r2g_id: m.r2g_id || '',
             photo: m.photo || '',
             club: m.club_name || 'No Club',
-            age: m.age || 0,
-            overall_rating: m.overall_rating || 0,
+            age: m.global_rank || 0,
+            rank: m.global_rank || 0,
+            overall_rating: parseFloat(m.overall_rating) || 0,
             star_rating: m.star_rating || 0,
             balance: (Number(m.r2g_coin_balance) || 0) + (Number(m.r2g_token_balance) || 0),
             r2g_coin_balance: m.r2g_coin_balance || 0,
             r2g_token_balance: m.r2g_token_balance || 0,
             r2g_voucher_balance: m.r2g_voucher_balance || 0,
+            club_total_value: Number(m.club_total_value) || 0,
             total_earnings: m.total_earnings || 0,
             bio: "Experienced tactician.",
             favorite_formation: "4-3-3",
@@ -595,13 +659,7 @@ export async function fetchManagerByName(name: string) {
                 goalsAgainst: gcCount,
                 cleanSheets: csCount
             },
-            trophies: (() => {
-                try {
-                    if (!m.competitions) return 0;
-                    const comp = typeof m.competitions === 'string' ? JSON.parse(m.competitions) : m.competitions;
-                    return Array.isArray(comp) ? comp.length : Object.keys(comp).length;
-                } catch { return 0; }
-            })(),
+            trophies: careerTrophies,
             awards: totalAwardsCount,
             squad: {
                 players: playersResult.map((p: any) => ({

@@ -6,6 +6,33 @@ import "./manager-detail.css";
 import { useParams } from "next/navigation";
 import { fetchManagerByName, fetchManagerTransactions } from "@/utils/solo/serverActions";
 
+function formatCompetition(key: string, comp: any) {
+    let name = (comp && typeof comp === 'object' ? (comp.name || key) : String(comp || key || '')).trim();
+    let placement = (comp && typeof comp === 'object' ? (comp.placement || comp.stage || '') : '').trim();
+
+    if (name.includes('>')) {
+        const parts = name.split('>').map((p: string) => p.trim());
+        name = parts[0];
+        if (!placement || placement.toLowerCase() === name.toLowerCase()) {
+            placement = parts.slice(1).join(' ');
+        }
+    }
+
+    if (!placement || placement.toLowerCase() === name.toLowerCase()) {
+        const stageMatch = name.match(/^(.*?)\s+(CHAMPION|CHAMP|RUNNERS?|RUNNRS|1ST|2ND|3RD|4TH|SEMI FINAL|QUARTER FINAL|R16|R8|R32|KO)$/i);
+        if (stageMatch) {
+            name = stageMatch[1].trim();
+            placement = stageMatch[2].trim().toUpperCase();
+            if (placement === 'CHAMP') placement = 'CHAMPION';
+            if (placement === 'RUNNRS' || placement === 'RUNNERS') placement = 'RUNNERS UP';
+        } else {
+            placement = '';
+        }
+    }
+
+    return { name, placement };
+}
+
 export default function ManagerDetail() {
     const params = useParams();
     const managerName = decodeURIComponent(params.id as string);
@@ -243,7 +270,7 @@ export default function ManagerDetail() {
                                     )}
                                     <div className="badge">
                                         <i className="fas fa-ranking-star"></i>
-                                        <span>Rank: #{manager.age || '-'}</span>
+                                        <span>Rank: #{manager.rank || manager.age || '-'}</span>
                                     </div>
                                     <div className="badge">
                                         <i className="fas fa-trophy" style={{ color: "#fbbf24" }}></i>
@@ -680,12 +707,16 @@ export default function ManagerDetail() {
                                                             <>
                                                                 <h3 className="sub-section-title"><i className="fas fa-medal" /> Competitions & Placements</h3>
                                                                 <div className="competitions">
-                                                                    {Object.entries(season.competitions).map(([key, comp]: [string, any]) => comp.name ? (
-                                                                        <div key={key} className="competition-card">
-                                                                            <div className="competition-name">{comp.name}</div>
-                                                                            <div className="competition-stage">{comp.placement || comp.stage || 'Completed'}</div>
-                                                                        </div>
-                                                                    ) : null)}
+                                                                    {Object.entries(season.competitions).map(([key, comp]: [string, any], cIdx: number) => {
+                                                                        const { name, placement } = formatCompetition(key, comp);
+                                                                        if (!name) return null;
+                                                                        return (
+                                                                            <div key={key || cIdx} className="competition-card">
+                                                                                <div className="competition-name">{name}</div>
+                                                                                {placement ? <div className="competition-stage">{placement}</div> : null}
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             </>
                                                         )}
