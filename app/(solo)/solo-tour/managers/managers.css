@@ -141,6 +141,24 @@
   text-shadow: none;
 }
 
+.star-rating.high-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+}
+
+.star-rating.high-stars .star-count-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #ffd700;
+  letter-spacing: 0.5px;
+}
+
 /* Card Stats Grid */
 .manager-stats {
   padding: 1.25rem;

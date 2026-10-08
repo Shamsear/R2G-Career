@@ -7,8 +7,8 @@ import "./managers.css";
 import { fetchManagers } from "@/utils/solo/serverActions";
 
 function generateStarRating(rating: any) {
-  const count = Math.max(0, parseInt(rating) || 0);
-  if (count === 0) {
+  const num = parseFloat(rating) || 0;
+  if (num <= 0) {
     return (
       <div className="star-rating" title="0 Stars">
         {[...Array(5)].map((_, i) => (
@@ -18,11 +18,23 @@ function generateStarRating(rating: any) {
     );
   }
 
+  if (num <= 10) {
+    const fullStars = Math.floor(num);
+    const hasHalf = num % 1 >= 0.5;
+    return (
+      <div className="star-rating" title={`${num} Stars`}>
+        {[...Array(fullStars)].map((_, i) => (
+          <i key={i} className="fas fa-star" />
+        ))}
+        {hasHalf && <i className="fas fa-star-half-alt" />}
+      </div>
+    );
+  }
+
   return (
-    <div className="star-rating" title={`${count} Stars`}>
-      {[...Array(count)].map((_, i) => (
-        <i key={i} className="fas fa-star" />
-      ))}
+    <div className="star-rating high-stars" title={`${num} Stars`}>
+      <i className="fas fa-star" />
+      <span className="star-count-text">{num}</span>
     </div>
   );
 }
