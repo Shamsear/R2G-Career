@@ -46,7 +46,9 @@ function PlayerSigningContent() {
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get("search") || "");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  // Multi-column sort state
+  const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: "asc" | "desc" }>>([]);
+  const [multiSortMode, setMultiSortMode] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(() => {
@@ -105,7 +107,7 @@ function PlayerSigningContent() {
     }
   }, [activeTab, searchTerm, currentPage]);
 
-  // Filter and Sort players
+  // Filter and Multi-Sort players
   const filteredPlayers = useMemo(() => {
     let result = [...players];
 
@@ -140,38 +142,109 @@ function PlayerSigningContent() {
       });
     }
 
-    // Sort
-    if (sortConfig) {
+    // Multi-column sorting
+    if (sortConfigs.length > 0) {
+      const posOrder: Record<string, number> = { GK: 1, CB: 2, LB: 3, RB: 4, DM: 5, CM: 6, AM: 7, LW: 8, RW: 9, ST: 10 };
+
       result.sort((a, b) => {
-        let valA = a[sortConfig.key];
-        let valB = b[sortConfig.key];
+        for (const sort of sortConfigs) {
+          let diff = 0;
 
-        if (sortConfig.key === "valueStr") {
-          valA = getPlayerValue(a.rating);
-          valB = getPlayerValue(b.rating);
+          if (sort.key === "rating" || sort.key === "bidAmount") {
+            const numA = Number(a[sort.key]) || 0;
+            const numB = Number(b[sort.key]) || 0;
+            diff = sort.direction === "asc" ? numA - numB : numB - numA;
+          } else if (sort.key === "valueStr") {
+            const numA = Number(a.rating) || 0;
+            const numB = Number(b.rating) || 0;
+            diff = sort.direction === "asc" ? numA - numB : numB - numA;
+          } else if (sort.key === "position") {
+            const ordA = posOrder[String(a.position || "").toUpperCase()] || 99;
+            const ordB = posOrder[String(b.position || "").toUpperCase()] || 99;
+            if (ordA !== ordB) {
+              diff = sort.direction === "asc" ? ordA - ordB : ordB - ordA;
+            } else {
+              diff = sort.direction === "asc"
+                ? String(a.position || "").localeCompare(String(b.position || ""))
+                : String(b.position || "").localeCompare(String(a.position || ""));
+            }
+          } else if (sort.key === "contract") {
+            const matchA = String(a.contract || "").match(/(\d+)/);
+            const matchB = String(b.contract || "").match(/(\d+)/);
+            const numA = matchA ? parseInt(matchA[1], 10) : 0;
+            const numB = matchB ? parseInt(matchB[1], 10) : 0;
+            if (numA !== numB && (numA > 0 || numB > 0)) {
+              diff = sort.direction === "asc" ? numA - numB : numB - numA;
+            } else {
+              const strA = String(a.contract || "").toLowerCase().trim();
+              const strB = String(b.contract || "").toLowerCase().trim();
+              diff = sort.direction === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+            }
+          } else {
+            const strA = String(a[sort.key] ?? "").toLowerCase().trim();
+            const strB = String(b[sort.key] ?? "").toLowerCase().trim();
+            diff = sort.direction === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+          }
+
+          if (diff !== 0) return diff;
         }
-
-        if (sortConfig.key === "rating" || sortConfig.key === "bidAmount") {
-          const numA = Number(valA) || 0;
-          const numB = Number(valB) || 0;
-          return sortConfig.direction === "asc" ? numA - numB : numB - numA;
-        }
-
-        const strA = String(valA ?? "").toLowerCase().trim();
-        const strB = String(valB ?? "").toLowerCase().trim();
-        return sortConfig.direction === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+        return 0;
       });
     }
 
     return result;
-  }, [players, activeTab, searchTerm, sortConfig]);
+  }, [players, activeTab, searchTerm, sortConfigs]);
 
-  const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
+  // Request sort handler with Shift-Click or Multi-Sort Mode support
+  const requestSort = (key: string, isShiftPressed = false) => {
+    const isMulti = isShiftPressed || multiSortMode;
+    const existingIndex = sortConfigs.findIndex((s) => s.key === key);
+
+    if (isMulti) {
+      if (existingIndex > -1) {
+        const current = sortConfigs[existingIndex];
+        if (current.direction === "asc") {
+          // Flip to desc
+          const updated = [...sortConfigs];
+          updated[existingIndex] = { key, direction: "desc" };
+          setSortConfigs(updated);
+        } else {
+          // Remove from multi-sort
+          setSortConfigs(sortConfigs.filter((s) => s.key !== key));
+        }
+      } else {
+        // Append as secondary/tertiary sort
+        setSortConfigs([...sortConfigs, { key, direction: "asc" }]);
+      }
+    } else {
+      if (existingIndex > -1 && sortConfigs.length === 1) {
+        const current = sortConfigs[0];
+        if (current.direction === "asc") {
+          setSortConfigs([{ key, direction: "desc" }]);
+        } else {
+          setSortConfigs([]);
+        }
+      } else {
+        setSortConfigs([{ key, direction: "asc" }]);
+      }
     }
-    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const removeSortKey = (key: string) => {
+    setSortConfigs((prev) => prev.filter((s) => s.key !== key));
+    setCurrentPage(1);
+  };
+
+  const toggleSortDirection = (key: string) => {
+    setSortConfigs((prev) =>
+      prev.map((s) => (s.key === key ? { ...s, direction: s.direction === "asc" ? "desc" : "asc" } : s))
+    );
+    setCurrentPage(1);
+  };
+
+  const clearAllSorts = () => {
+    setSortConfigs([]);
     setCurrentPage(1);
   };
 
@@ -185,11 +258,38 @@ function PlayerSigningContent() {
     setCurrentPage(1);
   };
 
-  const renderSortIcon = (key: string) => {
-    if (sortConfig?.key !== key) return <i className="fas fa-sort sort-icon" />;
-    return sortConfig.direction === "asc"
-      ? <i className="fas fa-sort-up sort-icon" />
-      : <i className="fas fa-sort-down sort-icon" />;
+  const getSortMeta = (key: string) => {
+    const idx = sortConfigs.findIndex((s) => s.key === key);
+    if (idx === -1) return null;
+    return {
+      direction: sortConfigs[idx].direction,
+      priority: idx + 1,
+      total: sortConfigs.length,
+    };
+  };
+
+  const renderSortIndicator = (key: string) => {
+    const meta = getSortMeta(key);
+    if (!meta) {
+      return <i className="fas fa-sort sort-icon" />;
+    }
+
+    return (
+      <span className="sort-indicator-badge">
+        <i className={`fas ${meta.direction === "asc" ? "fa-sort-up" : "fa-sort-down"} sort-icon-active`} />
+        {meta.total > 1 && <span className="sort-priority-num">{meta.priority}</span>}
+      </span>
+    );
+  };
+
+  const COLUMN_LABELS: Record<string, string> = {
+    name: "Player Name",
+    position: "Position",
+    rating: "Base Value",
+    valueStr: "Rarity",
+    team: "Signing Club",
+    bidAmount: "Signing Value",
+    contract: "Contract",
   };
 
   const colCount = activeTab === "all" ? 7 : 6;
@@ -316,6 +416,62 @@ function PlayerSigningContent() {
           ))}
         </div>
 
+        {/* Multi-Sort Controls & Active Sort Chips */}
+        <div className="multi-sort-container">
+          <div className="multi-sort-left">
+            <button
+              type="button"
+              className={`multi-sort-mode-btn ${multiSortMode ? "active" : ""}`}
+              onClick={() => setMultiSortMode((prev) => !prev)}
+              title="When enabled, clicking headers adds them to multi-sort criteria without needing to hold Shift"
+            >
+              <i className="fa-solid fa-layer-group" />
+              <span>Multi-Sort Mode: {multiSortMode ? "ON" : "OFF"}</span>
+            </button>
+            <span className="multi-sort-hint">
+              <i className="fa-solid fa-circle-info" />
+              <span>Hold <strong>Shift + Click</strong> on table headers to sort by multiple columns</span>
+            </span>
+          </div>
+
+          {sortConfigs.length > 0 && (
+            <div className="active-sort-pills">
+              <span className="active-sort-label">Active Sorts:</span>
+              {sortConfigs.map((sort, idx) => (
+                <div key={sort.key} className="sort-chip">
+                  <button
+                    type="button"
+                    className="sort-chip-toggle"
+                    onClick={() => toggleSortDirection(sort.key)}
+                    title={`Priority #${idx + 1}: ${COLUMN_LABELS[sort.key] || sort.key} (${sort.direction.toUpperCase()}). Click to flip.`}
+                  >
+                    <span className="sort-chip-priority">#{idx + 1}</span>
+                    <span className="sort-chip-name">{COLUMN_LABELS[sort.key] || sort.key}</span>
+                    <i className={`fas ${sort.direction === "asc" ? "fa-arrow-up-long" : "fa-arrow-down-long"}`} />
+                  </button>
+                  <button
+                    type="button"
+                    className="sort-chip-remove"
+                    onClick={() => removeSortKey(sort.key)}
+                    title={`Remove ${COLUMN_LABELS[sort.key] || sort.key} sort`}
+                    aria-label={`Remove ${COLUMN_LABELS[sort.key] || sort.key} sort`}
+                  >
+                    <i className="fas fa-times" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="clear-sorts-btn"
+                onClick={clearAllSorts}
+                title="Reset all column sorting"
+              >
+                <i className="fa-solid fa-rotate-left" /> Clear
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Table */}
         {loading ? (
           <div className="r2g-loading">
@@ -328,48 +484,55 @@ function PlayerSigningContent() {
               <thead>
                 <tr>
                   <th
-                    onClick={() => requestSort("name")}
-                    className={sortConfig?.key === "name" ? "sorted" : ""}
+                    onClick={(e) => requestSort("name", e.shiftKey)}
+                    className={getSortMeta("name") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Player Name {renderSortIcon("name")}
+                    Player Name {renderSortIndicator("name")}
                   </th>
                   {activeTab === "all" && (
                     <th
-                      onClick={() => requestSort("position")}
-                      className={sortConfig?.key === "position" ? "sorted" : ""}
+                      onClick={(e) => requestSort("position", e.shiftKey)}
+                      className={getSortMeta("position") ? "sorted" : ""}
+                      title="Click to sort, Shift+Click to add secondary sort"
                     >
-                      Position {renderSortIcon("position")}
+                      Position {renderSortIndicator("position")}
                     </th>
                   )}
                   <th
-                    onClick={() => requestSort("rating")}
-                    className={sortConfig?.key === "rating" ? "sorted" : ""}
+                    onClick={(e) => requestSort("rating", e.shiftKey)}
+                    className={getSortMeta("rating") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Base Value {renderSortIcon("rating")}
+                    Base Value {renderSortIndicator("rating")}
                   </th>
                   <th
-                    onClick={() => requestSort("valueStr")}
-                    className={sortConfig?.key === "valueStr" ? "sorted" : ""}
+                    onClick={(e) => requestSort("valueStr", e.shiftKey)}
+                    className={getSortMeta("valueStr") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Rarity {renderSortIcon("valueStr")}
+                    Rarity {renderSortIndicator("valueStr")}
                   </th>
                   <th
-                    onClick={() => requestSort("team")}
-                    className={sortConfig?.key === "team" ? "sorted" : ""}
+                    onClick={(e) => requestSort("team", e.shiftKey)}
+                    className={getSortMeta("team") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Signing Club {renderSortIcon("team")}
+                    Signing Club {renderSortIndicator("team")}
                   </th>
                   <th
-                    onClick={() => requestSort("bidAmount")}
-                    className={sortConfig?.key === "bidAmount" ? "sorted" : ""}
+                    onClick={(e) => requestSort("bidAmount", e.shiftKey)}
+                    className={getSortMeta("bidAmount") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Signing Value {renderSortIcon("bidAmount")}
+                    Signing Value {renderSortIndicator("bidAmount")}
                   </th>
                   <th
-                    onClick={() => requestSort("contract")}
-                    className={sortConfig?.key === "contract" ? "sorted" : ""}
+                    onClick={(e) => requestSort("contract", e.shiftKey)}
+                    className={getSortMeta("contract") ? "sorted" : ""}
+                    title="Click to sort, Shift+Click to add secondary sort"
                   >
-                    Contract {renderSortIcon("contract")}
+                    Contract {renderSortIndicator("contract")}
                   </th>
                 </tr>
               </thead>
