@@ -7,34 +7,16 @@ import "./managers.css";
 import { fetchManagers } from "@/utils/solo/serverActions";
 
 function generateStarRating(rating: any) {
-  const num = parseFloat(rating) || 0;
-  if (num <= 0) {
-    return (
-      <div className="star-rating" title="0 Stars">
-        {[...Array(5)].map((_, i) => (
-          <i key={i} className="fas fa-star empty" />
-        ))}
-      </div>
-    );
-  }
-
-  if (num <= 10) {
-    const fullStars = Math.floor(num);
-    const hasHalf = num % 1 >= 0.5;
-    return (
-      <div className="star-rating" title={`${num} Stars`}>
-        {[...Array(fullStars)].map((_, i) => (
-          <i key={i} className="fas fa-star" />
-        ))}
-        {hasHalf && <i className="fas fa-star-half-alt" />}
-      </div>
-    );
-  }
-
+  const count = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  
   return (
-    <div className="star-rating high-stars" title={`${num} Stars`}>
-      <i className="fas fa-star" />
-      <span className="star-count-text">{num}</span>
+    <div className="star-rating" title={`${count} Star Manager`}>
+      {[...Array(count)].map((_, i) => (
+        <i key={`filled-${i}`} className="fas fa-star" />
+      ))}
+      {[...Array(5 - count)].map((_, i) => (
+        <i key={`empty-${i}`} className="fas fa-star empty" />
+      ))}
     </div>
   );
 }
