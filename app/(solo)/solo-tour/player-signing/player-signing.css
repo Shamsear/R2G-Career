@@ -5,7 +5,89 @@
 }
 
 .search-container {
-  margin: 0 0 1rem 0 !important;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto 1.5rem auto !important;
+}
+
+.search-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-box .search-icon,
+.search-box .fa-search {
+  position: absolute;
+  left: 1.15rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary, #9ba3b8);
+  font-size: 0.95rem;
+  pointer-events: none;
+  z-index: 2;
+  transition: color 0.2s ease;
+}
+
+.search-box:focus-within .search-icon,
+.search-box:focus-within .fa-search {
+  color: #fb7185;
+}
+
+.search-box input {
+  width: 100%;
+  background: rgba(14, 16, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 30px;
+  padding: 0.85rem 2.85rem 0.85rem 3rem;
+  color: #ffffff;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  outline: none;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-box input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.9rem;
+}
+
+.search-box input:focus {
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(14, 16, 26, 0.95);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary, #9ba3b8);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+  padding: 0;
+}
+
+.search-clear-btn:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.08);
 }
 
 .auction-container {

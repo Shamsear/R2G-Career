@@ -274,25 +274,22 @@ function PlayerSigningContent() {
         {/* Search */}
         <div className="search-container">
           <div className="search-box">
-            <i className="fas fa-search" />
+            <i className="fas fa-search search-icon" />
             <input
               type="text"
               placeholder="Search player, team, or position..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
             />
             {searchTerm && (
               <button
                 type="button"
+                className="search-clear-btn"
                 onClick={() => handleSearchChange("")}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "rgba(255,255,255,0.4)",
-                  cursor: "pointer",
-                  padding: "0 0.5rem"
-                }}
                 title="Clear search"
+                aria-label="Clear search"
               >
                 <i className="fas fa-times" />
               </button>
