@@ -6,6 +6,23 @@ import "../../../portal.css";
 import "./managers.css";
 import { fetchManagers } from "@/utils/solo/serverActions";
 
+function getClubLogo(manager: any) {
+  if (manager.club_logo && typeof manager.club_logo === "string" && manager.club_logo.trim()) {
+    return manager.club_logo;
+  }
+  const clubName = (manager.club || "").toUpperCase().trim();
+  if (!clubName || clubName === "FREE AGENT" || clubName === "NO CLUB") {
+    return "/assets/images/club-logos/FREE-AGENT.WEBP";
+  }
+  const clubSlug = clubName.replace(/\s+/g, "-");
+  if (clubSlug === "PSG") return "/assets/images/club-logos/PARIS-SAINT-GERMAIN.webp";
+  if (clubSlug === "MAN-UTD" || clubSlug === "MANCHESTER-UTD") return "/assets/images/club-logos/MANCHESTER-UNITED.webp";
+  if (clubSlug === "BARCELONA" || clubSlug === "BARCA") return "/assets/images/club-logos/FC-BARCELONA.webp";
+  if (clubSlug === "JUVENTUS-FC") return "/assets/images/club-logos/JUVENTUS.webp";
+  if (clubSlug === "BAYERN") return "/assets/images/club-logos/BAYERN-MUNICH.webp";
+  return `/assets/images/club-logos/${clubSlug}.webp`;
+}
+
 function generateStarRating(rating: any) {
   const count = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
   
@@ -161,12 +178,13 @@ export default function Managers() {
           ) : (
             filteredManagers.map((manager, i) => (
               <div key={i} className="manager-card active">
-                <div
-                  className="manager-header"
-                  style={{
-                    backgroundImage: `url('/assets/images/club-backgrounds/${manager.club.replace(/\s+/g, "%20")}.jpg'), linear-gradient(135deg, #1a2a3a 0%, #0d1218 100%)`,
-                  }}
-                >
+                <div className="manager-header">
+                  <div
+                    className="manager-header-logo-bg"
+                    style={{
+                      backgroundImage: `url('${getClubLogo(manager)}')`,
+                    }}
+                  />
                   <div
                     className="manager-photo"
                     style={{
