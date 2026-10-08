@@ -279,7 +279,7 @@ export async function fetchManagers() {
 
 export async function fetchManagerByName(name: string) {
     try {
-        const decodedName = decodeURIComponent(name);
+        const decodedName = decodeURIComponent(name || '').trim();
         const { rows: managersResult } = await pool.query(`
             WITH career_stats AS (
               SELECT 
@@ -291,7 +291,7 @@ export async function fetchManagerByName(name: string) {
                 COALESCE(SUM(ms.goals_scored), 0)::int as goals_scored,
                 COALESCE(SUM(ms.goals_conceded), 0)::int as goals_conceded,
                 COALESCE(SUM(ms.clean_sheets), 0)::int as clean_sheets,
-                COALESCE(SUM(ms.rank_points), 0)::int as total_rank_points,
+                ROUND(COALESCE(SUM(CAST(COALESCE(ms.rank_points, '0') AS NUMERIC)), 0), 1) as total_rank_points,
                 json_agg(ms.competitions) FILTER (WHERE ms.competitions IS NOT NULL) as competitions_raw,
                 json_agg(ms.awards) FILTER (WHERE ms.awards IS NOT NULL) as awards_raw
               FROM manager_seasons ms
@@ -313,7 +313,8 @@ export async function fetchManagerByName(name: string) {
                 m.name,
                 m.avatar_path as photo,
                 m.r2g_id,
-                c.name as club_name,
+                COALESCE(c.name, 'Free Agent') as club_name,
+                COALESCE(c.logo_path, '') as club_logo,
                 mw.current_club_id as club_id,
                 COALESCE(mw.overall_rating, '0') as overall_rating,
                 COALESCE(mw.star_rating, 0) as star_rating,
@@ -335,6 +336,7 @@ export async function fetchManagerByName(name: string) {
                 COALESCE(cs.goals_scored, 0) as goals_scored,
                 COALESCE(cs.goals_conceded, 0) as goals_conceded,
                 COALESCE(cs.clean_sheets, 0) as clean_sheets,
+                COALESCE(cs.total_rank_points, 0) as total_rank_points,
                 cs.competitions_raw,
                 cs.awards_raw
               FROM managers m
@@ -344,7 +346,15 @@ export async function fetchManagerByName(name: string) {
               LEFT JOIN active_contracts ac ON mw.current_club_id = ac.current_club_id
               WHERE m.is_active IS NOT FALSE
             )
-            SELECT * FROM ranked_managers WHERE LOWER(name) = LOWER($1) LIMIT 1
+            SELECT * FROM ranked_managers 
+            WHERE LOWER(name) = LOWER($1)
+               OR LOWER(r2g_id) = LOWER($1)
+               OR id::text = $1
+               OR LOWER(REPLACE(name, ' ', '-')) = LOWER($1)
+               OR LOWER(REPLACE(r2g_id, ' ', '-')) = LOWER($1)
+               OR LOWER(REPLACE(name, ' ', '')) = LOWER(REPLACE($1, ' ', ''))
+               OR LOWER(club_name) = LOWER($1)
+            LIMIT 1
         `, [decodedName]);
 
         if (managersResult.length === 0) return null;
