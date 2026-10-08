@@ -121,6 +121,40 @@ async function logTransaction(
   }
 }
 
+function extractTrophiesCount(competitionsRaw: any[] | null | undefined): number {
+    if (!competitionsRaw || !Array.isArray(competitionsRaw)) return 0;
+    let count = 0;
+    competitionsRaw.forEach((comp: any) => {
+        try {
+            const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
+            if (!parsed) return;
+            if (Array.isArray(parsed)) {
+                parsed.forEach((item: any) => {
+                    const str = typeof item === 'string' ? item : (item?.name || item?.placement || '');
+                    const lower = String(str).toLowerCase();
+                    if (lower.includes('champion') || lower.includes('champ') || lower.includes('winner') || lower.includes('1st')) {
+                        count++;
+                    }
+                });
+            } else if (typeof parsed === 'object') {
+                Object.entries(parsed).forEach(([key, val]: [string, any]) => {
+                    const placement = (val && typeof val === 'object' ? (val.placement || val.stage || val.name || '') : String(val || '')).toLowerCase();
+                    const keyLower = String(key).toLowerCase();
+                    if (
+                        keyLower.includes('champion') || keyLower.includes('champ') || keyLower.includes('winner') || keyLower.includes('1st') ||
+                        placement.includes('champion') || placement.includes('champ') || placement.includes('winner') || placement.includes('1st')
+                    ) {
+                        count++;
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Error parsing trophies count:", e);
+        }
+    });
+    return count;
+}
+
 export async function fetchManagers() {
     try {
         const { rows: managersResult } = await pool.query(`
@@ -189,40 +223,6 @@ export async function fetchManagers() {
               COALESCE(cs.wins, 0) DESC,
               m.name ASC
         `);
-
-function extractTrophiesCount(competitionsRaw: any[] | null | undefined): number {
-    if (!competitionsRaw || !Array.isArray(competitionsRaw)) return 0;
-    let count = 0;
-    competitionsRaw.forEach((comp: any) => {
-        try {
-            const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
-            if (!parsed) return;
-            if (Array.isArray(parsed)) {
-                parsed.forEach((item: any) => {
-                    const str = typeof item === 'string' ? item : (item?.name || item?.placement || '');
-                    const lower = String(str).toLowerCase();
-                    if (lower.includes('champion') || lower.includes('champ') || lower.includes('winner') || lower.includes('1st')) {
-                        count++;
-                    }
-                });
-            } else if (typeof parsed === 'object') {
-                Object.entries(parsed).forEach(([key, val]: [string, any]) => {
-                    const placement = (val && typeof val === 'object' ? (val.placement || val.stage || val.name || '') : String(val || '')).toLowerCase();
-                    const keyLower = String(key).toLowerCase();
-                    if (
-                        keyLower.includes('champion') || keyLower.includes('champ') || keyLower.includes('winner') || keyLower.includes('1st') ||
-                        placement.includes('champion') || placement.includes('champ') || placement.includes('winner') || placement.includes('1st')
-                    ) {
-                        count++;
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Error parsing trophies count:", e);
-        }
-    });
-    return count;
-}
 
         return managersResult.map((m: any, idx: number) => {
             const trophies = extractTrophiesCount(m.competitions_raw);
