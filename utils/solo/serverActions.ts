@@ -728,82 +728,91 @@ export async function fetchPlayerAuctionData() {
     }
 }
 
-export async function fetchManagerRanking(seasonId?: number) {
+export async function fetchManagerRanking() {
     try {
-        let targetSeasonId = seasonId;
-        if (!targetSeasonId) {
-            // Find the latest season with rankings (manager_rank is not null)
-            const { rows: latestRankedSeason } = await pool.query(`
-                SELECT s.id 
-                FROM seasons s
-                JOIN manager_seasons ms ON s.id = ms.season_id
-                WHERE ms.manager_rank IS NOT NULL
-                GROUP BY s.id, s.season_number
-                ORDER BY s.season_number DESC
-                LIMIT 1
-            `);
-            if (latestRankedSeason.length > 0) {
-                targetSeasonId = latestRankedSeason[0].id;
-            } else {
-                const { rows: fallbackSeason } = await pool.query(`
-                    SELECT id FROM seasons ORDER BY season_number DESC LIMIT 1
-                `);
-                targetSeasonId = fallbackSeason[0]?.id;
-            }
-        }
-
-        if (!targetSeasonId) return [];
-
-        const { rows: result } = await pool.query(`
+        const { rows } = await pool.query(`
             SELECT 
                 m.id,
                 m.name,
                 m.r2g_id,
-                ms.manager_rank as rank,
-                ms.rank_points as score,
                 m.avatar_path as img,
-                ms.season_id,
-                s.season_number,
                 COALESCE(c.name, m.name) as club_name,
                 c.logo_path as club_logo,
-                ms.matches_played,
-                ms.wins,
-                ms.draws,
-                ms.losses,
-                ms.goals_scored,
-                ms.goals_conceded,
-                ms.clean_sheets,
-                ms.team_profit,
-                ms.session_rewards,
-                ms.awards,
-                ms.competitions
-            FROM managers m 
-            JOIN manager_seasons ms ON m.id = ms.manager_id 
-            JOIN seasons s ON ms.season_id = s.id
-            LEFT JOIN clubs c ON ms.club_id = c.id
-            WHERE m.is_active IS NOT FALSE 
-              AND ms.season_id = $1
+                mw.overall_rating,
+                mw.star_rating,
+                COALESCE(SUM(ms.matches_played), 0)::int as matches_played,
+                COALESCE(SUM(ms.wins), 0)::int as wins,
+                COALESCE(SUM(ms.draws), 0)::int as draws,
+                COALESCE(SUM(ms.losses), 0)::int as losses,
+                COALESCE(SUM(ms.goals_scored), 0)::int as goals_scored,
+                COALESCE(SUM(ms.goals_conceded), 0)::int as goals_conceded,
+                COALESCE(SUM(ms.clean_sheets), 0)::int as clean_sheets,
+                ROUND(COALESCE(SUM(CAST(COALESCE(ms.rank_points, '0') AS NUMERIC)), 0), 1) as total_rank_points,
+                array_agg(ms.awards) FILTER (WHERE ms.awards IS NOT NULL) as awards_raw,
+                array_agg(ms.competitions) FILTER (WHERE ms.competitions IS NOT NULL) as competitions_raw
+            FROM managers m
+            LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+            LEFT JOIN clubs c ON mw.current_club_id = c.id
+            LEFT JOIN manager_seasons ms ON m.id = ms.manager_id
+            WHERE m.is_active IS NOT FALSE
+            GROUP BY m.id, m.name, m.r2g_id, m.avatar_path, c.name, c.logo_path, mw.overall_rating, mw.star_rating
             ORDER BY 
-              CASE WHEN ms.manager_rank IS NOT NULL THEN 0 ELSE 1 END,
-              ms.manager_rank ASC,
-              CAST(COALESCE(ms.rank_points, '0') AS NUMERIC) DESC
-        `, [targetSeasonId]);
+                CAST(COALESCE(mw.overall_rating, '0') AS NUMERIC) DESC,
+                ROUND(COALESCE(SUM(CAST(COALESCE(ms.rank_points, '0') AS NUMERIC)), 0), 1) DESC,
+                COALESCE(SUM(ms.wins), 0) DESC,
+                m.name ASC
+        `);
 
-        return result.map(r => ({
-            ...r,
-            rank: r.rank != null ? Number(r.rank) : null,
-            score: r.score != null ? parseFloat(r.score) : 0,
-            matches_played: Number(r.matches_played || 0),
-            wins: Number(r.wins || 0),
-            draws: Number(r.draws || 0),
-            losses: Number(r.losses || 0),
-            goals_scored: Number(r.goals_scored || 0),
-            goals_conceded: Number(r.goals_conceded || 0),
-            clean_sheets: Number(r.clean_sheets || 0),
-            team_profit: Number(r.team_profit || 0),
-            session_rewards: Number(r.session_rewards || 0),
-            awards: Array.isArray(r.awards) ? r.awards : []
-        }));
+        return rows.map((r, idx) => {
+            let trophiesCount = 0;
+            if (r.competitions_raw) {
+                r.competitions_raw.forEach((comp: any) => {
+                    try {
+                        const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
+                        trophiesCount += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
+                    } catch (e) {}
+                });
+            }
+
+            let awardsList: string[] = [];
+            if (r.awards_raw) {
+                r.awards_raw.forEach((aw: any) => {
+                    try {
+                        const parsed = typeof aw === 'string' ? JSON.parse(aw) : aw;
+                        if (Array.isArray(parsed)) {
+                            awardsList.push(...parsed);
+                        } else if (parsed && typeof parsed === 'object') {
+                            awardsList.push(...Object.keys(parsed));
+                        }
+                    } catch (e) {}
+                });
+            }
+
+            const rawScore = parseFloat(r.overall_rating) || parseFloat(r.total_rank_points) || 0;
+            const score = Math.round(rawScore * 10) / 10;
+
+            return {
+                rank: idx + 1,
+                id: r.id,
+                name: r.name,
+                r2g_id: r.r2g_id || '',
+                img: r.img || '',
+                club_name: r.club_name || 'Free Agent',
+                club_logo: r.club_logo || '',
+                score: score,
+                overall_rating: parseFloat(r.overall_rating) || 0,
+                star_rating: r.star_rating || 0,
+                matches_played: Number(r.matches_played || 0),
+                wins: Number(r.wins || 0),
+                draws: Number(r.draws || 0),
+                losses: Number(r.losses || 0),
+                goals_scored: Number(r.goals_scored || 0),
+                goals_conceded: Number(r.goals_conceded || 0),
+                clean_sheets: Number(r.clean_sheets || 0),
+                trophies: trophiesCount,
+                awards: awardsList
+            };
+        });
     } catch (e) { 
         console.error("Error in fetchManagerRanking:", e); 
         return []; 

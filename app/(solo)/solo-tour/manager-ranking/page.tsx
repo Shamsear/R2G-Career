@@ -2,61 +2,29 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { fetchManagerRanking, fetchSeasonsList } from "@/utils/solo/serverActions";
+import { fetchManagerRanking } from "@/utils/solo/serverActions";
 import "../../../portal.css";
 
 export default function ManagerRanking() {
   const [searchTerm, setSearchTerm] = useState("");
   const [managers, setManagers] = useState<any[]>([]);
-  const [seasons, setSeasons] = useState<any[]>([]);
-  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
-  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number>(8);
   const [loading, setLoading] = useState(true);
 
-  // Initial load: fetch seasons list and initial manager rankings
+  // Initial load: fetch all-time manager rankings
   useEffect(() => {
-    async function loadInitialData() {
+    async function loadData() {
       try {
         setLoading(true);
-        const [rankingData, seasonsData] = await Promise.all([
-          fetchManagerRanking(),
-          fetchSeasonsList().catch(() => [])
-        ]);
-
-        setSeasons(seasonsData || []);
+        const rankingData = await fetchManagerRanking();
         setManagers(rankingData || []);
-
-        if (rankingData && rankingData.length > 0) {
-          setSelectedSeasonId(rankingData[0].season_id);
-          setSelectedSeasonNumber(rankingData[0].season_number);
-        } else if (seasonsData && seasonsData.length > 0) {
-          setSelectedSeasonId(seasonsData[0].id);
-          setSelectedSeasonNumber(seasonsData[0].season_number);
-        }
       } catch (err) {
         console.error("Error loading manager rankings:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadInitialData();
+    loadData();
   }, []);
-
-  // When selected season changes
-  const handleSeasonChange = async (seasonId: number, seasonNumber: number) => {
-    if (seasonId === selectedSeasonId) return;
-    try {
-      setLoading(true);
-      setSelectedSeasonId(seasonId);
-      setSelectedSeasonNumber(seasonNumber);
-      const data = await fetchManagerRanking(seasonId);
-      setManagers(data || []);
-    } catch (err) {
-      console.error("Error loading ranking for season:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredManagers = useMemo(() => {
     return managers.filter((m) =>
@@ -65,14 +33,14 @@ export default function ManagerRanking() {
     );
   }, [managers, searchTerm]);
 
-  // Dynamic statistics for the selected season
-  const seasonStats = useMemo(() => {
-    const totalRanked = managers.filter(m => m.rank != null).length;
+  // Dynamic statistics for all managers
+  const overallStats = useMemo(() => {
+    const totalRanked = managers.length;
     const totalMatches = managers.reduce((acc, m) => acc + (m.matches_played || 0), 0);
-    const topManager = managers.length > 0 && managers[0].rank === 1 ? managers[0] : managers[0];
+    const topManager = managers.length > 0 ? managers[0] : null;
     const topScore = topManager ? topManager.score : 0;
     return {
-      totalRanked: totalRanked || managers.length,
+      totalRanked,
       totalMatches,
       topScore,
       topManagerName: topManager?.name || "N/A"
@@ -101,71 +69,22 @@ export default function ManagerRanking() {
           </div>
           <h1 className="portal-title">MANAGER RANKINGS</h1>
           <p className="portal-subtitle">
-            Performance standings, tactical ratings, and official points leaderboard for all active R2G managers.
+            Overall career standings, tactical ratings, and official points leaderboard for all active R2G managers.
           </p>
         </div>
-
-        {/* Season Selector Tabs */}
-        {seasons.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.75rem" }}>
-            <div style={{
-              display: "inline-flex",
-              gap: "6px",
-              background: "rgba(0, 0, 0, 0.4)",
-              backdropFilter: "blur(12px)",
-              padding: "4px",
-              borderRadius: "14px",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              flexWrap: "wrap",
-              justifyContent: "center"
-            }}>
-              {seasons.map((s) => {
-                const isSelected = selectedSeasonId === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => handleSeasonChange(s.id, s.season_number)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      padding: "8px 18px",
-                      borderRadius: "10px",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "0.82rem",
-                      fontWeight: isSelected ? 800 : 500,
-                      fontFamily: "var(--font-display)",
-                      background: isSelected
-                        ? "linear-gradient(135deg, #f43f5e, #be123c)"
-                        : "transparent",
-                      color: isSelected ? "#fff" : "rgba(255, 255, 255, 0.55)",
-                      boxShadow: isSelected ? "0 4px 14px rgba(244, 63, 94, 0.35)" : "none",
-                      transition: "all 0.2s ease"
-                    }}
-                  >
-                    <i className="fa-solid fa-trophy" style={{ fontSize: "0.75rem", opacity: isSelected ? 1 : 0.6 }} />
-                    Season {s.season_number} {s.is_active ? "(Active)" : ""}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Stats Summary Block */}
         <div className="club-info intro-block" style={{ marginBottom: "2rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
             <div>
               <h2 style={{ margin: 0, fontSize: "1.4rem", color: "#fff", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px" }}>
-                Season {selectedSeasonNumber} Standings
+                Official Manager Standings
               </h2>
               <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Official rankings calculated based on division results, cup runs, tournament trophies, and win streaks.
+                Career ratings calculated across league campaigns, knockout cups, tournament trophies, and managerial achievements.
               </p>
             </div>
-            {seasonStats.topManagerName !== "N/A" && (
+            {overallStats.topManagerName !== "N/A" && (
               <div style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -178,22 +97,22 @@ export default function ManagerRanking() {
                 color: "#fbbf24",
                 fontWeight: 700
               }}>
-                <i className="fa-solid fa-crown" /> Leader: <span style={{ color: "#fff" }}>{seasonStats.topManagerName}</span> ({seasonStats.topScore} PTS)
+                <i className="fa-solid fa-crown" /> Leader: <span style={{ color: "#fff" }}>{overallStats.topManagerName}</span> ({overallStats.topScore} PTS)
               </div>
             )}
           </div>
 
           <div className="stats-preview" style={{ marginTop: "1.5rem" }}>
             <div className="stat-item animate-stat">
-              <div className="stat-value">{seasonStats.totalRanked}</div>
+              <div className="stat-value">{overallStats.totalRanked}</div>
               <div className="stat-label">Ranked Managers</div>
             </div>
             <div className="stat-item animate-stat" style={{ animationDelay: "0.1s" }}>
-              <div className="stat-value">{seasonStats.totalMatches > 0 ? `${seasonStats.totalMatches}+` : "Season Active"}</div>
-              <div className="stat-label">Matches Logged</div>
+              <div className="stat-value">{overallStats.totalMatches > 0 ? `${overallStats.totalMatches}+` : "Active"}</div>
+              <div className="stat-label">Career Matches</div>
             </div>
             <div className="stat-item animate-stat" style={{ animationDelay: "0.2s" }}>
-              <div className="stat-value">{seasonStats.topScore}</div>
+              <div className="stat-value">{overallStats.topScore}</div>
               <div className="stat-label">Top Points Score</div>
             </div>
           </div>
@@ -299,7 +218,6 @@ export default function ManagerRanking() {
                             loading="lazy"
                             style={{ width: "100%", height: "100%", objectFit: "cover" }}
                             onError={(e) => {
-                              // Fallback on image error
                               (e.currentTarget as HTMLElement).style.display = "none";
                             }}
                           />
@@ -337,8 +255,8 @@ export default function ManagerRanking() {
                           #{rankNum}
                         </span>
 
-                        {/* Awards Badge if available */}
-                        {manager.awards && manager.awards.length > 0 && (
+                        {/* Trophies Badge if available */}
+                        {manager.trophies > 0 && (
                           <span
                             style={{
                               position: "absolute",
@@ -353,9 +271,9 @@ export default function ManagerRanking() {
                               padding: "1px 6px",
                               borderRadius: "4px"
                             }}
-                            title={manager.awards.join(", ")}
+                            title={`${manager.trophies} Major Competitions / Trophies`}
                           >
-                            🏆 {manager.awards.length}
+                            🏆 {manager.trophies}
                           </span>
                         )}
                       </div>
@@ -415,7 +333,7 @@ export default function ManagerRanking() {
               <i className="fas fa-user-slash" style={{ fontSize: "2.5rem", opacity: 0.3, marginBottom: "1rem" }} />
               <h3 style={{ color: "#fff", fontSize: "1.1rem" }}>No Rankings Found</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                {searchTerm ? `No managers found matching "${searchTerm}".` : `No manager rankings have been finalized for Season ${selectedSeasonNumber} yet.`}
+                {searchTerm ? `No managers found matching "${searchTerm}".` : "No manager rankings available."}
               </p>
             </div>
           )}
