@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { buildTeamsSummary } from '@/lib/firebase/aggregates';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/cached/teams
  * Returns aggregated teams data with ISR caching
@@ -47,7 +49,3 @@ export async function GET(request: Request) {
     );
   }
 }
-
-// Opt into static generation with revalidation
-export const revalidate = 900; // Revalidate every 15 minutes
-export const dynamic = 'force-static'; // Force static generation

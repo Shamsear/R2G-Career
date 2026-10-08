@@ -34,14 +34,9 @@ export default function Managers() {
         const data = await fetchManagers();
         if (data && data.error) throw new Error(data.error);
         data.sort((a: any, b: any) => {
-          const rankA = a.age ? a.age.toString().trim() : "";
-          const rankB = b.age ? b.age.toString().trim() : "";
-          const isNumericA = /^\d+$/.test(rankA);
-          const isNumericB = /^\d+$/.test(rankB);
-          if (isNumericA && isNumericB) return parseInt(rankA) - parseInt(rankB);
-          if (isNumericA) return -1;
-          if (isNumericB) return 1;
-          return rankA.localeCompare(rankB);
+          const rankA = a.rank ?? a.age ?? 999;
+          const rankB = b.rank ?? b.age ?? 999;
+          return Number(rankA) - Number(rankB);
         });
         const activeOnly = data.filter((m: any) => m.is_active !== false);
         setManagers(activeOnly);
@@ -199,7 +194,7 @@ export default function Managers() {
                 <div className="manager-stats">
                   <div className="stat-group">
                     <span className="stat-label"><i className="fas fa-sort-numeric-up" />Rank</span>
-                    <span className="stat-value">{manager.age}</span>
+                    <span className="stat-value">#{manager.rank || manager.age}</span>
                   </div>
                   <div className="stat-group">
                     <span className="stat-label"><i className="fas fa-star" />Overall</span>
