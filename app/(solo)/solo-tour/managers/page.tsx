@@ -224,7 +224,7 @@ export default function Managers() {
                   </div>
                   <div className="stat-group">
                     <span className="stat-label"><i className="fas fa-trophy" />Trophies</span>
-                    <span className="stat-value">{manager.trophies + manager.awards}</span>
+                    <span className="stat-value">{manager.trophies || 0}</span>
                   </div>
                 </div>
 

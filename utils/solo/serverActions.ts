@@ -190,17 +190,43 @@ export async function fetchManagers() {
               m.name ASC
         `);
 
-        return managersResult.map((m: any, idx: number) => {
-            let trophies = 0;
-            let awardsCount = 0;
-            if (m.competitions_raw) {
-                m.competitions_raw.forEach((comp: any) => {
-                    try {
-                        const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
-                        trophies += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
-                    } catch (e) { console.error("Error parsing competitions:", e); }
+function extractTrophiesCount(competitionsRaw: any[] | null | undefined): number {
+    if (!competitionsRaw || !Array.isArray(competitionsRaw)) return 0;
+    let count = 0;
+    competitionsRaw.forEach((comp: any) => {
+        try {
+            const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
+            if (!parsed) return;
+            if (Array.isArray(parsed)) {
+                parsed.forEach((item: any) => {
+                    const str = typeof item === 'string' ? item : (item?.name || item?.placement || '');
+                    const lower = String(str).toLowerCase();
+                    if (lower.includes('champion') || lower.includes('champ') || lower.includes('winner') || lower.includes('1st')) {
+                        count++;
+                    }
+                });
+            } else if (typeof parsed === 'object') {
+                Object.entries(parsed).forEach(([key, val]: [string, any]) => {
+                    const placement = (val && typeof val === 'object' ? (val.placement || val.stage || val.name || '') : String(val || '')).toLowerCase();
+                    const keyLower = String(key).toLowerCase();
+                    if (
+                        keyLower.includes('champion') || keyLower.includes('champ') || keyLower.includes('winner') || keyLower.includes('1st') ||
+                        placement.includes('champion') || placement.includes('champ') || placement.includes('winner') || placement.includes('1st')
+                    ) {
+                        count++;
+                    }
                 });
             }
+        } catch (e) {
+            console.error("Error parsing trophies count:", e);
+        }
+    });
+    return count;
+}
+
+        return managersResult.map((m: any, idx: number) => {
+            const trophies = extractTrophiesCount(m.competitions_raw);
+            let awardsCount = 0;
             if (m.awards_raw) {
                 m.awards_raw.forEach((aw: any) => {
                     try {
@@ -611,24 +637,7 @@ export async function fetchManagerByName(name: string) {
         const seasonsAwardsCount = seasons.reduce((acc: number, s: any) => acc + (Array.isArray(s.awards) ? s.awards.length : 0), 0);
         const totalAwardsCount = Math.max(directAwardsCount, seasonsAwardsCount, allPlayerAwards.length + newAwards.length);
 
-        let careerTrophies = 0;
-        if (m.competitions_raw) {
-            m.competitions_raw.forEach((comp: any) => {
-                try {
-                    const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
-                    careerTrophies += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
-                } catch (e) { console.error("Error parsing competitions:", e); }
-            });
-        }
-        if (careerTrophies === 0 && seasonsResult.length > 0) {
-            seasonsResult.forEach((s: any) => {
-                try {
-                    if (!s.competitions) return;
-                    const parsed = typeof s.competitions === 'string' ? JSON.parse(s.competitions) : s.competitions;
-                    careerTrophies += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
-                } catch (e) {}
-            });
-        }
+        const careerTrophies = extractTrophiesCount(m.competitions_raw && m.competitions_raw.length > 0 ? m.competitions_raw : seasonsResult.map((s: any) => s.competitions));
 
         return {
             id: m.id,
@@ -868,15 +877,7 @@ export async function fetchManagerRanking() {
         `);
 
         return rows.map((r, idx) => {
-            let trophiesCount = 0;
-            if (r.competitions_raw) {
-                r.competitions_raw.forEach((comp: any) => {
-                    try {
-                        const parsed = typeof comp === 'string' ? JSON.parse(comp) : comp;
-                        trophiesCount += Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
-                    } catch (e) {}
-                });
-            }
+            const trophiesCount = extractTrophiesCount(r.competitions_raw);
 
             let awardsList: string[] = [];
             if (r.awards_raw) {
