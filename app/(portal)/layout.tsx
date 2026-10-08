@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "../globals.css";
 import "../pwa.css";
+import NavigationProgress from "@/components/common/NavigationProgress";
 
 export const metadata: Metadata = {
   title: "Road To Glory — Ultimate Football Manager Simulator",
@@ -44,6 +45,7 @@ export default function PortalLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body style={{ background: '#050608', minHeight: '100vh' }}>
+        <NavigationProgress />
         <div className="portal-bg-grid" />
         <div className="portal-glow-orb-1" />
         <div className="portal-glow-orb-2" />

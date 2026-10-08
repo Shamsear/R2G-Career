@@ -26,6 +26,7 @@ export const viewport: Viewport = {
 
 import PredictionNavbar from "@/components/prediction/PredictionNavbar";
 import PredictionFooter from "@/components/prediction/PredictionFooter";
+import NavigationProgress from "@/components/common/NavigationProgress";
 
 export default function PredictionLayout({
   children,
@@ -48,6 +49,7 @@ export default function PredictionLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body>
+        <NavigationProgress />
         <div className="app-container">
           <PredictionNavbar />
           <main className="main-content">

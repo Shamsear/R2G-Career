@@ -6,6 +6,7 @@ import "../pwa.css";
 import "../(rws)/rws/rws.css";
 import SpecialTourNavbar from "@/components/special-tour/SpecialTourNavbar";
 import SpecialTourFooter from "@/components/special-tour/SpecialTourFooter";
+import NavigationProgress from "@/components/common/NavigationProgress";
 
 export const metadata: Metadata = {
   title: "Road To Glory - Special Tour",
@@ -47,6 +48,7 @@ export default function SpecialTourLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body>
+        <NavigationProgress />
         <div className="app-container">
           <SpecialTourNavbar />
           <main className="main-content">

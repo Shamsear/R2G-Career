@@ -3,6 +3,7 @@ import "../globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
+import NavigationProgress from "@/components/common/NavigationProgress";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TeamRegistrationProvider } from "@/contexts/TeamRegistrationContext";
 import { QueryProvider } from "@/contexts/QueryProvider";
@@ -56,6 +57,7 @@ export default function RootLayout({
       <body
         className="antialiased min-h-screen flex flex-col"
       >
+        <NavigationProgress />
         <QueryProvider>
           <AuthProvider>
             <TeamRegistrationProvider>

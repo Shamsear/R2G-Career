@@ -1,15 +1,15 @@
-/**
- * Global Loading Component
- * Shows during page transitions for better UX
- */
+import FullPageLoader from "@/components/common/FullPageLoader";
 
-export default function Loading() {
+export default function TeamLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="text-center">
-        <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
-        <p className="text-gray-600 text-lg font-medium">Loading...</p>
-      </div>
+    <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+      <FullPageLoader
+        title="ROAD TO GLORY"
+        subtitle="Loading squad & auction data..."
+        accentColor="#3b82f6"
+        secondaryColor="#60a5fa"
+        icon="fa-futbol"
+      />
     </div>
   );
 }

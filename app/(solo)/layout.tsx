@@ -5,6 +5,7 @@ import "../styles.css";
 import "../pwa.css";
 import SoloNavbar from "@/components/solo/SoloNavbar";
 import SoloFooter from "@/components/solo/SoloFooter";
+import NavigationProgress from "@/components/common/NavigationProgress";
 
 export const metadata: Metadata = {
   title: "Road To Glory - Solo Tour",
@@ -46,6 +47,7 @@ export default function SoloLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body>
+        <NavigationProgress />
         <div className="app-container">
           <SoloNavbar />
           <main className="main-content">

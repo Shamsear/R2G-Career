@@ -6,6 +6,7 @@ import "../pwa.css";
 import "./rws/rws.css";
 import RwsNavbar from "@/components/rws/RwsNavbar";
 import RwsFooter from "@/components/rws/RwsFooter";
+import NavigationProgress from "@/components/common/NavigationProgress";
 
 export const metadata: Metadata = {
   title: "Road To Glory - World Series",
@@ -47,6 +48,7 @@ export default function RwsLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body>
+        <NavigationProgress />
         <div className="app-container">
           <RwsNavbar />
           <main className="main-content">
