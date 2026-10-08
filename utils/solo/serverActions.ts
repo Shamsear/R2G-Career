@@ -787,15 +787,29 @@ export async function fetchPlayersDb() {
 export async function fetchPlayerAuctionData() {
     try {
         const { rows: auctionResult } = await pool.query(`
+            WITH latest_contracts AS (
+              SELECT DISTINCT ON (player_id)
+                id, player_id, current_club_id, start_season, expire_season, salary, signed_value, status, season_id
+              FROM player_contracts
+              WHERE LOWER(status) = 'active'
+              ORDER BY player_id, (season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)) DESC, id DESC
+            ),
+            latest_auctions AS (
+              SELECT DISTINCT ON (player_id)
+                id, player_id, reserve_price, winning_bid_amount, status
+              FROM auctions
+              ORDER BY player_id, id DESC
+            )
             SELECT 
                 p.id, p.name, p.position, p.base_value,
                 c.name as current_club,
                 pc.start_season, pc.expire_season, pc.salary, pc.signed_value,
                 a.reserve_price, a.winning_bid_amount, a.status
             FROM players p
-            LEFT JOIN player_contracts pc ON p.id = pc.player_id AND LOWER(pc.status) = 'active'
+            LEFT JOIN latest_contracts pc ON p.id = pc.player_id
             LEFT JOIN clubs c ON pc.current_club_id = c.id
-            LEFT JOIN auctions a ON p.id = a.player_id
+            LEFT JOIN latest_auctions a ON p.id = a.player_id
+            ORDER BY p.id ASC
         `);
         
         return auctionResult.map((p: any) => {
@@ -808,8 +822,8 @@ export async function fetchPlayerAuctionData() {
                 bidAmount: Number(p.signed_value || p.winning_bid_amount || 0),
                 rowId: p.id,
                 contract: p.current_club ? `${formatSeason(p.start_season)} - ${formatSeason(p.expire_season)}` : 'None',
-            reservePrice: p.reserve_price || p.base_value || 0,
-            salary: p.salary || 0
+                reservePrice: p.reserve_price || p.base_value || 0,
+                salary: p.salary || 0
             };
         });
     } catch (error) {

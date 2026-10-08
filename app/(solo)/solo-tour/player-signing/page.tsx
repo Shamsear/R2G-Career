@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import "../../../portal.css";
 import { POSITIONS } from "@/utils/solo/playerAuctionFetcher";
 import { fetchPlayerAuctionData } from "@/utils/solo/serverActions";
@@ -36,106 +37,29 @@ function getTierBadgeLabel(baseValue: any) {
   }
 }
 
-export default function PlayerSigning() {
+function PlayerSigningContent() {
+  const searchParams = useSearchParams();
+
   const [players, setPlayers] = useState<any[]>([]);
-  const [filteredPlayers, setFilteredPlayers] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "all");
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("search") || "");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const p = Number(searchParams.get("page"));
+    return !isNaN(p) && p > 0 ? p : 1;
+  });
   const itemsPerPage = 50;
 
-  const STORAGE_KEY = "r2g_solo_player_signing_filters";
-  const isPopStateRef = useRef(false);
-
-  // Restore state from URL or sessionStorage on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const qTab = params.get("tab");
-    const qSearch = params.get("search");
-    const qPage = params.get("page");
-
-    const hasUrlParams = qTab !== null || qSearch !== null || qPage !== null;
-
-    if (hasUrlParams) {
-      if (qTab !== null) setActiveTab(qTab);
-      if (qSearch !== null) setSearchTerm(qSearch);
-      if (qPage !== null && !isNaN(Number(qPage))) setCurrentPage(Math.max(1, Number(qPage)));
-    } else {
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.activeTab !== undefined) setActiveTab(parsed.activeTab);
-          if (parsed.searchTerm !== undefined) setSearchTerm(parsed.searchTerm);
-          if (parsed.currentPage !== undefined) setCurrentPage(parsed.currentPage);
-        }
-      } catch (e) {
-        console.error("Failed to restore player signing filters", e);
-      }
-    }
-  }, []);
-
-  // Listen for browser/PWA back navigation (popstate)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const qTab = params.get("tab");
-      const qSearch = params.get("search");
-      const qPage = params.get("page");
-
-      isPopStateRef.current = true;
-
-      setActiveTab(qTab !== null ? qTab : "all");
-      setSearchTerm(qSearch !== null ? qSearch : "");
-      setCurrentPage(qPage !== null && !isNaN(Number(qPage)) ? Math.max(1, Number(qPage)) : 1);
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  // Sync state with sessionStorage & URL via pushState
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ activeTab, searchTerm, currentPage })
-      );
-    } catch (e) {
-      console.error("Failed to save player signing filters", e);
-    }
-
-    if (isPopStateRef.current) {
-      isPopStateRef.current = false;
-      return;
-    }
-
-    const params = new URLSearchParams();
-    if (activeTab && activeTab !== "all") params.set("tab", activeTab);
-    if (searchTerm) params.set("search", searchTerm);
-    if (currentPage > 1) params.set("page", currentPage.toString());
-
-    const queryString = params.toString();
-    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
-
-    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
-      window.history.pushState({ page: currentPage }, "", newUrl);
-    }
-  }, [activeTab, searchTerm, currentPage]);
-
+  // Fetch auction data from server action
   useEffect(() => {
     async function loadData() {
       try {
         const data = await fetchPlayerAuctionData();
-        setPlayers(data);
+        setPlayers(data || []);
       } catch {
         setError("Failed to load auction data from database.");
       } finally {
@@ -145,11 +69,49 @@ export default function PlayerSigning() {
     loadData();
   }, []);
 
+  // Sync state from URL search params when navigation/history changes
   useEffect(() => {
-    let result = players;
+    const qSearch = searchParams.get("search");
+    const qTab = searchParams.get("tab");
+    const qPage = searchParams.get("page");
+
+    if (qSearch !== null && qSearch !== searchTerm) {
+      setSearchTerm(qSearch);
+    }
+    if (qTab !== null && qTab !== activeTab) {
+      setActiveTab(qTab);
+    }
+    if (qPage !== null && !isNaN(Number(qPage))) {
+      const pNum = Math.max(1, Number(qPage));
+      if (pNum !== currentPage) setCurrentPage(pNum);
+    }
+  }, [searchParams]);
+
+  // Sync state to URL cleanly without full page refreshes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams();
+    if (activeTab && activeTab !== "all") params.set("tab", activeTab);
+    if (searchTerm.trim()) params.set("search", searchTerm.trim());
+    if (currentPage > 1) params.set("page", currentPage.toString());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [activeTab, searchTerm, currentPage]);
+
+  // Filter and Sort players
+  const filteredPlayers = useMemo(() => {
+    let result = [...players];
+
+    // Filter by position tab
     if (activeTab !== "all") {
       result = result.filter((p) => {
-        const pos = String(p.position).toUpperCase().trim();
+        const pos = String(p.position || "").toUpperCase().trim();
         let mapped = pos;
         if (pos.includes("GOALKEEPER") || pos === "G" || pos === "GOALIE" || pos === "GK") mapped = "GK";
         else if (pos.includes("CENTER BACK") || pos === "CD" || pos === "DC" || pos === "CB" || pos.includes("CENTRE BACK")) mapped = "CB";
@@ -164,33 +126,43 @@ export default function PlayerSigning() {
         return mapped === activeTab;
       });
     }
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(term) ||
-          (p.team && p.team.toLowerCase().includes(term)) ||
-          p.position.toLowerCase().includes(term)
-      );
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      result = result.filter((p) => {
+        const nameMatch = String(p.name || "").toLowerCase().includes(term);
+        const teamMatch = String(p.team || "").toLowerCase().includes(term);
+        const posMatch = String(p.position || "").toLowerCase().includes(term);
+        const contractMatch = String(p.contract || "").toLowerCase().includes(term);
+        return nameMatch || teamMatch || posMatch || contractMatch;
+      });
     }
+
+    // Sort
     if (sortConfig) {
       result.sort((a, b) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
+
         if (sortConfig.key === "valueStr") {
           valA = getPlayerValue(a.rating);
           valB = getPlayerValue(b.rating);
         }
-        if (typeof valA === "string" && typeof valB === "string") {
-          return sortConfig.direction === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+        if (sortConfig.key === "rating" || sortConfig.key === "bidAmount") {
+          const numA = Number(valA) || 0;
+          const numB = Number(valB) || 0;
+          return sortConfig.direction === "asc" ? numA - numB : numB - numA;
         }
-        return sortConfig.direction === "asc" ? valA - valB : valB - valA;
+
+        const strA = String(valA ?? "").toLowerCase().trim();
+        const strB = String(valB ?? "").toLowerCase().trim();
+        return sortConfig.direction === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
       });
     }
-    setFilteredPlayers(result);
-    if (!isPopStateRef.current) {
-      setCurrentPage(1);
-    }
+
+    return result;
   }, [players, activeTab, searchTerm, sortConfig]);
 
   const requestSort = (key: string) => {
@@ -199,6 +171,17 @@ export default function PlayerSigning() {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  };
+
+  const handleTabChange = (pos: string) => {
+    setActiveTab(pos);
+    setCurrentPage(1);
   };
 
   const renderSortIcon = (key: string) => {
@@ -211,7 +194,7 @@ export default function PlayerSigning() {
   const colCount = activeTab === "all" ? 7 : 6;
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentPlayers = filteredPlayers.slice(startIndex, endIndex);
@@ -295,8 +278,24 @@ export default function PlayerSigning() {
               type="text"
               placeholder="Search player, team, or position..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "rgba(255,255,255,0.4)",
+                  cursor: "pointer",
+                  padding: "0 0.5rem"
+                }}
+                title="Clear search"
+              >
+                <i className="fas fa-times" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -304,7 +303,7 @@ export default function PlayerSigning() {
         <div className="tabs-filter">
           <button
             className={`tab-btn ${activeTab === "all" ? "active" : ""}`}
-            onClick={() => setActiveTab("all")}
+            onClick={() => handleTabChange("all")}
           >
             All Positions
           </button>
@@ -312,7 +311,7 @@ export default function PlayerSigning() {
             <button
               key={pos}
               className={`tab-btn ${activeTab === pos ? "active" : ""}`}
-              onClick={() => setActiveTab(pos)}
+              onClick={() => handleTabChange(pos)}
             >
               {pos}
             </button>
@@ -393,7 +392,7 @@ export default function PlayerSigning() {
                         <span>No players found for &ldquo;{searchTerm}&rdquo; in {activeTab === "all" ? "any position" : activeTab}</span>
                         <button
                           className="portal-btn btn-secondary"
-                          onClick={() => { setSearchTerm(""); setActiveTab("all"); }}
+                          onClick={() => { setSearchTerm(""); setActiveTab("all"); setCurrentPage(1); }}
                         >
                           Reset Filters
                         </button>
@@ -463,5 +462,20 @@ export default function PlayerSigning() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PlayerSigning() {
+  return (
+    <Suspense fallback={
+      <div className="portal-root-wrapper" style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="r2g-loading">
+          <div className="r2g-spinner" />
+          <span>Loading Player Database...</span>
+        </div>
+      </div>
+    }>
+      <PlayerSigningContent />
+    </Suspense>
   );
 }
