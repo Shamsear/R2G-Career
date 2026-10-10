@@ -170,15 +170,10 @@ export default function ManagerDetail() {
 
     // Stars Rating calculation
     const rating = parseInt(manager.star_rating || 0);
+    const starCount = rating >= 6 ? 5 : rating;
     const stars = [];
-    for (let i = 1; i <= 5; i++) {
-        if (i === 3 && rating >= 6) {
-            stars.push(<i key={i} className="fas fa-sun star" style={{ color: '#fbbf24' }}></i>);
-        } else if (i <= rating) {
-            stars.push(<i key={i} className="fas fa-star star"></i>);
-        } else {
-            stars.push(<i key={i} className="fas fa-star star empty"></i>);
-        }
+    for (let i = 1; i <= starCount; i++) {
+        stars.push(<i key={i} className="fas fa-star star"></i>);
     }
 
     const positionOrder: Record<string, number> = {
@@ -271,8 +266,8 @@ export default function ManagerDetail() {
                                             {manager.club}
                                         </div>
                                     </div>
-                                    {manager.star_rating && (
-                                        <div className="star-rating" title={`${manager.star_rating} Star Manager`}>
+                                    {rating > 0 && (
+                                        <div className="star-rating" title={`${rating >= 6 ? 'Special Tier' : `${rating} Star`} Manager`}>
                                             {stars}
                                         </div>
                                     )}
