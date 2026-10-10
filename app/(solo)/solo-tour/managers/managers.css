@@ -71,7 +71,7 @@
   background-repeat: no-repeat;
   opacity: 0.32;
   filter: drop-shadow(0 0 14px rgba(0, 0, 0, 0.6));
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   z-index: 1;
 }
@@ -111,7 +111,7 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .manager-card:hover .manager-photo {

@@ -1121,23 +1121,40 @@ body {
   border-color: var(--rose-border);
 }
 .manager-header {
-  padding: 1.5rem;
+  position: relative;
+  height: 190px;
+  background: linear-gradient(135deg, #151d27 0%, #0d1218 100%);
+  padding: 1.25rem;
   display: flex;
+  align-items: flex-end;
   gap: 1rem;
-  align-items: center;
-  background-size: cover;
-  background-position: center;
-  background-blend-mode: overlay;
-  background-color: var(--bg-elevated);
+  overflow: hidden;
+}
+.manager-header-logo-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-size: 130px auto;
+  background-position: right 0.85rem center;
+  background-repeat: no-repeat;
+  opacity: 0.32;
+  filter: drop-shadow(0 0 14px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 1;
 }
 .manager-photo {
-  width: 62px;
-  height: 62px;
+  position: relative;
+  z-index: 2;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
-  border: 2px solid var(--rose-border);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   background-size: cover;
   background-position: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 .manager-info { flex: 1; min-width: 0; }
 .manager-name {

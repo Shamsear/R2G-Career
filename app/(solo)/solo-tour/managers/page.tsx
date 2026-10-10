@@ -194,10 +194,32 @@ export default function Managers() {
           ) : (
             filteredManagers.map((manager, i) => (
               <div key={i} className="manager-card active">
-                <div className="manager-header">
+                <div
+                  className="manager-header"
+                  style={{
+                    position: "relative",
+                    height: "190px",
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "flex-end",
+                    gap: "1rem",
+                    padding: "1.25rem",
+                  }}
+                >
                   <div
                     className="manager-header-logo-bg"
                     style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      left: 0,
+                      backgroundSize: "130px auto",
+                      backgroundPosition: "right 0.85rem center",
+                      backgroundRepeat: "no-repeat",
+                      opacity: 0.32,
+                      pointerEvents: "none",
+                      zIndex: 1,
                       backgroundImage: `url('${getClubLogo(manager)}')`,
                     }}
                   />
