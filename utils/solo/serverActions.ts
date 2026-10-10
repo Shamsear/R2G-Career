@@ -177,10 +177,11 @@ export async function fetchManagers() {
             active_contracts AS (
               SELECT 
                 pc.current_club_id,
-                COALESCE(SUM(pc.signed_value), SUM(p.base_value), 0)::int as contract_club_value
+                COALESCE(SUM(COALESCE(pc.signed_value, p.base_value, 0)), 0)::int as contract_club_value
               FROM player_contracts pc
               JOIN players p ON pc.player_id = p.id
               WHERE LOWER(pc.status) = 'active'
+                AND pc.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
               GROUP BY pc.current_club_id
             )
             SELECT 
@@ -300,7 +301,7 @@ export async function fetchManagerByName(name: string) {
             active_contracts AS (
               SELECT 
                 pc.current_club_id,
-                COALESCE(SUM(p.base_value), 0)::int as contract_club_value
+                COALESCE(SUM(COALESCE(pc.signed_value, p.base_value, 0)), 0)::int as contract_club_value
               FROM player_contracts pc
               JOIN players p ON pc.player_id = p.id
               WHERE LOWER(pc.status) = 'active'
@@ -363,7 +364,16 @@ export async function fetchManagerByName(name: string) {
         
         // Fetch players for this manager's club
         const { rows: playersResult } = await pool.query(`
-            SELECT p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagePath
+            SELECT 
+                p.id, 
+                p.name, 
+                p.position, 
+                p.card_type as star, 
+                COALESCE(pc.signed_value, p.base_value, 0) as value,
+                COALESCE(pc.salary, 0) as salary,
+                pc.start_season,
+                pc.expire_season,
+                p.image_path as imagePath
             FROM players p
             JOIN player_contracts pc ON p.id = pc.player_id
             WHERE pc.current_club_id = $1 
@@ -685,7 +695,11 @@ export async function fetchManagerByName(name: string) {
                     id: p.id,
                     player_name: p.name,
                     position: p.position,
-                    value: p.value || 0,
+                    value: Number(p.value) || 0,
+                    salary: Number(p.salary) || 0,
+                    contract: p.expire_season ? (String(p.expire_season).toLowerCase().includes('season') ? p.expire_season : `Season ${p.expire_season}`) : 'Standard',
+                    start_season: p.start_season,
+                    expire_season: p.expire_season,
                     player_type: p.star || '3-star-standard',
                     imagePath: resolvePlayerImageUrl(p.imagepath, p.id)
                 }))
