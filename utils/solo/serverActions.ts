@@ -665,6 +665,7 @@ export async function fetchManagerByName(name: string) {
             r2g_id: m.r2g_id || '',
             photo: m.photo || '',
             club: m.club_name || 'No Club',
+            club_logo: m.club_logo || '',
             age: m.global_rank || 0,
             rank: m.global_rank || 0,
             overall_rating: parseFloat(m.overall_rating) || 0,

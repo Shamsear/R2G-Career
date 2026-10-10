@@ -30,7 +30,21 @@ function formatCompetition(key: string, comp: any) {
         }
     }
 
-    return { name, placement };
+function getClubLogo(manager: any) {
+    if (manager?.club_logo && typeof manager.club_logo === "string" && manager.club_logo.trim()) {
+        return manager.club_logo;
+    }
+    const clubName = (manager?.club || manager?.club_name || "").toUpperCase().trim();
+    if (!clubName || clubName === "FREE AGENT" || clubName === "NO CLUB") {
+        return "/assets/images/club-logos/FREE-AGENT.WEBP";
+    }
+    const clubSlug = clubName.replace(/\s+/g, "-");
+    if (clubSlug === "PSG") return "/assets/images/club-logos/PARIS-SAINT-GERMAIN.webp";
+    if (clubSlug === "MAN-UTD" || clubSlug === "MANCHESTER-UTD") return "/assets/images/club-logos/MANCHESTER-UNITED.webp";
+    if (clubSlug === "BARCELONA" || clubSlug === "BARCA") return "/assets/images/club-logos/FC-BARCELONA.webp";
+    if (clubSlug === "JUVENTUS-FC") return "/assets/images/club-logos/JUVENTUS.webp";
+    if (clubSlug === "BAYERN") return "/assets/images/club-logos/BAYERN-MUNICH.webp";
+    return `/assets/images/club-logos/${clubSlug}.webp`;
 }
 
 export default function ManagerDetail() {
@@ -240,7 +254,7 @@ export default function ManagerDetail() {
                                 />
                                 <div 
                                     className="manager-club-badge-overlay" 
-                                    style={{ backgroundImage: `url('/assets/images/club-logos/${encodeURIComponent(manager.club.replace(/\s+/g, '-'))}.webp'), url('/assets/images/default-club-logo.png')` }}
+                                    style={{ backgroundImage: `url('${getClubLogo(manager)}')` }}
                                     title={manager.club}
                                 />
                             </div>
@@ -250,7 +264,7 @@ export default function ManagerDetail() {
                                     <div>
                                         <h1 className="manager-name">{manager.name}</h1>
                                         <div className="manager-club">
-                                            <span className="club-logo-mini" style={{ backgroundImage: `url('/assets/images/club-logos/${encodeURIComponent(manager.club.replace(/\s+/g, '-'))}.webp'), url('/assets/images/default-club-logo.png')` }}></span>
+                                            <span className="club-logo-mini" style={{ backgroundImage: `url('${getClubLogo(manager)}')` }}></span>
                                             {manager.club}
                                         </div>
                                     </div>
