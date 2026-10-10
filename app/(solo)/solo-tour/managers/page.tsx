@@ -24,16 +24,21 @@ function getClubLogo(manager: any) {
 }
 
 function generateStarRating(rating: any) {
-  const count = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
-  
+  const numRating = parseInt(rating || 0);
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    if (i === 3 && numRating >= 6) {
+      stars.push(<i key={i} className="fas fa-sun star" style={{ color: '#fbbf24' }} />);
+    } else if (i <= (numRating >= 6 ? 5 : numRating)) {
+      stars.push(<i key={i} className="fas fa-star star" />);
+    } else {
+      stars.push(<i key={i} className="fas fa-star star empty" />);
+    }
+  }
+
   return (
-    <div className="star-rating" title={`${count} Star Manager`}>
-      {[...Array(count)].map((_, i) => (
-        <i key={`filled-${i}`} className="fas fa-star" />
-      ))}
-      {[...Array(5 - count)].map((_, i) => (
-        <i key={`empty-${i}`} className="fas fa-star empty" />
-      ))}
+    <div className="star-rating" title={`${numRating >= 6 ? 'Special Tier (☆☆ ☆ ☆☆)' : `${numRating} Star`} Manager`}>
+      {stars}
     </div>
   );
 }
