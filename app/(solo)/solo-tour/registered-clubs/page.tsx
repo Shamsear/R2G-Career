@@ -93,7 +93,10 @@ export default function RegisteredClubs() {
                     <div className="club-manager-img">
                       <img
                         src={club.image || "/assets/images/placeholder.webp"}
-                        alt={club.manager}
+                        alt={club.name}
+                        onError={(e) => {
+                          (e.target as any).src = "/assets/images/placeholder.webp";
+                        }}
                       />
                     </div>
                     <div className="club-info">

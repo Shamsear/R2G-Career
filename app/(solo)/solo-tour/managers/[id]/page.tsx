@@ -30,6 +30,9 @@ function formatCompetition(key: string, comp: any) {
         }
     }
 
+    return { name, placement };
+}
+
 function getClubLogo(manager: any) {
     if (manager?.club_logo && typeof manager.club_logo === "string" && manager.club_logo.trim()) {
         return manager.club_logo;

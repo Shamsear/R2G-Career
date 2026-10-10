@@ -24,21 +24,32 @@ function getClubLogo(manager: any) {
 }
 
 function generateStarRating(rating: any) {
-  const numRating = parseInt(rating || 0);
-  const stars = [];
-  for (let i = 1; i <= 5; i++) {
-    if (i === 3 && numRating >= 6) {
-      stars.push(<i key={i} className="fas fa-sun star" style={{ color: '#fbbf24' }} />);
-    } else if (i <= (numRating >= 6 ? 5 : numRating)) {
-      stars.push(<i key={i} className="fas fa-star star" />);
-    } else {
-      stars.push(<i key={i} className="fas fa-star star empty" />);
-    }
+  const count = parseInt(rating || 0);
+  if (count <= 0) {
+    return (
+      <div className="star-rating" title="0 Stars">
+        <i className="fas fa-star empty" />
+      </div>
+    );
   }
 
+  // If Special Tier (☆☆ ☆ ☆☆)
+  if (count >= 6) {
+    return (
+      <div className="star-rating" title="Special Tier Manager">
+        {[...Array(5)].map((_, i) => (
+          <i key={i} className="fas fa-star" />
+        ))}
+      </div>
+    );
+  }
+
+  // Display authentic star count (1, 2, 3, 4, 5) without 5-star max placeholder padding
   return (
-    <div className="star-rating" title={`${numRating >= 6 ? 'Special Tier (☆☆ ☆ ☆☆)' : `${numRating} Star`} Manager`}>
-      {stars}
+    <div className="star-rating" title={`${count} Star Manager`}>
+      {[...Array(count)].map((_, i) => (
+        <i key={i} className="fas fa-star" />
+      ))}
     </div>
   );
 }
@@ -193,6 +204,18 @@ export default function Managers() {
                   <div
                     className="manager-photo"
                     style={{
+                      width: "70px",
+                      height: "70px",
+                      minWidth: "70px",
+                      maxWidth: "70px",
+                      minHeight: "70px",
+                      maxHeight: "70px",
+                      borderRadius: "50%",
+                      aspectRatio: "1 / 1",
+                      flexShrink: 0,
+                      overflow: "hidden",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
                       backgroundImage: manager.photo 
                         ? `url('${manager.photo}')`
                         : `url('/assets/images/managers/${manager.name.toLowerCase().replace(/\s+/g, "-")}.webp'), url('/assets/images/default-manager.webp')`,
