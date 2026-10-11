@@ -17,13 +17,16 @@ import {
   releaseExpiredContractsForSeason,
   releaseMidSeasonContracts,
   releasePlayerContract,
+  releaseBulkPlayerContracts,
   fetchClubPlayersWithContracts,
   fetchPlayersToBeReleased,
   primePlayerForTeam,
   transferPlayerPrime,
   removePlayerPrime,
   fetchPrimedPlayersList,
-  fetchAdminPlayersList
+  fetchAdminPlayersList,
+  fetchRecentReversibleOperations,
+  revertSoloOperation
 } from "@/utils/solo/serverActions";
 
 function AdminClubDropdown({
@@ -536,10 +539,73 @@ export default function AuctionManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   const [clubs, setClubs] = useState<any[]>([]);
   const [freeAgents, setFreeAgents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"auction" | "sell" | "release" | "swap" | "window" | "prime">("auction");
+  const [activeTab, setActiveTab] = useState<"auction" | "sell" | "release" | "swap" | "window" | "prime" | "history">("auction");
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  // Reversible operations & history state
+  const [lastOpBanner, setLastOpBanner] = useState<{ id: number; title: string; description?: string } | null>(null);
+  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyFilter, setHistoryFilter] = useState<string>("all");
+  const [revertingId, setRevertingId] = useState<number | null>(null);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const ops = await fetchRecentReversibleOperations(undefined, 60);
+      setHistoryList(ops || []);
+    } catch {
+      showToast("Error loading operation history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  const handleRevert = async (opId: number, title?: string) => {
+    if (!confirm(`Are you sure you want to revert "${title || 'this operation'}"? This will restore players and club balances to their prior state.`)) {
+      return;
+    }
+    setRevertingId(opId);
+    try {
+      const res = await revertSoloOperation(opId);
+      if (res.success) {
+        showToast("Operation reverted successfully!");
+        if (lastOpBanner?.id === opId) {
+          setLastOpBanner(null);
+        }
+        await loadData();
+        if (activeTab === "history") {
+          await loadHistory();
+        }
+        if (sellClubId && activeSeason) {
+          fetchClubPlayersWithContracts(parseInt(sellClubId), activeSeason.id).then(setSellClubPlayers).catch(() => {});
+        }
+        if (releaseClubId && activeSeason) {
+          fetchClubPlayersWithContracts(parseInt(releaseClubId), activeSeason.id).then(setReleaseClubPlayers).catch(() => {});
+        }
+        if (swapClubAId && activeSeason) {
+          fetchClubPlayersWithContracts(parseInt(swapClubAId), activeSeason.id).then(setSwapClubAPlayers).catch(() => {});
+        }
+        if (swapClubBId && activeSeason) {
+          fetchClubPlayersWithContracts(parseInt(swapClubBId), activeSeason.id).then(setSwapClubBPlayers).catch(() => {});
+        }
+      } else {
+        showToast(`Failed to revert: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Failed to revert'}`);
+    } finally {
+      setRevertingId(null);
+    }
+  };
 
   // Auction State
   const [auctionTiming, setAuctionTiming] = useState<"start" | "mid">("start");
@@ -862,14 +928,6 @@ export default function AuctionManager() {
     p.position.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleRowSelection = (playerId: number) => {
-    setSelectedPlayerIds(prev =>
-      prev.includes(playerId)
-        ? prev.filter(id => id !== playerId)
-        : [...prev, playerId]
-    );
-  };
-
   // Transfer queue: add one deal at a time
   const handleAddTransfer = () => {
     if (!sellClubId) return showToast("Select a selling club!");
@@ -923,8 +981,15 @@ export default function AuctionManager() {
           price: t.price,
           buyingClubId: t.buyingClubId,
         }));
-        await executeBulkTransfers(payload);
+        const res = await executeBulkTransfers(payload);
         showToast("All transfers executed successfully!");
+        if (res?.operationId) {
+          setLastOpBanner({
+            id: res.operationId,
+            title: `Bulk Transfer (${bulkTransfers.length} player${bulkTransfers.length > 1 ? 's' : ''})`,
+            description: bulkTransfers.map(t => `${t.playerName} -> ${t.buyingClubName}`).slice(0, 3).join(', ') + (bulkTransfers.length > 3 ? '...' : '')
+          });
+        }
         setBulkTransfers([]);
         setSellSelectedPlayer(null);
         setSellClubId("");
@@ -954,7 +1019,7 @@ export default function AuctionManager() {
 
     startTransition(async () => {
       try {
-        await executeTransferBuy(
+        const res = await executeTransferBuy(
           parseInt(winningClubId),
           parseInt(selectedPlayerId),
           bidAmount,
@@ -962,7 +1027,16 @@ export default function AuctionManager() {
         );
         
         const playerObj = freeAgents.find(p => p.id.toString() === selectedPlayerId);
+        const winningClub = clubs.find(c => c.id.toString() === winningClubId);
         showToast(`Assigned ${playerObj?.name || 'Player'} to club successfully!`);
+
+        if (res?.operationId) {
+          setLastOpBanner({
+            id: res.operationId,
+            title: `Auction Sign: ${playerObj?.name || 'Player'} to ${winningClub?.name || 'Club'}`,
+            description: `Signed for ${bidAmount} Coins (${auctionTiming === 'mid' ? 'Mid-Season' : 'Season Start'})`
+          });
+        }
         
         setSelectedPlayerId("");
         setWinningClubId("");
@@ -972,71 +1046,6 @@ export default function AuctionManager() {
         showToast(`Assignment failed: ${err.message || "Insufficient balance"}`);
       }
     });
-  };
-
-  // Bulk Transfer Handler
-  const handleSell = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sellClubId || selectedSellPlayerIds.length === 0) {
-      return showToast("Please select selling club and at least one player to transfer!");
-    }
-    
-    try {
-      const transfersList = selectedSellPlayerIds.map(playerId => {
-        const target = transferTargets[playerId];
-        const playerObj = sellClubPlayers.find(p => p.id === playerId);
-        const pName = playerObj ? playerObj.name : `#${playerId}`;
-
-        if (!target || !target.buyingClubId) {
-          throw new Error(`Please specify buying club for ${pName}`);
-        }
-        if (target.price < 0) {
-          throw new Error(`Transfer price for ${pName} cannot be negative!`);
-        }
-        if (target.buyingClubId === sellClubId) {
-          throw new Error(`Buying club for ${pName} cannot be the same as the selling club!`);
-        }
-
-        const prevValue = playerObj ? Number(playerObj.signedValue) || 0 : 0;
-
-        // Validation 1: No odd numbers allowed
-        if (target.price % 2 !== 0) {
-          throw new Error(`Transfer price for ${pName} must be an even number. Odd values like ${target.price} are not allowed.`);
-        }
-
-        // Validation 2: Price must be between 50% and 200% of current contract value
-        const minPrice = 0.5 * prevValue;
-        const maxPrice = 2.0 * prevValue;
-        if (target.price < minPrice || target.price > maxPrice) {
-          throw new Error(`Transfer price for ${pName} must be between 50% (${minPrice}) and 200% (${maxPrice}) of current value (${prevValue}).`);
-        }
-
-        return {
-          sellingClubId: parseInt(sellClubId),
-          playerId,
-          price: target.price,
-          buyingClubId: parseInt(target.buyingClubId)
-        };
-      });
-
-      if (!confirm(`Are you sure you want to execute transfers for ${selectedSellPlayerIds.length} player(s)?`)) {
-        return;
-      }
-
-      startTransition(async () => {
-        try {
-          await executeBulkTransfers(transfersList);
-          showToast("Transfers executed successfully!");
-          setSelectedSellPlayerIds([]);
-          setTransferTargets({});
-          loadData();
-        } catch (err: any) {
-          showToast(`Operation failed: ${err.message || "Failed to execute"}`);
-        }
-      });
-    } catch (err: any) {
-      showToast(err.message || "Invalid transfer settings");
-    }
   };
 
   // Release queue: add multiple checked players from the selected team
@@ -1111,16 +1120,20 @@ export default function AuctionManager() {
 
     startTransition(async () => {
       try {
-        let count = 0;
-        for (const item of bulkReleases) {
-          await releasePlayerContract(
-            item.playerId,
-            activeSeason.id,
-            releaseTiming
-          );
-          count++;
+        const playerIds = bulkReleases.map(r => r.playerId);
+        const res = await releaseBulkPlayerContracts(
+          playerIds,
+          activeSeason.id,
+          releaseTiming
+        );
+        showToast(`Successfully released ${res.count || bulkReleases.length} player(s)!`);
+        if (res?.operationId) {
+          setLastOpBanner({
+            id: res.operationId,
+            title: `Bulk Release (${bulkReleases.length} player${bulkReleases.length > 1 ? 's' : ''})`,
+            description: `Refunded total ${res.totalRefund || 0} Coins`
+          });
         }
-        showToast(`Successfully released ${count} player(s)!`);
         setBulkReleases([]);
         setReleaseSelectedIds([]);
         setReleaseClubId("");
@@ -1197,8 +1210,15 @@ export default function AuctionManager() {
           cashAdjustmentAtoB: s.cashAdjustmentAtoB
         }));
 
-        await executeBulkSwaps(payload);
+        const res = await executeBulkSwaps(payload);
         showToast("All swap deals executed successfully!");
+        if (res?.operationId) {
+          setLastOpBanner({
+            id: res.operationId,
+            title: `Bulk Swap (${bulkSwaps.length} deal${bulkSwaps.length > 1 ? 's' : ''})`,
+            description: bulkSwaps.map(s => `${s.playerAName} <-> ${s.playerBName}`).slice(0, 3).join(', ') + (bulkSwaps.length > 3 ? '...' : '')
+          });
+        }
         setBulkSwaps([]);
         loadData();
       } catch (err: any) {
@@ -1272,7 +1292,70 @@ export default function AuctionManager() {
           <button className={`portal-btn ${activeTab === 'prime' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('prime')}>
             <i className="fa-solid fa-crown" /> Prime Player (1 Season)
           </button>
+          <button className={`portal-btn ${activeTab === 'history' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('history')}>
+            <i className="fa-solid fa-clock-rotate-left" /> History & Revert
+          </button>
         </div>
+
+        {/* Instant Undo / Revert Banner */}
+        {lastOpBanner && (
+          <div
+            style={{
+              padding: "1rem 1.25rem",
+              borderRadius: "12px",
+              background: "rgba(16, 185, 129, 0.12)",
+              border: "1px solid rgba(16, 185, 129, 0.3)",
+              color: "#34d399",
+              marginBottom: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              animation: "adminFadeIn 0.3s ease"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <i className="fa-solid fa-circle-check" style={{ fontSize: "1.25rem" }} />
+              <div>
+                <span style={{ fontWeight: 700, color: "#fff" }}>{lastOpBanner.title}</span>
+                {lastOpBanner.description && (
+                  <span style={{ fontSize: "0.85rem", opacity: 0.85, marginLeft: "8px" }}>
+                    ({lastOpBanner.description})
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRevert(lastOpBanner.id, lastOpBanner.title)}
+                disabled={revertingId === lastOpBanner.id}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "6px",
+                  background: "rgba(239, 68, 68, 0.2)",
+                  border: "1px solid rgba(239, 68, 68, 0.45)",
+                  color: "#fca5a5",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginLeft: "0.5rem"
+                }}
+              >
+                <i className={`fa-solid ${revertingId === lastOpBanner.id ? 'fa-spinner fa-spin' : 'fa-rotate-left'}`} />
+                {revertingId === lastOpBanner.id ? 'Reverting...' : 'Undo / Revert This Action'}
+              </button>
+            </div>
+            <button
+              onClick={() => setLastOpBanner(null)}
+              style={{ background: "none", border: "none", color: "#34d399", cursor: "pointer", fontSize: "1.1rem" }}
+            >
+              <i className="fa-solid fa-xmark" />
+            </button>
+          </div>
+        )}
 
         {/* Tab 1: Player Auction */}
         {activeTab === 'auction' && (
@@ -2983,6 +3066,207 @@ export default function AuctionManager() {
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* Tab 7: History & Revert */}
+        {activeTab === 'history' && (
+          <div className="admin-card" style={{ padding: "1.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h2 className="admin-card-title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-clock-rotate-left" style={{ color: "#38bdf8" }} />
+                  Operation History & Revert Hub
+                </h2>
+                <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                  Review recent operations (auction signs, transfers, swaps, releases, bulk assignments). Any active operation can be cleanly reverted.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={loadHistory}
+                  disabled={historyLoading}
+                  className="portal-btn btn-secondary"
+                  style={{ padding: "6px 14px", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <i className={`fa-solid fa-arrows-rotate ${historyLoading ? 'fa-spin' : ''}`} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div style={{ display: "flex", gap: "6px", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+              {[
+                { id: "all", label: "All Operations" },
+                { id: "transfer_buy", label: "Auction Buys" },
+                { id: "bulk_transfer", label: "Transfers" },
+                { id: "bulk_swap", label: "Swaps" },
+                { id: "release", label: "Releases" },
+                { id: "bulk_assign", label: "Bulk Squad Assigns" }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setHistoryFilter(f.id)}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "20px",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: `1px solid ${historyFilter === f.id ? '#38bdf8' : 'rgba(255,255,255,0.12)'}`,
+                    background: historyFilter === f.id ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                    color: historyFilter === f.id ? '#38bdf8' : 'rgba(255,255,255,0.6)',
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {historyLoading ? (
+              <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-secondary)" }}>
+                <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "1.8rem", marginBottom: "0.75rem", color: "#38bdf8" }} />
+                <p>Loading operation history...</p>
+              </div>
+            ) : (() => {
+              const filtered = historyList.filter(op => historyFilter === "all" || op.operation_type === historyFilter);
+              if (filtered.length === 0) {
+                return (
+                  <div style={{ padding: "3.5rem 1rem", textAlign: "center", color: "var(--text-secondary)", background: "rgba(0,0,0,0.15)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.08)" }}>
+                    <i className="fa-solid fa-box-open" style={{ fontSize: "2.2rem", opacity: 0.35, marginBottom: "0.75rem" }} />
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>No operations found</div>
+                    <p style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>No reversible operations match the selected filter.</p>
+                  </div>
+                );
+              }
+
+              const typeBadgeColor: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+                transfer_buy: { bg: "rgba(234, 179, 8, 0.15)", text: "#facc15", border: "rgba(234, 179, 8, 0.3)", icon: "fa-gavel" },
+                bulk_transfer: { bg: "rgba(59, 130, 246, 0.15)", text: "#60a5fa", border: "rgba(59, 130, 246, 0.3)", icon: "fa-shuffle" },
+                bulk_swap: { bg: "rgba(168, 85, 247, 0.15)", text: "#c084fc", border: "rgba(168, 85, 247, 0.3)", icon: "fa-rotate" },
+                release: { bg: "rgba(239, 68, 68, 0.15)", text: "#f87171", border: "rgba(239, 68, 68, 0.3)", icon: "fa-user-minus" },
+                bulk_assign: { bg: "rgba(16, 185, 129, 0.15)", text: "#34d399", border: "rgba(16, 185, 129, 0.3)", icon: "fa-file-signature" }
+              };
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {filtered.map(op => {
+                    const isReverted = op.status === 'reverted';
+                    const dt = new Date(op.created_at);
+                    const formattedDate = dt.toLocaleString();
+                    const detailsObj = typeof op.details === 'string' ? JSON.parse(op.details) : op.details;
+                    const typeStyle = typeBadgeColor[op.operation_type] || { bg: "rgba(255,255,255,0.1)", text: "#fff", border: "rgba(255,255,255,0.2)", icon: "fa-circle" };
+
+                    return (
+                      <div
+                        key={op.id}
+                        style={{
+                          background: isReverted ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.04)",
+                          border: `1px solid ${isReverted ? 'rgba(255, 255, 255, 0.06)' : 'rgba(56, 189, 248, 0.22)'}`,
+                          borderRadius: "12px",
+                          padding: "1.1rem 1.35rem",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "1.25rem",
+                          flexWrap: "wrap",
+                          opacity: isReverted ? 0.6 : 1,
+                          transition: "all 0.2s ease"
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: "260px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px", flexWrap: "wrap" }}>
+                            <span
+                              style={{
+                                fontSize: "0.7rem",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                background: typeStyle.bg,
+                                color: typeStyle.text,
+                                border: `1px solid ${typeStyle.border}`
+                              }}
+                            >
+                              <i className={`fa-solid ${typeStyle.icon}`} style={{ fontSize: "0.65rem" }} />
+                              {op.operation_type.replace('_', ' ')}
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: "0.98rem", color: isReverted ? "rgba(255,255,255,0.7)" : "#fff" }}>
+                              {op.title}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                padding: "1px 7px",
+                                borderRadius: "4px",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                background: isReverted ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                                color: isReverted ? "#f87171" : "#34d399",
+                                border: `1px solid ${isReverted ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`
+                              }}
+                            >
+                              {isReverted ? "Reverted" : "Active"}
+                            </span>
+                          </div>
+
+                          {/* Extra details from detailsObj */}
+                          {detailsObj?.summaries && Array.isArray(detailsObj.summaries) && (
+                            <div style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.65)", marginBottom: "4px" }}>
+                              {detailsObj.summaries.slice(0, 4).join(" • ")}
+                              {detailsObj.summaries.length > 4 && ` (+${detailsObj.summaries.length - 4} more)`}
+                            </div>
+                          )}
+
+                          <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "flex", gap: "14px", flexWrap: "wrap" }}>
+                            <span><i className="fa-solid fa-clock" style={{ marginRight: "4px" }} />{formattedDate}</span>
+                            {op.admin_username && <span><i className="fa-solid fa-user-shield" style={{ marginRight: "4px" }} />By: {op.admin_username}</span>}
+                            {detailsObj?.rtDeducted > 0 && <span style={{ color: "#fbbf24" }}><i className="fa-solid fa-coins" style={{ marginRight: "4px" }} />{detailsObj.rtDeducted} RT</span>}
+                          </div>
+                        </div>
+
+                        {!isReverted ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRevert(op.id, op.title)}
+                            disabled={revertingId === op.id || isPending}
+                            style={{
+                              padding: "8px 18px",
+                              borderRadius: "8px",
+                              background: "rgba(239, 68, 68, 0.15)",
+                              border: "1px solid rgba(239, 68, 68, 0.4)",
+                              color: "#fca5a5",
+                              fontSize: "0.85rem",
+                              fontWeight: 700,
+                              cursor: revertingId === op.id ? "not-allowed" : "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
+                            <i className={`fa-solid ${revertingId === op.id ? 'fa-spinner fa-spin' : 'fa-rotate-left'}`} />
+                            {revertingId === op.id ? 'Reverting...' : 'Revert Operation'}
+                          </button>
+                        ) : (
+                          <div style={{ fontSize: "0.76rem", color: "rgba(255, 255, 255, 0.4)", fontStyle: "italic", textAlign: "right" }}>
+                            Reverted {op.reverted_at ? new Date(op.reverted_at).toLocaleTimeString() : ''}
+                            {op.reverted_by ? ` by ${op.reverted_by}` : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -10,7 +10,9 @@ import {
   fetchActiveSeason,
   fetchAllClubs,
   fetchAdminPlayersList,
-  bulkAssignPlayersWithContracts
+  bulkAssignPlayersWithContracts,
+  fetchRecentReversibleOperations,
+  revertSoloOperation
 } from "@/utils/solo/serverActions";
 
 interface PlayerItem {
@@ -94,6 +96,44 @@ export default function BulkAssignPlayersPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [lastOperationId, setLastOperationId] = useState<number | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      const data = await fetchRecentReversibleOperations('bulk_assign', 15);
+      setHistoryList(data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const handleRevert = (operationId: number) => {
+    if (!confirm("Are you sure you want to revert this bulk assignment? This will remove the assigned contracts, restore previous contracts, and refund any deducted tokens.")) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await revertSoloOperation(operationId);
+        if (res.success) {
+          showToast("Assignment reverted successfully!");
+          setSuccessBanner(null);
+          setLastOperationId(null);
+          loadData();
+          loadHistory();
+        } else {
+          showToast(`Revert failed: ${res.error || "Unknown error"}`);
+        }
+      } catch (err: any) {
+        showToast(`Revert failed: ${err.message || "Failed to revert"}`);
+      }
+    });
+  };
 
   const STORAGE_KEY = "r2g_solo_bulk_assign_filters";
 
@@ -446,7 +486,10 @@ export default function BulkAssignPlayersPage() {
           };
         });
 
-        await bulkAssignPlayersWithContracts(selectedClubId, assignmentsPayload);
+        const res = await bulkAssignPlayersWithContracts(selectedClubId, assignmentsPayload);
+        if (res?.operationId) {
+          setLastOperationId(res.operationId);
+        }
 
         setSuccessBanner(`Successfully assigned ${assignmentsPayload.length} players to ${clubName}!`);
         showToast(`Assigned ${assignmentsPayload.length} players to ${clubName}`);
@@ -454,6 +497,7 @@ export default function BulkAssignPlayersPage() {
         setSelectedPlayerIds([]);
         setPlayerContractsMap({});
         loadData();
+        loadHistory();
       } catch (err: any) {
         console.error(err);
         showToast(err?.message || "Failed to submit player assignments");
@@ -566,6 +610,17 @@ export default function BulkAssignPlayersPage() {
             <Link href="/solo-tour/admin/players" className="portal-btn btn-secondary back-link-btn">
               <i className="fa-solid fa-people-group" /> Players Roster
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setShowHistoryModal(true);
+                loadHistory();
+              }}
+              className="portal-btn btn-secondary back-link-btn"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <i className="fa-solid fa-clock-rotate-left" style={{ color: "#38bdf8" }} /> Assignment History & Revert
+            </button>
           </div>
           <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
             Active Season: <strong style={{ color: "var(--solo-primary)" }}>Season {activeSeason?.season_number || 9}</strong>
@@ -583,7 +638,7 @@ export default function BulkAssignPlayersPage() {
           </p>
         </div>
 
-        {/* Success Banner */}
+        {/* Success Banner with Revert Option */}
         {successBanner && (
           <div
             style={{
@@ -596,12 +651,37 @@ export default function BulkAssignPlayersPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "0.75rem",
               animation: "adminFadeIn 0.4s ease"
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               <i className="fa-solid fa-circle-check" style={{ fontSize: "1.25rem" }} />
               <span style={{ fontWeight: 600 }}>{successBanner}</span>
+              {lastOperationId && (
+                <button
+                  type="button"
+                  onClick={() => handleRevert(lastOperationId)}
+                  disabled={isPending}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    background: "rgba(239, 68, 68, 0.2)",
+                    border: "1px solid rgba(239, 68, 68, 0.45)",
+                    color: "#fca5a5",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginLeft: "0.5rem"
+                  }}
+                >
+                  <i className="fa-solid fa-rotate-left" /> Undo This Assignment
+                </button>
+              )}
             </div>
             <button
               onClick={() => setSuccessBanner(null)}
@@ -1513,6 +1593,171 @@ export default function BulkAssignPlayersPage() {
             )}
           </div>
         </div>
+
+        {/* Assignment History & Revert Modal */}
+        {showHistoryModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(4px)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1rem"
+            }}
+            onClick={() => setShowHistoryModal(false)}
+          >
+            <div
+              style={{
+                background: "#0f172a",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "16px",
+                width: "100%",
+                maxWidth: "750px",
+                maxHeight: "85vh",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.6)"
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <i className="fa-solid fa-clock-rotate-left" style={{ color: "#38bdf8", fontSize: "1.2rem" }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>Bulk Assignment History</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                      Review recent bulk player assignments and safely revert any erroneous operations
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryModal(false)}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: "1.2rem" }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "1.25rem 1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
+                {historyLoading ? (
+                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                    <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }} />
+                    <p>Loading assignment history...</p>
+                  </div>
+                ) : historyList.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--text-secondary)" }}>
+                    <i className="fa-solid fa-inbox" style={{ fontSize: "2rem", opacity: 0.4, marginBottom: "0.5rem" }} />
+                    <p>No bulk assignment operations recorded yet for this season.</p>
+                  </div>
+                ) : (
+                  historyList.map((op) => {
+                    const isReverted = op.status === 'reverted';
+                    const dt = new Date(op.created_at);
+                    const formattedDate = dt.toLocaleString();
+                    const detailsObj = typeof op.details === 'string' ? JSON.parse(op.details) : op.details;
+
+                    return (
+                      <div
+                        key={op.id}
+                        style={{
+                          background: isReverted ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.04)",
+                          border: `1px solid ${isReverted ? 'rgba(255, 255, 255, 0.06)' : 'rgba(56, 189, 248, 0.25)'}`,
+                          borderRadius: "10px",
+                          padding: "1rem 1.25rem",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "1rem",
+                          flexWrap: "wrap",
+                          opacity: isReverted ? 0.6 : 1
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: "240px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                            <span style={{ fontWeight: 700, fontSize: "0.95rem", color: isReverted ? "rgba(255,255,255,0.7)" : "#fff" }}>
+                              {op.title}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.7rem",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                background: isReverted ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                                color: isReverted ? "#f87171" : "#34d399",
+                                border: `1px solid ${isReverted ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`
+                              }}
+                            >
+                              {isReverted ? "Reverted" : "Active"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                            <span><i className="fa-solid fa-clock" style={{ marginRight: "4px" }} />{formattedDate}</span>
+                            {op.admin_username && <span><i className="fa-solid fa-user-shield" style={{ marginRight: "4px" }} />By: {op.admin_username}</span>}
+                            {detailsObj?.rtDeducted > 0 && <span style={{ color: "#fbbf24" }}><i className="fa-solid fa-coins" style={{ marginRight: "4px" }} />{detailsObj.rtDeducted} RT deducted</span>}
+                          </div>
+                        </div>
+
+                        {!isReverted && (
+                          <button
+                            type="button"
+                            onClick={() => handleRevert(op.id)}
+                            disabled={isPending}
+                            style={{
+                              padding: "6px 14px",
+                              borderRadius: "8px",
+                              background: "rgba(239, 68, 68, 0.15)",
+                              border: "1px solid rgba(239, 68, 68, 0.4)",
+                              color: "#fca5a5",
+                              fontSize: "0.82rem",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
+                            <i className="fa-solid fa-rotate-left" /> Revert
+                          </button>
+                        )}
+                        {isReverted && (
+                          <div style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.4)", fontStyle: "italic" }}>
+                            Reverted {op.reverted_at ? new Date(op.reverted_at).toLocaleTimeString() : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryModal(false)}
+                  className="portal-btn btn-secondary"
+                  style={{ padding: "6px 16px", fontSize: "0.85rem" }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

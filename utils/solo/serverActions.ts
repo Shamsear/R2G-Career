@@ -5940,6 +5940,206 @@ export async function completeAuction(auctionId: number, clubId: number, winning
   }
 }
 
+// ==========================================
+// REVERSIBLE SOLO OPERATIONS SYSTEM
+// ==========================================
+
+export async function recordReversibleOperationInternal(
+  operationType: string,
+  seasonId: number,
+  title: string,
+  details: any,
+  snapshot: {
+    createdContractIds?: number[];
+    restoredContracts?: any[];
+    financials?: Array<{
+      clubId: number;
+      currency: 'coin' | 'token' | 'voucher';
+      amount: number;
+      reason: string;
+    }>;
+  }
+) {
+  try {
+    const adminUsername = await getCurrentAdminUsername();
+    const { rows } = await pool.query(`
+      INSERT INTO solo_reversible_operations (
+        operation_type, season_id, admin_username, title, details, snapshot, status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'active')
+      RETURNING id
+    `, [
+      operationType,
+      seasonId,
+      adminUsername,
+      title,
+      JSON.stringify(details || {}),
+      JSON.stringify(snapshot || {})
+    ]);
+    return rows[0]?.id || null;
+  } catch (err) {
+    console.error("Failed to record reversible operation:", err);
+    return null;
+  }
+}
+
+export async function fetchRecentReversibleOperations(operationType?: string, limit: number = 20) {
+  try {
+    const isAdmin = await checkIsSoloAdmin();
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Admin privilege required");
+    }
+
+    let query = `
+      SELECT id, operation_type, season_id, admin_username, title, details, status, created_at, reverted_at, reverted_by
+      FROM solo_reversible_operations
+    `;
+    const params: any[] = [];
+    if (operationType && operationType !== 'ALL') {
+      query += ` WHERE operation_type = $1`;
+      params.push(operationType);
+    }
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit);
+
+    const { rows } = await pool.query(query, params);
+    return rows;
+  } catch (err: any) {
+    console.error("Error fetching reversible operations:", err);
+    return [];
+  }
+}
+
+export async function revertSoloOperation(operationId: number) {
+  try {
+    const isAdmin = await checkIsSoloAdmin();
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Admin privilege required");
+    }
+
+    const adminUsername = await getCurrentAdminUsername();
+
+    await pool.query('BEGIN');
+
+    const { rows: opRows } = await pool.query(`
+      SELECT * FROM solo_reversible_operations WHERE id = $1 FOR UPDATE
+    `, [operationId]);
+
+    if (opRows.length === 0) {
+      throw new Error("Operation record not found");
+    }
+
+    const op = opRows[0];
+    if (op.status === 'reverted') {
+      throw new Error("This operation has already been reverted!");
+    }
+
+    const seasonId = op.season_id;
+    const snapshot = typeof op.snapshot === 'string' ? JSON.parse(op.snapshot) : (op.snapshot || {});
+    const createdContractIds: number[] = snapshot.createdContractIds || [];
+    const restoredContracts: any[] = snapshot.restoredContracts || [];
+    const financials: any[] = snapshot.financials || [];
+
+    // 1. Remove/delete all newly created contracts from this operation
+    if (createdContractIds.length > 0) {
+      await pool.query(`
+        DELETE FROM player_contracts WHERE id = ANY($1::int[])
+      `, [createdContractIds]);
+    }
+
+    // 2. Restore previous contracts
+    for (const prev of restoredContracts) {
+      if (prev.id) {
+        await pool.query(`
+          UPDATE player_contracts
+          SET status = $1,
+              expire_season = $2,
+              current_club_id = $3,
+              signed_value = $4,
+              salary = $5,
+              start_season = $6
+          WHERE id = $7
+        `, [
+          prev.status || 'active',
+          prev.expire_season,
+          prev.current_club_id,
+          prev.signed_value,
+          prev.salary,
+          prev.start_season,
+          prev.id
+        ]);
+      } else if (prev.player_id && prev.current_club_id) {
+        await pool.query(`
+          INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          prev.player_id,
+          seasonId,
+          prev.current_club_id,
+          prev.signed_value,
+          prev.salary,
+          prev.start_season,
+          prev.expire_season,
+          prev.status || 'active'
+        ]);
+      }
+    }
+
+    // 3. Revert financials (reverse each wallet change)
+    for (const fin of financials) {
+      const clubId = fin.clubId;
+      const currency = fin.currency;
+      const originalAmount = Number(fin.amount) || 0;
+      const reversalAmount = -originalAmount;
+
+      if (currency === 'coin') {
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_coin_balance = r2g_coin_balance + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [reversalAmount, clubId, seasonId]);
+        await logTransaction(clubId, seasonId, 'coin', reversalAmount, 'reversal', `Reversal of [${op.title}]: ${fin.reason || 'Operation reverted'}`);
+      } else if (currency === 'token') {
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_token_balance = r2g_token_balance + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [reversalAmount, clubId, seasonId]);
+        await logTransaction(clubId, seasonId, 'token', reversalAmount, 'reversal', `Reversal of [${op.title}]: ${fin.reason || 'Operation reverted'}`);
+      } else if (currency === 'voucher') {
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_voucher_balance = r2g_voucher_balance + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [reversalAmount, clubId, seasonId]);
+        await logTransaction(clubId, seasonId, 'voucher', reversalAmount, 'reversal', `Reversal of [${op.title}]: ${fin.reason || 'Operation reverted'}`);
+      }
+    }
+
+    // 4. Mark operation as reverted
+    await pool.query(`
+      UPDATE solo_reversible_operations
+      SET status = 'reverted', reverted_at = NOW(), reverted_by = $1
+      WHERE id = $2
+    `, [adminUsername, operationId]);
+
+    // 5. Log admin audit action
+    await logSoloAdminAction('REVERT_OPERATION', {
+      operationId,
+      operationType: op.operation_type,
+      title: op.title,
+      revertedBy: adminUsername
+    });
+
+    await pool.query('COMMIT');
+    return { success: true, message: `Successfully reverted: ${op.title}` };
+  } catch (err: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error reverting solo operation:", err);
+    return { success: false, error: err.message || "Failed to revert operation" };
+  }
+}
+
 export async function executeTransferBuy(clubId: number, playerId: number, price: number, timing: 'start' | 'mid') {
   try {
     const activeSeason = await fetchActiveSeason();
@@ -5952,6 +6152,8 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
     const { rows: pRows } = await pool.query('SELECT name, card_type FROM players WHERE id = $1', [playerId]);
     const pName = pRows.length > 0 ? pRows[0].name : `Player #${playerId}`;
     const isLegend = (pRows[0]?.card_type || '').toLowerCase() === 'legend';
+
+    const financials: any[] = [];
 
     // 2. If Legend player, verify and deduct 10 RT fee
     if (isLegend) {
@@ -5972,6 +6174,12 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
       `, [clubId, seasonId]);
 
       await logTransaction(clubId, seasonId, 'token', -10, 'legend_signing', `Legend Signing Fee: Signed ${pName} (Legend) for 10 RT`);
+      financials.push({
+        clubId,
+        currency: 'token',
+        amount: -10,
+        reason: `Legend fee: signed ${pName} for 10 RT`
+      });
     }
 
     // 3. Deduct coins for auction price
@@ -5982,6 +6190,17 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
     `, [price, clubId, seasonId]);
 
     await logTransaction(clubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: signed ${pName} for ${price} Coins`);
+    financials.push({
+      clubId,
+      currency: 'coin',
+      amount: -price,
+      reason: `Transfer buy: signed ${pName} for ${price} Coins`
+    });
+
+    // 4. Snapshot any active contract before deactivation
+    const { rows: prevContracts } = await pool.query(`
+      SELECT * FROM player_contracts WHERE player_id = $1 AND season_id = $2 AND LOWER(status) = 'active'
+    `, [playerId, seasonId]);
 
     await pool.query(`
       UPDATE player_contracts SET status = 'inactive' WHERE player_id = $1 AND season_id = $2
@@ -5991,13 +6210,39 @@ export async function executeTransferBuy(clubId: number, playerId: number, price
     const expireSeasonValue = startSeasonValue + 2.0;
     const salary = Number(price) * 0.05;
 
-    await pool.query(`
+    const { rows: newContractRows } = await pool.query(`
       INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+      RETURNING id
     `, [playerId, seasonId, clubId, price, salary, startSeasonValue.toString(), expireSeasonValue.toString()]);
+    const createdContractId = newContractRows[0]?.id;
+
+    const { rows: clubRows } = await pool.query('SELECT name FROM clubs WHERE id = $1', [clubId]);
+    const clubName = clubRows[0]?.name || `Club #${clubId}`;
+
+    // 5. Record Reversible Operation
+    const operationId = await recordReversibleOperationInternal(
+      'transfer_buy',
+      seasonId,
+      `Signed ${pName} to ${clubName} (${price} Coins)`,
+      {
+        clubId,
+        clubName,
+        playerId,
+        playerName: pName,
+        price,
+        isLegend,
+        timing
+      },
+      {
+        createdContractIds: createdContractId ? [createdContractId] : [],
+        restoredContracts: prevContracts,
+        financials
+      }
+    );
 
     await pool.query('COMMIT');
-    return { success: true };
+    return { success: true, operationId };
   } catch (e) {
     await pool.query('ROLLBACK');
     console.error("Error executing buy transfer:", e);
@@ -6094,6 +6339,11 @@ export async function executeBulkTransfers(transfers: { sellingClubId: number; p
 
     await pool.query('BEGIN');
 
+    const createdContractIds: number[] = [];
+    const restoredContracts: any[] = [];
+    const financials: any[] = [];
+    const transferSummaries: string[] = [];
+
     for (const t of transfers) {
       const { sellingClubId, playerId, price, buyingClubId } = t;
 
@@ -6121,20 +6371,25 @@ export async function executeBulkTransfers(transfers: { sellingClubId: number; p
       const sellingClubName = clubMap[sellingClubId] || `Club #${sellingClubId}`;
       const buyingClubName = clubMap[buyingClubId] || `Club #${buyingClubId}`;
 
-      // 3. Deactivate old contract and retrieve the expire_season & signed_value first to validate price
+      transferSummaries.push(`${pName}: ${sellingClubName} → ${buyingClubName} (${price}c)`);
+
+      // 3. Snapshot and deactivate old contract
       const currentSeasonStr = seasonNumber.toString();
       const { rows: oldContractRows } = await pool.query(`
         UPDATE player_contracts 
         SET status = 'inactive', expire_season = $1
         WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
-        RETURNING expire_season, signed_value
+        RETURNING id, player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status
       `, [currentSeasonStr, playerId, sellingClubId, seasonId]);
 
       if (oldContractRows.length === 0) {
         throw new Error(`Active contract for ${pName} not found at selling club.`);
       }
-      const expireSeason = oldContractRows[0].expire_season;
-      const prevSignedValue = Number(oldContractRows[0].signed_value) || 0;
+      const oldContract = oldContractRows[0];
+      restoredContracts.push(oldContract);
+
+      const expireSeason = oldContract.expire_season;
+      const prevSignedValue = Number(oldContract.signed_value) || 0;
 
       // Validation 1: No odd numbers allowed
       if (price % 2 !== 0) {
@@ -6165,6 +6420,19 @@ export async function executeBulkTransfers(transfers: { sellingClubId: number; p
         WHERE manager_id = $2 AND season_id = $3
       `, [price, sellingClubId, seasonId]);
 
+      financials.push({
+        clubId: buyingClubId,
+        currency: 'coin',
+        amount: -price,
+        reason: `Bought ${pName} from ${sellingClubName} for ${price} Coins`
+      });
+      financials.push({
+        clubId: sellingClubId,
+        currency: 'coin',
+        amount: price,
+        reason: `Sold ${pName} to ${buyingClubName} for ${price} Coins`
+      });
+
       // 6. Log transactions
       await logTransaction(sellingClubId, seasonId, 'coin', price, 'transfer_sale', `Transfer sell: sold ${pName} to ${buyingClubName} for ${price} Coins`);
       await logTransaction(buyingClubId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: bought ${pName} from ${sellingClubName} for ${price} Coins`);
@@ -6172,14 +6440,35 @@ export async function executeBulkTransfers(transfers: { sellingClubId: number; p
       // 7. Insert new active contract for buying club carrying over expire_season and using newSignedValue
       const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
       const salary = Number(newSignedValue) * 0.05;
-      await pool.query(`
+      const { rows: newContractRows } = await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        RETURNING id
       `, [playerId, seasonId, buyingClubId, newSignedValue, salary, currentSeasonStr, cleanExpire]);
+
+      if (newContractRows[0]?.id) {
+        createdContractIds.push(newContractRows[0].id);
+      }
     }
 
+    const title = `Bulk Transfer of ${transfers.length} Player${transfers.length > 1 ? 's' : ''}`;
+    const operationId = await recordReversibleOperationInternal(
+      'bulk_transfer',
+      seasonId,
+      title,
+      {
+        transfersCount: transfers.length,
+        summaries: transferSummaries
+      },
+      {
+        createdContractIds,
+        restoredContracts,
+        financials
+      }
+    );
+
     await pool.query('COMMIT');
-    return { success: true };
+    return { success: true, count: transfers.length, operationId };
   } catch (e) {
     await pool.query('ROLLBACK');
     console.error("Error executing bulk transfers:", e);
@@ -6304,6 +6593,11 @@ export async function executeBulkSwaps(swaps: {
 
     await pool.query('BEGIN');
 
+    const createdContractIds: number[] = [];
+    const restoredContracts: any[] = [];
+    const financials: any[] = [];
+    const swapSummaries: string[] = [];
+
     for (const s of swaps) {
       const { clubAId, playerAId, clubBId, playerBId, cashAdjustmentAtoB } = s;
 
@@ -6317,6 +6611,8 @@ export async function executeBulkSwaps(swaps: {
       const clubAName = clubMap[clubAId] || `Club #${clubAId}`;
       const clubBName = clubMap[clubBId] || `Club #${clubBId}`;
 
+      swapSummaries.push(`${playerAName} (${clubAName}) ⇄ ${playerBName} (${clubBName})`);
+
       if (cashAdjustmentAtoB !== 0) {
         await pool.query(`
           UPDATE manager_wallets
@@ -6329,6 +6625,19 @@ export async function executeBulkSwaps(swaps: {
           SET r2g_coin_balance = r2g_coin_balance + $1
           WHERE manager_id = $2 AND season_id = $3
         `, [cashAdjustmentAtoB, clubBId, seasonId]);
+
+        financials.push({
+          clubId: clubAId,
+          currency: 'coin',
+          amount: -cashAdjustmentAtoB,
+          reason: `Paid swap cash adjustment to ${clubBName}`
+        });
+        financials.push({
+          clubId: clubBId,
+          currency: 'coin',
+          amount: cashAdjustmentAtoB,
+          reason: `Received swap cash adjustment from ${clubAName}`
+        });
 
         await logTransaction(clubAId, seasonId, 'coin', -cashAdjustmentAtoB, 'swap_adjustment', `Paid swap cash adjustment to ${clubBName}`);
         await logTransaction(clubBId, seasonId, 'coin', cashAdjustmentAtoB, 'swap_adjustment', `Received swap cash adjustment from ${clubAName}`);
@@ -6352,6 +6661,7 @@ export async function executeBulkSwaps(swaps: {
 
       const contractA = contractARows[0];
       const contractB = contractBRows[0];
+      restoredContracts.push(contractA, contractB);
 
       // Auto swap value = max of the two values
       const valA = Number(contractA.signed_value) || 0;
@@ -6373,23 +6683,44 @@ export async function executeBulkSwaps(swaps: {
 
       // Create new contracts at swapped clubs
       const salaryA = Number(swapValue) * 0.05;
-      await pool.query(`
+      const { rows: newA } = await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        RETURNING id
       `, [playerAId, seasonId, clubBId, swapValue, salaryA, currentSeasonStr, contractA.expire_season]);
 
       const salaryB = Number(swapValue) * 0.05;
-      await pool.query(`
+      const { rows: newB } = await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        RETURNING id
       `, [playerBId, seasonId, clubAId, swapValue, salaryB, currentSeasonStr, contractB.expire_season]);
+
+      if (newA[0]?.id) createdContractIds.push(newA[0].id);
+      if (newB[0]?.id) createdContractIds.push(newB[0].id);
 
       await logTransaction(clubAId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerAName} and received ${playerBName}`);
       await logTransaction(clubBId, seasonId, 'coin', 0, 'swap_player', `Swapped out ${playerBName} and received ${playerAName}`);
     }
 
+    const title = `Bulk Swap of ${swaps.length} Deal${swaps.length > 1 ? 's' : ''}`;
+    const operationId = await recordReversibleOperationInternal(
+      'bulk_swap',
+      seasonId,
+      title,
+      {
+        swapsCount: swaps.length,
+        summaries: swapSummaries
+      },
+      {
+        createdContractIds,
+        restoredContracts,
+        financials
+      }
+    );
+
     await pool.query('COMMIT');
-    return { success: true };
+    return { success: true, count: swaps.length, operationId };
   } catch (e) {
     await pool.query('ROLLBACK');
     console.error("Error executing bulk swaps:", e);
@@ -6761,12 +7092,23 @@ export async function releasePlayerContract(
       refundAmount = 0;
     }
 
+    const financials: any[] = [];
+
     // 4. Update manager wallet (refund)
-    await pool.query(`
-      UPDATE manager_wallets
-      SET r2g_coin_balance = r2g_coin_balance + $1
-      WHERE manager_id = $2 AND season_id = $3
-    `, [refundAmount, clubId, seasonId]);
+    if (refundAmount > 0) {
+      await pool.query(`
+        UPDATE manager_wallets
+        SET r2g_coin_balance = r2g_coin_balance + $1
+        WHERE manager_id = $2 AND season_id = $3
+      `, [refundAmount, clubId, seasonId]);
+
+      financials.push({
+        clubId,
+        currency: 'coin',
+        amount: refundAmount,
+        reason: `Refund for release of ${pName} (${refundAmount} Coins)`
+      });
+    }
 
     // 5. Log transaction
     const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`;
@@ -6781,16 +7123,141 @@ export async function releasePlayerContract(
       WHERE id = $2
     `, [releaseSeasonStr, contract.id]);
 
+    const { rows: clubRows } = await pool.query('SELECT name FROM clubs WHERE id = $1', [clubId]);
+    const clubName = clubRows[0]?.name || `Club #${clubId}`;
+
+    const operationId = await recordReversibleOperationInternal(
+      'release',
+      seasonId,
+      `Released ${pName} from ${clubName} (${refundAmount} Coins refund)`,
+      {
+        clubId,
+        clubName,
+        playerId,
+        playerName: pName,
+        refundAmount,
+        releaseTiming
+      },
+      {
+        createdContractIds: [],
+        restoredContracts: [contract],
+        financials
+      }
+    );
+
     await pool.query('COMMIT');
     return {
       success: true,
       refundAmount,
       playerName: pName,
-      clubId
+      clubId,
+      operationId
     };
   } catch (e) {
     await pool.query('ROLLBACK');
     console.error("Error releasing contract:", e);
+    throw e;
+  }
+}
+
+export async function releaseBulkPlayerContracts(
+  playerIds: number[],
+  seasonId: number,
+  releaseTiming: 'start' | 'mid'
+) {
+  try {
+    await pool.query('BEGIN');
+
+    const restoredContracts: any[] = [];
+    const financials: any[] = [];
+    const playerSummaries: string[] = [];
+    let totalRefund = 0;
+
+    const { rows: seasonRows } = await pool.query(`
+      SELECT season_number FROM seasons WHERE id = $1
+    `, [seasonId]);
+    if (seasonRows.length === 0) throw new Error("Active season not found.");
+    const currentSeasonNum = Number(seasonRows[0].season_number);
+    const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
+    const releaseSeasonStr = releaseSeasonNum.toString();
+
+    const parseSeason = (s: string) => {
+      const cleaned = (s || '').replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0.0;
+    };
+
+    for (const pId of playerIds) {
+      const { rows: contractRows } = await pool.query(`
+        SELECT pc.*, p.name as player_name, p.base_value 
+        FROM player_contracts pc
+        JOIN players p ON pc.player_id = p.id
+        WHERE pc.player_id = $1 
+          AND pc.season_id = $2 
+          AND LOWER(pc.status) = 'active'
+      `, [pId, seasonId]);
+
+      if (contractRows.length === 0) continue;
+      const contract = contractRows[0];
+      const clubId = contract.current_club_id;
+      const pName = contract.player_name;
+      const baseValue = Number(contract.base_value) || 0;
+
+      const expireSeasonNum = parseSeason(contract.expire_season || '');
+      const remainingDuration = expireSeasonNum - releaseSeasonNum;
+      const refundAmount = remainingDuration >= 1.0 ? Math.round(baseValue * 0.5) : 0;
+      totalRefund += refundAmount;
+
+      restoredContracts.push(contract);
+
+      if (refundAmount > 0) {
+        await pool.query(`
+          UPDATE manager_wallets
+          SET r2g_coin_balance = r2g_coin_balance + $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [refundAmount, clubId, seasonId]);
+
+        financials.push({
+          clubId,
+          currency: 'coin',
+          amount: refundAmount,
+          reason: `Refund for release of ${pName} (${refundAmount} Coins)`
+        });
+      }
+
+      const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`;
+      await logTransaction(clubId, seasonId, 'coin', refundAmount, 'player_release', desc);
+
+      await pool.query(`
+        UPDATE player_contracts
+        SET status = 'inactive', expire_season = $1
+        WHERE id = $2
+      `, [releaseSeasonStr, contract.id]);
+
+      playerSummaries.push(`${pName} (${refundAmount}c refund)`);
+    }
+
+    const title = `Bulk Released ${restoredContracts.length} Player${restoredContracts.length > 1 ? 's' : ''}`;
+    const operationId = await recordReversibleOperationInternal(
+      'release',
+      seasonId,
+      title,
+      {
+        releasedCount: restoredContracts.length,
+        totalRefund,
+        summaries: playerSummaries
+      },
+      {
+        createdContractIds: [],
+        restoredContracts,
+        financials
+      }
+    );
+
+    await pool.query('COMMIT');
+    return { success: true, count: restoredContracts.length, totalRefund, operationId };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error executing bulk player releases:", e);
     throw e;
   }
 }
@@ -7087,6 +7554,7 @@ export async function bulkAssignPlayersWithContracts(
     const legendPlayers = assignedPlayerRows.filter(p => (p.card_type || '').toLowerCase() === 'legend');
     const legendCount = legendPlayers.length;
     const requiredRt = legendCount * 10;
+    const financials: any[] = [];
 
     if (requiredRt > 0) {
       const { rows: walletRows } = await pool.query(`
@@ -7114,7 +7582,22 @@ export async function bulkAssignPlayersWithContracts(
         'legend_signing',
         `Legend Signing Fee: Assigned ${legendCount} Legend player(s) (${legendNames}) for ${requiredRt} RT (10 RT each)`
       );
+
+      financials.push({
+        clubId: targetClubId,
+        currency: 'token',
+        amount: -requiredRt,
+        reason: `Legend Signing Fee for ${legendCount} Legend player(s)`
+      });
     }
+
+    // 2. Snapshot previous active contracts before deactivating
+    const { rows: prevContracts } = await pool.query(`
+      SELECT * FROM player_contracts 
+      WHERE player_id = ANY($1::int[]) AND season_id = $2 AND LOWER(status) = 'active'
+    `, [playerIds, seasonId]);
+
+    const createdContractIds: number[] = [];
 
     for (const item of assignments) {
       const cleanStart = (item.startSeason || '').toString().replace(/\D/g, '');
@@ -7130,22 +7613,50 @@ export async function bulkAssignPlayersWithContracts(
       `, [item.playerId, seasonId]);
 
       // Create new active contract for target club
-      await pool.query(`
+      const { rows: newContractRows } = await pool.query(`
         INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        RETURNING id
       `, [item.playerId, seasonId, targetClubId, price, salary, cleanStart, cleanExpire]);
+
+      if (newContractRows[0]?.id) {
+        createdContractIds.push(newContractRows[0].id);
+      }
     }
+
+    const { rows: clubRows } = await pool.query('SELECT name FROM clubs WHERE id = $1', [targetClubId]);
+    const clubName = clubRows[0]?.name || `Club #${targetClubId}`;
+
+    const operationId = await recordReversibleOperationInternal(
+      'bulk_assign',
+      seasonId,
+      `Bulk Assigned ${assignments.length} player(s) to ${clubName}`,
+      {
+        clubId: targetClubId,
+        clubName,
+        assignedCount: assignments.length,
+        legendCount,
+        rtDeducted: requiredRt,
+        playerIds
+      },
+      {
+        createdContractIds,
+        restoredContracts: prevContracts,
+        financials
+      }
+    );
 
     await logSoloAdminAction('bulk_assign_players', {
       clubId: targetClubId,
       assignedCount: assignments.length,
       legendCount,
       rtDeducted: requiredRt,
-      playerIds: assignments.map(a => a.playerId)
+      playerIds: assignments.map(a => a.playerId),
+      operationId
     });
 
     await pool.query('COMMIT');
-    return { success: true, count: assignments.length, legendCount, rtDeducted: requiredRt };
+    return { success: true, count: assignments.length, legendCount, rtDeducted: requiredRt, operationId };
   } catch (e: any) {
     await pool.query('ROLLBACK');
     console.error("Error bulk assigning players:", e);
