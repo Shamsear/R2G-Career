@@ -584,13 +584,13 @@ function PlayerSigningContent() {
                       key={player.rowId}
                       className={`${getRatingClass(player.rating)} ${player.isPrime ? "prime-player-row" : ""}`}
                     >
-                      <td data-label="Player">
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <td data-label="Player" style={{ whiteSpace: "nowrap" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", whiteSpace: "nowrap" }}>
                           <div
                             style={{
                               position: "relative",
-                              width: "38px",
-                              height: "38px",
+                              width: "36px",
+                              height: "36px",
                               borderRadius: "50%",
                               overflow: "hidden",
                               border: player.isPrime ? "2px solid #fbbf24" : "1px solid rgba(255,255,255,0.12)",
@@ -612,36 +612,36 @@ function PlayerSigningContent() {
                               }}
                             />
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                              <span style={{ fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
-                                {player.name}
-                              </span>
-                              {player.isPrime && (
-                                <span
-                                  style={{
-                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
-                                    color: "#fbbf24",
-                                    border: "1px solid rgba(251, 191, 36, 0.5)",
-                                    padding: "1px 6px",
-                                    borderRadius: "4px",
-                                    fontSize: "0.65rem",
-                                    fontWeight: 800,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "3px",
-                                    boxShadow: "0 0 8px rgba(245, 158, 11, 0.2)",
-                                    letterSpacing: "0.5px",
-                                  }}
-                                  title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
-                                >
-                                  <i className="fa-solid fa-crown" style={{ fontSize: "0.6rem" }} /> PRIME
-                                </span>
-                              )}
-                            </div>
-                            {player.validUntil && player.isPrime && (
-                              <span style={{ fontSize: "0.68rem", color: "rgba(251, 191, 36, 0.75)", fontWeight: 500 }}>
-                                Until {player.validUntil}
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", whiteSpace: "nowrap" }}>
+                            <span style={{ fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
+                              {player.name}
+                            </span>
+                            {player.isPrime && (
+                              <span
+                                style={{
+                                  background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                  color: "#fbbf24",
+                                  border: "1px solid rgba(251, 191, 36, 0.5)",
+                                  padding: "2px 7px",
+                                  borderRadius: "4px",
+                                  fontSize: "0.66rem",
+                                  fontWeight: 800,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  boxShadow: "0 0 8px rgba(245, 158, 11, 0.2)",
+                                  letterSpacing: "0.5px",
+                                  whiteSpace: "nowrap",
+                                  flexShrink: 0
+                                }}
+                                title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
+                              >
+                                <i className="fa-solid fa-crown" style={{ fontSize: "0.62rem" }} /> PRIME
+                                {player.validUntil && (
+                                  <span style={{ fontSize: "0.62rem", opacity: 0.85, fontWeight: 600, marginLeft: "2px" }}>
+                                    &bull; {player.validUntil}
+                                  </span>
+                                )}
                               </span>
                             )}
                           </div>
@@ -649,8 +649,8 @@ function PlayerSigningContent() {
                       </td>
                       {showPositionCol && <td data-label="Position">{player.position}</td>}
                       <td data-label="Base Value">{player.rating}</td>
-                      <td data-label="Rarity">
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                      <td data-label="Rarity" style={{ whiteSpace: "nowrap" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", flexWrap: "nowrap" }}>
                           <span className={`table-tier-badge ${tier.cls}`}>{tier.label}</span>
                           {player.isPrime && (
                             <span
@@ -662,7 +662,9 @@ function PlayerSigningContent() {
                                 boxShadow: "0 0 10px rgba(251, 191, 36, 0.25)",
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "4px"
+                                gap: "4px",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0
                               }}
                               title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
                             >
