@@ -569,7 +569,9 @@ export default function PublicTransferRequestPage() {
                             >
                               <option value="">-- Choose squad player --</option>
                               {mySquad.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.position}) &bull; Value: {p.value || p.base_value} Coins</option>
+                                <option key={p.id} value={p.id}>
+                                  {p.isPrime ? '👑 ' : ''}{p.name} ({p.position}){p.isPrime ? ' [PRIME]' : ''} &bull; Value: {p.value || p.base_value} Coins
+                                </option>
                               ))}
                             </select>
                           )}
@@ -769,7 +771,24 @@ export default function PublicTransferRequestPage() {
                                     >
                                       <input type="radio" checked={swapSelectedMyId === p.id} onChange={() => {}} style={{ accentColor: "#eab308" }} />
                                       <div style={{ fontSize: "0.75rem" }}>
-                                        <div style={{ color: "#fff", fontWeight: 600 }}>{p.name}</div>
+                                        <div style={{ color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }}>
+                                          <span>{p.name}</span>
+                                          {p.isPrime && (
+                                            <span
+                                              style={{
+                                                background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                                color: "#fbbf24",
+                                                border: "1px solid rgba(251, 191, 36, 0.5)",
+                                                padding: "1px 4px",
+                                                borderRadius: "4px",
+                                                fontSize: "0.6rem",
+                                                fontWeight: 800
+                                              }}
+                                            >
+                                              👑 PRIME
+                                            </span>
+                                          )}
+                                        </div>
                                         <span style={{ color: "rgba(255,255,255,0.4)" }}>Value: {p.value || p.base_value} Coins</span>
                                       </div>
                                     </div>
@@ -793,7 +812,24 @@ export default function PublicTransferRequestPage() {
                                     >
                                       <input type="radio" checked={swapSelectedOtherId === p.id} onChange={() => {}} style={{ accentColor: "#eab308" }} />
                                       <div style={{ fontSize: "0.75rem" }}>
-                                        <div style={{ color: "#fff", fontWeight: 600 }}>{p.name}</div>
+                                        <div style={{ color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }}>
+                                          <span>{p.name}</span>
+                                          {p.isPrime && (
+                                            <span
+                                              style={{
+                                                background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                                color: "#fbbf24",
+                                                border: "1px solid rgba(251, 191, 36, 0.5)",
+                                                padding: "1px 4px",
+                                                borderRadius: "4px",
+                                                fontSize: "0.6rem",
+                                                fontWeight: 800
+                                              }}
+                                            >
+                                              👑 PRIME
+                                            </span>
+                                          )}
+                                        </div>
                                         <span style={{ color: "rgba(255,255,255,0.4)" }}>Value: {p.value || p.base_value} Coins</span>
                                       </div>
                                     </div>
@@ -876,7 +912,7 @@ export default function PublicTransferRequestPage() {
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "6px" }}>
                             <span style={{ color: "rgba(255,255,255,0.4)" }}>New Buyer Salary:</span>
-                            <span style={{ color: "#fbbf24" }}>{Number(salePrice) * 0.05} Coins/season</span>
+                            <span style={{ color: "#fbbf24" }}>{Number((Math.round(Number(salePrice) * 0.05 * 10) / 10).toFixed(1))} Coins/season</span>
                           </div>
                         </div>
 

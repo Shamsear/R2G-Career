@@ -157,9 +157,33 @@ export default function PlayerProfilePage() {
                                         <img 
                                             className="player-img" 
                                             src={imgError ? '/assets/images/players/default.webp' : player.imagePath} 
-                                            alt={player.name}
+                                            alt={player.name} 
                                             onError={() => setImgError(true)}
                                         />
+                                        {player.isPrime && (
+                                            <div
+                                                style={{
+                                                    position: "absolute",
+                                                    top: "9%",
+                                                    right: "12%",
+                                                    zIndex: 15,
+                                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.95) 0%, rgba(245, 158, 11, 0.9) 100%)",
+                                                    color: "#0f172a",
+                                                    padding: "3px 8px",
+                                                    borderRadius: "4px",
+                                                    fontSize: "calc(var(--card-width, 240px) * 0.055)",
+                                                    fontWeight: 900,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "4px",
+                                                    boxShadow: "0 0 12px rgba(251, 191, 36, 0.7)",
+                                                    letterSpacing: "0.5px"
+                                                }}
+                                                title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
+                                            >
+                                                <i className="fa-solid fa-crown" style={{ fontSize: "0.9em" }} /> PRIME
+                                            </div>
+                                        )}
                                         <div className="player-info">
                                             <div className="rating-pos">
                                                 <span className="position">{player.position}</span>
@@ -172,12 +196,37 @@ export default function PlayerProfilePage() {
                         </div>
 
                         <div className="hero-player-identity">
-                            <h1 className="hero-player-name">{player.name}</h1>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "0.35rem" }}>
+                                <h1 className="hero-player-name" style={{ margin: 0 }}>{player.name}</h1>
+                                {player.isPrime && (
+                                    <span 
+                                        className="badge-prime" 
+                                        title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : 'Prime Tier'}
+                                        style={{
+                                            background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                            color: "#fbbf24",
+                                            border: "1px solid rgba(251, 191, 36, 0.5)",
+                                            padding: "3px 8px",
+                                            borderRadius: "6px",
+                                            fontSize: "0.78rem",
+                                            fontWeight: 800,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            letterSpacing: "0.5px",
+                                            boxShadow: "0 0 10px rgba(245, 158, 11, 0.2)"
+                                        }}
+                                    >
+                                        <i className="fa-solid fa-crown" style={{ fontSize: "0.7rem" }} /> PRIME TIER
+                                        {player.validUntil && <span style={{ opacity: 0.8, fontSize: "0.72rem", fontWeight: 600 }}>({player.validUntil})</span>}
+                                    </span>
+                                )}
+                            </div>
                             <div className="hero-club-row">
                                 <img 
                                     className="hero-club-logo" 
-                                    src={clubLogoError ? '/assets/images/freeagent.WEBP' : clubLogoPath}
-                                    alt={player.club}
+                                    src={clubLogoError ? '/assets/images/freeagent.WEBP' : clubLogoPath} 
+                                    alt={player.club} 
                                     onError={() => setClubLogoError(true)}
                                 />
                                 <p className="hero-club-name">{player.club}</p>
@@ -212,7 +261,7 @@ export default function PlayerProfilePage() {
                                 </div>
                                 <div className="panel-stat-info">
                                     <span className="panel-stat-label">Salary</span>
-                                    <span className="panel-stat-value">£{player.salary}M</span>
+                                    <span className="panel-stat-value">£{player.salary !== undefined && player.salary !== null ? Number(Number(player.salary).toFixed(1)) : 0}M</span>
                                 </div>
                             </div>
 
@@ -235,7 +284,11 @@ export default function PlayerProfilePage() {
                                 <div className="panel-stat-info">
                                     <span className="panel-stat-label">Rating Tier</span>
                                     <span className="panel-stat-value">
-                                        {player.level !== 'undefined' ? player.level : 'N/A'}
+                                        {player.isPrime ? (
+                                            <span style={{ color: "#fbbf24", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                                <i className="fa-solid fa-crown" style={{ fontSize: "0.75rem" }} /> PRIME {player.validUntil ? `(${player.validUntil})` : ''}
+                                            </span>
+                                        ) : (player.level !== 'undefined' ? player.level : 'N/A')}
                                     </span>
                                 </div>
                             </div>

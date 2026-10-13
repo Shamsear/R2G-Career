@@ -520,7 +520,7 @@ export default function ManagerDetail() {
                                     </div>
                                     <div className="summary-pill">
                                         <i className="fas fa-file-invoice-dollar" />
-                                        <span>Salary: <strong>{totalSquadSalary}M RC/season</strong></span>
+                                        <span>Salary: <strong>{Number(totalSquadSalary.toFixed(1))}M RC/season</strong></span>
                                     </div>
                                 </div>
                                 
@@ -550,14 +550,38 @@ export default function ManagerDetail() {
                                                 <div className="player-info">
                                                     <div className="player-name" title={player.player_name}>
                                                         <span>{player.player_name}</span>
+                                                        {player.isPrime && (
+                                                            <span 
+                                                                className="badge-prime" 
+                                                                title={player.valid_until ? `Prime Tier (Valid until ${player.valid_until})` : 'Prime Tier'}
+                                                                style={{
+                                                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                                                    color: "#fbbf24",
+                                                                    border: "1px solid rgba(251, 191, 36, 0.5)",
+                                                                    boxShadow: "0 0 8px rgba(251, 191, 36, 0.25)",
+                                                                    fontSize: "0.62rem",
+                                                                    fontWeight: 800,
+                                                                    letterSpacing: "0.04em",
+                                                                    padding: "1px 6px",
+                                                                    borderRadius: "9999px",
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    gap: "3px",
+                                                                    marginLeft: "6px",
+                                                                    textTransform: "uppercase"
+                                                                }}
+                                                            >
+                                                                <i className="fa-solid fa-crown" style={{ fontSize: "0.58rem" }} /> PRIME
+                                                            </span>
+                                                        )}
                                                         {player.player_type && (
-                                                            <span className={`player-type type-${typeClass}`}>{player.player_type}</span>
+                                                             <span className={`player-type type-${typeClass}`}>{player.player_type}</span>
                                                         )}
                                                     </div>
                                                     <div className="player-details">
                                                         <span>{player.contract}</span>
                                                         <span className="dot-sep">•</span>
-                                                        <span>{player.salary}M RC/yr</span>
+                                                        <span>{player.salary !== undefined && player.salary !== null ? Number(Number(player.salary).toFixed(1)) : 0}M RC/yr</span>
                                                     </div>
                                                 </div>
                                                 <div className="player-value">{player.value}M RC</div>

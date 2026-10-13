@@ -11,6 +11,7 @@ const STORAGE_KEY = "r2g_solo_player_db_filters";
 
 const TIER_OPTIONS = [
   { value: "all", label: "All Tiers", badge: "ALL" },
+  { value: "prime", label: "👑 Prime", badge: "PRIME" },
   { value: "legend", label: "Legend", badge: "PRIME" },
   { value: "5-star", label: "5★ Standard", badge: "5★" },
   { value: "4-star", label: "4★ Standard", badge: "4★" },
@@ -286,11 +287,15 @@ export default function PlayerStatus() {
         if (!nameMatch && !clubMatch && !posMatch) return false;
       }
       if (starFilter !== "all") {
-        const baseVal = Number(player.value) || 0;
-        if (starFilter === "legend" && player.star !== "legend" && baseVal < 150) return false;
-        if (starFilter === "5-star" && (baseVal < 120 || baseVal >= 150)) return false;
-        if (starFilter === "4-star" && (baseVal < 100 || baseVal >= 120)) return false;
-        if (starFilter === "3-star" && baseVal >= 100) return false;
+        if (starFilter === "prime") {
+          if (!player.isPrime) return false;
+        } else {
+          const baseVal = Number(player.value) || 0;
+          if (starFilter === "legend" && player.star !== "legend" && baseVal < 150) return false;
+          if (starFilter === "5-star" && (baseVal < 120 || baseVal >= 150)) return false;
+          if (starFilter === "4-star" && (baseVal < 100 || baseVal >= 120)) return false;
+          if (starFilter === "3-star" && baseVal >= 100) return false;
+        }
       }
       if (clubFilter !== "ALL" && player.club !== clubFilter) return false;
       if (positionFilters.length > 0) {
@@ -794,7 +799,7 @@ export default function PlayerStatus() {
             )}
             {starFilter !== "all" && (
               <span className="filter-chip">
-                {starFilter === "legend" ? "Legend" : `${starFilter.replace("-", "★ ")}`}
+                {starFilter === "prime" ? "👑 Prime" : starFilter === "legend" ? "Legend" : `${starFilter.replace("-", "★ ")}`}
                 <i className="fas fa-times filter-chip-remove" onClick={() => { setStarFilter("all"); setCurrentPage(1); }} />
               </span>
             )}
@@ -871,6 +876,30 @@ export default function PlayerStatus() {
                       alt={player.name}
                       onError={() => handleImgError(player.id)}
                     />
+                    {player.isPrime && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "9%",
+                          right: "12%",
+                          zIndex: 15,
+                          background: "linear-gradient(135deg, rgba(234, 179, 8, 0.95) 0%, rgba(245, 158, 11, 0.9) 100%)",
+                          color: "#0f172a",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          fontSize: "calc(var(--card-width) * 0.058)",
+                          fontWeight: 900,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "3px",
+                          boxShadow: "0 0 10px rgba(251, 191, 36, 0.7)",
+                          letterSpacing: "0.5px"
+                        }}
+                        title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
+                      >
+                        <i className="fa-solid fa-crown" style={{ fontSize: "0.9em" }} /> PRIME
+                      </div>
+                    )}
                     <div className="player-info">
                       <div className="rating-pos">
                         <span className="position">{player.position}</span>

@@ -207,7 +207,7 @@ export default function PublicReleasePage() {
     const clubNameStr = selectedClub.name;
     const lines = selectedPlayerIds.map((pId) => {
       const p = squadWithRefunds.find(pl => pl.id === pId);
-      return `• *${p?.name}* (${p?.position}, Value: ${p?.value || p?.base_value} Coins) → Refund: *${p?.refundAmount} Coins*`;
+      return `• *${p?.name}*${p?.isPrime ? ' [PRIME]' : ''} (${p?.position}, Value: ${p?.value || p?.base_value} Coins) → Refund: *${p?.refundAmount} Coins*`;
     });
     return `*${clubNameStr.toUpperCase()} - PLAYER RELEASE REQUEST*\n\n${lines.join("\n")}\n\n*Total Refund expected:* ${totalRefund} Coins\n*Submitted via R2G Career Portal*`;
   }, [selectedClub, selectedPlayerIds, squadWithRefunds, totalRefund]);
@@ -465,7 +465,27 @@ export default function PublicReleasePage() {
                                 style={{ accentColor: "#a855f7", cursor: "pointer" }}
                               />
                               <div>
-                                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.85rem" }}>{p.name}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.85rem" }}>{p.name}</div>
+                                  {p.isPrime && (
+                                    <span
+                                      style={{
+                                        background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                        color: "#fbbf24",
+                                        border: "1px solid rgba(251, 191, 36, 0.5)",
+                                        padding: "1px 5px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.6rem",
+                                        fontWeight: 800,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "3px"
+                                      }}
+                                    >
+                                      <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                    </span>
+                                  )}
+                                </div>
                                 <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                                   {p.position} &bull; Contract remaining: {p.remainingDuration.toFixed(1)} seasons
                                 </span>

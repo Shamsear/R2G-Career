@@ -399,8 +399,30 @@ function AdminPlayerAuctionDropdown({
           userSelect: "none"
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {selectedPlayer ? `${selectedPlayer.name} (${selectedPlayer.position})` : "-- Choose Player --"}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+          {selectedPlayer ? (
+            <>
+              <span>{selectedPlayer.name} ({selectedPlayer.position})</span>
+              {selectedPlayer.isPrime && (
+                <span
+                  style={{
+                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                    color: "#fbbf24",
+                    border: "1px solid rgba(251, 191, 36, 0.5)",
+                    padding: "1px 5px",
+                    borderRadius: "4px",
+                    fontSize: "0.62rem",
+                    fontWeight: 800,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px"
+                  }}
+                >
+                  <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                </span>
+              )}
+            </>
+          ) : "-- Choose Player --"}
         </span>
         <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} style={{ fontSize: "0.7rem", opacity: 0.6, flexShrink: 0 }} />
       </div>
@@ -513,8 +535,26 @@ function AdminPlayerAuctionDropdown({
                   >
                     {p.position}
                   </span>
-                  <span style={{ flex: 1, fontSize: "0.85rem", color: isSelected ? "#0066ff" : "#fff" }}>
-                    {p.name}
+                  <span style={{ flex: 1, fontSize: "0.85rem", color: isSelected ? "#0066ff" : "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>{p.name}</span>
+                    {p.isPrime && (
+                      <span
+                        style={{
+                          background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                          color: "#fbbf24",
+                          border: "1px solid rgba(251, 191, 36, 0.5)",
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          fontSize: "0.62rem",
+                          fontWeight: 800,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px"
+                        }}
+                      >
+                        <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                      </span>
+                    )}
                   </span>
                   <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)" }}>
                     {p.star ? p.star.replace("-", " ") : ""}
@@ -1478,7 +1518,7 @@ export default function AuctionManager() {
                           required 
                         />
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "6px" }}>
-                          <span>Salary (5%): <strong>{(bidAmount * 0.05).toFixed(2)} Coins</strong></span>
+                          <span>Salary (5%): <strong>{(bidAmount * 0.05).toFixed(1)} Coins</strong></span>
                           <span>Contract: <strong>
                             {(() => {
                               const num = activeSeason?.season_number;
@@ -1554,10 +1594,32 @@ export default function AuctionManager() {
                                 onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }}
                               />
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{p.name}</strong>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{p.name}</strong>
+                                  {p.isPrime && (
+                                    <span
+                                      style={{
+                                        background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                        color: "#fbbf24",
+                                        border: "1px solid rgba(251, 191, 36, 0.5)",
+                                        padding: "1px 5px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.62rem",
+                                        fontWeight: 800,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "3px"
+                                      }}
+                                    >
+                                      <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "3px" }}>
                                   <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
-                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "capitalize" }}>{p.star.replace("-", " ")}</span>
+                                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "capitalize" }}>
+                                    {p.isPrime ? <strong style={{ color: "#fbbf24" }}>Prime Tier</strong> : p.star.replace("-", " ")}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1610,7 +1672,27 @@ export default function AuctionManager() {
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px", background: "rgba(0,102,255,0.08)", border: "1.5px solid rgba(0,102,255,0.3)", borderRadius: "10px", padding: "10px 14px" }}>
                     <img src={sellSelectedPlayer.imagePath} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{sellSelectedPlayer.name}</strong>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <strong style={{ color: "#fff", display: "block", fontSize: "0.9rem" }}>{sellSelectedPlayer.name}</strong>
+                        {sellSelectedPlayer.isPrime && (
+                          <span
+                            style={{
+                              background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                              color: "#fbbf24",
+                              border: "1px solid rgba(251, 191, 36, 0.5)",
+                              padding: "1px 5px",
+                              borderRadius: "4px",
+                              fontSize: "0.62rem",
+                              fontWeight: 800,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px"
+                            }}
+                          >
+                            <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                          </span>
+                        )}
+                      </div>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
                         <span style={{ background: `${getPositionColor(sellSelectedPlayer.position)}18`, color: getPositionColor(sellSelectedPlayer.position), border: `1px solid ${getPositionColor(sellSelectedPlayer.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{sellSelectedPlayer.position}</span>
                         <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{cleanSeason(sellSelectedPlayer.startSeason)}-{cleanSeason(sellSelectedPlayer.expireSeason)}</span>
@@ -1639,7 +1721,24 @@ export default function AuctionManager() {
                               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                                 <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
                                 <div>
-                                  <strong style={{ color: "#fff", display: "block", fontSize: "0.85rem" }}>{p.name}</strong>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <strong style={{ color: "#fff", display: "block", fontSize: "0.85rem" }}>{p.name}</strong>
+                                    {p.isPrime && (
+                                      <span
+                                        style={{
+                                          background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                          color: "#fbbf24",
+                                          border: "1px solid rgba(251, 191, 36, 0.5)",
+                                          padding: "1px 4px",
+                                          borderRadius: "4px",
+                                          fontSize: "0.58rem",
+                                          fontWeight: 800
+                                        }}
+                                      >
+                                        👑 PRIME
+                                      </span>
+                                    )}
+                                  </div>
                                   <span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.65rem", padding: "1px 5px", fontWeight: 700 }}>{p.position}</span>
                                 </div>
                               </div>
@@ -1658,7 +1757,27 @@ export default function AuctionManager() {
                               {sellClubPlayers.filter(p => sellSearchTerm === "" || p.name.toLowerCase().includes(sellSearchTerm.toLowerCase()) || p.position.toLowerCase().includes(sellSearchTerm.toLowerCase())).map(p => (
                                 <tr key={p.id} onClick={() => { setSellSelectedPlayer(p); setSellPrice(Number(p.signedValue) || 80); setSellSearchTerm(""); }} style={{ cursor: "pointer", borderLeft: "3px solid transparent", transition: "background 0.12s" }}
                                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                                  <td><div style={{ display: "flex", alignItems: "center", gap: "8px" }}><img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} /><strong style={{ color: "#fff" }}>{p.name}</strong></div></td>
+                                  <td>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                      <img src={p.imagePath} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.target as any).src = '/assets/images/players/default.png'; }} />
+                                      <strong style={{ color: "#fff" }}>{p.name}</strong>
+                                      {p.isPrime && (
+                                        <span
+                                          style={{
+                                            background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                            color: "#fbbf24",
+                                            border: "1px solid rgba(251, 191, 36, 0.5)",
+                                            padding: "1px 4px",
+                                            borderRadius: "4px",
+                                            fontSize: "0.6rem",
+                                            fontWeight: 800
+                                          }}
+                                        >
+                                          👑 PRIME
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
                                   <td><span style={{ background: `${getPositionColor(p.position)}18`, color: getPositionColor(p.position), border: `1px solid ${getPositionColor(p.position)}40`, borderRadius: "4px", fontSize: "0.7rem", padding: "2px 6px", fontWeight: 700 }}>{p.position}</span></td>
                                   <td style={{ color: "var(--text-secondary)" }}>{cleanSeason(p.startSeason)}-{cleanSeason(p.expireSeason)}</td>
                                   <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>{p.signedValue}c</td>
@@ -1821,7 +1940,7 @@ export default function AuctionManager() {
                     selectedClubId={releaseClubId}
                     onSelect={(id) => {
                       setReleaseClubId(id);
-                      setReleaseSelectedPlayer(null);
+                      setReleaseSelectedIds([]);
                     }}
                     placeholder="-- Select Club --"
                   />

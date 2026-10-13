@@ -25,6 +25,8 @@ interface PlayerItem {
   isSuspended: boolean;
   clubId?: number | null;
   clubName?: string | null;
+  isPrime?: boolean;
+  validUntil?: string | null;
 }
 
 interface ClubItem {
@@ -85,7 +87,7 @@ export default function BulkAssignPlayersPage() {
   // Auto-calculated global salary (5% of price, read-only)
   const globalSalary = useMemo(() => {
     const p = Number(globalPrice) || 0;
-    return parseFloat((p * 0.05).toFixed(2));
+    return parseFloat((p * 0.05).toFixed(1));
   }, [globalPrice]);
 
   // Search & Position Filters for Free Agents
@@ -197,7 +199,7 @@ export default function BulkAssignPlayersPage() {
 
   const calculateSalary = (price: number): number => {
     const p = Number(price) || 0;
-    return parseFloat((p * 0.05).toFixed(2));
+    return parseFloat((p * 0.05).toFixed(1));
   };
 
   const getPositionColor = (pos: string) => {
@@ -715,7 +717,7 @@ export default function BulkAssignPlayersPage() {
           <div className="admin-stat-card">
             <div className="stat-label">Total Salary Payroll (Auto 5%)</div>
             <div className="stat-value" style={{ color: "#34d399" }}>
-              {totalPayrollSalary.toFixed(2)} <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>Coins</span>
+              {totalPayrollSalary.toFixed(1)} <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>Coins</span>
             </div>
           </div>
         </div>
@@ -1094,8 +1096,28 @@ export default function BulkAssignPlayersPage() {
                             />
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff" }}>
-                              {p.name}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff" }}>
+                                {p.name}
+                              </div>
+                              {p.isPrime && (
+                                <span
+                                  style={{
+                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                    color: "#fbbf24",
+                                    border: "1px solid rgba(251, 191, 36, 0.5)",
+                                    padding: "1px 5px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.62rem",
+                                    fontWeight: 800,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px"
+                                  }}
+                                >
+                                  <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "0.5rem", alignItems: "center" }}>
                               <span
@@ -1317,7 +1339,27 @@ export default function BulkAssignPlayersPage() {
                                   />
                                 </div>
                                 <div>
-                                  <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.9rem" }}>{p.name}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.9rem" }}>{p.name}</div>
+                                    {p.isPrime && (
+                                      <span
+                                        style={{
+                                          background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                          color: "#fbbf24",
+                                          border: "1px solid rgba(251, 191, 36, 0.5)",
+                                          padding: "1px 5px",
+                                          borderRadius: "4px",
+                                          fontSize: "0.62rem",
+                                          fontWeight: 800,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "3px"
+                                        }}
+                                      >
+                                        <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                      </span>
+                                    )}
+                                  </div>
                                   <span
                                     style={{
                                       padding: "1px 6px",
@@ -1460,7 +1502,27 @@ export default function BulkAssignPlayersPage() {
                               />
                             </div>
                             <div>
-                              <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>{p.name}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>{p.name}</div>
+                                {p.isPrime && (
+                                  <span
+                                    style={{
+                                      background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                      color: "#fbbf24",
+                                      border: "1px solid rgba(251, 191, 36, 0.5)",
+                                      padding: "1px 5px",
+                                      borderRadius: "4px",
+                                      fontSize: "0.62rem",
+                                      fontWeight: 800,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "3px"
+                                    }}
+                                  >
+                                    <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                  </span>
+                                )}
+                              </div>
                               <span
                                 style={{
                                   padding: "1px 6px",
@@ -1556,7 +1618,7 @@ export default function BulkAssignPlayersPage() {
                     </div>
                     <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "2px" }}>
                       <span>Total Value: <strong style={{ color: "var(--solo-primary)" }}>{totalContractPrice} Coins</strong></span>
-                      <span>• Payroll: <strong style={{ color: "#34d399" }}>{totalPayrollSalary.toFixed(2)} Coins</strong></span>
+                      <span>• Payroll: <strong style={{ color: "#34d399" }}>{totalPayrollSalary.toFixed(1)} Coins</strong></span>
                       {selectedLegendCount > 0 && (
                         <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
                           ⭐ {selectedLegendCount} Legend ({selectedLegendCount * 10} RT fee)

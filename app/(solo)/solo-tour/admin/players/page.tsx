@@ -567,7 +567,7 @@ export default function PlayersManager() {
                     {paginatedPlayers.map(p => {
                       const posColor = getPositionColor(p.position);
                       const displayPrice = p.signedValue !== null && p.signedValue !== undefined ? p.signedValue : p.value;
-                      const displaySalary = p.salary !== null && p.salary !== undefined ? p.salary : Math.round(displayPrice * 0.05);
+                      const displaySalary = p.salary !== null && p.salary !== undefined ? Math.round(Number(p.salary) * 10) / 10 : Math.round(Number(displayPrice) * 0.05 * 10) / 10;
 
                       return (
                         <tr key={p.id}>
@@ -593,7 +593,29 @@ export default function PlayersManager() {
                                 />
                               </div>
                               <div style={{ display: "flex", flexDirection: "column" }}>
-                                <strong style={{ color: "#fff" }}>{p.name}</strong>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <strong style={{ color: "#fff" }}>{p.name}</strong>
+                                  {p.isPrime && (
+                                    <span
+                                      style={{
+                                        background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                        color: "#fbbf24",
+                                        border: "1px solid rgba(251, 191, 36, 0.5)",
+                                        padding: "1px 5px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.65rem",
+                                        fontWeight: 800,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "3px",
+                                        boxShadow: "0 0 8px rgba(245, 158, 11, 0.2)"
+                                      }}
+                                      title={p.validUntil ? `Prime Tier (Valid until ${p.validUntil})` : "Prime Tier"}
+                                    >
+                                      <i className="fa-solid fa-crown" style={{ fontSize: "0.6rem" }} /> PRIME
+                                    </span>
+                                  )}
+                                </div>
                                 {p.isSuspended && (
                                   <span style={{ fontSize: "0.68rem", color: "#ef4444", fontWeight: 700 }}>
                                     Suspended
@@ -611,7 +633,18 @@ export default function PlayersManager() {
                               {p.position}
                             </span>
                           </td>
-                          <td style={{ textTransform: "capitalize" }}>{p.star.replace(/-/g, " ")}</td>
+                          <td style={{ textTransform: "capitalize" }}>
+                            {p.isPrime ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                <span style={{ color: "#fbbf24", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  <i className="fa-solid fa-crown" style={{ fontSize: "0.7rem" }} /> Prime Tier
+                                </span>
+                                {p.validUntil && <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>Until {p.validUntil}</span>}
+                              </div>
+                            ) : (
+                              p.star.replace(/-/g, " ")
+                            )}
+                          </td>
                           <td>
                             {p.clubName ? (
                               <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600, color: "#fff" }}>
@@ -666,7 +699,7 @@ export default function PlayersManager() {
                 {paginatedPlayers.map(p => {
                   const posColor = getPositionColor(p.position);
                   const displayPrice = p.signedValue !== null && p.signedValue !== undefined ? p.signedValue : p.value;
-                  const displaySalary = p.salary !== null && p.salary !== undefined ? p.salary : Math.round(displayPrice * 0.05);
+                  const displaySalary = p.salary !== null && p.salary !== undefined ? Math.round(Number(p.salary) * 10) / 10 : Math.round(Number(displayPrice) * 0.05 * 10) / 10;
 
                   return (
                     <div
@@ -707,11 +740,36 @@ export default function PlayersManager() {
                             />
                           </div>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {p.name}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {p.name}
+                              </div>
+                              {p.isPrime && (
+                                <span
+                                  style={{
+                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                    color: "#fbbf24",
+                                    border: "1px solid rgba(251, 191, 36, 0.5)",
+                                    padding: "1px 5px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.62rem",
+                                    fontWeight: 800,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px"
+                                  }}
+                                  title={p.validUntil ? `Prime Tier (Valid until ${p.validUntil})` : "Prime Tier"}
+                                >
+                                  <i className="fa-solid fa-crown" style={{ fontSize: "0.55rem" }} /> PRIME
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "capitalize", marginTop: "2px" }}>
-                              {p.star.replace(/-/g, " ")}
+                              {p.isPrime ? (
+                                <span style={{ color: "#fbbf24" }}>Prime Tier {p.validUntil ? `(${p.validUntil})` : ''}</span>
+                              ) : (
+                                p.star.replace(/-/g, " ")
+                              )}
                             </div>
                           </div>
                         </div>
