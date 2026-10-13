@@ -111,8 +111,10 @@ function PlayerSigningContent() {
   const filteredPlayers = useMemo(() => {
     let result = [...players];
 
-    // Filter by position tab
-    if (activeTab !== "all") {
+    // Filter by position or prime tab
+    if (activeTab === "prime") {
+      result = result.filter((p) => p.isPrime);
+    } else if (activeTab !== "all") {
       result = result.filter((p) => {
         const pos = String(p.position || "").toUpperCase().trim();
         let mapped = pos;
@@ -138,7 +140,8 @@ function PlayerSigningContent() {
         const teamMatch = String(p.team || "").toLowerCase().includes(term);
         const posMatch = String(p.position || "").toLowerCase().includes(term);
         const contractMatch = String(p.contract || "").toLowerCase().includes(term);
-        return nameMatch || teamMatch || posMatch || contractMatch;
+        const primeMatch = (term === "prime" || term.includes("prime")) && p.isPrime;
+        return nameMatch || teamMatch || posMatch || contractMatch || primeMatch;
       });
     }
 
@@ -155,8 +158,8 @@ function PlayerSigningContent() {
             const numB = Number(b[sort.key]) || 0;
             diff = sort.direction === "asc" ? numA - numB : numB - numA;
           } else if (sort.key === "valueStr") {
-            const numA = Number(a.rating) || 0;
-            const numB = Number(b.rating) || 0;
+            const numA = (a.isPrime ? 200 : 0) + (Number(a.rating) || 0);
+            const numB = (b.isPrime ? 200 : 0) + (Number(b.rating) || 0);
             diff = sort.direction === "asc" ? numA - numB : numB - numA;
           } else if (sort.key === "position") {
             const ordA = posOrder[String(a.position || "").toUpperCase()] || 99;
@@ -292,7 +295,8 @@ function PlayerSigningContent() {
     contract: "Contract",
   };
 
-  const colCount = activeTab === "all" ? 7 : 6;
+  const showPositionCol = activeTab === "all" || activeTab === "prime";
+  const colCount = showPositionCol ? 7 : 6;
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / itemsPerPage));
@@ -360,6 +364,11 @@ function PlayerSigningContent() {
             <span>Total Records: {players.length}</span>
           </div>
           <div className="stat-divider" />
+          <div className="stat-pill" style={{ color: "#fbbf24" }}>
+            <i className="fa-solid fa-crown" />
+            <span>Prime: {players.filter((p) => p.isPrime).length}</span>
+          </div>
+          <div className="stat-divider" />
           <div className="stat-pill">
             <i className="fa-solid fa-filter" />
             <span>Filtered: {filteredPlayers.length}</span>
@@ -404,6 +413,13 @@ function PlayerSigningContent() {
             onClick={() => handleTabChange("all")}
           >
             All Positions
+          </button>
+          <button
+            className={`tab-btn prime-tab-btn ${activeTab === "prime" ? "active" : ""}`}
+            onClick={() => handleTabChange("prime")}
+          >
+            <i className="fa-solid fa-crown" style={{ marginRight: "5px", fontSize: "0.75rem" }} />
+            Prime Players
           </button>
           {POSITIONS.map((pos) => (
             <button
@@ -490,7 +506,7 @@ function PlayerSigningContent() {
                   >
                     Player Name {renderSortIndicator("name")}
                   </th>
-                  {activeTab === "all" && (
+                  {showPositionCol && (
                     <th
                       onClick={(e) => requestSort("position", e.shiftKey)}
                       className={getSortMeta("position") ? "sorted" : ""}
@@ -550,7 +566,7 @@ function PlayerSigningContent() {
                     <td colSpan={colCount} style={{ textAlign: "center", padding: "2.5rem" }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem", color: "var(--text-secondary)" }}>
                         <i className="fa-solid fa-magnifying-glass" style={{ fontSize: "1.5rem", color: "var(--text-muted)" }} />
-                        <span>No players found for &ldquo;{searchTerm}&rdquo; in {activeTab === "all" ? "any position" : activeTab}</span>
+                        <span>No players found for &ldquo;{searchTerm}&rdquo; in {activeTab === "all" ? "any position" : activeTab === "prime" ? "prime players" : activeTab}</span>
                         <button
                           className="portal-btn btn-secondary"
                           onClick={() => { setSearchTerm(""); setActiveTab("all"); setCurrentPage(1); }}
@@ -564,14 +580,118 @@ function PlayerSigningContent() {
                 {currentPlayers.map((player) => {
                   const tier = getTierBadgeLabel(player.rating);
                   return (
-                    <tr key={player.rowId} className={getRatingClass(player.rating)}>
-                      <td data-label="Player">{player.name}</td>
-                      {activeTab === "all" && <td data-label="Position">{player.position}</td>}
+                    <tr
+                      key={player.rowId}
+                      className={`${getRatingClass(player.rating)} ${player.isPrime ? "prime-player-row" : ""}`}
+                    >
+                      <td data-label="Player">
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div
+                            style={{
+                              position: "relative",
+                              width: "38px",
+                              height: "38px",
+                              borderRadius: "50%",
+                              overflow: "hidden",
+                              border: player.isPrime ? "2px solid #fbbf24" : "1px solid rgba(255,255,255,0.12)",
+                              background: "rgba(255,255,255,0.05)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              boxShadow: player.isPrime ? "0 0 10px rgba(251, 191, 36, 0.4)" : "none",
+                            }}
+                          >
+                            <img
+                              src={player.imagePath || `https://ik.imagekit.io/6dbhhctcf/players/${player.rowId}.png`}
+                              alt={player.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              onError={(e: any) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = "/assets/images/players/default.png";
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
+                                {player.name}
+                              </span>
+                              {player.isPrime && (
+                                <span
+                                  style={{
+                                    background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
+                                    color: "#fbbf24",
+                                    border: "1px solid rgba(251, 191, 36, 0.5)",
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.65rem",
+                                    fontWeight: 800,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px",
+                                    boxShadow: "0 0 8px rgba(245, 158, 11, 0.2)",
+                                    letterSpacing: "0.5px",
+                                  }}
+                                  title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
+                                >
+                                  <i className="fa-solid fa-crown" style={{ fontSize: "0.6rem" }} /> PRIME
+                                </span>
+                              )}
+                            </div>
+                            {player.validUntil && player.isPrime && (
+                              <span style={{ fontSize: "0.68rem", color: "rgba(251, 191, 36, 0.75)", fontWeight: 500 }}>
+                                Until {player.validUntil}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      {showPositionCol && <td data-label="Position">{player.position}</td>}
                       <td data-label="Base Value">{player.rating}</td>
                       <td data-label="Rarity">
-                        <span className={`table-tier-badge ${tier.cls}`}>{tier.label}</span>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span className={`table-tier-badge ${tier.cls}`}>{tier.label}</span>
+                          {player.isPrime && (
+                            <span
+                              className="table-tier-badge prime-tier"
+                              style={{
+                                background: "linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(245, 158, 11, 0.18) 100%)",
+                                border: "1px solid rgba(251, 191, 36, 0.6)",
+                                color: "#fbbf24",
+                                boxShadow: "0 0 10px rgba(251, 191, 36, 0.25)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px"
+                              }}
+                              title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
+                            >
+                              <i className="fa-solid fa-crown" style={{ fontSize: "0.65rem" }} /> PRIME
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td data-label="Signing Club">{player.team || "Unsold"}</td>
+                      <td data-label="Signing Club">
+                        {player.team && player.team !== "Unsold" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                            {player.clubLogo ? (
+                              <img
+                                src={player.clubLogo}
+                                alt={player.team}
+                                style={{ width: "18px", height: "18px", objectFit: "contain", flexShrink: 0 }}
+                                onError={(e: any) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            ) : null}
+                            <span>{player.team}</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: "rgba(255,255,255,0.45)", fontStyle: "italic" }}>
+                            Unsold
+                          </span>
+                        )}
+                      </td>
                       <td data-label="Signing Value">{player.bidAmount ? player.bidAmount : "Not Bid"}</td>
                       <td data-label="Contract">{player.contract || "N/A"}</td>
                     </tr>

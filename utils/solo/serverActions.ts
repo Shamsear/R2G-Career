@@ -917,11 +917,13 @@ export async function fetchPlayerAuctionData() {
               ORDER BY player_id, id DESC
             )
             SELECT 
-                p.id, p.name, p.position, p.base_value,
+                p.id, p.name, p.position, p.base_value, p.image_path as imagepath, p.updated_at,
                 c.name as current_club,
+                c.logo_path as club_logo,
                 pc.start_season, pc.expire_season, pc.salary, pc.signed_value,
                 a.reserve_price, a.winning_bid_amount, a.status,
-                pss.status_type as tier_status
+                pss.status_type as tier_status,
+                pss.valid_until
             FROM players p
             LEFT JOIN latest_contracts pc ON p.id = pc.player_id
             LEFT JOIN clubs c ON pc.current_club_id = c.id
@@ -938,13 +940,16 @@ export async function fetchPlayerAuctionData() {
                 name: p.name,
                 position: p.position,
                 team: p.current_club || 'Unsold',
+                clubLogo: p.club_logo || null,
                 rating: p.base_value || 0,
                 bidAmount: Number(p.signed_value || p.winning_bid_amount || 0),
                 rowId: p.id,
                 contract: p.current_club ? `${formatSeason(p.start_season)} - ${formatSeason(p.expire_season)}` : 'None',
                 reservePrice: p.reserve_price || p.base_value || 0,
                 salary: p.salary || 0,
-                isPrime: !!(p.tier_status && p.tier_status.toLowerCase() === 'prime')
+                imagePath: resolvePlayerImageUrl(p.imagepath, p.id, p.updated_at),
+                isPrime: !!(p.tier_status && p.tier_status.toLowerCase() === 'prime'),
+                validUntil: p.valid_until || null
             };
         });
     } catch (error) {
@@ -7449,6 +7454,7 @@ export async function fetchAdminPlayersList() {
         p.is_suspended,
         pc.current_club_id as club_id,
         c.name as club_name,
+        c.logo_path as club_logo,
         pc.start_season,
         pc.expire_season,
         pc.signed_value,
@@ -7474,6 +7480,7 @@ export async function fetchAdminPlayersList() {
       isSuspended: p.is_suspended || false,
       clubId: p.club_id,
       clubName: p.club_name || null,
+      clubLogo: p.club_logo || null,
       startSeason: p.start_season || null,
       expireSeason: p.expire_season || null,
       signedValue: p.signed_value !== null && p.signed_value !== undefined ? Number(p.signed_value) : null,

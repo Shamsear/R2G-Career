@@ -52,7 +52,7 @@ export default function PlayerStatus() {
       const targetWidth = Math.max(rect.width, 180);
       let left = rect.left;
       if (left + targetWidth > window.innerWidth - 10) {
-        left = Math.max(10, window.innerWidth - targetWidth - 10);
+        left = Math.max(10, Math.min(rect.right - targetWidth, window.innerWidth - targetWidth - 10));
       }
       let top = rect.bottom + 6;
       if (top + 280 > window.innerHeight && rect.top > 280) {
@@ -68,7 +68,7 @@ export default function PlayerStatus() {
       const targetWidth = Math.max(rect.width, 220);
       let left = rect.left;
       if (left + targetWidth > window.innerWidth - 10) {
-        left = Math.max(10, window.innerWidth - targetWidth - 10);
+        left = Math.max(10, Math.min(rect.right - targetWidth, window.innerWidth - targetWidth - 10));
       }
       let top = rect.bottom + 6;
       if (top + 280 > window.innerHeight && rect.top > 280) {
@@ -471,16 +471,10 @@ export default function PlayerStatus() {
           background: #171d30 !important;
         }
         .custom-dropdown-menu {
-          position: absolute !important;
-          top: 100% !important;
-          left: 0 !important;
-          right: 0 !important;
-          margin-top: 6px !important;
           background: #101524 !important;
           border: 1px solid rgba(255, 255, 255, 0.18) !important;
           border-radius: 12px !important;
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(99, 102, 241, 0.2) !important;
-          z-index: 9999 !important;
           overflow: hidden !important;
           animation: adminFadeIn 0.18s ease !important;
           opacity: 1 !important;

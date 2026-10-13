@@ -647,9 +647,21 @@ export default function PlayersManager() {
                           </td>
                           <td>
                             {p.clubName ? (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600, color: "#fff" }}>
-                                <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
-                                {p.clubName}
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600, color: "#fff" }}>
+                                {p.clubLogo ? (
+                                  <img
+                                    src={p.clubLogo}
+                                    alt={p.clubName}
+                                    style={{ width: "20px", height: "20px", objectFit: "contain", flexShrink: 0 }}
+                                    onError={(e: any) => {
+                                      e.currentTarget.onerror = null;
+                                      e.currentTarget.src = "/assets/images/clubs/default.png";
+                                    }}
+                                  />
+                                ) : (
+                                  <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
+                                )}
+                                <span>{p.clubName}</span>
                               </span>
                             ) : (
                               <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "rgba(255,255,255,0.45)", fontSize: "0.85rem" }}>
@@ -813,8 +825,20 @@ export default function PlayersManager() {
                             Assigned Club
                           </span>
                           {p.clubName ? (
-                            <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "5px" }}>
-                              <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
+                            <div style={{ fontWeight: 600, color: "#fff", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                              {p.clubLogo ? (
+                                <img
+                                  src={p.clubLogo}
+                                  alt={p.clubName}
+                                  style={{ width: "18px", height: "18px", objectFit: "contain", flexShrink: 0 }}
+                                  onError={(e: any) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.src = "/assets/images/clubs/default.png";
+                                  }}
+                                />
+                              ) : (
+                                <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.75rem", color: "var(--admin-accent)" }} />
+                              )}
                               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clubName}</span>
                             </div>
                           ) : (
