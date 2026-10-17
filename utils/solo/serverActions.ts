@@ -2451,22 +2451,40 @@ export async function updateTournamentDetails(
   divisionTier: number | null = null,
   promotionCount: number | null = 0,
   relegationCount: number | null = 0,
-  status: string = 'active'
+  status: string = 'active',
+  includeInPrediction: boolean = true
 ) {
   try {
     await ensureTournamentColumns();
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
     const { rows } = await pool.query(`
       UPDATE tournaments 
       SET name = $1, format_type = $2, financial_rule_id = $3, tournament_type = $4,
           num_groups = $5, teams_per_group = $6, qualified_per_group = $7, num_teams = $8,
           division_tier = $9, promotion_count = $10, relegation_count = $11,
-          status = $12
-      WHERE id = $13
+          status = $12, include_in_prediction = $13
+      WHERE id = $14
       RETURNING *
-    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', id]);
+    `, [name, formatType, financialRuleId, tournamentType, numGroups, teamsPerGroup, qualifiedPerGroup, numTeams, divisionTier, promotionCount, relegationCount, status || 'active', includeInPrediction, id]);
     return rows[0];
   } catch (e) {
     console.error("Error updating tournament details:", e);
+    throw e;
+  }
+}
+
+export async function updateTournamentPredictionEligibility(id: number, eligible: boolean) {
+  try {
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS include_in_prediction BOOLEAN DEFAULT true`);
+    const { rows } = await pool.query(`
+      UPDATE tournaments 
+      SET include_in_prediction = $1
+      WHERE id = $2
+      RETURNING *
+    `, [eligible, id]);
+    return rows[0];
+  } catch (e) {
+    console.error("Error updating tournament prediction eligibility:", e);
     throw e;
   }
 }
@@ -8690,10 +8708,10 @@ export async function createKnockoutRound(data: {
   tournamentId: number | string;
   roundName: string;
   legs: number;
-  teams?: string[];
+  teams?: (string | number)[];
   mode: 'auto' | 'manual';
   autoPair?: boolean;
-  customPairings?: Array<{ team1Id: string; team2Id: string }>;
+  customPairings?: Array<{ team1Id: string | number; team2Id: string | number }>;
   createFullBracket?: boolean;
 }) {
   const {
@@ -8770,8 +8788,8 @@ export async function createKnockoutRound(data: {
 
     // Generate pairings based on mode
     let pairings: Array<{
-      team1Id?: string | null;
-      team2Id?: string | null;
+      team1Id?: string | number | null;
+      team2Id?: string | number | null;
       team1Placeholder?: string | null;
       team2Placeholder?: string | null;
     }> = [];
@@ -8825,8 +8843,8 @@ export async function createKnockoutRound(data: {
         [
           newRound.id,
           i + 1,
-          pairing.team1Id || null,
-          pairing.team2Id || null,
+          pairing.team1Id ? Number(pairing.team1Id) : null,
+          pairing.team2Id ? Number(pairing.team2Id) : null,
           pairing.team1Placeholder || null,
           pairing.team2Placeholder || null
         ]
@@ -8890,10 +8908,10 @@ export async function createKnockoutRound(data: {
  * Update a knockout pairing
  */
 export async function updateKnockoutPairing(data: {
-  pairingId: string;
-  team1Id?: string | null;
-  team2Id?: string | null;
-  winnerId?: string | null;
+  pairingId: string | number;
+  team1Id?: string | number | null;
+  team2Id?: string | number | null;
+  winnerId?: string | number | null;
 }) {
   const { pairingId, team1Id, team2Id, winnerId } = data;
 
@@ -8905,21 +8923,21 @@ export async function updateKnockoutPairing(data: {
 
     if (team1Id !== undefined) {
       updates.push(`team1_id = $${paramIndex}`);
-      values.push(team1Id || null);
+      values.push(team1Id ? Number(team1Id) : null);
       paramIndex++;
       updates.push(`team1_placeholder = NULL`);
     }
 
     if (team2Id !== undefined) {
       updates.push(`team2_id = $${paramIndex}`);
-      values.push(team2Id || null);
+      values.push(team2Id ? Number(team2Id) : null);
       paramIndex++;
       updates.push(`team2_placeholder = NULL`);
     }
 
     if (winnerId !== undefined) {
       updates.push(`winner_id = $${paramIndex}`);
-      values.push(winnerId || null);
+      values.push(winnerId ? Number(winnerId) : null);
       paramIndex++;
     }
 
@@ -8927,7 +8945,7 @@ export async function updateKnockoutPairing(data: {
       throw new Error('No valid fields to update');
     }
 
-    values.push(pairingId);
+    values.push(Number(pairingId));
 
     const { rows } = await pool.query(
       `UPDATE knockout_pairings 
@@ -8941,9 +8959,51 @@ export async function updateKnockoutPairing(data: {
       throw new Error('Pairing not found');
     }
 
+    const updatedPairing = rows[0];
+
+    // Synchronize fixture matches if they exist, or create if both teams are newly set
+    const { rows: pRows } = await pool.query(
+      `SELECT kp.*, kr.tournament_id, kr.round_order, kr.legs, t.season_id 
+       FROM knockout_pairings kp 
+       JOIN knockout_rounds kr ON kp.knockout_round_id = kr.id 
+       JOIN tournaments t ON kr.tournament_id = t.id 
+       WHERE kp.id = $1`,
+      [Number(pairingId)]
+    );
+
+    if (pRows.length > 0) {
+      const p = pRows[0];
+      const t1 = p.team1_id ? Number(p.team1_id) : null;
+      const t2 = p.team2_id ? Number(p.team2_id) : null;
+
+      if (p.leg1_match_id) {
+        if (t1) await pool.query('UPDATE fixtures SET home_club_id = $1 WHERE id = $2', [t1, p.leg1_match_id]);
+        if (t2) await pool.query('UPDATE fixtures SET away_club_id = $1 WHERE id = $2', [t2, p.leg1_match_id]);
+        if (p.leg2_match_id) {
+          if (t2) await pool.query('UPDATE fixtures SET home_club_id = $1 WHERE id = $2', [t2, p.leg2_match_id]);
+          if (t1) await pool.query('UPDATE fixtures SET away_club_id = $1 WHERE id = $2', [t1, p.leg2_match_id]);
+        }
+      } else if (t1 && t2) {
+        // Create leg 1
+        const { rows: [f1] } = await pool.query(`
+          INSERT INTO fixtures (tournament_id, season_id, home_club_id, away_club_id, round_number, match_status, group_name)
+          VALUES ($1, $2, $3, $4, $5, 'scheduled', NULL) RETURNING id
+        `, [p.tournament_id, p.season_id, t1, t2, 100 + p.round_order]);
+        await pool.query('UPDATE knockout_pairings SET leg1_match_id = $1 WHERE id = $2', [f1.id, p.id]);
+
+        if (p.legs === 2) {
+          const { rows: [f2] } = await pool.query(`
+            INSERT INTO fixtures (tournament_id, season_id, home_club_id, away_club_id, round_number, match_status, group_name)
+            VALUES ($1, $2, $3, $4, $5, 'scheduled', NULL) RETURNING id
+          `, [p.tournament_id, p.season_id, t2, t1, 100 + p.round_order]);
+          await pool.query('UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2', [f2.id, p.id]);
+        }
+      }
+    }
+
     // If winner was set, resolve next round placeholders
     if (winnerId !== undefined && winnerId !== null) {
-      await resolveNextRoundPairingsServer(pairingId, winnerId);
+      await resolveNextRoundPairingsServer(String(pairingId), String(winnerId));
     }
 
     await logSoloAdminAction('UPDATE_KNOCKOUT_PAIRING', {
@@ -8953,7 +9013,7 @@ export async function updateKnockoutPairing(data: {
       winnerId
     });
 
-    return { success: true, pairing: rows[0] };
+    return { success: true, pairing: updatedPairing };
   } catch (error: any) {
     console.error('Error updating knockout pairing:', error);
     throw new Error(`Failed to update pairing: ${error.message}`);
@@ -9055,10 +9115,20 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
   const numGroups = tournament.num_groups;
   const qualifiedPerGroup = tournament.qualified_per_group || tournament.group_qualifiers;
 
-  if (formatType === 'Group Stage' && numGroups && qualifiedPerGroup) {
+  const isGroupFormat = formatType?.includes('Group') || formatType === 'Group Stage';
+
+  if (isGroupFormat && numGroups && qualifiedPerGroup) {
     // GROUP_KNOCKOUT logic
     if (roundName === 'QUARTER_FINAL' && requiredTeams === 8) {
-      if (numGroups === 4 && qualifiedPerGroup === 2) {
+      if (numGroups === 3) {
+        // 3 groups, top 2 from each (6) + 2 best 3rd-placed teams (2) = 8
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 3rd #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #2' },
+          { team1Placeholder: 'Group C #1', team2Placeholder: 'Best 3rd #1' },
+          { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #2' }
+        );
+      } else if (numGroups === 4 && qualifiedPerGroup === 2) {
         pairings.push(
           { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
           { team1Placeholder: 'Group C #1', team2Placeholder: 'Group D #2' },
@@ -9074,7 +9144,13 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
         );
       }
     } else if (roundName === 'SEMI_FINAL' && requiredTeams === 4) {
-      if (numGroups === 2 && qualifiedPerGroup === 2) {
+      if (numGroups === 3) {
+        // 3 groups: 3 group winners + 1 best runner-up = 4
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
+        );
+      } else if (numGroups === 2 && qualifiedPerGroup === 2) {
         pairings.push(
           { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
           { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
@@ -9447,14 +9523,21 @@ export async function reorderSoloTrophyCabinetItem(id1: number, order1: number, 
 
 export async function createPlayoffTournament(data: {
   tournamentId: number | string;
-  playoffType: 'single' | 'dual';
+  playoffType: 'single' | 'dual' | 'three_group' | 'custom';
   legs?: number;
+  customTeams?: {
+    p1Team1Id?: number | null;
+    p1Team2Id?: number | null;
+    elimTeam1Id?: number | null;
+    elimTeam2Id?: number | null;
+  };
 }) {
   const { createPlayoffTournamentAction } = await import('./knockoutActions');
   return await createPlayoffTournamentAction(pool, {
     tournamentId: Number(data.tournamentId),
     playoffType: data.playoffType,
-    legs: data.legs || 1
+    legs: data.legs || 1,
+    customTeams: data.customTeams
   });
 }
 

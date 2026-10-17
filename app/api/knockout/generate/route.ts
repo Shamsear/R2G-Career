@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
           icon: '/logo.png',
           data: {
             type: 'knockout_generated',
-            tournament_id,
-            matches_count: result.matches?.length || 0,
-            stage: result.matches && result.matches.length > 0 ? result.matches[0].stage : null
+            tournament_id: String(tournament_id),
+            matches_count: String(result.matches?.length || 0),
+            stage: (result.matches && result.matches.length > 0 ? result.matches[0].stage : '') ?? ''
           }
         },
         season_id

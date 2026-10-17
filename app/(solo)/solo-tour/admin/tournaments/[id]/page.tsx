@@ -34,7 +34,9 @@ import {
   fetchKnockoutRounds,
   createKnockoutRound,
   deleteKnockoutRound,
-  createPlayoffTournament
+  updateKnockoutPairing,
+  createPlayoffTournament,
+  updateTournamentPredictionEligibility
 } from "@/utils/solo/serverActions";
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -47,7 +49,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [knockoutMatches, setKnockoutMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
   const [knockoutRounds, setKnockoutRounds] = useState<any[]>([]);
-  const [activeRound, setActiveRound] = useState<number | "all">("all");
+  const [activeRound, setActiveRound] = useState<number | string>("all");
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("boot");
   const [sharing, setSharing] = useState<boolean>(false);
@@ -66,9 +68,19 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [knockoutPreview, setKnockoutPreview] = useState<any>(null);
   const [showKnockoutPreview, setShowKnockoutPreview] = useState<boolean>(false);
   const [knockoutManualPairings, setKnockoutManualPairings] = useState<Array<{team1: number | null, team2: number | null}>>([]);
-  const [playoffFormat, setPlayoffFormat] = useState<'single' | 'dual'>('dual');
+  const [playoffFormat, setPlayoffFormat] = useState<'single' | 'dual' | 'three_group' | 'custom'>('single');
   const [playoffLegs, setPlayoffLegs] = useState<number>(1);
   const [playoffCreating, setPlayoffCreating] = useState<boolean>(false);
+  const [customP1Team1, setCustomP1Team1] = useState<number | null>(null);
+  const [customP1Team2, setCustomP1Team2] = useState<number | null>(null);
+  const [customElimTeam1, setCustomElimTeam1] = useState<number | null>(null);
+  const [customElimTeam2, setCustomElimTeam2] = useState<number | null>(null);
+
+  // Pairing inline edit state
+  const [editingPairingId, setEditingPairingId] = useState<number | null>(null);
+  const [editTeam1Id, setEditTeam1Id] = useState<number | null>(null);
+  const [editTeam2Id, setEditTeam2Id] = useState<number | null>(null);
+  const [savingPairing, setSavingPairing] = useState<boolean>(false);
   
   const viewModeToggled = useRef(false);
   const posterRef = useRef<HTMLDivElement>(null);
@@ -319,7 +331,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
     filteredMatchesForStats.forEach(f => {
       if (f.matchEvents && Array.isArray(f.matchEvents)) {
-        f.matchEvents.forEach(evt => {
+        f.matchEvents.forEach((evt: any) => {
           if (evt.type === 'goal') {
             if (evt.player) {
               goalScorers[evt.player] = (goalScorers[evt.player] || 0) + 1;
@@ -440,6 +452,58 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     }, {} as Record<string, any[]>);
   }, [standingsWithStats]);
 
+  // Computed 3-group playoff preview seeds
+  const threeGroupPlayoffSeeds = useMemo(() => {
+    if (!standingsWithStats || standingsWithStats.length === 0) return null;
+    const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
+    const getName = (t: any) => t ? (isSpecialOrRws ? (t.manager || t.club_name) : t.club_name) : 'TBD';
+
+    const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+    const winners = groups.map(g => {
+      const grp = standingsWithStats
+        .filter(s => s.group_name === g)
+        .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return grp[0];
+    }).filter(Boolean);
+    winners.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+
+    const runnersUp = groups.map(g => {
+      const grp = standingsWithStats
+        .filter(s => s.group_name === g)
+        .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return grp[1];
+    }).filter(Boolean);
+    runnersUp.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+
+    return {
+      s1: winners[0] || null,
+      s2: winners[1] || null,
+      s3: winners[2] || null,
+      s4: runnersUp[0] || null,
+      s1Name: getName(winners[0]),
+      s2Name: getName(winners[1]),
+      s3Name: getName(winners[2]),
+      s4Name: getName(runnersUp[0])
+    };
+  }, [standingsWithStats, tournament]);
+
+  // Set default custom playoff teams when switching to custom mode
+  useEffect(() => {
+    if (playoffFormat === 'custom' && (!customP1Team1 || !customP1Team2 || !customElimTeam1 || !customElimTeam2)) {
+      if (tournament?.num_groups === 3 && threeGroupPlayoffSeeds) {
+        if (!customP1Team1 && threeGroupPlayoffSeeds.s1) setCustomP1Team1(threeGroupPlayoffSeeds.s1.club_id);
+        if (!customP1Team2 && threeGroupPlayoffSeeds.s2) setCustomP1Team2(threeGroupPlayoffSeeds.s2.club_id);
+        if (!customElimTeam1 && threeGroupPlayoffSeeds.s3) setCustomElimTeam1(threeGroupPlayoffSeeds.s3.club_id);
+        if (!customElimTeam2 && threeGroupPlayoffSeeds.s4) setCustomElimTeam2(threeGroupPlayoffSeeds.s4.club_id);
+      } else if (standingsWithStats.length >= 4) {
+        if (!customP1Team1 && standingsWithStats[0]) setCustomP1Team1(standingsWithStats[0].club_id);
+        if (!customP1Team2 && standingsWithStats[1]) setCustomP1Team2(standingsWithStats[1].club_id);
+        if (!customElimTeam1 && standingsWithStats[2]) setCustomElimTeam1(standingsWithStats[2].club_id);
+        if (!customElimTeam2 && standingsWithStats[3]) setCustomElimTeam2(standingsWithStats[3].club_id);
+      }
+    }
+  }, [playoffFormat, threeGroupPlayoffSeeds, standingsWithStats, tournament?.num_groups]);
+
   // Dynamically compute team stats for Boot, Ball, Glove, and Defender
   const teamStats = useMemo(() => {
     const goalsScored: Record<string, { name: string; logo: string; manager: string; value: number }> = {};
@@ -540,6 +604,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         'ROUND_OF_16': 16,
         'QUARTER_FINAL': 8,
         'SEMI_FINAL': 4,
+        'THIRD_PLACE': 2,
         'FINAL': 2
       };
       const requiredTeams = roundTeamsMap[knockoutRoundName] || 8;
@@ -547,6 +612,13 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       setKnockoutManualPairings(Array(numPairings).fill(null).map(() => ({ team1: null, team2: null })));
     }
   }, [knockoutMode, knockoutRoundName]);
+
+  // Auto-set playoffFormat to three_group when tournament has 3 groups
+  useEffect(() => {
+    if (tournament?.num_groups === 3) {
+      setPlayoffFormat('three_group');
+    }
+  }, [tournament?.num_groups]);
 
   const loadData = async () => {
     setLoading(true);
@@ -1037,6 +1109,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       'ROUND_OF_16': 16,
       'QUARTER_FINAL': 8,
       'SEMI_FINAL': 4,
+      'THIRD_PLACE': 2,
       'FINAL': 2
     };
 
@@ -1151,9 +1224,28 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         }
       }
     } else {
-      // CROSS_GROUP (default): top of each group vs runner-up of crossing group
-      // Generic: for each group pair (A vs B, C vs D, ...), A1 vs B2 and B1 vs A2
-      if (numGroups >= 2 && qualifiedPerGroup >= 1) {
+      // CROSS_GROUP (default)
+      if (numGroups === 3) {
+        if (numTeams === 8) {
+          // Quarter Finals (8 teams): Top 2 from each group (6) + 2 Best 3rd (2)
+          pairings.push(
+            { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 3rd #2' },
+            { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #2' },
+            { team1Placeholder: 'Group C #1', team2Placeholder: 'Best 3rd #1' },
+            { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #2' }
+          );
+        } else if (numTeams === 4) {
+          // Semi Finals (4 teams): 3 group winners + 1 best runner-up
+          pairings.push(
+            { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
+            { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
+          );
+        } else if (numTeams === 2) {
+          pairings.push(
+            { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #1' }
+          );
+        }
+      } else if (numGroups >= 2 && qualifiedPerGroup >= 1) {
         for (let i = 0; i < numGroups; i += 2) {
           const g1 = groupNames[i];
           const g2 = groupNames[i + 1];
@@ -1183,9 +1275,12 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   };
 
   const resolveTeamFromPlaceholder = (placeholder: string) => {
-    // Parse placeholder like "Group A #1" or "Seed #1"
-    const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/);
-    const seedMatch = placeholder.match(/Seed #(\d+)/);
+    // Parse placeholder like "Group A #1", "Seed #1", "Best 3rd #1", "Best 2nd #1"
+    const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/i);
+    const best3rdMatch = placeholder.match(/Best 3rd #(\d+)/i);
+    const best2ndMatch = placeholder.match(/Best (?:2nd|Runner-Up) #(\d+)/i);
+    const bestWinnerMatch = placeholder.match(/(?:Best Group Winner|Group Winner) #(\d+)/i);
+    const seedMatch = placeholder.match(/Seed #(\d+)/i);
     const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
 
     const teamToResult = (team: any) => {
@@ -1194,7 +1289,40 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       return { id: team.club_id, name, logo: team.club_logo };
     };
 
-    if (groupMatch) {
+    if (best3rdMatch) {
+      const [, position] = best3rdMatch;
+      const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+      const thirdPlaced = groups.map(g => {
+        const grp = standingsWithStats
+          .filter(s => s.group_name === g)
+          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+        return grp[2]; // 3rd position (0-indexed 2)
+      }).filter(Boolean);
+      thirdPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return teamToResult(thirdPlaced[parseInt(position) - 1]);
+    } else if (best2ndMatch) {
+      const [, position] = best2ndMatch;
+      const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+      const secondPlaced = groups.map(g => {
+        const grp = standingsWithStats
+          .filter(s => s.group_name === g)
+          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+        return grp[1]; // 2nd position (0-indexed 1)
+      }).filter(Boolean);
+      secondPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return teamToResult(secondPlaced[parseInt(position) - 1]);
+    } else if (bestWinnerMatch) {
+      const [, position] = bestWinnerMatch;
+      const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+      const winners = groups.map(g => {
+        const grp = standingsWithStats
+          .filter(s => s.group_name === g)
+          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+        return grp[0]; // 1st position
+      }).filter(Boolean);
+      winners.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return teamToResult(winners[parseInt(position) - 1]);
+    } else if (groupMatch) {
       const [, groupName, position] = groupMatch;
       const groupStandings = standingsWithStats
         .filter(s => s.group_name === groupName)
@@ -2170,15 +2298,15 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                               className="admin-input" 
                               style={{ fontSize: "0.8rem", padding: "6px 10px", flex: 1 }} 
                               placeholder="Logo URL (or upload)" 
-                              value={customLogoToAdd} 
-                              onChange={(e) => setCustomLogoToAdd(e.target.value)} 
+                              value={customLogoPathToAdd} 
+                              onChange={(e) => setCustomLogoPathToAdd(e.target.value)} 
                             />
                             <input 
                               type="file" 
                               accept="image/*" 
                               id="tour-logo-file" 
                               style={{ display: "none" }} 
-                              onChange={handleLogoUploadForAdd} 
+                              onChange={handleLogoUpload} 
                               disabled={uploadingLogo} 
                             />
                             <label htmlFor="tour-logo-file" className="portal-btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", minHeight: "auto", height: "auto", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", pointerEvents: uploadingLogo ? "none" : "auto" }}>
@@ -3201,9 +3329,6 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         {/* Knockout Tab */}
         {activeTab === "knockout" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
-            {/* DEBUG */}
-            {console.log('🎯 Knockout Tab Rendering - knockoutRounds:', knockoutRounds, 'length:', knockoutRounds.length, 'JSON:', JSON.stringify(knockoutRounds))}
-            
             <div className="admin-card">
               {/* Header */}
               <div style={{ 
@@ -3338,39 +3463,147 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           {/* Show Pairings */}
                           {round.pairings?.filter((p: any) => p.id).length > 0 && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem" }}>
-                              {round.pairings.filter((p: any) => p.id).map((pairing: any) => (
-                                <div key={pairing.id} style={{ 
-                                  padding: "0.75rem",
-                                  background: "rgba(255,255,255,0.02)",
-                                  borderRadius: "6px",
-                                  border: "1px solid rgba(255,255,255,0.05)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  fontSize: "0.875rem"
-                                }}>
-                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <span style={{ color: "#9ca3af", fontWeight: 600, minWidth: "2rem" }}>
-                                      #{pairing.pairingOrder}
-                                    </span>
-                                    <span style={{ 
-                                      color: pairing.team1 ? "#f3f4f6" : "#fbbf24",
-                                      fontStyle: pairing.team1 ? "normal" : "italic"
+                              {round.pairings.filter((p: any) => p.id).map((pairing: any) => {
+                                const isEditing = editingPairingId === pairing.id;
+
+                                if (isEditing) {
+                                  return (
+                                    <div key={pairing.id} style={{
+                                      padding: "0.85rem",
+                                      background: "rgba(168, 85, 247, 0.08)",
+                                      borderRadius: "8px",
+                                      border: "1px solid rgba(168, 85, 247, 0.35)",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: "0.75rem"
                                     }}>
-                                      {pairing.team1?.name || pairing.team1Placeholder || 'TBD'}
-                                    </span>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: "0.8rem", color: "#c084fc", fontWeight: "bold" }}>
+                                          <i className="fa-solid fa-pen-to-square" style={{ marginRight: "0.35rem" }} />
+                                          Edit Matchup #{pairing.pairingOrder}
+                                        </span>
+                                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                                          <button
+                                            type="button"
+                                            className="portal-btn btn-secondary"
+                                            style={{ padding: "3px 8px", fontSize: "0.75rem" }}
+                                            onClick={() => setEditingPairingId(null)}
+                                            disabled={savingPairing}
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="portal-btn btn-primary"
+                                            style={{ padding: "3px 10px", fontSize: "0.75rem" }}
+                                            disabled={savingPairing}
+                                            onClick={async () => {
+                                              setSavingPairing(true);
+                                              try {
+                                                await updateKnockoutPairing({
+                                                  pairingId: pairing.id,
+                                                  team1Id: editTeam1Id || null,
+                                                  team2Id: editTeam2Id || null
+                                                });
+                                                showToast('✅ Matchup updated successfully!');
+                                                setEditingPairingId(null);
+                                                loadData();
+                                              } catch (err: any) {
+                                                showToast(`❌ ${err.message || 'Failed to update'}`);
+                                              } finally {
+                                                setSavingPairing(false);
+                                              }
+                                            }}
+                                          >
+                                            {savingPairing ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-check" />} Save
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
+                                        <select
+                                          className="admin-select"
+                                          value={editTeam1Id ?? ''}
+                                          onChange={(e) => setEditTeam1Id(e.target.value ? parseInt(e.target.value) : null)}
+                                          style={{ fontSize: "0.85rem" }}
+                                        >
+                                          <option value="">Keep / Reset to TBD ({pairing.team1Placeholder || 'Placeholder'})...</option>
+                                          {standingsWithStats.map(team => (
+                                            <option key={team.club_id} value={team.club_id}>
+                                              {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                              {team.group_name && ` (Group ${team.group_name})`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <span style={{ color: "#a855f7", fontWeight: "bold", fontSize: "0.85rem" }}>VS</span>
+                                        <select
+                                          className="admin-select"
+                                          value={editTeam2Id ?? ''}
+                                          onChange={(e) => setEditTeam2Id(e.target.value ? parseInt(e.target.value) : null)}
+                                          style={{ fontSize: "0.85rem" }}
+                                        >
+                                          <option value="">Keep / Reset to TBD ({pairing.team2Placeholder || 'Placeholder'})...</option>
+                                          {standingsWithStats.map(team => (
+                                            <option key={team.club_id} value={team.club_id}>
+                                              {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                              {team.group_name && ` (Group ${team.group_name})`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div key={pairing.id} style={{ 
+                                    padding: "0.75rem",
+                                    background: "rgba(255,255,255,0.02)",
+                                    borderRadius: "6px",
+                                    border: "1px solid rgba(255,255,255,0.05)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    fontSize: "0.875rem"
+                                  }}>
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                      <span style={{ color: "#9ca3af", fontWeight: 600, minWidth: "2rem" }}>
+                                        #{pairing.pairingOrder}
+                                      </span>
+                                      <span style={{ 
+                                        color: pairing.team1 ? "#f3f4f6" : "#fbbf24",
+                                        fontStyle: pairing.team1 ? "normal" : "italic",
+                                        fontWeight: pairing.team1 ? "600" : "normal"
+                                      }}>
+                                        {pairing.team1?.name || pairing.team1Placeholder || 'TBD'}
+                                      </span>
+                                    </div>
+                                    <span style={{ color: "#6b7280", fontWeight: "bold", padding: "0 1rem" }}>VS</span>
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.75rem" }}>
+                                      <span style={{ 
+                                        color: pairing.team2 ? "#f3f4f6" : "#fbbf24",
+                                        fontStyle: pairing.team2 ? "normal" : "italic",
+                                        fontWeight: pairing.team2 ? "600" : "normal"
+                                      }}>
+                                        {pairing.team2?.name || pairing.team2Placeholder || 'TBD'}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="portal-btn btn-secondary"
+                                        style={{ padding: "3px 8px", fontSize: "0.75rem" }}
+                                        title="Edit Teams for this Matchup"
+                                        onClick={() => {
+                                          setEditingPairingId(pairing.id);
+                                          setEditTeam1Id(pairing.team1Id || pairing.team1?.id || null);
+                                          setEditTeam2Id(pairing.team2Id || pairing.team2?.id || null);
+                                        }}
+                                      >
+                                        <i className="fa-solid fa-pen-to-square" />
+                                      </button>
+                                    </div>
                                   </div>
-                                  <span style={{ color: "#6b7280", fontWeight: "bold", padding: "0 1rem" }}>VS</span>
-                                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.5rem" }}>
-                                    <span style={{ 
-                                      color: pairing.team2 ? "#f3f4f6" : "#fbbf24",
-                                      fontStyle: pairing.team2 ? "normal" : "italic"
-                                    }}>
-                                      {pairing.team2?.name || pairing.team2Placeholder || 'TBD'}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -3396,14 +3629,21 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
                 <div className="admin-form-grid" style={{ marginBottom: "1rem" }}>
                   <div className="admin-form-group">
-                    <label>Playoff Structure</label>
+                    <label>Playoff Structure &amp; Seeding</label>
                     <select
                       className="admin-select"
                       value={playoffFormat}
-                      onChange={(e) => setPlayoffFormat(e.target.value as 'single' | 'dual')}
+                      onChange={(e) => setPlayoffFormat(e.target.value as any)}
                     >
-                      <option value="dual">Dual-Path Playoffs (Group A &amp; Group B Split — 2 Finals, 2 Champions)</option>
+                      {tournament?.num_groups === 3 && (
+                        <option value="three_group">3-Group System (Top 1 of Group A, B, C + Best 2nd — 1 Final, 1 Champion)</option>
+                      )}
                       <option value="single">Single-Path Playoffs (Top 4 Overall — 1 Final, 1 Champion)</option>
+                      {tournament?.num_groups !== 3 && (
+                        <option value="three_group">3-Group System (Group Winners + Best 2nd — 1 Final, 1 Champion)</option>
+                      )}
+                      <option value="custom">Manual Team Selection (Choose 4 Teams for Playoff 1 &amp; Eliminator)</option>
+                      <option value="dual">Dual-Path Playoffs (Group A &amp; Group B Split — 2 Finals, 2 Champions)</option>
                     </select>
                   </div>
 
@@ -3430,17 +3670,179 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 </div>
 
+                {/* 3-Group Live Preview Banner */}
+                {playoffFormat === 'three_group' && threeGroupPlayoffSeeds && (
+                  <div style={{
+                    padding: "1rem",
+                    background: "rgba(168, 85, 247, 0.08)",
+                    border: "1px solid rgba(168, 85, 247, 0.25)",
+                    borderRadius: "8px",
+                    marginBottom: "1rem",
+                    fontSize: "0.85rem"
+                  }}>
+                    <div style={{ fontWeight: "bold", color: "#c084fc", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <i className="fa-solid fa-sitemap" /> 3-Group Qualification Seeding Preview
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
+                      <div style={{ padding: "0.5rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#a855f7", fontWeight: "bold" }}>PLAYOFF 1 (Qualifier 1)</div>
+                        <div style={{ color: "#f3f4f6", marginTop: "0.25rem", fontWeight: "600" }}>
+                          Seed 1: {threeGroupPlayoffSeeds.s1Name}
+                        </div>
+                        <div style={{ color: "#9ca3af", fontSize: "0.75rem" }}>vs</div>
+                        <div style={{ color: "#f3f4f6", fontWeight: "600" }}>
+                          Seed 2: {threeGroupPlayoffSeeds.s2Name}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#60a5fa", marginTop: "0.25rem" }}>
+                          Winner &rarr; Grand Final • Loser &rarr; Playoff 2
+                        </div>
+                      </div>
+
+                      <div style={{ padding: "0.5rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#f59e0b", fontWeight: "bold" }}>ELIMINATOR</div>
+                        <div style={{ color: "#f3f4f6", marginTop: "0.25rem", fontWeight: "600" }}>
+                          Seed 3: {threeGroupPlayoffSeeds.s3Name}
+                        </div>
+                        <div style={{ color: "#9ca3af", fontSize: "0.75rem" }}>vs</div>
+                        <div style={{ color: "#f3f4f6", fontWeight: "600" }}>
+                          Seed 4 (Best 2nd): {threeGroupPlayoffSeeds.s4Name}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#60a5fa", marginTop: "0.25rem" }}>
+                          Winner &rarr; Playoff 2 • Loser &rarr; Knocked Out
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Team Selection Form */}
+                {playoffFormat === 'custom' && (
+                  <div style={{
+                    padding: "1rem",
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "8px",
+                    marginBottom: "1rem"
+                  }}>
+                    <div style={{ fontWeight: "bold", color: "#f3f4f6", marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+                      <i className="fa-solid fa-users-gear" style={{ marginRight: "0.4rem", color: "#c084fc" }} />
+                      Choose Playoff Teams Manually
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                      {/* Playoff 1 Selection */}
+                      <div style={{ padding: "0.75rem", background: "rgba(168, 85, 247, 0.05)", borderRadius: "6px", border: "1px solid rgba(168, 85, 247, 0.2)" }}>
+                        <div style={{ fontSize: "0.8rem", color: "#c084fc", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                          PLAYOFF 1 (Qualifier 1)
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <div>
+                            <label style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Team 1 (Seed 1)</label>
+                            <select
+                              className="admin-select"
+                              value={customP1Team1 ?? ''}
+                              onChange={(e) => setCustomP1Team1(e.target.value ? parseInt(e.target.value) : null)}
+                              style={{ fontSize: "0.85rem" }}
+                            >
+                              <option value="">Select Team 1...</option>
+                              {standingsWithStats.map(team => (
+                                <option key={team.club_id} value={team.club_id}>
+                                  {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                  {team.group_name && ` (Group ${team.group_name})`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "#a855f7" }}>VS</div>
+                          <div>
+                            <label style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Team 2 (Seed 2)</label>
+                            <select
+                              className="admin-select"
+                              value={customP1Team2 ?? ''}
+                              onChange={(e) => setCustomP1Team2(e.target.value ? parseInt(e.target.value) : null)}
+                              style={{ fontSize: "0.85rem" }}
+                            >
+                              <option value="">Select Team 2...</option>
+                              {standingsWithStats.map(team => (
+                                <option key={team.club_id} value={team.club_id}>
+                                  {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                  {team.group_name && ` (Group ${team.group_name})`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Eliminator Selection */}
+                      <div style={{ padding: "0.75rem", background: "rgba(245, 158, 11, 0.05)", borderRadius: "6px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                        <div style={{ fontSize: "0.8rem", color: "#fbbf24", fontWeight: "bold", marginBottom: "0.5rem" }}>
+                          ELIMINATOR
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <div>
+                            <label style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Team 3 (Seed 3)</label>
+                            <select
+                              className="admin-select"
+                              value={customElimTeam1 ?? ''}
+                              onChange={(e) => setCustomElimTeam1(e.target.value ? parseInt(e.target.value) : null)}
+                              style={{ fontSize: "0.85rem" }}
+                            >
+                              <option value="">Select Team 3...</option>
+                              {standingsWithStats.map(team => (
+                                <option key={team.club_id} value={team.club_id}>
+                                  {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                  {team.group_name && ` (Group ${team.group_name})`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "#f59e0b" }}>VS</div>
+                          <div>
+                            <label style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Team 4 (Seed 4)</label>
+                            <select
+                              className="admin-select"
+                              value={customElimTeam2 ?? ''}
+                              onChange={(e) => setCustomElimTeam2(e.target.value ? parseInt(e.target.value) : null)}
+                              style={{ fontSize: "0.85rem" }}
+                            >
+                              <option value="">Select Team 4...</option>
+                              {standingsWithStats.map(team => (
+                                <option key={team.club_id} value={team.club_id}>
+                                  {tournament?.tournament_type === 'special' ? (team.manager || team.club_name) : team.club_name}
+                                  {team.group_name && ` (Group ${team.group_name})`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   className="portal-btn btn-primary"
                   onClick={async () => {
-                    if (!confirm(`Generate ${playoffFormat === 'dual' ? 'Dual-Path (Group A & B Split)' : 'Single-Path'} IPL Playoffs? This will setup Playoff 1, Eliminator, Playoff 2, and Final rounds/fixtures.`)) return;
+                    const formatLabel = 
+                      playoffFormat === 'dual' ? 'Dual-Path (Group A & B Split)' :
+                      playoffFormat === 'three_group' ? '3-Group System (Top 1 of A, B, C + Best 2nd)' :
+                      playoffFormat === 'custom' ? 'Custom Selected Teams' : 'Single-Path (Top 4 Overall)';
+
+                    if (!confirm(`Generate ${formatLabel} IPL Playoffs? This will setup Playoff 1, Eliminator, Playoff 2, and Final rounds/fixtures.`)) return;
                     setPlayoffCreating(true);
                     try {
                       await createPlayoffTournament({
                         tournamentId,
                         playoffType: playoffFormat,
-                        legs: playoffLegs
+                        legs: playoffLegs,
+                        customTeams: playoffFormat === 'custom' ? {
+                          p1Team1Id: customP1Team1,
+                          p1Team2Id: customP1Team2,
+                          elimTeam1Id: customElimTeam1,
+                          elimTeam2Id: customElimTeam2
+                        } : undefined
                       });
                       showToast('✅ IPL Playoff brackets and fixtures generated successfully!');
                       loadData();
@@ -3461,7 +3863,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   ) : (
                     <>
                       <i className="fa-solid fa-bolt" style={{ marginRight: "0.5rem" }} />
-                      Generate {playoffFormat === 'dual' ? 'Dual-Path (2 Finals)' : 'Single-Path'} IPL Playoffs
+                      Generate {
+                        playoffFormat === 'dual' ? 'Dual-Path (2 Finals)' :
+                        playoffFormat === 'three_group' ? '3-Group IPL Playoffs' :
+                        playoffFormat === 'custom' ? 'Custom Selected' : 'Single-Path'
+                      } IPL Playoffs
                     </>
                   )}
                 </button>
@@ -3503,37 +3909,23 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       value={knockoutRoundName}
                       onChange={(e) => setKnockoutRoundName(e.target.value)}
                     >
-                      {(() => {
-                        // Calculate qualifying teams
-                        const numGroups = tournament?.num_groups || 0;
-                        const qualifiedPerGroup = tournament?.qualified_per_group || 2;
-                        const qualifyingTeams = numGroups * qualifiedPerGroup;
-
-                        // Available round options based on team count
-                        const allRounds = [
-                          { value: 'ROUND_OF_32', label: 'Round of 32', teams: 32 },
-                          { value: 'ROUND_OF_16', label: 'Round of 16', teams: 16 },
-                          { value: 'QUARTER_FINAL', label: 'Quarter Finals', teams: 8 },
-                          { value: 'SEMI_FINAL', label: 'Semi Finals', teams: 4 },
-                          { value: 'FINAL', label: 'Final', teams: 2 }
-                        ];
-
-                        // Filter to show only rounds that match or are smaller than qualifying teams
-                        const validRounds = allRounds.filter(r => r.teams <= qualifyingTeams);
-
-                        // If no valid rounds, show all (fallback)
-                        const rounds = validRounds.length > 0 ? validRounds : allRounds;
-
-                        return rounds.map(r => (
-                          <option key={r.value} value={r.value}>
-                            {r.label} ({r.teams} teams)
-                          </option>
-                        ));
-                      })()}
+                      {[
+                        { value: 'ROUND_OF_32', label: 'Round of 32 (32 teams)' },
+                        { value: 'ROUND_OF_16', label: 'Round of 16 (16 teams)' },
+                        { value: 'QUARTER_FINAL', label: 'Quarter Finals (8 teams)' },
+                        { value: 'SEMI_FINAL', label: 'Semi Finals (4 teams)' },
+                        { value: 'THIRD_PLACE', label: 'Third Place Playoff (2 teams)' },
+                        { value: 'FINAL', label: 'Final (2 teams)' }
+                      ].map(r => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
                     </select>
                     {tournament?.num_groups && tournament?.qualified_per_group && (
                       <small style={{ display: "block", marginTop: "0.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>
                         {tournament.num_groups} groups × {tournament.qualified_per_group} qualified = {tournament.num_groups * tournament.qualified_per_group} teams in knockout
+                        {tournament.num_groups === 3 ? " • Select Quarter Finals (Top 2 + 2 best 3rd) or Semi Finals (Top 3 winners + best 2nd)" : ""}
                       </small>
                     )}
                   </div>

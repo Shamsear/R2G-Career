@@ -149,7 +149,15 @@ function generateGroupKnockoutPairings(
   // Default: CROSS_GROUP strategy (A1 vs B2, B1 vs A2)
   if (numTeams === 8) {
     // Quarter Finals
-    if (numGroups === 4 && qualifiedPerGroup === 2) {
+    if (numGroups === 3) {
+      // 3 groups: top 2 from each (6) + 2 best 3rd-placed teams (2) = 8
+      pairings.push(
+        { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 3rd #2' },
+        { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #2' },
+        { team1Placeholder: 'Group C #1', team2Placeholder: 'Best 3rd #1' },
+        { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #2' }
+      );
+    } else if (numGroups === 4 && qualifiedPerGroup === 2) {
       // 4 groups, 2 qualifiers each
       pairings.push(
         { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
@@ -168,7 +176,13 @@ function generateGroupKnockoutPairings(
     }
   } else if (numTeams === 4) {
     // Semi Finals
-    if (numGroups === 2 && qualifiedPerGroup === 2) {
+    if (numGroups === 3) {
+      // 3 groups: 3 group winners + 1 best runner-up = 4
+      pairings.push(
+        { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
+        { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
+      );
+    } else if (numGroups === 2 && qualifiedPerGroup === 2) {
       pairings.push(
         { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
         { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
@@ -253,14 +267,65 @@ export async function resolveQualificationPlaceholder(
   placeholder: string,
   tournamentId: number
 ): Promise<number | null> {
-  // Parse placeholder format: "Group A #1", "League #3", "Seed #2", "Winner of SEMI_FINAL #1"
-  const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/);
-  const leagueMatch = placeholder.match(/League #(\d+)/);
-  const seedMatch = placeholder.match(/Seed #(\d+)/);
-  const winnerMatch = placeholder.match(/Winner of (\w+) #(\d+)/) || placeholder.match(/Winner of (\w+) Match #(\d+)/);
+  // Parse placeholder format: "Group A #1", "League #3", "Seed #2", "Winner of SEMI_FINAL #1", "Best 3rd #1", "Best 2nd #1"
+  const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/i);
+  const best3rdMatch = placeholder.match(/Best 3rd #(\d+)/i);
+  const best2ndMatch = placeholder.match(/Best (?:2nd|Runner-Up) #(\d+)/i);
+  const bestGroupWinnerMatch = placeholder.match(/(?:Best Group Winner|Group Winner) #(\d+)/i);
+  const leagueMatch = placeholder.match(/League #(\d+)/i);
+  const seedMatch = placeholder.match(/Seed #(\d+)/i);
+  const winnerMatch = placeholder.match(/Winner of (\w+) #(\d+)/i) || placeholder.match(/Winner of (\w+) Match #(\d+)/i);
 
   try {
-    if (groupMatch) {
+    if (best3rdMatch) {
+      const [, position] = best3rdMatch;
+      const { rows } = await pool.query(
+        `WITH ranked AS (
+           SELECT club_id, points, goal_difference, goals_scored,
+                  ROW_NUMBER() OVER (PARTITION BY group_name ORDER BY points DESC, goal_difference DESC, goals_scored DESC) as group_pos
+           FROM tournament_standings
+           WHERE tournament_id = $1
+         )
+         SELECT club_id FROM ranked
+         WHERE group_pos = 3
+         ORDER BY points DESC, goal_difference DESC, goals_scored DESC
+         LIMIT 1 OFFSET $2`,
+        [tournamentId, parseInt(position) - 1]
+      );
+      return rows[0]?.club_id || null;
+    } else if (best2ndMatch) {
+      const [, position] = best2ndMatch;
+      const { rows } = await pool.query(
+        `WITH ranked AS (
+           SELECT club_id, points, goal_difference, goals_scored,
+                  ROW_NUMBER() OVER (PARTITION BY group_name ORDER BY points DESC, goal_difference DESC, goals_scored DESC) as group_pos
+           FROM tournament_standings
+           WHERE tournament_id = $1
+         )
+         SELECT club_id FROM ranked
+         WHERE group_pos = 2
+         ORDER BY points DESC, goal_difference DESC, goals_scored DESC
+         LIMIT 1 OFFSET $2`,
+        [tournamentId, parseInt(position) - 1]
+      );
+      return rows[0]?.club_id || null;
+    } else if (bestGroupWinnerMatch) {
+      const [, position] = bestGroupWinnerMatch;
+      const { rows } = await pool.query(
+        `WITH ranked AS (
+           SELECT club_id, points, goal_difference, goals_scored,
+                  ROW_NUMBER() OVER (PARTITION BY group_name ORDER BY points DESC, goal_difference DESC, goals_scored DESC) as group_pos
+           FROM tournament_standings
+           WHERE tournament_id = $1
+         )
+         SELECT club_id FROM ranked
+         WHERE group_pos = 1
+         ORDER BY points DESC, goal_difference DESC, goals_scored DESC
+         LIMIT 1 OFFSET $2`,
+        [tournamentId, parseInt(position) - 1]
+      );
+      return rows[0]?.club_id || null;
+    } else if (groupMatch) {
       const [, groupName, position] = groupMatch;
       const { rows } = await pool.query(
         `SELECT club_id FROM tournament_standings
@@ -515,7 +580,7 @@ export function generateChainedPlaceholders(
  * Get next round name in sequence
  */
 export function getNextRoundName(currentRound: RoundName): RoundName | null {
-  const mapping: Record<RoundName, RoundName | null> = {
+  const mapping: Partial<Record<RoundName, RoundName | null>> = {
     ROUND_OF_32: 'ROUND_OF_16',
     ROUND_OF_16: 'QUARTER_FINAL',
     QUARTER_FINAL: 'SEMI_FINAL',
@@ -524,7 +589,7 @@ export function getNextRoundName(currentRound: RoundName): RoundName | null {
     FINAL: null
   };
 
-  return mapping[currentRound];
+  return mapping[currentRound] ?? null;
 }
 
 /**

@@ -29,7 +29,6 @@ export async function POST(
     const result = await resolveKnockoutPlaceholders(tournamentIdNum);
 
     return NextResponse.json({
-      success: true,
       message: `Resolved ${result.resolvedCount} placeholder(s)`,
       ...result
     });

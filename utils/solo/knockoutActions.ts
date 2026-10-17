@@ -603,17 +603,23 @@ export async function getEligibleTeamsForKnockout(
 }
 
 /**
- * Create Playoff Tournament (Single-Path or Dual-Path)
+ * Create Playoff Tournament (Single-Path, 3-Group, Custom, or Dual-Path)
  */
 export async function createPlayoffTournamentAction(
   pool: Pool,
   data: {
     tournamentId: number;
-    playoffType: 'single' | 'dual';
+    playoffType: 'single' | 'dual' | 'three_group' | 'custom';
     legs?: number;
+    customTeams?: {
+      p1Team1Id?: number | null;
+      p1Team2Id?: number | null;
+      elimTeam1Id?: number | null;
+      elimTeam2Id?: number | null;
+    };
   }
 ) {
-  const { tournamentId, playoffType, legs = 1 } = data;
+  const { tournamentId, playoffType, legs = 1, customTeams } = data;
   try {
     await pool.query('BEGIN');
 
@@ -636,13 +642,53 @@ export async function createPlayoffTournamentAction(
       WHERE ts.tournament_id = $1
     `, [tournamentId]);
 
-    if (playoffType === 'single') {
-      // Top 4 overall
-      const top4 = standings.filter((s: any) => s.overall_pos <= 4).sort((a: any, b: any) => a.overall_pos - b.overall_pos);
-      const team1Id = top4[0]?.club_id || null;
-      const team2Id = top4[1]?.club_id || null;
-      const team3Id = top4[2]?.club_id || null;
-      const team4Id = top4[3]?.club_id || null;
+    if (playoffType === 'single' || playoffType === 'three_group' || playoffType === 'custom') {
+      let team1Id: number | null = null;
+      let team2Id: number | null = null;
+      let team3Id: number | null = null;
+      let team4Id: number | null = null;
+
+      let p1Placeholder1 = 'League #1';
+      let p1Placeholder2 = 'League #2';
+      let elimPlaceholder1 = 'League #3';
+      let elimPlaceholder2 = 'League #4';
+
+      if (playoffType === 'custom' && customTeams) {
+        team1Id = customTeams.p1Team1Id ? Number(customTeams.p1Team1Id) : null;
+        team2Id = customTeams.p1Team2Id ? Number(customTeams.p1Team2Id) : null;
+        team3Id = customTeams.elimTeam1Id ? Number(customTeams.elimTeam1Id) : null;
+        team4Id = customTeams.elimTeam2Id ? Number(customTeams.elimTeam2Id) : null;
+
+        p1Placeholder1 = 'Playoff 1 Team 1';
+        p1Placeholder2 = 'Playoff 1 Team 2';
+        elimPlaceholder1 = 'Eliminator Team 1';
+        elimPlaceholder2 = 'Eliminator Team 2';
+      } else if (playoffType === 'three_group') {
+        const grpWinners = standings
+          .filter((s: any) => Number(s.group_pos) === 1)
+          .sort((a: any, b: any) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
+
+        const runnersUp = standings
+          .filter((s: any) => Number(s.group_pos) === 2)
+          .sort((a: any, b: any) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
+
+        team1Id = grpWinners[0]?.club_id || null;
+        team2Id = grpWinners[1]?.club_id || null;
+        team3Id = grpWinners[2]?.club_id || null;
+        team4Id = runnersUp[0]?.club_id || null;
+
+        p1Placeholder1 = grpWinners[0] ? `Group ${grpWinners[0].group_name} #1` : 'Best Group Winner';
+        p1Placeholder2 = grpWinners[1] ? `Group ${grpWinners[1].group_name} #1` : '2nd Best Group Winner';
+        elimPlaceholder1 = grpWinners[2] ? `Group ${grpWinners[2].group_name} #1` : '3rd Best Group Winner';
+        elimPlaceholder2 = runnersUp[0] ? `Group ${runnersUp[0].group_name} #2` : 'Best Runner-Up';
+      } else {
+        // Top 4 overall
+        const top4 = standings.filter((s: any) => s.overall_pos <= 4).sort((a: any, b: any) => a.overall_pos - b.overall_pos);
+        team1Id = top4[0]?.club_id || null;
+        team2Id = top4[1]?.club_id || null;
+        team3Id = top4[2]?.club_id || null;
+        team4Id = top4[3]?.club_id || null;
+      }
 
       // 1. Playoff 1 (Round 110)
       const { rows: [p1Round] } = await pool.query(`
@@ -652,8 +698,8 @@ export async function createPlayoffTournamentAction(
 
       const { rows: [p1Pairing] } = await pool.query(`
         INSERT INTO knockout_pairings (knockout_round_id, pairing_order, team1_id, team2_id, team1_placeholder, team2_placeholder)
-        VALUES ($1, 1, $2, $3, 'League #1', 'League #2') RETURNING *
-      `, [p1Round.id, team1Id, team2Id]);
+        VALUES ($1, 1, $2, $3, $4, $5) RETURNING *
+      `, [p1Round.id, team1Id, team2Id, p1Placeholder1, p1Placeholder2]);
 
       // 2. Eliminator (Round 111)
       const { rows: [elimRound] } = await pool.query(`
@@ -663,8 +709,8 @@ export async function createPlayoffTournamentAction(
 
       const { rows: [elimPairing] } = await pool.query(`
         INSERT INTO knockout_pairings (knockout_round_id, pairing_order, team1_id, team2_id, team1_placeholder, team2_placeholder)
-        VALUES ($1, 1, $2, $3, 'League #3', 'League #4') RETURNING *
-      `, [elimRound.id, team3Id, team4Id]);
+        VALUES ($1, 1, $2, $3, $4, $5) RETURNING *
+      `, [elimRound.id, team3Id, team4Id, elimPlaceholder1, elimPlaceholder2]);
 
       // 3. Playoff 2 (Round 112)
       const { rows: [p2Round] } = await pool.query(`

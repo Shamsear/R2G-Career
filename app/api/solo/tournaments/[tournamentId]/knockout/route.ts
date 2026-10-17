@@ -126,7 +126,6 @@ export async function POST(
     });
 
     return NextResponse.json({
-      success: true,
       message: 'Knockout round created successfully',
       ...result
     });
@@ -160,7 +159,6 @@ export async function DELETE(
     const result = await deleteAllKnockoutRoundsV2(tournamentIdNum);
 
     return NextResponse.json({
-      success: true,
       message: 'All knockout rounds deleted successfully',
       ...result
     });
