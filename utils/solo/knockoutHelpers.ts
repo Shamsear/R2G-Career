@@ -146,6 +146,64 @@ function generateGroupKnockoutPairings(
     return pairings;
   }
 
+  if (pairingStrategy === 'THIRD_PLACE_CUP') {
+    // 3rd-Place Cup / Best 3rd Playoff
+    if (numTeams === 2) {
+      if (numGroups === 2) {
+        pairings.push({ team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #3' });
+      } else {
+        pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+      }
+      return pairings;
+    } else if (numTeams === 4) {
+      if (numGroups === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+          { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
+        );
+      } else {
+        pairings.push(
+          { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+          { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
+        );
+      }
+      return pairings;
+    }
+  }
+
+  if (pairingStrategy === 'FOURTH_PLACE_CUP') {
+    // 4th-Place Cup / Best 4th Playoff
+    if (numTeams === 2) {
+      if (numGroups === 2) {
+        pairings.push({ team1Placeholder: 'Group A #4', team2Placeholder: 'Group B #4' });
+      } else {
+        pairings.push({ team1Placeholder: 'Best 4th #1', team2Placeholder: 'Best 4th #2' });
+      }
+      return pairings;
+    }
+  }
+
+  if (pairingStrategy === 'PLATE_CUP') {
+    // Plate / Shield Cup (3rd & 4th Place Teams)
+    if (numTeams === 4) {
+      if (numGroups === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+          { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
+        );
+      } else {
+        pairings.push(
+          { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+          { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
+        );
+      }
+      return pairings;
+    } else if (numTeams === 2) {
+      pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+      return pairings;
+    }
+  }
+
   // Default: CROSS_GROUP strategy (A1 vs B2, B1 vs A2)
   if (numTeams === 8) {
     // Quarter Finals
@@ -165,8 +223,8 @@ function generateGroupKnockoutPairings(
         { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' },
         { team1Placeholder: 'Group D #1', team2Placeholder: 'Group C #2' }
       );
-    } else if (numGroups === 2 && qualifiedPerGroup === 4) {
-      // 2 groups, 4 qualifiers each
+    } else if (numGroups === 2) {
+      // 2 groups: top 4 from each (1st, 2nd, 3rd, 4th) = 8 teams
       pairings.push(
         { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #4' },
         { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #3' },
@@ -182,7 +240,7 @@ function generateGroupKnockoutPairings(
         { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
         { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
       );
-    } else if (numGroups === 2 && qualifiedPerGroup === 2) {
+    } else if (numGroups === 2) {
       pairings.push(
         { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
         { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
@@ -269,16 +327,23 @@ export async function resolveQualificationPlaceholder(
 ): Promise<number | null> {
   // Parse placeholder format: "Group A #1", "League #3", "Seed #2", "Winner of SEMI_FINAL #1", "Best 3rd #1", "Best 2nd #1"
   const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/i);
-  const best3rdMatch = placeholder.match(/Best 3rd #(\d+)/i);
-  const best2ndMatch = placeholder.match(/Best (?:2nd|Runner-Up) #(\d+)/i);
-  const bestGroupWinnerMatch = placeholder.match(/(?:Best Group Winner|Group Winner) #(\d+)/i);
+  const bestGenericMatch = placeholder.match(/Best (?:(\d+)(?:st|nd|rd|th)?|Group Winner|Winner|Runner-Up|2nd|3rd|4th) #(\d+)/i);
   const leagueMatch = placeholder.match(/League #(\d+)/i);
   const seedMatch = placeholder.match(/Seed #(\d+)/i);
   const winnerMatch = placeholder.match(/Winner of (\w+) #(\d+)/i) || placeholder.match(/Winner of (\w+) Match #(\d+)/i);
 
   try {
-    if (best3rdMatch) {
-      const [, position] = best3rdMatch;
+    if (bestGenericMatch) {
+      const [, rawPos, rankStr] = bestGenericMatch;
+      let targetGroupPos = 3;
+      const lower = rawPos.toLowerCase();
+      if (lower.includes('winner') || lower === '1' || lower === '1st') targetGroupPos = 1;
+      else if (lower.includes('runner') || lower === '2' || lower === '2nd') targetGroupPos = 2;
+      else if (lower === '3' || lower === '3rd') targetGroupPos = 3;
+      else if (lower === '4' || lower === '4th') targetGroupPos = 4;
+      else if (lower === '5' || lower === '5th') targetGroupPos = 5;
+      else targetGroupPos = parseInt(rawPos) || 3;
+
       const { rows } = await pool.query(
         `WITH ranked AS (
            SELECT club_id, points, goal_difference, goals_scored,
@@ -287,44 +352,12 @@ export async function resolveQualificationPlaceholder(
            WHERE tournament_id = $1
          )
          SELECT club_id FROM ranked
-         WHERE group_pos = 3
+         WHERE group_pos = $2
          ORDER BY points DESC, goal_difference DESC, goals_scored DESC
-         LIMIT 1 OFFSET $2`,
-        [tournamentId, parseInt(position) - 1]
+         LIMIT 1 OFFSET $3`,
+        [tournamentId, targetGroupPos, parseInt(rankStr) - 1]
       );
-      return rows[0]?.club_id || null;
-    } else if (best2ndMatch) {
-      const [, position] = best2ndMatch;
-      const { rows } = await pool.query(
-        `WITH ranked AS (
-           SELECT club_id, points, goal_difference, goals_scored,
-                  ROW_NUMBER() OVER (PARTITION BY group_name ORDER BY points DESC, goal_difference DESC, goals_scored DESC) as group_pos
-           FROM tournament_standings
-           WHERE tournament_id = $1
-         )
-         SELECT club_id FROM ranked
-         WHERE group_pos = 2
-         ORDER BY points DESC, goal_difference DESC, goals_scored DESC
-         LIMIT 1 OFFSET $2`,
-        [tournamentId, parseInt(position) - 1]
-      );
-      return rows[0]?.club_id || null;
-    } else if (bestGroupWinnerMatch) {
-      const [, position] = bestGroupWinnerMatch;
-      const { rows } = await pool.query(
-        `WITH ranked AS (
-           SELECT club_id, points, goal_difference, goals_scored,
-                  ROW_NUMBER() OVER (PARTITION BY group_name ORDER BY points DESC, goal_difference DESC, goals_scored DESC) as group_pos
-           FROM tournament_standings
-           WHERE tournament_id = $1
-         )
-         SELECT club_id FROM ranked
-         WHERE group_pos = 1
-         ORDER BY points DESC, goal_difference DESC, goals_scored DESC
-         LIMIT 1 OFFSET $2`,
-        [tournamentId, parseInt(position) - 1]
-      );
-      return rows[0]?.club_id || null;
+      return rows[0]?.club_id ? Number(rows[0].club_id) : null;
     } else if (groupMatch) {
       const [, groupName, position] = groupMatch;
       const { rows } = await pool.query(

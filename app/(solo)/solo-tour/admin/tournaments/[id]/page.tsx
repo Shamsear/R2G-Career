@@ -68,13 +68,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [knockoutPreview, setKnockoutPreview] = useState<any>(null);
   const [showKnockoutPreview, setShowKnockoutPreview] = useState<boolean>(false);
   const [knockoutManualPairings, setKnockoutManualPairings] = useState<Array<{team1: number | null, team2: number | null}>>([]);
-  const [playoffFormat, setPlayoffFormat] = useState<'single' | 'dual' | 'three_group' | 'custom'>('single');
+  const [playoffFormat, setPlayoffFormat] = useState<'single' | 'dual' | 'three_group' | 'third_fourth' | 'custom'>('single');
   const [playoffLegs, setPlayoffLegs] = useState<number>(1);
   const [playoffCreating, setPlayoffCreating] = useState<boolean>(false);
   const [customP1Team1, setCustomP1Team1] = useState<number | null>(null);
   const [customP1Team2, setCustomP1Team2] = useState<number | null>(null);
   const [customElimTeam1, setCustomElimTeam1] = useState<number | null>(null);
   const [customElimTeam2, setCustomElimTeam2] = useState<number | null>(null);
+  const [positionRankTab, setPositionRankTab] = useState<'3rd' | '4th' | '2nd' | '1st'>('3rd');
 
   // Pairing inline edit state
   const [editingPairingId, setEditingPairingId] = useState<number | null>(null);
@@ -486,6 +487,77 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       s4Name: getName(runnersUp[0])
     };
   }, [standingsWithStats, tournament]);
+
+  // Computed 3rd & 4th place playoff preview seeds
+  const thirdFourthPlayoffSeeds = useMemo(() => {
+    if (!standingsWithStats || standingsWithStats.length === 0) return null;
+    const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
+    const getName = (t: any) => t ? (isSpecialOrRws ? (t.manager || t.club_name) : t.club_name) : 'TBD';
+
+    const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+    const thirdPlaced = groups.map(g => {
+      const grp = standingsWithStats
+        .filter(s => s.group_name === g)
+        .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return grp[2]; // 3rd position
+    }).filter(Boolean);
+    thirdPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+
+    const fourthPlaced = groups.map(g => {
+      const grp = standingsWithStats
+        .filter(s => s.group_name === g)
+        .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return grp[3]; // 4th position
+    }).filter(Boolean);
+    fourthPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+
+    const s1 = thirdPlaced[0] || null;
+    const s2 = thirdPlaced[1] || null;
+    const s3 = thirdPlaced[2] || fourthPlaced[0] || null;
+    const s4 = fourthPlaced[1] || fourthPlaced[0] || null;
+
+    return {
+      s1,
+      s2,
+      s3,
+      s4,
+      s1Name: getName(s1),
+      s2Name: getName(s2),
+      s3Name: getName(s3),
+      s4Name: getName(s4)
+    };
+  }, [standingsWithStats, tournament]);
+
+  // Cross-group position rankings for wildcards & best 3rd/4th placed teams
+  const crossGroupRankings = useMemo(() => {
+    if (!standingsWithStats || standingsWithStats.length === 0) {
+      return { first: [], second: [], third: [], fourth: [] };
+    }
+
+    const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
+    if (groups.length === 0) {
+      return { first: [], second: [], third: [], fourth: [] };
+    }
+
+    const getRankedAtPos = (posZeroIndexed: number) => {
+      const teams = groups.map(g => {
+        const grp = standingsWithStats
+          .filter(s => s.group_name === g)
+          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+        return grp[posZeroIndexed];
+      }).filter(Boolean);
+
+      teams.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return teams;
+    };
+
+    return {
+      first: getRankedAtPos(0),
+      second: getRankedAtPos(1),
+      third: getRankedAtPos(2),
+      fourth: getRankedAtPos(3)
+    };
+  }, [standingsWithStats]);
 
   // Set default custom playoff teams when switching to custom mode
   useEffect(() => {
@@ -1223,51 +1295,107 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           }
         }
       }
-    } else {
-      // CROSS_GROUP (default)
-      if (numGroups === 3) {
-        if (numTeams === 8) {
-          // Quarter Finals (8 teams): Top 2 from each group (6) + 2 Best 3rd (2)
+    } else if (strategy === 'THIRD_PLACE_CUP') {
+      if (numTeams === 2) {
+        if (numGroups === 2) {
+          pairings.push({ team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #3' });
+        } else {
+          pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+        }
+        return pairings;
+      } else if (numTeams === 4) {
+        if (numGroups === 2) {
           pairings.push(
-            { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 3rd #2' },
-            { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #2' },
-            { team1Placeholder: 'Group C #1', team2Placeholder: 'Best 3rd #1' },
-            { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #2' }
+            { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+            { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
           );
-        } else if (numTeams === 4) {
-          // Semi Finals (4 teams): 3 group winners + 1 best runner-up
+        } else {
           pairings.push(
-            { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
-            { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
-          );
-        } else if (numTeams === 2) {
-          pairings.push(
-            { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #1' }
+            { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+            { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
           );
         }
-      } else if (numGroups >= 2 && qualifiedPerGroup >= 1) {
-        for (let i = 0; i < numGroups; i += 2) {
-          const g1 = groupNames[i];
-          const g2 = groupNames[i + 1];
-          if (!g1 || !g2) break;
-          // Cross match: group i winner vs group i+1 runner-up, and vice versa
-          for (let pos = 1; pos <= qualifiedPerGroup; pos++) {
-            const oppositePos = qualifiedPerGroup - pos + 1;
-            pairings.push({
-              team1Placeholder: `Group ${g1} #${pos}`,
-              team2Placeholder: `Group ${g2} #${oppositePos}`
-            });
-          }
+        return pairings;
+      }
+    } else if (strategy === 'FOURTH_PLACE_CUP') {
+      if (numTeams === 2) {
+        if (numGroups === 2) {
+          pairings.push({ team1Placeholder: 'Group A #4', team2Placeholder: 'Group B #4' });
+        } else {
+          pairings.push({ team1Placeholder: 'Best 4th #1', team2Placeholder: 'Best 4th #2' });
         }
-      } else if (numGroups === 0) {
-        // No groups (pure knockout seeding)
-        const numPairings = numTeams / 2;
-        for (let i = 0; i < numPairings; i++) {
+        return pairings;
+      }
+    } else if (strategy === 'PLATE_CUP') {
+      if (numTeams === 4) {
+        if (numGroups === 2) {
+          pairings.push(
+            { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+            { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
+          );
+        } else {
+          pairings.push(
+            { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+            { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
+          );
+        }
+        return pairings;
+      } else if (numTeams === 2) {
+        pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+        return pairings;
+      }
+    }
+
+    if (numGroups === 3) {
+      if (numTeams === 8) {
+        // Quarter Finals (8 teams): Top 2 from each group (6) + 2 Best 3rd (2)
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 3rd #2' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #2' },
+          { team1Placeholder: 'Group C #1', team2Placeholder: 'Best 3rd #1' },
+          { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #2' }
+        );
+      } else if (numTeams === 4) {
+        // Semi Finals (4 teams): 3 group winners + 1 best runner-up
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
+          { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
+        );
+      } else if (numTeams === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #1' }
+        );
+      }
+    } else if (numGroups === 2 && numTeams === 8) {
+      // 2 groups: top 4 from each (1st, 2nd, 3rd, 4th) = 8 teams
+      pairings.push(
+        { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #4' },
+        { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #3' },
+        { team1Placeholder: 'Group B #2', team2Placeholder: 'Group A #3' },
+        { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #4' }
+      );
+    } else if (numGroups >= 2 && qualifiedPerGroup >= 1) {
+      for (let i = 0; i < numGroups; i += 2) {
+        const g1 = groupNames[i];
+        const g2 = groupNames[i + 1];
+        if (!g1 || !g2) break;
+        // Cross match: group i winner vs group i+1 runner-up, and vice versa
+        for (let pos = 1; pos <= qualifiedPerGroup; pos++) {
+          const oppositePos = qualifiedPerGroup - pos + 1;
           pairings.push({
-            team1Placeholder: `Seed #${i + 1}`,
-            team2Placeholder: `Seed #${numTeams - i}`
+            team1Placeholder: `Group ${g1} #${pos}`,
+            team2Placeholder: `Group ${g2} #${oppositePos}`
           });
         }
+      }
+    } else if (numGroups === 0) {
+      // No groups (pure knockout seeding)
+      const numPairings = numTeams / 2;
+      for (let i = 0; i < numPairings; i++) {
+        pairings.push({
+          team1Placeholder: `Seed #${i + 1}`,
+          team2Placeholder: `Seed #${numTeams - i}`
+        });
       }
     }
 
@@ -1275,11 +1403,9 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   };
 
   const resolveTeamFromPlaceholder = (placeholder: string) => {
-    // Parse placeholder like "Group A #1", "Seed #1", "Best 3rd #1", "Best 2nd #1"
+    // Parse placeholder like "Group A #1", "Seed #1", "Best 3rd #1", "Best 4th #1", "Best 2nd #1"
     const groupMatch = placeholder.match(/Group ([A-H]) #(\d+)/i);
-    const best3rdMatch = placeholder.match(/Best 3rd #(\d+)/i);
-    const best2ndMatch = placeholder.match(/Best (?:2nd|Runner-Up) #(\d+)/i);
-    const bestWinnerMatch = placeholder.match(/(?:Best Group Winner|Group Winner) #(\d+)/i);
+    const bestGenericMatch = placeholder.match(/Best (?:(\d+)(?:st|nd|rd|th)?|Group Winner|Winner|Runner-Up|2nd|3rd|4th) #(\d+)/i);
     const seedMatch = placeholder.match(/Seed #(\d+)/i);
     const isSpecialOrRws = tournament?.tournament_type === 'special' || tournament?.tournament_type === 'rws';
 
@@ -1289,39 +1415,28 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       return { id: team.club_id, name, logo: team.club_logo };
     };
 
-    if (best3rdMatch) {
-      const [, position] = best3rdMatch;
+    if (bestGenericMatch) {
+      const [, rawPos, rankStr] = bestGenericMatch;
+      let targetGroupPos = 3;
+      const lower = rawPos.toLowerCase();
+      if (lower.includes('winner') || lower === '1' || lower === '1st') targetGroupPos = 1;
+      else if (lower.includes('runner') || lower === '2' || lower === '2nd') targetGroupPos = 2;
+      else if (lower === '3' || lower === '3rd') targetGroupPos = 3;
+      else if (lower === '4' || lower === '4th') targetGroupPos = 4;
+      else if (lower === '5' || lower === '5th') targetGroupPos = 5;
+      else targetGroupPos = parseInt(rawPos) || 3;
+
+      const rankIndex = parseInt(rankStr) - 1;
       const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
-      const thirdPlaced = groups.map(g => {
+      const positionTeams = groups.map(g => {
         const grp = standingsWithStats
           .filter(s => s.group_name === g)
           .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-        return grp[2]; // 3rd position (0-indexed 2)
+        return grp[targetGroupPos - 1]; // 0-indexed
       }).filter(Boolean);
-      thirdPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-      return teamToResult(thirdPlaced[parseInt(position) - 1]);
-    } else if (best2ndMatch) {
-      const [, position] = best2ndMatch;
-      const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
-      const secondPlaced = groups.map(g => {
-        const grp = standingsWithStats
-          .filter(s => s.group_name === g)
-          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-        return grp[1]; // 2nd position (0-indexed 1)
-      }).filter(Boolean);
-      secondPlaced.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-      return teamToResult(secondPlaced[parseInt(position) - 1]);
-    } else if (bestWinnerMatch) {
-      const [, position] = bestWinnerMatch;
-      const groups = Array.from(new Set(standingsWithStats.map(s => s.group_name).filter(Boolean)));
-      const winners = groups.map(g => {
-        const grp = standingsWithStats
-          .filter(s => s.group_name === g)
-          .sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-        return grp[0]; // 1st position
-      }).filter(Boolean);
-      winners.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
-      return teamToResult(winners[parseInt(position) - 1]);
+
+      positionTeams.sort((a, b) => b.points - a.points || b.goal_difference - a.goal_difference || (b.goals_scored || 0) - (a.goals_scored || 0));
+      return teamToResult(positionTeams[rankIndex]);
     } else if (groupMatch) {
       const [, groupName, position] = groupMatch;
       const groupStandings = standingsWithStats
@@ -2661,6 +2776,134 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   );
                 })}
+
+                {/* Cross-Group Position Rankings (Best 3rd, Best 4th, Runners-Up, Winners) */}
+                {tournament.num_groups && tournament.num_groups >= 2 && (
+                  <div className="admin-card" style={{ marginTop: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div>
+                        <h3 className="sub-card-title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <i className="fa-solid fa-ranking-star" style={{ color: "#fbbf24" }} />
+                          Cross-Group Position Rankings
+                        </h3>
+                        <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                          Comparison of teams finishing in the same position across all groups (ranked by Points, GD, GF)
+                        </p>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {[
+                          { key: '3rd', label: '🥉 Best 3rd', count: crossGroupRankings.third.length },
+                          { key: '4th', label: '🏅 Best 4th', count: crossGroupRankings.fourth.length },
+                          { key: '2nd', label: '🥈 Best 2nd', count: crossGroupRankings.second.length },
+                          { key: '1st', label: '🥇 Best 1st', count: crossGroupRankings.first.length }
+                        ].map(tab => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setPositionRankTab(tab.key as any)}
+                            className={`portal-btn ${positionRankTab === tab.key ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ padding: "5px 12px", fontSize: "0.75rem" }}
+                          >
+                            {tab.label} ({tab.count})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const activeList = 
+                        positionRankTab === '3rd' ? crossGroupRankings.third :
+                        positionRankTab === '4th' ? crossGroupRankings.fourth :
+                        positionRankTab === '2nd' ? crossGroupRankings.second : crossGroupRankings.first;
+
+                      if (!activeList || activeList.length === 0) {
+                        return (
+                          <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                            No teams currently in {positionRankTab} position across groups.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="table-responsive" style={{ overflowX: "visible" }}>
+                          <table className="admin-list-table" style={{ fontSize: "0.74rem", width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ fontSize: "0.7rem" }}>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>Rank</th>
+                                <th style={{ padding: "8px 6px", textAlign: "left", width: "18%" }}>Placeholder Tag</th>
+                                <th style={{ padding: "8px 6px", textAlign: "center", width: "12%" }}>Group</th>
+                                <th style={{ padding: "8px 4px", textAlign: "left", width: "24%" }}>Team / Manager</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>MP</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>W</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>D</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>L</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>GF</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>GA</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "6%" }}>GD</th>
+                                <th style={{ padding: "8px 4px", textAlign: "center", width: "8%" }}>PTS</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {activeList.map((row: any, idx: number) => {
+                                const rankColor = idx === 0 ? "#fbbf24" : idx === 1 ? "#cbd5e1" : idx === 2 ? "#d97706" : "var(--text-primary)";
+                                const isBestQualified = (positionRankTab === '3rd' && idx < 2) || (positionRankTab === '2nd' && idx === 0);
+                                const tagColor = positionRankTab === '3rd' ? '#f59e0b' : positionRankTab === '4th' ? '#94a3b8' : positionRankTab === '2nd' ? '#cbd5e1' : '#fbbf24';
+                                
+                                return (
+                                  <tr key={row.club_id} style={{ background: isBestQualified ? "rgba(245, 158, 11, 0.04)" : undefined }}>
+                                    <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: "bold", color: rankColor }}>
+                                      #{idx + 1}
+                                    </td>
+                                    <td style={{ padding: "8px 6px", textAlign: "left" }}>
+                                      <span style={{ 
+                                        padding: "2px 8px", 
+                                        borderRadius: "4px", 
+                                        fontSize: "0.7rem", 
+                                        fontWeight: "bold", 
+                                        background: `rgba(245, 158, 11, 0.12)`, 
+                                        color: tagColor,
+                                        border: `1px solid rgba(245, 158, 11, 0.25)` 
+                                      }}>
+                                        Best {positionRankTab} #{idx + 1}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                                      <span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: "bold", background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa" }}>
+                                        Group {row.group_name}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: "8px 4px", textAlign: "left" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                        {row.club_logo && <img src={row.club_logo} alt={row.club_name} style={tournament?.tournament_type === 'special' ? { width: "20px", height: "20px", objectFit: "cover", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.15)" } : { width: "16px", height: "16px", objectFit: "contain" }} />}
+                                        <div>
+                                          <div style={{ fontWeight: "bold", color: "#fff" }}>{tournament?.tournament_type === 'special' ? (row.manager || row.club_name) : row.club_name}</div>
+                                          {tournament?.tournament_type === 'special' && row.club_name && (
+                                            <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>{row.club_name}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.matches_played}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.wins}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.draws}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.losses}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_for}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center" }}>{row.goals_against}</td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center", color: row.goal_difference > 0 ? "#22c55e" : row.goal_difference < 0 ? "#ef4444" : "var(--text-secondary)" }}>
+                                      {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
+                                    </td>
+                                    <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: "bold", color: "#fbbf24" }}>{row.points}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             ) : (
               // Single League Table
@@ -3639,6 +3882,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <option value="three_group">3-Group System (Top 1 of Group A, B, C + Best 2nd — 1 Final, 1 Champion)</option>
                       )}
                       <option value="single">Single-Path Playoffs (Top 4 Overall — 1 Final, 1 Champion)</option>
+                      <option value="third_fourth">🥉 3rd &amp; 4th Place Playoffs (Plate / Mid-Table Playoffs — 1 Champion)</option>
                       {tournament?.num_groups !== 3 && (
                         <option value="three_group">3-Group System (Group Winners + Best 2nd — 1 Final, 1 Champion)</option>
                       )}
@@ -3715,6 +3959,51 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 )}
 
+                {/* 3rd & 4th Place Live Preview Banner */}
+                {playoffFormat === 'third_fourth' && thirdFourthPlayoffSeeds && (
+                  <div style={{
+                    padding: "1rem",
+                    background: "rgba(245, 158, 11, 0.08)",
+                    border: "1px solid rgba(245, 158, 11, 0.25)",
+                    borderRadius: "8px",
+                    marginBottom: "1rem",
+                    fontSize: "0.85rem"
+                  }}>
+                    <div style={{ fontWeight: "bold", color: "#f59e0b", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <i className="fa-solid fa-sitemap" /> 3rd &amp; 4th Place Plate Playoff Seeding Preview
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "0.5rem" }}>
+                      <div style={{ padding: "0.5rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#a855f7", fontWeight: "bold" }}>PLAYOFF 1 (Best 3rd Match)</div>
+                        <div style={{ color: "#f3f4f6", marginTop: "0.25rem", fontWeight: "600" }}>
+                          Seed 1: {thirdFourthPlayoffSeeds.s1Name}
+                        </div>
+                        <div style={{ color: "#9ca3af", fontSize: "0.75rem" }}>vs</div>
+                        <div style={{ color: "#f3f4f6", fontWeight: "600" }}>
+                          Seed 2: {thirdFourthPlayoffSeeds.s2Name}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#60a5fa", marginTop: "0.25rem" }}>
+                          Winner &rarr; Grand Final • Loser &rarr; Playoff 2
+                        </div>
+                      </div>
+
+                      <div style={{ padding: "0.5rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                        <div style={{ fontSize: "0.75rem", color: "#f59e0b", fontWeight: "bold" }}>ELIMINATOR (Best 4th / 3rd Match)</div>
+                        <div style={{ color: "#f3f4f6", marginTop: "0.25rem", fontWeight: "600" }}>
+                          Seed 3: {thirdFourthPlayoffSeeds.s3Name}
+                        </div>
+                        <div style={{ color: "#9ca3af", fontSize: "0.75rem" }}>vs</div>
+                        <div style={{ color: "#f3f4f6", fontWeight: "600" }}>
+                          Seed 4: {thirdFourthPlayoffSeeds.s4Name}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#60a5fa", marginTop: "0.25rem" }}>
+                          Winner &rarr; Playoff 2 • Loser &rarr; Knocked Out
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Custom Team Selection Form */}
                 {playoffFormat === 'custom' && (
                   <div style={{
@@ -3724,9 +4013,43 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                     borderRadius: "8px",
                     marginBottom: "1rem"
                   }}>
-                    <div style={{ fontWeight: "bold", color: "#f3f4f6", marginBottom: "0.75rem", fontSize: "0.9rem" }}>
-                      <i className="fa-solid fa-users-gear" style={{ marginRight: "0.4rem", color: "#c084fc" }} />
-                      Choose Playoff Teams Manually
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div style={{ fontWeight: "bold", color: "#f3f4f6", fontSize: "0.9rem" }}>
+                        <i className="fa-solid fa-users-gear" style={{ marginRight: "0.4rem", color: "#c084fc" }} />
+                        Choose Playoff Teams Manually
+                      </div>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <button
+                          type="button"
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "3px 8px", fontSize: "0.72rem" }}
+                          onClick={() => {
+                            if (standingsWithStats.length >= 4) {
+                              setCustomP1Team1(standingsWithStats[0].club_id);
+                              setCustomP1Team2(standingsWithStats[1].club_id);
+                              setCustomElimTeam1(standingsWithStats[2].club_id);
+                              setCustomElimTeam2(standingsWithStats[3].club_id);
+                            }
+                          }}
+                        >
+                          🎯 Fill Top 4
+                        </button>
+                        <button
+                          type="button"
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "3px 8px", fontSize: "0.72rem", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}
+                          onClick={() => {
+                            if (thirdFourthPlayoffSeeds) {
+                              if (thirdFourthPlayoffSeeds.s1) setCustomP1Team1(thirdFourthPlayoffSeeds.s1.club_id);
+                              if (thirdFourthPlayoffSeeds.s2) setCustomP1Team2(thirdFourthPlayoffSeeds.s2.club_id);
+                              if (thirdFourthPlayoffSeeds.s3) setCustomElimTeam1(thirdFourthPlayoffSeeds.s3.club_id);
+                              if (thirdFourthPlayoffSeeds.s4) setCustomElimTeam2(thirdFourthPlayoffSeeds.s4.club_id);
+                            }
+                          }}
+                        >
+                          🥉 Fill 3rd &amp; 4th
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -3965,11 +4288,17 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <option value="CROSS_GROUP">Cross-Group (A1 vs B2, B1 vs A2)</option>
                         <option value="RANKED_OVERALL">Overall Ranking (1st vs 8th, 2nd vs 7th)</option>
                         <option value="CONSECUTIVE_GROUPS">Consecutive Groups (A1 vs B1, C1 vs D1)</option>
+                        <option value="THIRD_PLACE_CUP">🥉 3rd-Place Cup / Best 3rd Playoff (A3 vs B3, or Best 3rd #1 vs #2)</option>
+                        <option value="FOURTH_PLACE_CUP">🏅 4th-Place Cup / Best 4th Playoff (A4 vs B4, or Best 4th #1 vs #2)</option>
+                        <option value="PLATE_CUP">🛡️ Plate / Shield Cup (3rd & 4th Place Teams: A3 vs B4, B3 vs A4)</option>
                       </select>
                       <small style={{ display: "block", marginTop: "0.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>
                         {knockoutPairingStrategy === 'CROSS_GROUP' && 'Winners face runners-up from different groups'}
                         {knockoutPairingStrategy === 'RANKED_OVERALL' && 'All teams ranked by points/GD across all groups'}
                         {knockoutPairingStrategy === 'CONSECUTIVE_GROUPS' && 'Winners from adjacent groups face each other'}
+                        {knockoutPairingStrategy === 'THIRD_PLACE_CUP' && 'Match 3rd-placed teams against each other (e.g. A3 vs B3 or best 3rd teams across groups)'}
+                        {knockoutPairingStrategy === 'FOURTH_PLACE_CUP' && 'Match 4th-placed teams against each other (e.g. A4 vs B4 or best 4th teams across groups)'}
+                        {knockoutPairingStrategy === 'PLATE_CUP' && 'Consolation plate tournament for 3rd and 4th place finishers (e.g. A3 vs B4, B3 vs A4)'}
                       </small>
                     </div>
                   )}
@@ -3977,7 +4306,104 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                   {/* Manual Team Selection - Only in MANUAL mode */}
                   {knockoutMode === 'MANUAL' && (
                     <div className="admin-form-group" style={{ gridColumn: "1 / -1" }}>
-                      <label style={{ marginBottom: "0.75rem", display: "block" }}>Select Teams for Each Pairing</label>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <label style={{ margin: 0, fontWeight: "bold" }}>Select Teams for Each Pairing</label>
+                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+                            onClick={() => {
+                              const firsts = crossGroupRankings.first;
+                              const seconds = crossGroupRankings.second;
+                              const newPairings = [...knockoutManualPairings];
+                              for (let i = 0; i < newPairings.length; i++) {
+                                newPairings[i] = {
+                                  team1: firsts[i]?.club_id || null,
+                                  team2: seconds[seconds.length - 1 - i]?.club_id || seconds[i]?.club_id || null,
+                                };
+                              }
+                              setKnockoutManualPairings(newPairings);
+                            }}
+                            title="Auto-fill 1st vs 2nd place teams"
+                          >
+                            🎯 Fill 1st & 2nd
+                          </button>
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", border: "1px solid rgba(245, 158, 11, 0.4)", color: "#f59e0b" }}
+                            onClick={() => {
+                              const thirds = crossGroupRankings.third;
+                              const newPairings = [...knockoutManualPairings];
+                              for (let i = 0; i < newPairings.length; i++) {
+                                const idx1 = i * 2;
+                                const idx2 = i * 2 + 1;
+                                newPairings[i] = {
+                                  team1: thirds[idx1]?.club_id || null,
+                                  team2: thirds[idx2]?.club_id || null,
+                                };
+                              }
+                              setKnockoutManualPairings(newPairings);
+                            }}
+                            title="Auto-fill top 3rd place teams"
+                          >
+                            🥉 Fill Best 3rd
+                          </button>
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", border: "1px solid rgba(16, 185, 129, 0.4)", color: "#10b981" }}
+                            onClick={() => {
+                              const fourths = crossGroupRankings.fourth;
+                              const newPairings = [...knockoutManualPairings];
+                              for (let i = 0; i < newPairings.length; i++) {
+                                const idx1 = i * 2;
+                                const idx2 = i * 2 + 1;
+                                newPairings[i] = {
+                                  team1: fourths[idx1]?.club_id || null,
+                                  team2: fourths[idx2]?.club_id || null,
+                                };
+                              }
+                              setKnockoutManualPairings(newPairings);
+                            }}
+                            title="Auto-fill top 4th place teams"
+                          >
+                            🏅 Fill Best 4th
+                          </button>
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", border: "1px solid rgba(168, 85, 247, 0.4)", color: "#c084fc" }}
+                            onClick={() => {
+                              const thirds = crossGroupRankings.third;
+                              const fourths = crossGroupRankings.fourth;
+                              const newPairings = [...knockoutManualPairings];
+                              for (let i = 0; i < newPairings.length; i++) {
+                                newPairings[i] = {
+                                  team1: thirds[i]?.club_id || null,
+                                  team2: fourths[i]?.club_id || null,
+                                };
+                              }
+                              setKnockoutManualPairings(newPairings);
+                            }}
+                            title="Auto-fill 3rd vs 4th place teams (Plate/Shield Cup)"
+                          >
+                            🛡️ Fill 3rd & 4th
+                          </button>
+                          <button
+                            type="button"
+                            className="portal-btn btn-secondary"
+                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", color: "#ef4444" }}
+                            onClick={() => {
+                              setKnockoutManualPairings(knockoutManualPairings.map(() => ({ team1: null, team2: null })));
+                            }}
+                            title="Clear all selections"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                         {knockoutManualPairings.map((pairing, idx) => (
                           <div key={idx} style={{
@@ -4237,7 +4663,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         teams,
                         mode: effectiveMode,
                         customPairings,
-                        createFullBracket: knockoutCreateFullBracket
+                        createFullBracket: knockoutCreateFullBracket,
+                        pairingStrategy: knockoutPairingStrategy
                       });
                       showToast('✅ Knockout round created!');
                       setShowKnockoutPreview(false);

@@ -8713,6 +8713,7 @@ export async function createKnockoutRound(data: {
   autoPair?: boolean;
   customPairings?: Array<{ team1Id: string | number; team2Id: string | number }>;
   createFullBracket?: boolean;
+  pairingStrategy?: string;
 }) {
   const {
     tournamentId,
@@ -8722,7 +8723,8 @@ export async function createKnockoutRound(data: {
     mode = 'manual',
     autoPair = false,
     customPairings = [],
-    createFullBracket = false
+    createFullBracket = false,
+    pairingStrategy
   } = data;
 
   try {
@@ -8796,7 +8798,7 @@ export async function createKnockoutRound(data: {
 
     if (mode === 'auto') {
       // Auto mode: Create placeholders based on tournament type
-      pairings = await generateAutoPlaceholdersServer(tournament, roundName, required);
+      pairings = await generateAutoPlaceholdersServer(tournament, roundName, required, pairingStrategy);
     } else {
       // Manual mode: Validate team count
       if (teams.length !== required) {
@@ -9076,11 +9078,75 @@ export async function deleteKnockoutRound(roundId: number) {
 /**
  * Helper: Generate auto-qualification placeholders
  */
-async function generateAutoPlaceholdersServer(tournament: any, roundName: string, requiredTeams: number) {
+async function generateAutoPlaceholdersServer(
+  tournament: any,
+  roundName: string,
+  requiredTeams: number,
+  pairingStrategy?: string
+) {
   const pairings: Array<{
     team1Placeholder?: string;
     team2Placeholder?: string;
   }> = [];
+
+  const formatType = tournament.format_type;
+  const numGroups = tournament.num_groups;
+  const qualifiedPerGroup = tournament.qualified_per_group || tournament.group_qualifiers;
+  const isGroupFormat = formatType?.includes('Group') || formatType === 'Group Stage';
+
+  // Strategy-specific overrides (Plate Cup, 3rd Place Cup, 4th Place Cup)
+  if (isGroupFormat) {
+    if (pairingStrategy === 'THIRD_PLACE_CUP') {
+      if (requiredTeams === 2) {
+        if (numGroups === 2) {
+          pairings.push({ team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #3' });
+        } else {
+          pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+        }
+        return pairings;
+      } else if (requiredTeams === 4) {
+        if (numGroups === 2) {
+          pairings.push(
+            { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+            { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
+          );
+        } else {
+          pairings.push(
+            { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+            { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
+          );
+        }
+        return pairings;
+      }
+    } else if (pairingStrategy === 'FOURTH_PLACE_CUP') {
+      if (requiredTeams === 2) {
+        if (numGroups === 2) {
+          pairings.push({ team1Placeholder: 'Group A #4', team2Placeholder: 'Group B #4' });
+        } else {
+          pairings.push({ team1Placeholder: 'Best 4th #1', team2Placeholder: 'Best 4th #2' });
+        }
+        return pairings;
+      }
+    } else if (pairingStrategy === 'PLATE_CUP') {
+      if (requiredTeams === 4) {
+        if (numGroups === 2) {
+          pairings.push(
+            { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #4' },
+            { team1Placeholder: 'Group B #3', team2Placeholder: 'Group A #4' }
+          );
+        } else {
+          pairings.push(
+            { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 4th #1' },
+            { team1Placeholder: 'Best 3rd #2', team2Placeholder: 'Best 3rd #3' }
+          );
+        }
+        return pairings;
+      } else if (requiredTeams === 2) {
+        pairings.push({ team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' });
+        return pairings;
+      }
+    }
+  }
 
   // Check if there is a previous round in the sequence that exists in the database
   const sequence = ['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
@@ -9111,12 +9177,6 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
     }
   }
 
-  const formatType = tournament.format_type;
-  const numGroups = tournament.num_groups;
-  const qualifiedPerGroup = tournament.qualified_per_group || tournament.group_qualifiers;
-
-  const isGroupFormat = formatType?.includes('Group') || formatType === 'Group Stage';
-
   if (isGroupFormat && numGroups && qualifiedPerGroup) {
     // GROUP_KNOCKOUT logic
     if (roundName === 'QUARTER_FINAL' && requiredTeams === 8) {
@@ -9135,7 +9195,7 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
           { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' },
           { team1Placeholder: 'Group D #1', team2Placeholder: 'Group C #2' }
         );
-      } else if (numGroups === 2 && qualifiedPerGroup === 4) {
+      } else if (numGroups === 2) {
         pairings.push(
           { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #4' },
           { team1Placeholder: 'Group A #2', team2Placeholder: 'Group B #3' },
@@ -9150,7 +9210,7 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
           { team1Placeholder: 'Group A #1', team2Placeholder: 'Best 2nd #1' },
           { team1Placeholder: 'Group B #1', team2Placeholder: 'Group C #1' }
         );
-      } else if (numGroups === 2 && qualifiedPerGroup === 2) {
+      } else if (numGroups === 2) {
         pairings.push(
           { team1Placeholder: 'Group A #1', team2Placeholder: 'Group B #2' },
           { team1Placeholder: 'Group B #1', team2Placeholder: 'Group A #2' }
@@ -9159,6 +9219,16 @@ async function generateAutoPlaceholdersServer(tournament: any, roundName: string
         pairings.push(
           { team1Placeholder: 'Group A Winner', team2Placeholder: 'Group B Winner' },
           { team1Placeholder: 'Group C Winner', team2Placeholder: 'Group D Winner' }
+        );
+      }
+    } else if (roundName === 'THIRD_PLACE' && requiredTeams === 2) {
+      if (numGroups === 2) {
+        pairings.push(
+          { team1Placeholder: 'Group A #3', team2Placeholder: 'Group B #3' }
+        );
+      } else {
+        pairings.push(
+          { team1Placeholder: 'Best 3rd #1', team2Placeholder: 'Best 3rd #2' }
         );
       }
     } else if (roundName === 'FINAL' && requiredTeams === 2) {
@@ -9523,7 +9593,7 @@ export async function reorderSoloTrophyCabinetItem(id1: number, order1: number, 
 
 export async function createPlayoffTournament(data: {
   tournamentId: number | string;
-  playoffType: 'single' | 'dual' | 'three_group' | 'custom';
+  playoffType: 'single' | 'dual' | 'three_group' | 'third_fourth' | 'custom';
   legs?: number;
   customTeams?: {
     p1Team1Id?: number | null;

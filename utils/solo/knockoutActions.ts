@@ -609,7 +609,7 @@ export async function createPlayoffTournamentAction(
   pool: Pool,
   data: {
     tournamentId: number;
-    playoffType: 'single' | 'dual' | 'three_group' | 'custom';
+    playoffType: 'single' | 'dual' | 'three_group' | 'third_fourth' | 'custom';
     legs?: number;
     customTeams?: {
       p1Team1Id?: number | null;
@@ -642,7 +642,7 @@ export async function createPlayoffTournamentAction(
       WHERE ts.tournament_id = $1
     `, [tournamentId]);
 
-    if (playoffType === 'single' || playoffType === 'three_group' || playoffType === 'custom') {
+    if (playoffType === 'single' || playoffType === 'three_group' || playoffType === 'third_fourth' || playoffType === 'custom') {
       let team1Id: number | null = null;
       let team2Id: number | null = null;
       let team3Id: number | null = null;
@@ -681,6 +681,28 @@ export async function createPlayoffTournamentAction(
         p1Placeholder2 = grpWinners[1] ? `Group ${grpWinners[1].group_name} #1` : '2nd Best Group Winner';
         elimPlaceholder1 = grpWinners[2] ? `Group ${grpWinners[2].group_name} #1` : '3rd Best Group Winner';
         elimPlaceholder2 = runnersUp[0] ? `Group ${runnersUp[0].group_name} #2` : 'Best Runner-Up';
+      } else if (playoffType === 'third_fourth') {
+        const thirdPlaced = standings
+          .filter((s: any) => Number(s.group_pos) === 3)
+          .sort((a: any, b: any) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
+
+        const fourthPlaced = standings
+          .filter((s: any) => Number(s.group_pos) === 4)
+          .sort((a: any, b: any) => b.points - a.points || b.goal_difference - a.goal_difference || b.goals_scored - a.goals_scored);
+
+        team1Id = thirdPlaced[0]?.club_id || null;
+        team2Id = thirdPlaced[1]?.club_id || null;
+        team3Id = (thirdPlaced[2] || fourthPlaced[0])?.club_id || null;
+        team4Id = (fourthPlaced[1] || fourthPlaced[0])?.club_id || null;
+
+        p1Placeholder1 = thirdPlaced[0] ? `Best 3rd #1 (Group ${thirdPlaced[0].group_name})` : 'Best 3rd #1';
+        p1Placeholder2 = thirdPlaced[1] ? `Best 3rd #2 (Group ${thirdPlaced[1].group_name})` : 'Best 3rd #2';
+        elimPlaceholder1 = thirdPlaced[2]
+          ? `Best 3rd #3 (Group ${thirdPlaced[2].group_name})`
+          : fourthPlaced[0] ? `Best 4th #1 (Group ${fourthPlaced[0].group_name})` : 'Best 4th #1';
+        elimPlaceholder2 = fourthPlaced[1]
+          ? `Best 4th #2 (Group ${fourthPlaced[1].group_name})`
+          : fourthPlaced[0] ? `Best 4th #1 (Group ${fourthPlaced[0].group_name})` : 'Best 4th #2';
       } else {
         // Top 4 overall
         const top4 = standings.filter((s: any) => s.overall_pos <= 4).sort((a: any, b: any) => a.overall_pos - b.overall_pos);
