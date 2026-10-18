@@ -9056,6 +9056,19 @@ export async function deleteKnockoutRound(roundId: number) {
       throw new Error('Knockout round not found');
     }
 
+    // Clean up unplayed fixtures associated with this round's pairings
+    const { rows: pairings } = await pool.query(
+      `SELECT leg1_match_id, leg2_match_id FROM knockout_pairings WHERE knockout_round_id = $1`,
+      [roundId]
+    );
+    const matchIds = pairings.flatMap(p => [p.leg1_match_id, p.leg2_match_id]).filter(Boolean);
+    if (matchIds.length > 0) {
+      await pool.query(
+        `DELETE FROM fixtures WHERE id = ANY($1::int[]) AND (home_score IS NULL AND away_score IS NULL)`,
+        [matchIds]
+      );
+    }
+
     // Delete the round (CASCADE will delete pairings automatically)
     await pool.query(
       `DELETE FROM knockout_rounds WHERE id = $1`,
@@ -9073,6 +9086,129 @@ export async function deleteKnockoutRound(roundId: number) {
     console.error('Error deleting knockout round:', error);
     throw new Error(`Failed to delete knockout round: ${error.message}`);
   }
+}
+
+/**
+ * Update the number of legs (1 or 2) for an existing knockout round
+ */
+export async function updateKnockoutRoundLegs(roundId: number, newLegs: number) {
+  if (newLegs !== 1 && newLegs !== 2) {
+    throw new Error('Legs must be 1 or 2');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [round] } = await client.query(
+      `SELECT * FROM knockout_rounds WHERE id = $1`,
+      [roundId]
+    );
+
+    if (!round) {
+      throw new Error('Knockout round not found');
+    }
+
+    if (round.legs === newLegs) {
+      await client.query('COMMIT');
+      return { success: true, message: 'Round already has this leg count' };
+    }
+
+    const { rows: pairings } = await client.query(
+      `SELECT * FROM knockout_pairings WHERE knockout_round_id = $1 ORDER BY pairing_order ASC`,
+      [roundId]
+    );
+
+    if (newLegs === 1) {
+      // Switching from 2 legs to 1 leg:
+      const leg2MatchIds = pairings.map(p => p.leg2_match_id).filter(Boolean);
+      if (leg2MatchIds.length > 0) {
+        // Prevent if already played with scores
+        const { rows: playedLeg2 } = await client.query(
+          `SELECT id FROM fixtures WHERE id = ANY($1::int[]) AND (home_score IS NOT NULL OR away_score IS NOT NULL)`,
+          [leg2MatchIds]
+        );
+        if (playedLeg2.length > 0) {
+          throw new Error('Cannot convert to 1 leg because Leg 2 matches have already been played with scores.');
+        }
+
+        // Delete leg2 fixtures
+        await client.query(
+          `DELETE FROM fixtures WHERE id = ANY($1::int[])`,
+          [leg2MatchIds]
+        );
+
+        // Clear leg2_match_id on pairings
+        await client.query(
+          `UPDATE knockout_pairings SET leg2_match_id = NULL WHERE knockout_round_id = $1`,
+          [roundId]
+        );
+      }
+    } else {
+      // Switching from 1 leg to 2 legs:
+      // For any pairing with teams assigned, generate the return leg fixture
+      const roundOrder = round.round_order || 0;
+      for (const pairing of pairings) {
+        if (pairing.team1_id && pairing.team2_id && !pairing.leg2_match_id) {
+          const { rows: [leg2Match] } = await client.query(
+            `INSERT INTO fixtures (
+              tournament_id, home_club_id, away_club_id, round_number, match_status
+            ) VALUES ($1, $2, $3, $4, 'scheduled')
+            RETURNING id`,
+            [round.tournament_id, pairing.team2_id, pairing.team1_id, 100 + roundOrder]
+          );
+
+          await client.query(
+            `UPDATE knockout_pairings SET leg2_match_id = $1 WHERE id = $2`,
+            [leg2Match.id, pairing.id]
+          );
+        }
+      }
+    }
+
+    // Update round legs
+    await client.query(
+      `UPDATE knockout_rounds SET legs = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [newLegs, roundId]
+    );
+
+    await client.query('COMMIT');
+
+    await logSoloAdminAction('UPDATE_KNOCKOUT_ROUND_LEGS', {
+      roundId,
+      tournamentId: round.tournament_id,
+      roundName: round.round_name,
+      newLegs
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error updating knockout round legs:', error);
+    throw new Error(`Failed to update round legs: ${error.message}`);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Update the number of legs (1 or 2) for all knockout rounds in a tournament
+ */
+export async function updateAllKnockoutRoundsLegs(tournamentId: number | string, newLegs: number) {
+  if (newLegs !== 1 && newLegs !== 2) {
+    throw new Error('Legs must be 1 or 2');
+  }
+
+  const { rows: rounds } = await pool.query(
+    `SELECT id FROM knockout_rounds WHERE tournament_id = $1`,
+    [tournamentId]
+  );
+
+  for (const r of rounds) {
+    await updateKnockoutRoundLegs(r.id, newLegs);
+  }
+
+  return { success: true, count: rounds.length };
 }
 
 /**

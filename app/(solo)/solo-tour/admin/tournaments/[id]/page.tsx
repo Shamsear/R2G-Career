@@ -34,6 +34,8 @@ import {
   fetchKnockoutRounds,
   createKnockoutRound,
   deleteKnockoutRound,
+  updateKnockoutRoundLegs,
+  updateAllKnockoutRoundsLegs,
   updateKnockoutPairing,
   createPlayoffTournament,
   updateTournamentPredictionEligibility
@@ -3647,9 +3649,49 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               {/* Existing Rounds */}
               {knockoutRounds.length > 0 && (
                 <div className="sub-card" style={{ marginBottom: "1.5rem" }}>
-                  <h3 className="sub-card-title">
-                    <i className="fa-solid fa-list"></i> Existing Knockout Rounds ({knockoutRounds.length})
-                  </h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <h3 className="sub-card-title" style={{ margin: 0 }}>
+                      <i className="fa-solid fa-list"></i> Existing Knockout Rounds ({knockoutRounds.length})
+                    </h3>
+                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="portal-btn btn-secondary"
+                        style={{ fontSize: "0.72rem", padding: "3px 8px", border: "1px solid rgba(168, 85, 247, 0.4)", color: "#c084fc" }}
+                        title="Switch all knockout rounds in this tournament to 1 Leg"
+                        onClick={async () => {
+                          if (!confirm('Convert all knockout rounds in this tournament to 1 Leg (Single Leg)? Unplayed leg 2 fixtures will be removed.')) return;
+                          try {
+                            await updateAllKnockoutRoundsLegs(tournamentId, 1);
+                            showToast('✅ All rounds converted to 1 Leg!');
+                            loadData();
+                          } catch (err: any) {
+                            showToast(`❌ ${err.message || 'Failed to update'}`);
+                          }
+                        }}
+                      >
+                        ⚡ Make All 1 Leg
+                      </button>
+                      <button
+                        type="button"
+                        className="portal-btn btn-secondary"
+                        style={{ fontSize: "0.72rem", padding: "3px 8px", border: "1px solid rgba(59, 130, 246, 0.4)", color: "#60a5fa" }}
+                        title="Switch all knockout rounds in this tournament to 2 Legs"
+                        onClick={async () => {
+                          if (!confirm('Convert all knockout rounds in this tournament to 2 Legs (Two Legs / Home & Away)?')) return;
+                          try {
+                            await updateAllKnockoutRoundsLegs(tournamentId, 2);
+                            showToast('✅ All rounds converted to 2 Legs!');
+                            loadData();
+                          } catch (err: any) {
+                            showToast(`❌ ${err.message || 'Failed to update'}`);
+                          }
+                        }}
+                      >
+                        🔁 Make All 2 Legs
+                      </button>
+                    </div>
+                  </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {knockoutRounds.map((round: any) => {
                       const hasUnresolvedPlaceholders = round.pairings?.some((p: any) => 
@@ -3663,13 +3705,26 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                           border: "1px solid rgba(255,255,255,0.1)",
                           borderRadius: "8px"
                         }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
                             <div>
                               <h4 style={{ margin: 0, color: "#f3f4f6", fontSize: "1rem" }}>
                                 {round.round_name?.replace(/_/g, ' ')}
                               </h4>
                               <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", color: "#9ca3af" }}>
-                                {round.legs} Leg{round.legs > 1 ? 's' : ''} • Status: {round.status || 'PENDING'}
+                                <span style={{ 
+                                  display: "inline-block", 
+                                  padding: "2px 8px", 
+                                  borderRadius: "4px", 
+                                  fontSize: "0.75rem", 
+                                  fontWeight: "bold",
+                                  marginRight: "0.5rem",
+                                  background: round.legs === 1 ? "rgba(168, 85, 247, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                                  color: round.legs === 1 ? "#c084fc" : "#60a5fa",
+                                  border: round.legs === 1 ? "1px solid rgba(168, 85, 247, 0.3)" : "1px solid rgba(59, 130, 246, 0.3)"
+                                }}>
+                                  {round.legs} Leg{round.legs > 1 ? 's' : ''}
+                                </span>
+                                • Status: {round.status || 'PENDING'}
                                 {hasUnresolvedPlaceholders && (
                                   <span style={{ marginLeft: "0.5rem", color: "#fbbf24" }}>
                                     <i className="fa-solid fa-clock" style={{ marginRight: "0.25rem" }}></i>
@@ -3678,10 +3733,35 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                                 )}
                               </p>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                              <div style={{ fontSize: "0.875rem", color: "#6366f1" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                              <div style={{ fontSize: "0.875rem", color: "#6366f1", marginRight: "0.25rem" }}>
                                 {round.pairings?.filter((p: any) => p.id).length || 0} Pairings
                               </div>
+                              <button
+                                type="button"
+                                className="portal-btn btn-secondary"
+                                style={{ 
+                                  padding: "4px 10px", 
+                                  fontSize: "0.75rem",
+                                  border: round.legs === 1 ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid rgba(168, 85, 247, 0.4)",
+                                  color: round.legs === 1 ? "#60a5fa" : "#c084fc"
+                                }}
+                                title={round.legs === 1 ? "Switch this round to 2 Legs (Home & Away)" : "Switch this round to 1 Leg (Single Match)"}
+                                onClick={async () => {
+                                  const targetLegs = round.legs === 1 ? 2 : 1;
+                                  if (!confirm(`Switch ${round.round_name?.replace(/_/g, ' ')} to ${targetLegs} Leg${targetLegs > 1 ? 's' : ''}?${targetLegs === 1 ? ' Unplayed leg 2 fixtures will be removed.' : ''}`)) return;
+                                  try {
+                                    await updateKnockoutRoundLegs(round.id, targetLegs);
+                                    showToast(`✅ ${round.round_name?.replace(/_/g, ' ')} switched to ${targetLegs} Leg${targetLegs > 1 ? 's' : ''}!`);
+                                    loadData();
+                                  } catch (error: any) {
+                                    showToast(`❌ ${error.message || 'Failed to update legs'}`);
+                                  }
+                                }}
+                              >
+                                <i className={round.legs === 1 ? "fa-solid fa-repeat" : "fa-solid fa-bolt"} style={{ marginRight: "0.25rem" }}></i>
+                                {round.legs === 1 ? 'Switch to 2 Legs' : 'Switch to 1 Leg'}
+                              </button>
                               <button
                                 type="button"
                                 className="portal-btn btn-danger"
