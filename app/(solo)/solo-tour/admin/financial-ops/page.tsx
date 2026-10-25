@@ -306,7 +306,7 @@ export default function FinancialOperations() {
                   placeholder="-- Select Club --"
                   options={[
                     { value: "", label: "-- Select Club --" },
-                    ...clubs.map(c => ({ value: String(c.id), label: `${c.name} (${c.manager})` }))
+                    ...clubs.map(c => ({ value: String(c.manager_id || c.id), label: `${c.name} (${c.manager})` }))
                   ]}
                   buttonStyle={{ width: "100%", justifyContent: "space-between" }}
                 />
@@ -501,7 +501,7 @@ export default function FinancialOperations() {
                   placeholder="-- Select Club --"
                   options={[
                     { value: "", label: "-- Select Club --" },
-                    ...clubs.map(c => ({ value: String(c.id), label: `${c.name} (${c.manager})` }))
+                    ...clubs.map(c => ({ value: String(c.manager_id || c.id), label: `${c.name} (${c.manager})` }))
                   ]}
                   buttonStyle={{ width: "100%", justifyContent: "space-between" }}
                 />

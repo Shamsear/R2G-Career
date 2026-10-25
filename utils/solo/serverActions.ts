@@ -46,18 +46,18 @@ export async function logSoloAdminAction(actionType: string, details: any) {
 /**
  * Resolves the manager ID for a given club ID in a specific season.
  */
-export async function resolveManagerForClub(clubId: number | string, seasonId: number | string): Promise<number | null> {
+export async function resolveManagerForClub(clubId: number | string, seasonId?: number | string | null): Promise<number | null> {
   const cNum = Number(clubId);
   if (isNaN(cNum)) return null;
 
   const { rows } = await pool.query(`
     SELECT COALESCE(mw.manager_id, ms.manager_id) as manager_id
     FROM clubs c
-    LEFT JOIN manager_wallets mw ON mw.current_club_id = c.id AND mw.season_id = $1
-    LEFT JOIN manager_seasons ms ON ms.club_id = c.id AND ms.season_id = $1
+    LEFT JOIN manager_wallets mw ON mw.current_club_id = c.id AND mw.season_id = COALESCE($1, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+    LEFT JOIN manager_seasons ms ON ms.club_id = c.id AND ms.season_id = COALESCE($1, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
     WHERE c.id = $2
     LIMIT 1
-  `, [seasonId, cNum]);
+  `, [seasonId ? Number(seasonId) : null, cNum]);
 
   if (rows.length > 0 && rows[0].manager_id !== null && rows[0].manager_id !== undefined) {
     return Number(rows[0].manager_id);
@@ -68,18 +68,18 @@ export async function resolveManagerForClub(clubId: number | string, seasonId: n
 /**
  * Resolves the club ID for a given manager ID in a specific season.
  */
-export async function resolveClubForManager(managerId: number | string, seasonId: number | string): Promise<number | null> {
+export async function resolveClubForManager(managerId: number | string, seasonId?: number | string | null): Promise<number | null> {
   const mNum = Number(managerId);
   if (isNaN(mNum)) return null;
 
   const { rows } = await pool.query(`
     SELECT COALESCE(mw.current_club_id, ms.club_id) as club_id
     FROM managers m
-    LEFT JOIN manager_wallets mw ON mw.manager_id = m.id AND mw.season_id = $1
-    LEFT JOIN manager_seasons ms ON ms.manager_id = m.id AND ms.season_id = $1
+    LEFT JOIN manager_wallets mw ON mw.manager_id = m.id AND mw.season_id = COALESCE($1, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+    LEFT JOIN manager_seasons ms ON ms.manager_id = m.id AND ms.season_id = COALESCE($1, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
     WHERE m.id = $2
     LIMIT 1
-  `, [seasonId, mNum]);
+  `, [seasonId ? Number(seasonId) : null, mNum]);
 
   if (rows.length > 0 && rows[0].club_id !== null && rows[0].club_id !== undefined) {
     return Number(rows[0].club_id);
@@ -1044,7 +1044,7 @@ export async function fetchManagerRanking() {
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
         const queryStr = includeInactive 
-          ? `SELECT COALESCE(c.id, ms.club_id, m.id) as id,
+          ? `SELECT COALESCE(c.id, ms.club_id, mw.current_club_id, m.id) as id,
                     c.id as club_id,
                     m.id as manager_id,
                     COALESCE(c.name, m.name) as name, 
@@ -1057,23 +1057,23 @@ export async function fetchRegisteredClubs(includeInactive: boolean = false) {
                     COALESCE(mw.r2g_voucher_balance, 0) as vouchers
              FROM managers m 
              LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
-             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)`
-          : `SELECT COALESCE(c.id, ms.club_id, m.id) as id,
-                    c.id as club_id,
-                    m.id as manager_id,
-                    COALESCE(c.name, m.name) as name, 
-                    m.name as manager, 
-                    m.r2g_id, 
-                    c.logo_path as image, 
-                    c.logo_path,
-                    COALESCE(mw.r2g_coin_balance, 0) as coins, 
-                    COALESCE(mw.r2g_token_balance, 0) as tokens, 
-                    COALESCE(mw.r2g_voucher_balance, 0) as vouchers
-             FROM managers m 
-             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id 
              LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN clubs c ON COALESCE(ms.club_id, mw.current_club_id, m.id) = c.id`
+          : `SELECT COALESCE(c.id, ms.club_id, mw.current_club_id, m.id) as id,
+                    c.id as club_id,
+                    m.id as manager_id,
+                    COALESCE(c.name, m.name) as name, 
+                    m.name as manager, 
+                    m.r2g_id, 
+                    c.logo_path as image, 
+                    c.logo_path,
+                    COALESCE(mw.r2g_coin_balance, 0) as coins, 
+                    COALESCE(mw.r2g_token_balance, 0) as tokens, 
+                    COALESCE(mw.r2g_voucher_balance, 0) as vouchers
+             FROM managers m 
+             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN clubs c ON COALESCE(ms.club_id, mw.current_club_id, m.id) = c.id
              WHERE m.is_active IS NOT FALSE`;
         const { rows: result } = await pool.query(queryStr);
         return result;
@@ -1137,9 +1137,9 @@ export async function fetchSelectedCandidates(tournamentName: string) {
         }
 
         const { rows: result } = await pool.query(`
-            SELECT DISTINCT ON (m.id)
-                m.id, c.name as club_name, c.logo_path,
-                m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
+            SELECT DISTINCT ON (c.id)
+                COALESCE(c.id, m.id) as id, c.name as club_name, c.logo_path,
+                m.id as manager_id, m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
                 tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
                 COALESCE(f_stats.matches_played, 0) as matches_played,
@@ -1148,9 +1148,10 @@ export async function fetchSelectedCandidates(tournamentName: string) {
                 COALESCE(f_stats.goals_scored, 0) as goals_scored,
                 ms.competitions
             FROM tournament_teams tt
-            JOIN managers m ON tt.club_id = m.id
-            LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-            LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
+            LEFT JOIN clubs c ON tt.club_id = c.id
+            LEFT JOIN manager_seasons ms ON tt.club_id = ms.club_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+            LEFT JOIN manager_wallets mw ON tt.club_id = mw.current_club_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+            LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND tt.club_id = m.id))
             LEFT JOIN (
                 SELECT 
                     m_id,
@@ -1184,10 +1185,9 @@ export async function fetchSelectedCandidates(tournamentName: string) {
                       AND f.match_status != 'void'
                 ) sub
                 GROUP BY m_id
-            ) f_stats ON m.id = f_stats.m_id
-            LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+            ) f_stats ON tt.club_id = f_stats.m_id
             WHERE tt.tournament_name = $1
-            ORDER BY m.id, ms.id DESC
+            ORDER BY c.id, ms.id DESC
         `, [tournamentName, tournamentId]);
 
         return result.map((row: any) => {
@@ -1272,12 +1272,14 @@ export async function fetchFixtures(tournamentId?: number) {
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN managers hm ON f.home_club_id = hm.id
-      LEFT JOIN manager_seasons hms ON hm.id = hms.manager_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs hc ON COALESCE(hms.club_id, hm.id) = hc.id
-      JOIN managers am ON f.away_club_id = am.id
-      LEFT JOIN manager_seasons ams ON am.id = ams.manager_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs ac ON COALESCE(ams.club_id, am.id) = ac.id
+      LEFT JOIN clubs hc ON f.home_club_id = hc.id
+      LEFT JOIN manager_seasons hms ON f.home_club_id = hms.club_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets hmw ON f.home_club_id = hmw.current_club_id AND hmw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers hm ON (COALESCE(hms.manager_id, hmw.manager_id) = hm.id OR (hc.id IS NULL AND f.home_club_id = hm.id))
+      LEFT JOIN clubs ac ON f.away_club_id = ac.id
+      LEFT JOIN manager_seasons ams ON f.away_club_id = ams.club_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets amw ON f.away_club_id = amw.current_club_id AND amw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers am ON (COALESCE(ams.manager_id, amw.manager_id) = am.id OR (ac.id IS NULL AND f.away_club_id = am.id))
       LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
       LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
     `;
@@ -1342,12 +1344,14 @@ export async function fetchFixtureById(fixtureId: number) {
              tta.custom_team_name as away_custom_name, tta.use_existing_club as away_use_existing, tta.custom_logo_path as away_custom_logo
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN managers hm ON f.home_club_id = hm.id
-      LEFT JOIN manager_seasons hms ON hm.id = hms.manager_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs hc ON COALESCE(hms.club_id, hm.id) = hc.id
-      JOIN managers am ON f.away_club_id = am.id
-      LEFT JOIN manager_seasons ams ON am.id = ams.manager_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs ac ON COALESCE(ams.club_id, am.id) = ac.id
+      LEFT JOIN clubs hc ON f.home_club_id = hc.id
+      LEFT JOIN manager_seasons hms ON f.home_club_id = hms.club_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets hmw ON f.home_club_id = hmw.current_club_id AND hmw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers hm ON (COALESCE(hms.manager_id, hmw.manager_id) = hm.id OR (hc.id IS NULL AND f.home_club_id = hm.id))
+      LEFT JOIN clubs ac ON f.away_club_id = ac.id
+      LEFT JOIN manager_seasons ams ON f.away_club_id = ams.club_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets amw ON f.away_club_id = amw.current_club_id AND amw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers am ON (COALESCE(ams.manager_id, amw.manager_id) = am.id OR (ac.id IS NULL AND f.away_club_id = am.id))
       LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
       LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
       WHERE f.id = $1
@@ -1417,10 +1421,14 @@ export async function fetchKnockoutMatches(tournamentId: number) {
       JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
       JOIN fixtures f ON (f.id = kp.leg1_match_id OR f.id = kp.leg2_match_id)
       JOIN tournaments t ON kr.tournament_id = t.id
-      LEFT JOIN managers hm ON f.home_club_id = hm.id
-      LEFT JOIN clubs hc ON hm.id = hc.id
-      LEFT JOIN managers am ON f.away_club_id = am.id
-      LEFT JOIN clubs ac ON am.id = ac.id
+      LEFT JOIN clubs hc ON f.home_club_id = hc.id
+      LEFT JOIN manager_seasons hms ON f.home_club_id = hms.club_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets hmw ON f.home_club_id = hmw.current_club_id AND hmw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers hm ON (COALESCE(hms.manager_id, hmw.manager_id) = hm.id OR (hc.id IS NULL AND f.home_club_id = hm.id))
+      LEFT JOIN clubs ac ON f.away_club_id = ac.id
+      LEFT JOIN manager_seasons ams ON f.away_club_id = ams.club_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets amw ON f.away_club_id = amw.current_club_id AND amw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers am ON (COALESCE(ams.manager_id, amw.manager_id) = am.id OR (ac.id IS NULL AND f.away_club_id = am.id))
       LEFT JOIN tournament_teams tth ON (tth.tournament_name = t.name OR (t.tournament_type = 'rws' AND tth.tournament_name = 'R2G World Series')) AND tth.club_id = f.home_club_id
       LEFT JOIN tournament_teams tta ON (tta.tournament_name = t.name OR (t.tournament_type = 'rws' AND tta.tournament_name = 'R2G World Series')) AND tta.club_id = f.away_club_id
       WHERE kr.tournament_id = $1
@@ -1501,11 +1509,12 @@ export async function fetchTournamentStandings(tournamentId: number) {
              m.name as manager, m.avatar_path as manager_avatar, m.r2g_id as manager_r2g_id,
              t.tournament_type
       FROM tournament_standings ts
-      JOIN managers m ON ts.club_id = m.id
       JOIN tournaments t ON ts.tournament_id = t.id
-      LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
-      LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
+      LEFT JOIN clubs c ON ts.club_id = c.id
+      LEFT JOIN manager_seasons ms ON ts.club_id = ms.club_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw ON ts.club_id = mw.current_club_id AND mw.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND ts.club_id = m.id))
+      LEFT JOIN tournament_teams tt ON (tt.tournament_name = t.name OR (t.tournament_type = 'rws' AND tt.tournament_name = 'R2G World Series')) AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
       ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_scored DESC
     `, [tournamentId]);
@@ -1619,10 +1628,14 @@ export async function fetchCompletedFixturesForClub(clubId: string | number, sea
              COALESCE(hc.name, hm.name) as home_club_name, COALESCE(ac.name, am.name) as away_club_name
       FROM fixtures f
       JOIN tournaments t ON f.tournament_id = t.id
-      JOIN managers hm ON f.home_club_id = hm.id
-      LEFT JOIN clubs hc ON hm.id = hc.id
-      JOIN managers am ON f.away_club_id = am.id
-      LEFT JOIN clubs ac ON am.id = ac.id
+      LEFT JOIN clubs hc ON f.home_club_id = hc.id
+      LEFT JOIN manager_seasons hms ON f.home_club_id = hms.club_id AND hms.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets hmw ON f.home_club_id = hmw.current_club_id AND hmw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers hm ON (COALESCE(hms.manager_id, hmw.manager_id) = hm.id OR (hc.id IS NULL AND f.home_club_id = hm.id))
+      LEFT JOIN clubs ac ON f.away_club_id = ac.id
+      LEFT JOIN manager_seasons ams ON f.away_club_id = ams.club_id AND ams.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets amw ON f.away_club_id = amw.current_club_id AND amw.season_id = COALESCE(f.season_id, t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers am ON (COALESCE(ams.manager_id, amw.manager_id) = am.id OR (ac.id IS NULL AND f.away_club_id = am.id))
       WHERE f.season_id = $1 
         AND (f.home_club_id = $2 OR f.away_club_id = $2)
         AND f.home_score IS NOT NULL 
@@ -2150,11 +2163,7 @@ export async function updateManagerDetails(data: any) {
     let clubId = data.clubId ? parseInt(data.clubId) : null;
     
     if (!clubId) {
-      const { rows: walletRows } = await pool.query(`
-        SELECT current_club_id FROM manager_wallets 
-        WHERE manager_id = $1 AND season_id = $2
-      `, [data.id, seasonId]);
-      clubId = walletRows.length > 0 ? walletRows[0].current_club_id : data.id;
+      clubId = await resolveClubForManager(data.id, seasonId);
     }
     
     const managerName = data.managerName || data.name;
@@ -2169,9 +2178,11 @@ export async function updateManagerDetails(data: any) {
       WHERE id = $8
     `, [managerName, avatarPath, data.isBanned || false, data.isActive !== false, mobNo, place, r2gId, data.id]);
     
-    await pool.query(`
-      UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3
-    `, [data.clubName, data.logoPath || '', clubId]);
+    if (clubId && data.clubName) {
+      await pool.query(`
+        UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3
+      `, [data.clubName, data.logoPath || '', clubId]);
+    }
     
     if (activeSeason) {
       const { rows: oldWalletRows } = await pool.query(`
@@ -2273,11 +2284,7 @@ export async function updateManagerClubOnly(data: any) {
     let clubId = data.clubId ? parseInt(data.clubId) : null;
     
     if (!clubId) {
-      const { rows: walletRows } = await pool.query(`
-        SELECT current_club_id FROM manager_wallets 
-        WHERE manager_id = $1 AND season_id = $2
-      `, [managerId, seasonId]);
-      clubId = walletRows.length > 0 ? walletRows[0].current_club_id : null;
+      clubId = await resolveClubForManager(managerId, seasonId);
     }
 
     if (!clubId) {
@@ -2287,21 +2294,21 @@ export async function updateManagerClubOnly(data: any) {
         INSERT INTO clubs (id, name, logo_path)
         VALUES ($1, $2, $3)
       `, [clubId, data.clubName, data.logoPath || '']);
-      
-      await pool.query(`
-        UPDATE manager_wallets SET current_club_id = $1
-        WHERE manager_id = $2 AND season_id = $3
-      `, [clubId, managerId, seasonId]);
     } else {
       await pool.query(`
         UPDATE clubs SET name = $1, logo_path = $2 WHERE id = $3
       `, [data.clubName, data.logoPath || '', clubId]);
-      
-      await pool.query(`
-        UPDATE manager_wallets SET current_club_id = $1
-        WHERE manager_id = $2 AND season_id = $3
-      `, [clubId, managerId, seasonId]);
     }
+
+    await pool.query(`
+      UPDATE manager_wallets SET current_club_id = $1
+      WHERE manager_id = $2 AND season_id = $3
+    `, [clubId, managerId, seasonId]);
+
+    await pool.query(`
+      UPDATE manager_seasons SET club_id = $1
+      WHERE manager_id = $2 AND season_id = $3
+    `, [clubId, managerId, seasonId]);
     
     await pool.query('COMMIT');
     return { success: true };
@@ -2372,10 +2379,21 @@ export async function updateManagerWalletAndStatsOnly(data: any) {
 export async function deleteClubAndManager(id: number) {
   try {
     await pool.query('BEGIN');
-    await pool.query(`DELETE FROM player_contracts WHERE current_club_id = $1`, [id]);
+    const activeSeason = await fetchActiveSeason();
+    const seasonId = activeSeason ? activeSeason.id : 6;
+    
+    let clubId = await resolveClubForManager(id, seasonId);
+    if (!clubId || clubId === id) {
+      const { rows: cRows } = await pool.query('SELECT id FROM clubs WHERE id = $1', [id]);
+      if (cRows.length > 0) clubId = id;
+    }
+
+    if (clubId) {
+      await pool.query(`DELETE FROM player_contracts WHERE current_club_id = $1`, [clubId]);
+      await pool.query(`DELETE FROM clubs WHERE id = $1`, [clubId]);
+    }
     await pool.query(`DELETE FROM manager_wallets WHERE manager_id = $1`, [id]);
     await pool.query(`DELETE FROM manager_seasons WHERE manager_id = $1`, [id]);
-    await pool.query(`DELETE FROM clubs WHERE id = $1`, [id]);
     await pool.query(`DELETE FROM managers WHERE id = $1`, [id]);
     await pool.query('COMMIT');
     return { success: true };
@@ -4407,11 +4425,12 @@ export async function fetchTournamentClubs(tournamentId: number) {
              m.name as manager, m.avatar_path as manager_avatar, m.r2g_id as manager_r2g_id,
              ts.group_name, t.tournament_type
       FROM tournament_standings ts
-      JOIN managers m ON ts.club_id = m.id
       JOIN tournaments t ON ts.tournament_id = t.id
-      LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
-      LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
+      LEFT JOIN clubs c ON ts.club_id = c.id
+      LEFT JOIN manager_seasons ms ON ts.club_id = ms.club_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw ON ts.club_id = mw.current_club_id AND mw.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND ts.club_id = m.id))
+      LEFT JOIN tournament_teams tt ON (tt.tournament_name = t.name OR (t.tournament_type = 'rws' AND tt.tournament_name = 'R2G World Series')) AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
       ORDER BY COALESCE(c.name, m.name) ASC
     `, [tournamentId]);
@@ -4469,7 +4488,8 @@ export async function addClubToTournament(
       const isSpecial = tourney[0].tournament_type === 'special';
       
       if (isSpecial) {
-        const { rows: mgrRows } = await pool.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [clubId]);
+        const targetMgrId = (await resolveManagerForClub(clubId, seasonId)) ?? clubId;
+        const { rows: mgrRows } = await pool.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [targetMgrId]);
         if (mgrRows.length > 0) {
           if (!customTeamName) customTeamName = mgrRows[0].name;
           if (!customLogoPath) customLogoPath = mgrRows[0].avatar_path;
@@ -4528,7 +4548,8 @@ export async function addMultipleClubsToTournament(
       let useExistingClub = !customName;
 
       if (isSpecial) {
-        const { rows: mgrRows } = await client.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [clubId]);
+        const targetMgrId = (await resolveManagerForClub(clubId, seasonId)) ?? clubId;
+        const { rows: mgrRows } = await client.query(`SELECT name, avatar_path FROM managers WHERE id = $1`, [targetMgrId]);
         if (mgrRows.length > 0) {
           if (!customName) customName = mgrRows[0].name;
           if (!customLogo) customLogo = mgrRows[0].avatar_path;
@@ -5485,9 +5506,10 @@ export async function fetchRuleViolations(seasonId?: number) {
       SELECT rv.*, COALESCE(c.name, m.name) as club_name, c.logo_path as club_logo,
              f.round_number, t.name as tournament_name
       FROM rule_violations rv
-      JOIN managers m ON rv.club_id = m.id
-      LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = COALESCE(rv.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
+      LEFT JOIN clubs c ON rv.club_id = c.id
+      LEFT JOIN manager_seasons ms ON rv.club_id = ms.club_id AND ms.season_id = COALESCE(rv.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw ON rv.club_id = mw.current_club_id AND mw.season_id = COALESCE(rv.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND rv.club_id = m.id))
       LEFT JOIN fixtures f ON rv.fixture_id = f.id
       LEFT JOIN tournaments t ON f.tournament_id = t.id
     `;
@@ -5652,11 +5674,12 @@ export async function fetchDivisionStandings(seasonId: number) {
                tt.custom_team_name, tt.custom_logo_path, tt.use_existing_club,
                m.name as manager_name
         FROM tournament_standings ts
-        JOIN managers m ON ts.club_id = m.id
         LEFT JOIN tournaments t ON ts.tournament_id = t.id
-        LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = COALESCE(t.season_id, $1, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-        LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
-        LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
+        LEFT JOIN clubs c ON ts.club_id = c.id
+        LEFT JOIN manager_seasons ms ON ts.club_id = ms.club_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+        LEFT JOIN manager_wallets mw ON ts.club_id = mw.current_club_id AND mw.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+        LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND ts.club_id = m.id))
+        LEFT JOIN tournament_teams tt ON (tt.tournament_name = t.name OR (t.tournament_type = 'rws' AND tt.tournament_name = 'R2G World Series')) AND tt.club_id = ts.club_id
         WHERE ts.tournament_id = $1
         ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_scored DESC
       `, [d.id]);
@@ -6012,9 +6035,10 @@ export async function fetchAuctions() {
       SELECT a.*, p.name as player_name, p.position, p.card_type as star, COALESCE(c.name, m.name) as club_name
       FROM auctions a
       JOIN players p ON a.player_id = p.id
-      LEFT JOIN managers m ON a.bidding_club_id = m.id
-      LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = a.season_id
-      LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
+      LEFT JOIN clubs c ON a.bidding_club_id = c.id
+      LEFT JOIN manager_seasons ms ON a.bidding_club_id = ms.club_id AND ms.season_id = a.season_id
+      LEFT JOIN manager_wallets mw ON a.bidding_club_id = mw.current_club_id AND mw.season_id = a.season_id
+      LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND a.bidding_club_id = m.id))
       WHERE a.season_id = $1
       ORDER BY a.id DESC
     `, [seasonId]);
@@ -8646,16 +8670,18 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
             'leg2MatchId', kp.leg2_match_id,
             'team1', CASE 
               WHEN kp.team1_id IS NOT NULL THEN json_build_object(
-                'id', m1.id,
+                'id', COALESCE(c1.id, m1.id),
                 'name', COALESCE(
                   CASE WHEN tt1.use_existing_club = false THEN tt1.custom_team_name END,
                   CASE WHEN t.tournament_type IN ('special', 'rws') THEN m1.name ELSE c1.name END,
+                  c1.name,
                   m1.name
                 ),
                 'logo', COALESCE(
                   CASE WHEN tt1.use_existing_club = false THEN tt1.custom_logo_path END,
                   CASE WHEN t.tournament_type IN ('special', 'rws') THEN m1.avatar_path ELSE c1.logo_path END,
-                  c1.logo_path
+                  c1.logo_path,
+                  m1.avatar_path
                 ),
                 'manager', m1.name
               )
@@ -8663,16 +8689,18 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
             END,
             'team2', CASE 
               WHEN kp.team2_id IS NOT NULL THEN json_build_object(
-                'id', m2.id,
+                'id', COALESCE(c2.id, m2.id),
                 'name', COALESCE(
                   CASE WHEN tt2.use_existing_club = false THEN tt2.custom_team_name END,
                   CASE WHEN t.tournament_type IN ('special', 'rws') THEN m2.name ELSE c2.name END,
+                  c2.name,
                   m2.name
                 ),
                 'logo', COALESCE(
                   CASE WHEN tt2.use_existing_club = false THEN tt2.custom_logo_path END,
                   CASE WHEN t.tournament_type IN ('special', 'rws') THEN m2.avatar_path ELSE c2.logo_path END,
-                  c2.logo_path
+                  c2.logo_path,
+                  m2.avatar_path
                 ),
                 'manager', m2.name
               )
@@ -8682,13 +8710,17 @@ export async function fetchKnockoutRounds(tournamentId: number | string) {
         ) as pairings
       FROM knockout_rounds kr
       LEFT JOIN knockout_pairings kp ON kp.knockout_round_id = kr.id
-      LEFT JOIN managers m1 ON m1.id = kp.team1_id
-      LEFT JOIN clubs c1 ON c1.id = m1.id
       LEFT JOIN tournaments t ON t.id = kr.tournament_id
-      LEFT JOIN tournament_teams tt1 ON tt1.tournament_name = t.name AND tt1.club_id = m1.id
-      LEFT JOIN managers m2 ON m2.id = kp.team2_id
-      LEFT JOIN clubs c2 ON c2.id = m2.id
-      LEFT JOIN tournament_teams tt2 ON tt2.tournament_name = t.name AND tt2.club_id = m2.id
+      LEFT JOIN clubs c1 ON c1.id = kp.team1_id
+      LEFT JOIN manager_seasons ms1 ON ms1.club_id = c1.id AND ms1.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw1 ON mw1.current_club_id = c1.id AND mw1.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m1 ON (COALESCE(ms1.manager_id, mw1.manager_id) = m1.id OR (c1.id IS NULL AND kp.team1_id = m1.id))
+      LEFT JOIN tournament_teams tt1 ON (tt1.tournament_name = t.name OR (t.tournament_type = 'rws' AND tt1.tournament_name = 'R2G World Series')) AND tt1.club_id = kp.team1_id
+      LEFT JOIN clubs c2 ON c2.id = kp.team2_id
+      LEFT JOIN manager_seasons ms2 ON ms2.club_id = c2.id AND ms2.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw2 ON mw2.current_club_id = c2.id AND mw2.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m2 ON (COALESCE(ms2.manager_id, mw2.manager_id) = m2.id OR (c2.id IS NULL AND kp.team2_id = m2.id))
+      LEFT JOIN tournament_teams tt2 ON (tt2.tournament_name = t.name OR (t.tournament_type = 'rws' AND tt2.tournament_name = 'R2G World Series')) AND tt2.club_id = kp.team2_id
       WHERE kr.tournament_id = $1
       GROUP BY kr.id
       ORDER BY kr.round_order
