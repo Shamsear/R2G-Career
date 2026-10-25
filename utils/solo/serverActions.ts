@@ -4083,9 +4083,9 @@ export async function applyCustomAdjustment(
     const targetMgrId = (await resolveClubAndManager(managerId, seasonId, 'manager')).managerId;
     
     const isCredit = ['reg_bonus', 'custom_credit', 'season_reward', 'ballon_dor_ceremony'].includes(type);
-    const rcAmt = Number(rc) || 0;
-    const rtAmt = Number(rt) || 0;
-    const vchAmt = Number(voucher) || 0;
+    const rcAmt = Math.abs(Number(rc) || 0);
+    const rtAmt = Math.abs(Number(rt) || 0);
+    const vchAmt = Math.abs(Number(voucher) || 0);
     
     if (isCredit) {
       await pool.query(`
@@ -4140,7 +4140,7 @@ export async function applyCustomAdjustment(
       if (rcAmt > 0) {
         await logTransaction(targetMgrId, seasonId, 'coin', -rcAmt, type, notes || `Custom adjustment deduction (${type})`);
       }
-      if (rt > 0) {
+      if (rtAmt > 0) {
         await logTransaction(targetMgrId, seasonId, 'token', -rtAmt, type, notes || `Custom adjustment deduction (${type})`);
       }
       if (vchAmt > 0) {
@@ -4154,6 +4154,161 @@ export async function applyCustomAdjustment(
     await pool.query('ROLLBACK');
     console.error("Error applying custom adjustment:", e);
     throw e;
+  }
+}
+
+export async function applyBulkCustomAdjustment(
+  targetIds: (string | number)[],
+  seasonId: string | number,
+  type: string,
+  rc: number,
+  rt: number,
+  voucher: number,
+  notes?: string
+) {
+  try {
+    await pool.query('BEGIN');
+    const isCredit = ['reg_bonus', 'custom_credit', 'season_reward', 'ballon_dor_ceremony'].includes(type);
+    const rcAmt = Math.abs(Number(rc) || 0);
+    const rtAmt = Math.abs(Number(rt) || 0);
+    const vchAmt = Math.abs(Number(voucher) || 0);
+
+    const processedManagers: { id: number; clubName: string }[] = [];
+
+    for (const rawId of targetIds) {
+      const { managerId: targetMgrId, clubId } = await resolveClubAndManager(rawId, seasonId, 'manager');
+      if (!targetMgrId) continue;
+
+      if (isCredit) {
+        await pool.query(`
+          UPDATE manager_wallets 
+          SET r2g_coin_balance = r2g_coin_balance + $1,
+              r2g_token_balance = r2g_token_balance + $2,
+              r2g_voucher_balance = r2g_voucher_balance + $3
+          WHERE manager_id = $4 AND season_id = $5
+        `, [rcAmt, rtAmt, vchAmt, targetMgrId, seasonId]);
+
+        if (type === 'season_reward') {
+          await pool.query(`
+            UPDATE manager_seasons
+            SET session_rewards = session_rewards + $1,
+                team_profit = team_profit + $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [rcAmt, targetMgrId, seasonId]);
+        } else {
+          await pool.query(`
+            UPDATE manager_seasons
+            SET team_income = team_income + $1,
+                team_profit = team_profit + $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [rcAmt, targetMgrId, seasonId]);
+        }
+
+        const noteDesc = notes || `Custom adjustment credit (+${rcAmt} Coins)`;
+        if (rcAmt > 0) await logTransaction(targetMgrId, seasonId, 'coin', rcAmt, type, noteDesc);
+        if (rtAmt > 0) await logTransaction(targetMgrId, seasonId, 'token', rtAmt, type, noteDesc);
+        if (vchAmt > 0) await logTransaction(targetMgrId, seasonId, 'voucher', vchAmt, type, noteDesc);
+      } else {
+        await pool.query(`
+          UPDATE manager_wallets 
+          SET r2g_coin_balance = r2g_coin_balance - $1,
+              r2g_token_balance = r2g_token_balance - $2,
+              r2g_voucher_balance = r2g_voucher_balance - $3
+          WHERE manager_id = $4 AND season_id = $5
+        `, [rcAmt, rtAmt, vchAmt, targetMgrId, seasonId]);
+
+        await pool.query(`
+          UPDATE manager_seasons
+          SET team_expense = team_expense + $1,
+              team_profit = team_profit - $1
+          WHERE manager_id = $2 AND season_id = $3
+        `, [rcAmt, targetMgrId, seasonId]);
+
+        const noteDesc = notes || `Custom adjustment deduction (-${rcAmt} Coins)`;
+        if (rcAmt > 0) await logTransaction(targetMgrId, seasonId, 'coin', -rcAmt, type, noteDesc);
+        if (rtAmt > 0) await logTransaction(targetMgrId, seasonId, 'token', -rtAmt, type, noteDesc);
+        if (vchAmt > 0) await logTransaction(targetMgrId, seasonId, 'voucher', -vchAmt, type, noteDesc);
+      }
+
+      processedManagers.push({ id: targetMgrId, clubName: `Club #${clubId}` });
+    }
+
+    try {
+      const adminUsername = await getCurrentAdminUsername();
+      await logSoloAdminAction('bulk_wallet_adjustment', {
+        admin_username: adminUsername,
+        count: processedManagers.length,
+        type,
+        rc: isCredit ? rcAmt : -rcAmt,
+        rt: isCredit ? rtAmt : -rtAmt,
+        voucher: isCredit ? vchAmt : -vchAmt,
+        notes
+      });
+    } catch (logErr) {
+      console.error("Error logging admin action for bulk wallet adjustment:", logErr);
+    }
+
+    await pool.query('COMMIT');
+    return { success: true, count: processedManagers.length };
+  } catch (e) {
+    await pool.query('ROLLBACK');
+    console.error("Error applying bulk custom adjustment:", e);
+    throw e;
+  }
+}
+
+export async function fetchRecentWalletTransactions(options?: {
+  seasonId?: number | string;
+  managerId?: number | string;
+  limit?: number;
+}) {
+  try {
+    const seasonId = options?.seasonId ? Number(options.seasonId) : null;
+    const managerId = options?.managerId ? Number(options.managerId) : null;
+    const limit = options?.limit || 100;
+
+    let query = `
+      SELECT 
+        wt.id,
+        wt.manager_id,
+        wt.season_id,
+        wt.currency_type,
+        wt.amount,
+        wt.transaction_type,
+        wt.description,
+        wt.created_at,
+        m.name as manager_name,
+        m.r2g_id,
+        COALESCE(c.name, m.name) as club_name,
+        c.logo_path as club_logo,
+        s.season_number
+      FROM wallet_transactions wt
+      LEFT JOIN managers m ON wt.manager_id = m.id
+      LEFT JOIN seasons s ON wt.season_id = s.id
+      LEFT JOIN manager_wallets mw ON mw.manager_id = m.id AND mw.season_id = wt.season_id
+      LEFT JOIN clubs c ON mw.current_club_id = c.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    let pIdx = 1;
+
+    if (seasonId) {
+      query += ` AND wt.season_id = $${pIdx++}`;
+      params.push(seasonId);
+    }
+    if (managerId) {
+      query += ` AND wt.manager_id = $${pIdx++}`;
+      params.push(managerId);
+    }
+
+    query += ` ORDER BY wt.created_at DESC, wt.id DESC LIMIT $${pIdx}`;
+    params.push(limit);
+
+    const { rows } = await pool.query(query, params);
+    return rows;
+  } catch (err) {
+    console.error("Error fetching recent wallet transactions:", err);
+    return [];
   }
 }
 
