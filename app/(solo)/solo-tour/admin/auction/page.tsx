@@ -1216,6 +1216,7 @@ export default function AuctionManager() {
           playerImage: player.imagePath,
           expireSeason: player.expireSeason,
           refundAmount: refund,
+          giveRefund: refund > 0,
         });
         addedCount++;
       }
@@ -1232,13 +1233,18 @@ export default function AuctionManager() {
 
   const handleExecuteBulkReleases = () => {
     if (bulkReleases.length === 0) return showToast("No releases queued!");
-    if (!confirm(`Are you sure you want to release all ${bulkReleases.length} queued player(s)?`)) return;
+    const totalRefundEst = bulkReleases.reduce((sum, r) => sum + (r.giveRefund ? (r.refundAmount || 0) : 0), 0);
+    if (!confirm(`Are you sure you want to release all ${bulkReleases.length} queued player(s)? Total refund: ${totalRefundEst} Coins.`)) return;
 
     startTransition(async () => {
       try {
-        const playerIds = bulkReleases.map(r => r.playerId);
+        const releasePayload = bulkReleases.map(r => ({
+          playerId: r.playerId,
+          giveRefund: r.giveRefund !== false,
+          refundAmount: r.giveRefund ? r.refundAmount : 0
+        }));
         const res = await releaseBulkPlayerContracts(
-          playerIds,
+          releasePayload,
           activeSeason.id,
           releaseTiming
         );
@@ -2128,9 +2134,41 @@ export default function AuctionManager() {
             {/* Staged Release Queue */}
             {bulkReleases.length > 0 && (
               <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", marginBottom: "1.25rem" }}>
-                  Queued Releases ({bulkReleases.length})
-                </h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", margin: "0 0 4px 0" }}>
+                      Queued Releases ({bulkReleases.length})
+                    </h3>
+                    <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                      Total Refund: <strong style={{ color: "#34d399" }}>{bulkReleases.reduce((sum, r) => sum + (r.giveRefund ? (r.refundAmount || 0) : 0), 0)} Coins</strong>
+                      <span style={{ margin: "0 8px", opacity: 0.3 }}>&bull;</span>
+                      Releasing with refund: <strong style={{ color: "#fff" }}>{bulkReleases.filter(r => r.giveRefund).length}</strong>
+                      <span style={{ margin: "0 8px", opacity: 0.3 }}>&bull;</span>
+                      Without refund: <strong style={{ color: "#f87171" }}>{bulkReleases.filter(r => !r.giveRefund).length}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "5px 12px", fontSize: "0.75rem", borderRadius: "8px" }}
+                      onClick={() => setBulkReleases(prev => prev.map(r => ({ ...r, giveRefund: true })))}
+                      title="Set all queued players to receive refund"
+                    >
+                      <i className="fa-solid fa-coins" style={{ color: "#34d399", marginRight: "5px" }} /> All: With Refund
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-btn btn-secondary"
+                      style={{ padding: "5px 12px", fontSize: "0.75rem", borderRadius: "8px" }}
+                      onClick={() => setBulkReleases(prev => prev.map(r => ({ ...r, giveRefund: false })))}
+                      title="Set all queued players to receive 0 refund"
+                    >
+                      <i className="fa-solid fa-ban" style={{ color: "#f87171", marginRight: "5px" }} /> All: No Refund
+                    </button>
+                  </div>
+                </div>
+
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
                   {bulkReleases.map((r, idx) => (
                     <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", flexWrap: "wrap" }}>
@@ -2146,16 +2184,48 @@ export default function AuctionManager() {
                             <strong style={{ color: "#fff" }}>{r.playerName}</strong>
                           </div>
                         </div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                          Est. Refund: <strong style={{ color: "#ef4444" }}>{r.refundAmount} Coins</strong>
-                          <span style={{ marginLeft: "10px" }}></span>
-                          <span style={{ marginLeft: "10px" }}>Contract expires Season {cleanSeason(r.expireSeason)}</span>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                          <span>
+                            Est. Refund: <strong style={{ color: r.giveRefund ? "#34d399" : "rgba(255,255,255,0.4)" }}>{r.giveRefund ? `${r.refundAmount} Coins` : "0 Coins (Disabled)"}</strong>
+                          </span>
+                          <span>Contract expires Season {cleanSeason(r.expireSeason)}</span>
                         </div>
                       </div>
-                      <button type="button" className="portal-btn btn-secondary" style={{ padding: "4px 10px", fontSize: "0.8rem", color: "#ef4444", borderColor: "#ef4444", flexShrink: 0 }}
-                        onClick={() => setBulkReleases(prev => prev.filter((_, i) => i !== idx))}>
-                        <i className="fa-solid fa-trash" /> Remove
-                      </button>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => setBulkReleases(prev => prev.map((item, i) => i === idx ? { ...item, giveRefund: !item.giveRefund } : item))}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            border: r.giveRefund ? "1px solid rgba(16,185,129,0.4)" : "1px solid rgba(239,68,68,0.4)",
+                            background: r.giveRefund ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                            color: r.giveRefund ? "#34d399" : "#f87171",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px"
+                          }}
+                          title={r.giveRefund ? "Click to disable refund for this release" : "Click to give refund for this release"}
+                        >
+                          {r.giveRefund ? (
+                            <>
+                              <i className="fa-solid fa-coins" /> Refund: {r.refundAmount}c
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-ban" /> No Refund (0c)
+                            </>
+                          )}
+                        </button>
+                        <button type="button" className="portal-btn btn-secondary" style={{ padding: "4px 10px", fontSize: "0.8rem", color: "#ef4444", borderColor: "#ef4444", flexShrink: 0 }}
+                          onClick={() => setBulkReleases(prev => prev.filter((_, i) => i !== idx))}>
+                          <i className="fa-solid fa-trash" /> Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

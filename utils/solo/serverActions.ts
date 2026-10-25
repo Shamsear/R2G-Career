@@ -7250,10 +7250,16 @@ export async function fetchActivePlayerContract(playerId: number, seasonId: numb
   }
 }
 
+export interface ReleasePlayerContractOptions {
+  giveRefund?: boolean;
+  refundAmount?: number;
+}
+
 export async function releasePlayerContract(
   playerId: number,
   seasonId: number,
-  releaseTiming: 'start' | 'mid'
+  releaseTiming: 'start' | 'mid',
+  options?: ReleasePlayerContractOptions
 ) {
   try {
     await pool.query('BEGIN');
@@ -7296,12 +7302,19 @@ export async function releasePlayerContract(
     const expireSeasonNum = parseSeason(contract.expire_season || '');
     const releaseSeasonNum = currentSeasonNum + (releaseTiming === 'mid' ? 0.5 : 0);
 
-    // 3. Compute remaining contract duration
+    // 3. Compute remaining contract duration and refund
     const remainingDuration = expireSeasonNum - releaseSeasonNum;
 
     let refundAmount = 0;
-    if (remainingDuration >= 1.0) {
-      refundAmount = Math.round(baseValue * 0.5);
+    const shouldRefund = options?.giveRefund !== false;
+    if (shouldRefund) {
+      if (options?.refundAmount !== undefined) {
+        refundAmount = Math.max(0, Number(options.refundAmount) || 0);
+      } else if (remainingDuration >= 1.0) {
+        refundAmount = Math.round(baseValue * 0.5);
+      } else {
+        refundAmount = 0;
+      }
     } else {
       refundAmount = 0;
     }
@@ -7309,7 +7322,7 @@ export async function releasePlayerContract(
     const financials: any[] = [];
     const targetManagerId = (await resolveManagerForClub(clubId, seasonId)) ?? clubId;
 
-    // 4. Update manager wallet (refund)
+    // 4. Update manager wallet (refund) if refundAmount > 0
     if (refundAmount > 0) {
       await pool.query(`
         UPDATE manager_wallets
@@ -7326,7 +7339,9 @@ export async function releasePlayerContract(
     }
 
     // 5. Log transaction
-    const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`;
+    const desc = refundAmount > 0
+      ? `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`
+      : `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): No refund given (0 Coins)`;
     await logTransaction(targetManagerId, seasonId, 'coin', refundAmount, 'player_release', desc);
 
     const releaseSeasonStr = releaseSeasonNum.toString();
@@ -7344,13 +7359,14 @@ export async function releasePlayerContract(
     const operationId = await recordReversibleOperationInternal(
       'release',
       seasonId,
-      `Released ${pName} from ${clubName} (${refundAmount} Coins refund)`,
+      `Released ${pName} from ${clubName} (${refundAmount > 0 ? `${refundAmount} Coins refund` : 'No refund'})`,
       {
         clubId,
         clubName,
         playerId,
         playerName: pName,
         refundAmount,
+        giveRefund: refundAmount > 0,
         releaseTiming
       },
       {
@@ -7375,8 +7391,14 @@ export async function releasePlayerContract(
   }
 }
 
+export type BulkReleaseItem = number | {
+  playerId: number;
+  giveRefund?: boolean;
+  refundAmount?: number;
+};
+
 export async function releaseBulkPlayerContracts(
-  playerIds: number[],
+  releases: BulkReleaseItem[],
   seasonId: number,
   releaseTiming: 'start' | 'mid'
 ) {
@@ -7401,7 +7423,11 @@ export async function releaseBulkPlayerContracts(
       return parseFloat(cleaned) || 0.0;
     };
 
-    for (const pId of playerIds) {
+    for (const item of releases) {
+      const pId = typeof item === 'number' ? item : item.playerId;
+      const shouldRefund = typeof item === 'number' ? true : item.giveRefund !== false;
+      const customRefundAmount = typeof item === 'number' ? undefined : item.refundAmount;
+
       const { rows: contractRows } = await pool.query(`
         SELECT pc.*, p.name as player_name, p.base_value 
         FROM player_contracts pc
@@ -7419,7 +7445,20 @@ export async function releaseBulkPlayerContracts(
 
       const expireSeasonNum = parseSeason(contract.expire_season || '');
       const remainingDuration = expireSeasonNum - releaseSeasonNum;
-      const refundAmount = remainingDuration >= 1.0 ? Math.round(baseValue * 0.5) : 0;
+
+      let refundAmount = 0;
+      if (shouldRefund) {
+        if (customRefundAmount !== undefined) {
+          refundAmount = Math.max(0, Number(customRefundAmount) || 0);
+        } else if (remainingDuration >= 1.0) {
+          refundAmount = Math.round(baseValue * 0.5);
+        } else {
+          refundAmount = 0;
+        }
+      } else {
+        refundAmount = 0;
+      }
+
       totalRefund += refundAmount;
 
       restoredContracts.push(contract);
@@ -7441,7 +7480,9 @@ export async function releaseBulkPlayerContracts(
         });
       }
 
-      const desc = `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`;
+      const desc = refundAmount > 0
+        ? `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): Refunded ${refundAmount} Coins`
+        : `Released ${pName} (${releaseTiming === 'mid' ? 'Mid-Season' : 'Season Start'}): No refund given (0 Coins)`;
       await logTransaction(targetManagerId, seasonId, 'coin', refundAmount, 'player_release', desc);
 
       await pool.query(`
@@ -7450,7 +7491,7 @@ export async function releaseBulkPlayerContracts(
         WHERE id = $2
       `, [releaseSeasonStr, contract.id]);
 
-      playerSummaries.push(`${pName} (${refundAmount}c refund)`);
+      playerSummaries.push(refundAmount > 0 ? `${pName} (${refundAmount}c refund)` : `${pName} (No refund)`);
     }
 
     const title = `Bulk Released ${restoredContracts.length} Player${restoredContracts.length > 1 ? 's' : ''}`;
@@ -8456,7 +8497,11 @@ export async function fetchReleaseRequestsList(seasonId?: number) {
   }
 }
 
-export async function approveReleaseRequest(requestId: number) {
+export async function approveReleaseRequest(
+  requestId: number,
+  giveRefund: boolean = true,
+  customRefundAmount?: number
+) {
   try {
     const { rows: reqRows } = await pool.query(`
       SELECT rr.*, rw.window_type FROM release_requests rr
@@ -8467,7 +8512,10 @@ export async function approveReleaseRequest(requestId: number) {
     if (reqRows.length === 0) return { success: false, error: "Pending release request not found." };
     const req = reqRows[0];
 
-    const releaseRes = await releasePlayerContract(req.player_id, req.season_id, req.window_type);
+    const releaseRes = await releasePlayerContract(req.player_id, req.season_id, req.window_type, {
+      giveRefund,
+      refundAmount: customRefundAmount !== undefined ? customRefundAmount : (giveRefund ? req.refund_amount : 0)
+    });
     if (!releaseRes.success) return { success: false, error: "Failed to release player contract." };
 
     await pool.query(`

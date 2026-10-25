@@ -123,14 +123,17 @@ export default function AdminReleaseRequestsPage() {
     });
   };
 
-  const handleApprove = async (id: number) => {
-    if (!confirm("Are you sure you want to approve this player release? Coins will be refunded to team wallet.")) return;
+  const handleApprove = async (id: number, giveRefund: boolean = true) => {
+    const confirmMsg = giveRefund
+      ? "Are you sure you want to approve this player release WITH REFUND? Coins will be refunded to team wallet."
+      : "Are you sure you want to approve this player release WITHOUT REFUND? (0 Coins will be refunded)";
+    if (!confirm(confirmMsg)) return;
 
     startTransition(async () => {
       try {
-        const res = await approveReleaseRequest(id);
+        const res = await approveReleaseRequest(id, giveRefund);
         if (res.success) {
-          showToast(`Release approved! Refund: ${res.refundAmount} Coins.`);
+          showToast(giveRefund ? `Release approved! Refund: ${res.refundAmount} Coins.` : "Release approved without refund (0 Coins).");
           loadData();
         } else {
           showToast(res.error || "Failed to approve release request.");
@@ -407,16 +410,27 @@ export default function AdminReleaseRequestsPage() {
                           </span>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: "#34d399", display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" }}>
-                            <i className="fa-solid fa-coins" style={{ color: "#fbbf24", fontSize: "0.8rem" }} />
-                            +{r.refund_amount} Coins
+                          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: (r.refund_amount > 0 ? "#34d399" : "rgba(255,255,255,0.5)"), display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" }}>
+                            {r.refund_amount > 0 ? (
+                              <>
+                                <i className="fa-solid fa-coins" style={{ color: "#fbbf24", fontSize: "0.8rem" }} />
+                                +{r.refund_amount} Coins
+                              </>
+                            ) : (
+                              <>
+                                <i className="fa-solid fa-ban" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem" }} />
+                                {isPendingStatus ? "0 Coins (Est.)" : "No Refund (0c)"}
+                              </>
+                            )}
                           </span>
-                          <span style={{ display: "block", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>Wallet Refund</span>
+                          <span style={{ display: "block", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
+                            {isPendingStatus ? "Calculated Refund" : "Refund Amount"}
+                          </span>
                         </div>
                       </div>
 
                       {isPendingStatus ? (
-                        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px" }}>
+                        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px", flexWrap: "wrap" }}>
                           <button
                             type="button"
                             onClick={() => handleReject(r.id)}
@@ -427,11 +441,21 @@ export default function AdminReleaseRequestsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleApprove(r.id)}
+                            onClick={() => handleApprove(r.id, false)}
                             disabled={isPending}
+                            title="Approve release without giving any coin refund"
+                            style={{ padding: "7px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.12)", color: "#fbbf24", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, transition: "all 0.2s ease" }}
+                          >
+                            <i className="fa-solid fa-ban" style={{ marginRight: "4px" }} /> Approve (No Refund)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(r.id, true)}
+                            disabled={isPending}
+                            title={`Approve release with ${r.refund_amount} coins refund`}
                             style={{ padding: "7px 16px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", color: "#fff", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, boxShadow: "0 4px 12px rgba(16,185,129,0.3)", transition: "all 0.2s ease" }}
                           >
-                            <i className="fa-solid fa-check" style={{ marginRight: "4px" }} /> Approve Release
+                            <i className="fa-solid fa-coins" style={{ marginRight: "4px" }} /> Approve (+{r.refund_amount}c Refund)
                           </button>
                         </div>
                       ) : (
