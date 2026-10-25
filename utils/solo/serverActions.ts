@@ -7899,7 +7899,102 @@ export async function bulkAssignPlayersWithContracts(
   }
 }
 
-export async function primePlayerForTeam(playerId: number, clubId?: number, tokenCost: number = 0) {
+export interface PrimeFeeConfig {
+  upgradeRtCost: number;
+  upgradeRcCost: number;
+  transferRtCost: number;
+  transferRcCost: number;
+}
+
+export async function fetchPrimeFeeConfig(): Promise<PrimeFeeConfig> {
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS transfer_rules_action_type_idx ON transfer_rules(action_type);
+    `);
+    const { rows } = await pool.query(`
+      SELECT action_type, base_fee_coins, base_fee_tokens 
+      FROM transfer_rules 
+      WHERE action_type IN ('prime_upgrade', 'prime_transfer')
+    `);
+
+    let upgradeRt = 50;
+    let upgradeRc = 0;
+    let transferRt = 50;
+    let transferRc = 0;
+
+    for (const r of rows) {
+      if (r.action_type === 'prime_upgrade') {
+        upgradeRt = Number(r.base_fee_tokens) || 0;
+        upgradeRc = Number(r.base_fee_coins) || 0;
+      } else if (r.action_type === 'prime_transfer') {
+        transferRt = Number(r.base_fee_tokens) || 0;
+        transferRc = Number(r.base_fee_coins) || 0;
+      }
+    }
+
+    return {
+      upgradeRtCost: upgradeRt,
+      upgradeRcCost: upgradeRc,
+      transferRtCost: transferRt,
+      transferRcCost: transferRc
+    };
+  } catch (err) {
+    console.error("Error fetching prime fee config:", err);
+    return {
+      upgradeRtCost: 50,
+      upgradeRcCost: 0,
+      transferRtCost: 50,
+      transferRcCost: 0
+    };
+  }
+}
+
+export async function updatePrimeFeeConfig(params: {
+  upgradeRtCost?: number;
+  upgradeRcCost?: number;
+  transferRtCost?: number;
+  transferRcCost?: number;
+}) {
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS transfer_rules_action_type_idx ON transfer_rules(action_type);
+    `);
+
+    if (params.upgradeRtCost !== undefined || params.upgradeRcCost !== undefined) {
+      const upgradeRt = params.upgradeRtCost !== undefined ? Math.max(0, Number(params.upgradeRtCost) || 0) : 50;
+      const upgradeRc = params.upgradeRcCost !== undefined ? Math.max(0, Number(params.upgradeRcCost) || 0) : 0;
+      await pool.query(`
+        INSERT INTO transfer_rules (action_type, base_fee_tokens, base_fee_coins)
+        VALUES ('prime_upgrade', $1, $2)
+        ON CONFLICT (action_type) 
+        DO UPDATE SET 
+          base_fee_tokens = $1,
+          base_fee_coins = $2
+      `, [upgradeRt, upgradeRc]);
+    }
+
+    if (params.transferRtCost !== undefined || params.transferRcCost !== undefined) {
+      const transferRt = params.transferRtCost !== undefined ? Math.max(0, Number(params.transferRtCost) || 0) : 50;
+      const transferRc = params.transferRcCost !== undefined ? Math.max(0, Number(params.transferRcCost) || 0) : 0;
+      await pool.query(`
+        INSERT INTO transfer_rules (action_type, base_fee_tokens, base_fee_coins)
+        VALUES ('prime_transfer', $1, $2)
+        ON CONFLICT (action_type) 
+        DO UPDATE SET 
+          base_fee_tokens = $1,
+          base_fee_coins = $2
+      `, [transferRt, transferRc]);
+    }
+
+    await logSoloAdminAction("UPDATE_PRIME_FEE_CONFIG", params);
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error updating prime fee config:", err);
+    return { success: false, error: err.message || "Failed to update prime fee configuration" };
+  }
+}
+
+export async function primePlayerForTeam(playerId: number, clubId?: number, tokenCost?: number, coinCost?: number) {
   try {
     const pId = parseInt(playerId.toString(), 10);
     if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
@@ -7924,12 +8019,18 @@ export async function primePlayerForTeam(playerId: number, clubId?: number, toke
       }
     }
 
-    const cost = Math.max(0, Number(tokenCost) || 0);
+    let rtCost = tokenCost !== undefined ? Math.max(0, Number(tokenCost) || 0) : null;
+    let rcCost = coinCost !== undefined ? Math.max(0, Number(coinCost) || 0) : null;
+    if (rtCost === null || rcCost === null) {
+      const cfg = await fetchPrimeFeeConfig();
+      if (rtCost === null) rtCost = cfg.upgradeRtCost;
+      if (rcCost === null) rcCost = cfg.upgradeRcCost;
+    }
 
     await pool.query('BEGIN');
 
-    // Deduct RT if tokenCost is set and club is known
-    if (cost > 0 && targetClubId) {
+    // Deduct RT if rtCost is set and club is known
+    if (rtCost > 0 && targetClubId) {
       const targetManagerId = (await resolveManagerForClub(targetClubId, activeSeason.id)) ?? targetClubId;
       const { rows: walletRows } = await pool.query(`
         SELECT r2g_token_balance FROM manager_wallets 
@@ -7937,21 +8038,47 @@ export async function primePlayerForTeam(playerId: number, clubId?: number, toke
       `, [targetManagerId, activeSeason.id]);
 
       const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
-      if (currentRt < cost) {
+      if (currentRt < rtCost) {
         await pool.query('ROLLBACK');
-        return { success: false, error: `Insufficient RT balance (requires ${cost} RT, club has ${currentRt} RT)` };
+        return { success: false, error: `Insufficient RT balance (requires ${rtCost} RT, club has ${currentRt} RT)` };
       }
 
       await pool.query(`
         UPDATE manager_wallets 
         SET r2g_token_balance = r2g_token_balance - $1 
         WHERE manager_id = $2 AND season_id = $3
-      `, [cost, targetManagerId, activeSeason.id]);
+      `, [rtCost, targetManagerId, activeSeason.id]);
 
       const { rows: pRows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [pId]);
       const pName = pRows.length > 0 ? pRows[0].name : `Player #${pId}`;
 
-      await logTransaction(targetManagerId, activeSeason.id, 'token', -cost, 'prime_upgrade', `Prime Upgrade: Made ${pName} Prime for ${cost} RT`);
+      await logTransaction(targetManagerId, activeSeason.id, 'token', -rtCost, 'prime_upgrade', `Prime Upgrade: Made ${pName} Prime for ${rtCost} RT`);
+    }
+
+    // Deduct Coins if rcCost is set and club is known
+    if (rcCost > 0 && targetClubId) {
+      const targetManagerId = (await resolveManagerForClub(targetClubId, activeSeason.id)) ?? targetClubId;
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_coin_balance FROM manager_wallets 
+        WHERE manager_id = $1 AND season_id = $2
+      `, [targetManagerId, activeSeason.id]);
+
+      const currentRc = walletRows.length > 0 ? Number(walletRows[0].r2g_coin_balance) || 0 : 0;
+      if (currentRc < rcCost) {
+        await pool.query('ROLLBACK');
+        return { success: false, error: `Insufficient Coins balance (requires ${rcCost.toLocaleString()} Coins, club has ${currentRc.toLocaleString()} Coins)` };
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets 
+        SET r2g_coin_balance = r2g_coin_balance - $1 
+        WHERE manager_id = $2 AND season_id = $3
+      `, [rcCost, targetManagerId, activeSeason.id]);
+
+      const { rows: pRows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [pId]);
+      const pName = pRows.length > 0 ? pRows[0].name : `Player #${pId}`;
+
+      await logTransaction(targetManagerId, activeSeason.id, 'coin', -rcCost, 'prime_upgrade', `Prime Upgrade: Made ${pName} Prime for ${rcCost} Coins`);
     }
 
     // Update seasonal status only (card_type and base_value remain unchanged)
@@ -7964,7 +8091,7 @@ export async function primePlayerForTeam(playerId: number, clubId?: number, toke
 
     await pool.query('COMMIT');
 
-    await logSoloAdminAction("PRIME_PLAYER", { playerId: pId, clubId: targetClubId, tokenCost: cost, validUntil: validUntilStr });
+    await logSoloAdminAction("PRIME_PLAYER", { playerId: pId, clubId: targetClubId, tokenCost: rtCost, coinCost: rcCost, validUntil: validUntilStr });
 
     return { success: true, validUntil: validUntilStr };
   } catch (err: any) {
@@ -7990,7 +8117,7 @@ export async function removePlayerPrime(playerId: number) {
   }
 }
 
-export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: number, clubId: number, tokenCost: number = 0) {
+export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: number, clubId: number, tokenCost?: number, coinCost?: number) {
   try {
     const fromId = parseInt(fromPlayerId.toString(), 10);
     const toId = parseInt(toPlayerId.toString(), 10);
@@ -8027,12 +8154,18 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
       return { success: false, error: "Destination player is already Primed" };
     }
 
-    const cost = Math.max(0, Number(tokenCost) || 0);
+    let rtCost = tokenCost !== undefined ? Math.max(0, Number(tokenCost) || 0) : null;
+    let rcCost = coinCost !== undefined ? Math.max(0, Number(coinCost) || 0) : null;
+    if (rtCost === null || rcCost === null) {
+      const cfg = await fetchPrimeFeeConfig();
+      if (rtCost === null) rtCost = cfg.transferRtCost;
+      if (rcCost === null) rcCost = cfg.transferRcCost;
+    }
 
     await pool.query('BEGIN');
 
-    // Deduct RT if tokenCost is set
-    if (cost > 0) {
+    // Deduct RT if rtCost is set
+    if (rtCost > 0) {
       const targetManagerId = (await resolveManagerForClub(cId, activeSeason.id)) ?? cId;
       const { rows: walletRows } = await pool.query(`
         SELECT r2g_token_balance FROM manager_wallets 
@@ -8040,23 +8173,51 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
       `, [targetManagerId, activeSeason.id]);
 
       const currentRt = walletRows.length > 0 ? Number(walletRows[0].r2g_token_balance) || 0 : 0;
-      if (currentRt < cost) {
+      if (currentRt < rtCost) {
         await pool.query('ROLLBACK');
-        return { success: false, error: `Insufficient RT balance (requires ${cost} RT, club has ${currentRt} RT)` };
+        return { success: false, error: `Insufficient RT balance (requires ${rtCost} RT, club has ${currentRt} RT)` };
       }
 
       await pool.query(`
         UPDATE manager_wallets 
         SET r2g_token_balance = r2g_token_balance - $1 
         WHERE manager_id = $2 AND season_id = $3
-      `, [cost, targetManagerId, activeSeason.id]);
+      `, [rtCost, targetManagerId, activeSeason.id]);
 
       const { rows: p1Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [fromId]);
       const { rows: p2Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [toId]);
       const fromName = p1Rows[0]?.name || `Player #${fromId}`;
       const toName = p2Rows[0]?.name || `Player #${toId}`;
 
-      await logTransaction(targetManagerId, activeSeason.id, 'token', -cost, 'prime_transfer', `Prime Transfer: Transferred Prime from ${fromName} to ${toName} for ${cost} RT`);
+      await logTransaction(targetManagerId, activeSeason.id, 'token', -rtCost, 'prime_transfer', `Prime Transfer: Transferred Prime from ${fromName} to ${toName} for ${rtCost} RT`);
+    }
+
+    // Deduct Coins if rcCost is set
+    if (rcCost > 0) {
+      const targetManagerId = (await resolveManagerForClub(cId, activeSeason.id)) ?? cId;
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_coin_balance FROM manager_wallets 
+        WHERE manager_id = $1 AND season_id = $2
+      `, [targetManagerId, activeSeason.id]);
+
+      const currentRc = walletRows.length > 0 ? Number(walletRows[0].r2g_coin_balance) || 0 : 0;
+      if (currentRc < rcCost) {
+        await pool.query('ROLLBACK');
+        return { success: false, error: `Insufficient Coins balance (requires ${rcCost.toLocaleString()} Coins, club has ${currentRc.toLocaleString()} Coins)` };
+      }
+
+      await pool.query(`
+        UPDATE manager_wallets 
+        SET r2g_coin_balance = r2g_coin_balance - $1 
+        WHERE manager_id = $2 AND season_id = $3
+      `, [rcCost, targetManagerId, activeSeason.id]);
+
+      const { rows: p1Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [fromId]);
+      const { rows: p2Rows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [toId]);
+      const fromName = p1Rows[0]?.name || `Player #${fromId}`;
+      const toName = p2Rows[0]?.name || `Player #${toId}`;
+
+      await logTransaction(targetManagerId, activeSeason.id, 'coin', -rcCost, 'prime_transfer', `Prime Transfer: Transferred Prime from ${fromName} to ${toName} for ${rcCost} Coins`);
     }
 
     // Delete Prime from source player
@@ -8070,7 +8231,7 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
 
     await pool.query('COMMIT');
 
-    await logSoloAdminAction("TRANSFER_PRIME_PLAYER", { fromPlayerId: fromId, toPlayerId: toId, clubId: cId, tokenCost: cost, validUntil: validUntilStr });
+    await logSoloAdminAction("TRANSFER_PRIME_PLAYER", { fromPlayerId: fromId, toPlayerId: toId, clubId: cId, tokenCost: rtCost, coinCost: rcCost, validUntil: validUntilStr });
 
     return { success: true, validUntil: validUntilStr };
   } catch (err: any) {

@@ -26,7 +26,10 @@ import {
   fetchPrimedPlayersList,
   fetchAdminPlayersList,
   fetchRecentReversibleOperations,
-  revertSoloOperation
+  revertSoloOperation,
+  fetchPrimeFeeConfig,
+  updatePrimeFeeConfig,
+  type PrimeFeeConfig
 } from "@/utils/solo/serverActions";
 
 function AdminClubDropdown({
@@ -722,19 +725,92 @@ export default function AuctionManager() {
   const [primeAllPlayers, setPrimeAllPlayers] = useState<any[]>([]);
   const [loadingPrimeData, setLoadingPrimeData] = useState<boolean>(false);
 
+  // Configurable Prime Fee State
+  const [primeFeeConfig, setPrimeFeeConfig] = useState<PrimeFeeConfig>({
+    upgradeRtCost: 50,
+    upgradeRcCost: 0,
+    transferRtCost: 50,
+    transferRcCost: 0
+  });
+  const [configPrimeUpgradeRt, setConfigPrimeUpgradeRt] = useState<number>(50);
+  const [configPrimeTransferRt, setConfigPrimeTransferRt] = useState<number>(50);
+  const [isSavingPrimeFees, setIsSavingPrimeFees] = useState<boolean>(false);
+
   const loadPrimeData = async () => {
     setLoadingPrimeData(true);
     try {
-      const [primedList, allList] = await Promise.all([
+      const [primedList, allList, feeConfig] = await Promise.all([
         fetchPrimedPlayersList(),
-        fetchAdminPlayersList()
+        fetchAdminPlayersList(),
+        fetchPrimeFeeConfig()
       ]);
       setPrimedPlayers(primedList || []);
       setPrimeAllPlayers(allList || []);
+      if (feeConfig) {
+        setPrimeFeeConfig(feeConfig);
+        setConfigPrimeUpgradeRt(feeConfig.upgradeRtCost);
+        setConfigPrimeTransferRt(feeConfig.transferRtCost);
+        setPrimeRtCost(feeConfig.upgradeRtCost);
+        setPrimeTransferRtCost(feeConfig.transferRtCost);
+      }
     } catch {
       showToast("Error loading Prime settings data!");
     } finally {
       setLoadingPrimeData(false);
+    }
+  };
+
+  const handleSavePrimeDefaultFees = async () => {
+    try {
+      setIsSavingPrimeFees(true);
+      const res = await updatePrimeFeeConfig({
+        upgradeRtCost: configPrimeUpgradeRt,
+        transferRtCost: configPrimeTransferRt
+      });
+      if (res.success) {
+        setPrimeFeeConfig(prev => ({
+          ...prev,
+          upgradeRtCost: configPrimeUpgradeRt,
+          transferRtCost: configPrimeTransferRt
+        }));
+        showToast("Default Prime fees saved successfully!");
+      } else {
+        showToast(res.error || "Failed to update Prime fee configuration.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Error updating Prime fees.");
+    } finally {
+      setIsSavingPrimeFees(false);
+    }
+  };
+
+  const handleSavePrimeUpgradeAsDefault = async () => {
+    try {
+      const res = await updatePrimeFeeConfig({ upgradeRtCost: primeRtCost });
+      if (res.success) {
+        setPrimeFeeConfig(prev => ({ ...prev, upgradeRtCost: primeRtCost }));
+        setConfigPrimeUpgradeRt(primeRtCost);
+        showToast(`Default Prime Upgrade fee saved as ${primeRtCost} RT!`);
+      } else {
+        showToast(res.error || "Failed to update default fee.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Error updating default fee.");
+    }
+  };
+
+  const handleSavePrimeTransferAsDefault = async () => {
+    try {
+      const res = await updatePrimeFeeConfig({ transferRtCost: primeTransferRtCost });
+      if (res.success) {
+        setPrimeFeeConfig(prev => ({ ...prev, transferRtCost: primeTransferRtCost }));
+        setConfigPrimeTransferRt(primeTransferRtCost);
+        showToast(`Default Prime Transfer fee saved as ${primeTransferRtCost} RT!`);
+      } else {
+        showToast(res.error || "Failed to update default fee.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Error updating default fee.");
     }
   };
 
@@ -2653,7 +2729,132 @@ export default function AuctionManager() {
           </div>
         )}
         {activeTab === 'prime' && (
-          <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            {/* Prime Fee Configuration Card */}
+            <div style={{
+              background: "rgba(255, 255, 255, 0.02)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(234, 179, 8, 0.25)",
+              borderRadius: "14px",
+              padding: "1rem 1.4rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "1rem"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                <div style={{
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "10px",
+                  background: "rgba(234, 179, 8, 0.15)",
+                  border: "1px solid rgba(234, 179, 8, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#eab308",
+                  fontSize: "1.05rem"
+                }}>
+                  <i className="fa-solid fa-sliders" />
+                </div>
+                <div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.92rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    Prime Fee Configuration
+                    <span style={{ fontSize: "0.68rem", color: "#eab308", background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.25)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                      SAVED IN DB
+                    </span>
+                  </div>
+                  <div style={{ color: "var(--text-secondary)", fontSize: "0.78rem" }}>
+                    Configure persistent default fees for Prime Upgrades and Transfers across all admin pages.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 600 }}>Default Upgrade:</span>
+                  <div style={{ position: "relative", width: "95px" }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={configPrimeUpgradeRt}
+                      onChange={(e) => setConfigPrimeUpgradeRt(Math.max(0, parseInt(e.target.value) || 0))}
+                      style={{
+                        width: "100%",
+                        padding: "7px 28px 7px 10px",
+                        background: "rgba(0,0,0,0.4)",
+                        border: "1px solid rgba(234, 179, 8, 0.3)",
+                        borderRadius: "6px",
+                        color: "#eab308",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "0.68rem", color: "#eab308", fontWeight: 700 }}>
+                      RT
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 600 }}>Default Transfer:</span>
+                  <div style={{ position: "relative", width: "95px" }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={configPrimeTransferRt}
+                      onChange={(e) => setConfigPrimeTransferRt(Math.max(0, parseInt(e.target.value) || 0))}
+                      style={{
+                        width: "100%",
+                        padding: "7px 28px 7px 10px",
+                        background: "rgba(0,0,0,0.4)",
+                        border: "1px solid rgba(234, 179, 8, 0.3)",
+                        borderRadius: "6px",
+                        color: "#eab308",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "0.68rem", color: "#eab308", fontWeight: 700 }}>
+                      RT
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSavePrimeDefaultFees}
+                  disabled={isSavingPrimeFees}
+                  style={{
+                    padding: "8px 16px",
+                    background: "linear-gradient(135deg, #eab308, #ca8a04)",
+                    border: "none",
+                    borderRadius: "8px",
+                    color: "#000",
+                    fontWeight: 700,
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: "0 2px 10px rgba(234,179,8,0.2)",
+                    opacity: isSavingPrimeFees ? 0.6 : 1,
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <i className="fa-solid fa-floppy-disk" /> {isSavingPrimeFees ? "Saving..." : "Save Default Fees"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
             
             {/* Left Column: Form Controls */}
             <div className="admin-card" style={{ padding: "1.5rem" }}>
@@ -2914,7 +3115,7 @@ export default function AuctionManager() {
                           step="1"
                           value={primeRtCost}
                           onChange={(e) => setPrimeRtCost(Math.max(0, parseInt(e.target.value) || 0))}
-                          placeholder="Enter RT cost (e.g. 50)"
+                          placeholder={`Enter RT cost (default: ${primeFeeConfig.upgradeRtCost})`}
                           style={{
                             width: "100%",
                             padding: "10px 14px",
@@ -2932,8 +3133,51 @@ export default function AuctionManager() {
                           RT
                         </span>
                       </div>
-                      <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--text-secondary)" }}>
-                        Deducted from the manager's R2G Token wallet. Card type and base value remain untouched.
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", flexWrap: "wrap", gap: "6px" }}>
+                        <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>
+                          Deducted from the manager's R2G Token wallet. (Current default: <strong style={{ color: "#eab308" }}>{primeFeeConfig.upgradeRtCost} RT</strong>)
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            onClick={handleSavePrimeUpgradeAsDefault}
+                            title="Save this cost as the persistent system default fee"
+                            style={{
+                              padding: "3px 8px",
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              background: "rgba(234,179,8,0.15)",
+                              border: "1px solid rgba(234,179,8,0.35)",
+                              color: "#eab308",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                          >
+                            <i className="fa-solid fa-floppy-disk" /> Set {primeRtCost} RT as Default
+                          </button>
+                          {primeRtCost !== primeFeeConfig.upgradeRtCost && (
+                            <button
+                              type="button"
+                              onClick={() => setPrimeRtCost(primeFeeConfig.upgradeRtCost)}
+                              title="Reset to configured default"
+                              style={{
+                                padding: "3px 8px",
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                background: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(255,255,255,0.15)",
+                                color: "rgba(255,255,255,0.7)",
+                                borderRadius: "5px",
+                                cursor: "pointer"
+                              }}
+                            >
+                              Reset ({primeFeeConfig.upgradeRtCost} RT)
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -3060,7 +3304,7 @@ export default function AuctionManager() {
                           step="1"
                           value={primeTransferRtCost}
                           onChange={(e) => setPrimeTransferRtCost(Math.max(0, parseInt(e.target.value) || 0))}
-                          placeholder="Enter RT transfer fee (e.g. 50)"
+                          placeholder={`Enter RT transfer fee (default: ${primeFeeConfig.transferRtCost})`}
                           style={{
                             width: "100%", padding: "10px 14px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(234,179,8,0.3)",
                             borderRadius: "8px", color: "#fff", fontSize: "0.9rem", fontWeight: 600, outline: "none", boxSizing: "border-box"
@@ -3070,8 +3314,51 @@ export default function AuctionManager() {
                           RT
                         </span>
                       </div>
-                      <div style={{ marginTop: "6px", fontSize: "0.68rem", color: "var(--text-secondary)" }}>
-                        Deducted from the manager's R2G Token wallet to transfer Prime status.
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", flexWrap: "wrap", gap: "6px" }}>
+                        <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>
+                          Deducted from the manager's R2G Token wallet to transfer Prime status. (Default: <strong style={{ color: "#eab308" }}>{primeFeeConfig.transferRtCost} RT</strong>)
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            onClick={handleSavePrimeTransferAsDefault}
+                            title="Save this fee as the persistent system default fee"
+                            style={{
+                              padding: "3px 8px",
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              background: "rgba(234,179,8,0.15)",
+                              border: "1px solid rgba(234,179,8,0.35)",
+                              color: "#eab308",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                          >
+                            <i className="fa-solid fa-floppy-disk" /> Set {primeTransferRtCost} RT as Default
+                          </button>
+                          {primeTransferRtCost !== primeFeeConfig.transferRtCost && (
+                            <button
+                              type="button"
+                              onClick={() => setPrimeTransferRtCost(primeFeeConfig.transferRtCost)}
+                              title="Reset to configured default"
+                              style={{
+                                padding: "3px 8px",
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                background: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(255,255,255,0.15)",
+                                color: "rgba(255,255,255,0.7)",
+                                borderRadius: "5px",
+                                cursor: "pointer"
+                              }}
+                            >
+                              Reset ({primeFeeConfig.transferRtCost} RT)
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -3186,6 +3473,7 @@ export default function AuctionManager() {
             </div>
 
           </div>
+        </div>
         )}
 
         {/* Tab 7: History & Revert */}
