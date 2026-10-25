@@ -53,6 +53,7 @@ export default function FinancialOperations() {
   const [targetMode, setTargetMode] = useState<"single" | "bulk">("single");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
   const [bulkClubSearch, setBulkClubSearch] = useState("");
+  const [operationType, setOperationType] = useState<"credit" | "debit">("credit");
 
   // Recent Wallet Transactions Ledger states
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -168,8 +169,12 @@ export default function FinancialOperations() {
     }
 
     if (finOp.customRc === 0 && finOp.customRt === 0 && finOp.customVoucher === 0) {
-      return showToast("Enter an amount for coins, tokens, or vouchers!");
+      return showToast("Enter an amount for Coins, Tokens, or Vouchers!");
     }
+
+    const effectiveType = operationType === "debit" 
+      ? "custom_debit" 
+      : (finOp.customType === "custom_debit" ? "custom_credit" : finOp.customType);
 
     startTransition(async () => {
       try {
@@ -177,7 +182,7 @@ export default function FinancialOperations() {
           await applyCustomAdjustment(
             parseInt(finOp.targetManagerId),
             activeSeason?.id || 6,
-            finOp.customType,
+            effectiveType,
             finOp.customRc,
             finOp.customRt,
             finOp.customVoucher,
@@ -188,7 +193,7 @@ export default function FinancialOperations() {
           const res = await applyBulkCustomAdjustment(
             selectedManagerIds,
             activeSeason?.id || 6,
-            finOp.customType,
+            effectiveType,
             finOp.customRc,
             finOp.customRt,
             finOp.customVoucher,
@@ -546,11 +551,11 @@ export default function FinancialOperations() {
           {/* Section 3: Custom Financial Override Form */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "10px" }}>
-              <h3 style={{ fontSize: "1.1rem", margin: 0, color: "#fff" }}>
-                <i className="fa-solid fa-gears" /> Custom Override &amp; Wallet Awards / Fines
+              <h3 style={{ fontSize: "1.1rem", margin: 0, color: "#fff", display: "flex", alignItems: "center", gap: "8px" }}>
+                <i className="fa-solid fa-gears" style={{ color: "#c084fc" }} /> Wallet Adjustments &amp; Awards (Coins, Tokens, Vouchers)
               </h3>
               
-              {/* Target Mode Segmented Switch */}
+              {/* Target Mode Switch */}
               <div style={{ display: "flex", gap: "6px", background: "rgba(0,0,0,0.3)", padding: "3px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
                 <button
                   type="button"
@@ -595,8 +600,8 @@ export default function FinancialOperations() {
               </div>
             </div>
 
-            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Award (+ coins/tokens) or deduct (- fines/penalties) directly to one team or batch-apply to multiple teams. Every adjustment is permanently recorded in the wallet transaction audit ledger.
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1.25rem" }}>
+              Award (+) or deduct (-) custom amounts of <strong>Coins (RC)</strong>, <strong>Tokens (RT)</strong>, or <strong>Vouchers</strong> for one specific team or across multiple teams at once. All operations are strictly logged with audit trails.
             </p>
 
             {/* Target Selection View */}
@@ -637,7 +642,7 @@ export default function FinancialOperations() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: "8px", maxHeight: "200px", overflowY: "auto", paddingRight: "4px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: "8px", maxHeight: "190px", overflowY: "auto", paddingRight: "4px" }}>
                   {clubs.filter(c => {
                     if (!bulkClubSearch.trim()) return true;
                     const q = bulkClubSearch.toLowerCase();
@@ -692,229 +697,316 @@ export default function FinancialOperations() {
                 </div>
               </div>
             ) : (
-              <div className="admin-form-grid" style={{ marginBottom: "1rem" }}>
-                <div className="admin-form-group">
-                  <label>Target Manager / Club</label>
-                  <CustomSelect
-                    value={finOp.targetManagerId}
-                    onChange={(val) => setFinOp(prev => ({ ...prev, targetManagerId: val }))}
-                    placeholder="-- Select Club --"
-                    options={[
-                      { value: "", label: "-- Select Club --" },
-                      ...clubs.map(c => ({ value: String(c.manager_id || c.id), label: `${c.name} (${c.manager})` }))
-                    ]}
-                    buttonStyle={{ width: "100%", justifyContent: "space-between" }}
-                  />
-                </div>
-                <div className="admin-form-group">
-                  <label>Override Transaction Type</label>
-                  <CustomSelect
-                    value={finOp.customType}
-                    onChange={(type) => {
-                      let rc = finOp.customRc;
-                      let rt = finOp.customRt;
-                      let v = finOp.customVoucher;
-                      let notes = finOp.customNotes;
-                      if (type === "reg_bonus" && activeSeason) {
-                        rc = activeSeason.start_bonus_rc || 0;
-                        rt = activeSeason.start_bonus_rt || 0;
-                        v = activeSeason.start_bonus_voucher || 0;
-                        notes = `Season ${activeSeason.season_number} registration starting bonus`;
-                      } else if (type === "season_reward" && activeSeason) {
-                        rc = activeSeason.finale_bonus_rc || 0;
-                        rt = activeSeason.finale_bonus_rt || 0;
-                        v = activeSeason.finale_bonus_voucher || 0;
-                        notes = `Season ${activeSeason.season_number} finale bonus standing reward`;
-                      }
-                      setFinOp(prev => ({
-                        ...prev,
-                        customType: type,
-                        customRc: rc,
-                        customRt: rt,
-                        customVoucher: v,
-                        customNotes: notes
-                      }));
-                    }}
-                    options={[
-                      { value: "custom_credit", label: "Custom Manual Credit (Add + coins/tokens)" },
-                      { value: "custom_debit", label: "Custom Manual Debit (Deduct - coins/tokens)" },
-                      { value: "reg_bonus", label: "Season Registration Bonus (Credit RC & RT)" },
-                      { value: "season_reward", label: "Season Reward / Standing Payout" },
-                      { value: "ballon_dor_ceremony", label: "Ballon d'Or Ceremony (Tokens RT only)" }
-                    ]}
-                    buttonStyle={{ width: "100%", justifyContent: "space-between" }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* In bulk mode, also render the Transaction Type select if not shown above */}
-            {targetMode === "bulk" && (
-              <div className="admin-form-group" style={{ marginBottom: "1rem" }}>
-                <label>Override Transaction Type</label>
+              <div className="admin-form-group" style={{ marginBottom: "1.25rem" }}>
+                <label>Select Target Club / Manager</label>
                 <CustomSelect
-                  value={finOp.customType}
-                  onChange={(type) => {
-                    let rc = finOp.customRc;
-                    let rt = finOp.customRt;
-                    let v = finOp.customVoucher;
-                    let notes = finOp.customNotes;
-                    if (type === "reg_bonus" && activeSeason) {
-                      rc = activeSeason.start_bonus_rc || 0;
-                      rt = activeSeason.start_bonus_rt || 0;
-                      v = activeSeason.start_bonus_voucher || 0;
-                      notes = `Season ${activeSeason.season_number} registration starting bonus`;
-                    } else if (type === "season_reward" && activeSeason) {
-                      rc = activeSeason.finale_bonus_rc || 0;
-                      rt = activeSeason.finale_bonus_rt || 0;
-                      v = activeSeason.finale_bonus_voucher || 0;
-                      notes = `Season ${activeSeason.season_number} finale bonus standing reward`;
-                    }
-                    setFinOp(prev => ({
-                      ...prev,
-                      customType: type,
-                      customRc: rc,
-                      customRt: rt,
-                      customVoucher: v,
-                      customNotes: notes
-                    }));
-                  }}
+                  value={finOp.targetManagerId}
+                  onChange={(val) => setFinOp(prev => ({ ...prev, targetManagerId: val }))}
+                  placeholder="-- Select Club --"
                   options={[
-                    { value: "custom_credit", label: "Custom Manual Credit (Add + coins/tokens)" },
-                    { value: "custom_debit", label: "Custom Manual Debit (Deduct - coins/tokens)" },
-                    { value: "reg_bonus", label: "Season Registration Bonus (Credit RC & RT)" },
-                    { value: "season_reward", label: "Season Reward / Standing Payout" },
-                    { value: "ballon_dor_ceremony", label: "Ballon d'Or Ceremony (Tokens RT only)" }
+                    { value: "", label: "-- Select Club --" },
+                    ...clubs.map(c => ({ value: String(c.manager_id || c.id), label: `${c.name} (${c.manager})` }))
                   ]}
                   buttonStyle={{ width: "100%", justifyContent: "space-between" }}
                 />
               </div>
             )}
 
-            {/* Quick Presets Row */}
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", marginBottom: "0.85rem", background: "rgba(255,255,255,0.02)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 700, marginRight: "4px" }}>
-                <i className="fa-solid fa-bolt" style={{ color: "#eab308", marginRight: "4px" }} /> Quick Presets:
-              </span>
-              {[10, 20, 50, 100].map(amt => (
+            {/* Operation Type Switch: Award (+) vs Deduct (-) */}
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "8px", textTransform: "uppercase" }}>
+                Adjustment Action (Operation)
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", maxWidth: "480px" }}>
                 <button
-                  key={`plus-${amt}`}
                   type="button"
-                  onClick={() => setFinOp(prev => ({ ...prev, customRc: amt, customType: "custom_credit" }))}
-                  style={{ padding: "4px 9px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.35)", color: "#34d399", cursor: "pointer" }}
-                  title={`Award +${amt} Coins`}
+                  onClick={() => {
+                    setOperationType("credit");
+                    if (finOp.customType === "custom_debit") setFinOp(prev => ({ ...prev, customType: "custom_credit" }));
+                  }}
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    border: operationType === "credit" ? "2px solid #10b981" : "1px solid rgba(255,255,255,0.1)",
+                    background: operationType === "credit" ? "rgba(16,185,129,0.18)" : "rgba(0,0,0,0.25)",
+                    color: operationType === "credit" ? "#34d399" : "rgba(255,255,255,0.6)",
+                    boxShadow: operationType === "credit" ? "0 0 15px rgba(16,185,129,0.25)" : "none",
+                    transition: "all 0.2s ease"
+                  }}
                 >
-                  +{amt} RC
+                  <i className="fa-solid fa-circle-plus" style={{ fontSize: "1rem" }} />
+                  Award / Credit (+)
                 </button>
-              ))}
-              <span style={{ margin: "0 4px", opacity: 0.3 }}>|</span>
-              {[10, 20, 50].map(amt => (
+
                 <button
-                  key={`minus-${amt}`}
                   type="button"
-                  onClick={() => setFinOp(prev => ({ ...prev, customRc: amt, customType: "custom_debit" }))}
-                  style={{ padding: "4px 9px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 700, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", color: "#f87171", cursor: "pointer" }}
-                  title={`Deduct -${amt} Coins`}
+                  onClick={() => {
+                    setOperationType("debit");
+                    if (finOp.customType !== "custom_debit") setFinOp(prev => ({ ...prev, customType: "custom_debit" }));
+                  }}
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    border: operationType === "debit" ? "2px solid #ef4444" : "1px solid rgba(255,255,255,0.1)",
+                    background: operationType === "debit" ? "rgba(239,68,68,0.18)" : "rgba(0,0,0,0.25)",
+                    color: operationType === "debit" ? "#f87171" : "rgba(255,255,255,0.6)",
+                    boxShadow: operationType === "debit" ? "0 0 15px rgba(239,68,68,0.25)" : "none",
+                    transition: "all 0.2s ease"
+                  }}
                 >
-                  -{amt} RC
+                  <i className="fa-solid fa-circle-minus" style={{ fontSize: "1rem" }} />
+                  Deduct / Fine (-)
                 </button>
-              ))}
+              </div>
             </div>
 
-            {/* Amount inputs */}
-            <div className="admin-form-grid">
-              <div className="admin-form-group">
-                <label>
-                  <i className="fa-solid fa-coins" style={{ color: "#fbbf24", marginRight: "5px" }} />
-                  Coins Amount (RC) {finOp.customType === "custom_debit" ? "(Deduct)" : "(Award)"}
-                </label>
+            {/* Three Currency Cards: Coins, Tokens, Vouchers */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem", marginBottom: "1.25rem" }}>
+              
+              {/* Card 1: Coins (RC) */}
+              <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: "12px", padding: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <i className="fa-solid fa-coins" /> Coins (RC)
+                  </label>
+                  {finOp.customRc > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customRc: 0 }))}
+                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.72rem" }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
+                  placeholder="0 Coins"
                   className="admin-input"
-                  value={finOp.customRc}
+                  value={finOp.customRc || ""}
                   onChange={(e) => setFinOp(prev => ({ ...prev, customRc: Math.max(0, parseInt(e.target.value) || 0) }))}
-                  style={{ color: finOp.customType === "custom_debit" ? "#f87171" : "#34d399", fontWeight: 700 }}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 800,
+                    color: operationType === "debit" ? "#f87171" : "#34d399",
+                    marginBottom: "8px"
+                  }}
                 />
+                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                  {[5, 10, 15, 25, 50, 100].map(amt => (
+                    <button
+                      key={`rc-${amt}`}
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customRc: amt }))}
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: "5px",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        border: "1px solid rgba(251,191,36,0.3)",
+                        background: finOp.customRc === amt ? "rgba(251,191,36,0.25)" : "rgba(251,191,36,0.08)",
+                        color: "#fbbf24",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {amt}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="admin-form-group">
-                <label>
-                  <i className="fa-solid fa-star" style={{ color: "#38bdf8", marginRight: "5px" }} />
-                  Tokens Amount (RT)
-                </label>
+
+              {/* Card 2: Tokens (RT) */}
+              <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(56,189,248,0.2)", borderRadius: "12px", padding: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <i className="fa-solid fa-star" /> Tokens (RT)
+                  </label>
+                  {finOp.customRt > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customRt: 0 }))}
+                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.72rem" }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
+                  placeholder="0 Tokens"
                   className="admin-input"
-                  value={finOp.customRt}
+                  value={finOp.customRt || ""}
                   onChange={(e) => setFinOp(prev => ({ ...prev, customRt: Math.max(0, parseInt(e.target.value) || 0) }))}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 800,
+                    color: operationType === "debit" ? "#f87171" : "#38bdf8",
+                    marginBottom: "8px"
+                  }}
                 />
+                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                  {[1, 2, 5, 10, 20].map(amt => (
+                    <button
+                      key={`rt-${amt}`}
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customRt: amt }))}
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: "5px",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        border: "1px solid rgba(56,189,248,0.3)",
+                        background: finOp.customRt === amt ? "rgba(56,189,248,0.25)" : "rgba(56,189,248,0.08)",
+                        color: "#38bdf8",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {amt}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="admin-form-group">
-                <label>
-                  <i className="fa-solid fa-ticket" style={{ color: "#c084fc", marginRight: "5px" }} />
-                  Vouchers Amount
-                </label>
+
+              {/* Card 3: Vouchers */}
+              <div style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(192,132,252,0.2)", borderRadius: "12px", padding: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#c084fc", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <i className="fa-solid fa-ticket" /> Vouchers
+                  </label>
+                  {finOp.customVoucher > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customVoucher: 0 }))}
+                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.72rem" }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
+                  placeholder="0 Vouchers"
                   className="admin-input"
-                  value={finOp.customVoucher}
+                  value={finOp.customVoucher || ""}
                   onChange={(e) => setFinOp(prev => ({ ...prev, customVoucher: Math.max(0, parseInt(e.target.value) || 0) }))}
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 800,
+                    color: operationType === "debit" ? "#f87171" : "#c084fc",
+                    marginBottom: "8px"
+                  }}
                 />
+                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                  {[1, 2, 3, 5].map(amt => (
+                    <button
+                      key={`vch-${amt}`}
+                      type="button"
+                      onClick={() => setFinOp(prev => ({ ...prev, customVoucher: amt }))}
+                      style={{
+                        padding: "2px 7px",
+                        borderRadius: "5px",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        border: "1px solid rgba(192,132,252,0.3)",
+                        background: finOp.customVoucher === amt ? "rgba(192,132,252,0.25)" : "rgba(192,132,252,0.08)",
+                        color: "#c084fc",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {amt}
+                    </button>
+                  ))}
+                </div>
               </div>
+
             </div>
 
-            <div className="admin-form-grid" style={{ gridTemplateColumns: "1fr" }}>
-              <div className="admin-form-group">
-                <label>Adjustment Description / Reason (Required for Audit Trail)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  value={finOp.customNotes}
-                  onChange={(e) => setFinOp(prev => ({ ...prev, customNotes: e.target.value }))}
-                  placeholder="e.g. +10 Match bonus, -10 Late submission penalty, Fair play award..."
-                />
-              </div>
+            {/* Description / Reason */}
+            <div className="admin-form-group" style={{ marginBottom: "1.25rem" }}>
+              <label>Adjustment Description / Reason (Required for Audit Trail)</label>
+              <input
+                type="text"
+                className="admin-input"
+                value={finOp.customNotes}
+                onChange={(e) => setFinOp(prev => ({ ...prev, customNotes: e.target.value }))}
+                placeholder="e.g. Tournament performance reward, late fixture penalty, MOTM coins, special event bonus..."
+              />
             </div>
 
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", marginTop: "0.5rem" }}>
-              <button
-                className="portal-btn btn-primary"
-                onClick={handleApplyCustomAdj}
-                disabled={isPending}
-                style={{
-                  background: finOp.customType === "custom_debit"
-                    ? "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)"
-                    : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  boxShadow: finOp.customType === "custom_debit"
-                    ? "0 4px 15px rgba(239,68,68,0.3)"
-                    : "0 4px 15px rgba(16,185,129,0.3)"
-                }}
-              >
-                {isPending ? (
-                  <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "6px" }} /> Processing...</>
-                ) : targetMode === "bulk" ? (
-                  <>
-                    <i className={finOp.customType === "custom_debit" ? "fa-solid fa-minus" : "fa-solid fa-plus"} style={{ marginRight: "6px" }} />
-                    Apply {finOp.customType === "custom_debit" ? "Deduction" : "Award"} to {selectedManagerIds.length} Teams
-                  </>
-                ) : (
-                  <>
-                    <i className={finOp.customType === "custom_debit" ? "fa-solid fa-minus" : "fa-solid fa-plus"} style={{ marginRight: "6px" }} />
-                    Apply {finOp.customType === "custom_debit" ? "Deduction (-)" : "Award (+)"}
-                  </>
-                )}
-              </button>
+            {/* Live Impact Preview & Submit Button */}
+            {(() => {
+              const sign = operationType === "debit" ? "-" : "+";
+              const parts: string[] = [];
+              if (finOp.customRc > 0) parts.push(`${sign}${finOp.customRc} Coins`);
+              if (finOp.customRt > 0) parts.push(`${sign}${finOp.customRt} Tokens`);
+              if (finOp.customVoucher > 0) parts.push(`${sign}${finOp.customVoucher} Vouchers`);
+              const summaryText = parts.length > 0 ? parts.join(", ") : "0 adjustments";
 
-              {targetMode === "bulk" && selectedManagerIds.length > 0 && (
-                <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
-                  Each team will receive: <strong style={{ color: finOp.customType === "custom_debit" ? "#f87171" : "#34d399" }}>
-                    {finOp.customType === "custom_debit" ? "-" : "+"}{finOp.customRc} RC, {finOp.customType === "custom_debit" ? "-" : "+"}{finOp.customRt} RT
-                  </strong>
-                </span>
-              )}
-            </div>
+              const targetCount = targetMode === "bulk" ? selectedManagerIds.length : (finOp.targetManagerId ? 1 : 0);
+              const targetName = targetMode === "bulk" 
+                ? `${selectedManagerIds.length} Team${selectedManagerIds.length > 1 ? "s" : ""}`
+                : (clubs.find(c => String(c.manager_id || c.id) === finOp.targetManagerId)?.name || "Selected Team");
+
+              return (
+                <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    className="portal-btn btn-primary"
+                    onClick={handleApplyCustomAdj}
+                    disabled={isPending || targetCount === 0 || parts.length === 0}
+                    style={{
+                      padding: "11px 22px",
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      background: operationType === "debit"
+                        ? "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)"
+                        : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                      boxShadow: operationType === "debit"
+                        ? "0 4px 15px rgba(239,68,68,0.3)"
+                        : "0 4px 15px rgba(16,185,129,0.3)",
+                      opacity: (targetCount === 0 || parts.length === 0) ? 0.5 : 1,
+                      cursor: (targetCount === 0 || parts.length === 0) ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {isPending ? (
+                      <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "6px" }} /> Processing...</>
+                    ) : (
+                      <>
+                        <i className={operationType === "debit" ? "fa-solid fa-minus-circle" : "fa-solid fa-plus-circle"} style={{ marginRight: "6px" }} />
+                        Execute {operationType === "debit" ? "Deduction" : "Award"} ({summaryText} &rarr; {targetName})
+                      </>
+                    )}
+                  </button>
+
+                  {parts.length > 0 && targetCount > 0 && (
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      Impact: <strong style={{ color: operationType === "debit" ? "#f87171" : "#34d399" }}>
+                        {summaryText}
+                      </strong> per team {targetMode === "bulk" && selectedManagerIds.length > 1 && (
+                        <span>(across {selectedManagerIds.length} teams)</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
           </div>
 
           {/* Section 4: Recent Wallet Transactions & Adjustments Ledger */}

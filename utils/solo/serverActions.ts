@@ -4112,14 +4112,21 @@ export async function applyCustomAdjustment(
         `, [rcAmt, targetMgrId, seasonId]);
       }
 
+      const parts: string[] = [];
+      if (rcAmt > 0) parts.push(`+${rcAmt} Coins`);
+      if (rtAmt > 0) parts.push(`+${rtAmt} Tokens`);
+      if (vchAmt > 0) parts.push(`+${vchAmt} Vouchers`);
+      const defaultDesc = parts.length > 0 ? parts.join(', ') : 'Credit';
+      const noteDesc = notes && notes.trim() ? notes.trim() : `Custom adjustment: ${defaultDesc}`;
+
       if (rcAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'coin', rcAmt, type, notes || `Custom adjustment credit (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'coin', rcAmt, type, noteDesc);
       }
       if (rtAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'token', rtAmt, type, notes || `Custom adjustment credit (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'token', rtAmt, type, noteDesc);
       }
       if (vchAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'voucher', vchAmt, type, notes || `Custom adjustment credit (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'voucher', vchAmt, type, noteDesc);
       }
     } else {
       await pool.query(`
@@ -4137,14 +4144,21 @@ export async function applyCustomAdjustment(
         WHERE manager_id = $2 AND season_id = $3
       `, [rcAmt, targetMgrId, seasonId]);
 
+      const parts: string[] = [];
+      if (rcAmt > 0) parts.push(`-${rcAmt} Coins`);
+      if (rtAmt > 0) parts.push(`-${rtAmt} Tokens`);
+      if (vchAmt > 0) parts.push(`-${vchAmt} Vouchers`);
+      const defaultDesc = parts.length > 0 ? parts.join(', ') : 'Deduction';
+      const noteDesc = notes && notes.trim() ? notes.trim() : `Custom adjustment: ${defaultDesc}`;
+
       if (rcAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'coin', -rcAmt, type, notes || `Custom adjustment deduction (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'coin', -rcAmt, type, noteDesc);
       }
       if (rtAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'token', -rtAmt, type, notes || `Custom adjustment deduction (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'token', -rtAmt, type, noteDesc);
       }
       if (vchAmt > 0) {
-        await logTransaction(targetMgrId, seasonId, 'voucher', -vchAmt, type, notes || `Custom adjustment deduction (${type})`);
+        await logTransaction(targetMgrId, seasonId, 'voucher', -vchAmt, type, noteDesc);
       }
     }
     
@@ -4204,7 +4218,13 @@ export async function applyBulkCustomAdjustment(
           `, [rcAmt, targetMgrId, seasonId]);
         }
 
-        const noteDesc = notes || `Custom adjustment credit (+${rcAmt} Coins)`;
+        const parts: string[] = [];
+        if (rcAmt > 0) parts.push(`+${rcAmt} Coins`);
+        if (rtAmt > 0) parts.push(`+${rtAmt} Tokens`);
+        if (vchAmt > 0) parts.push(`+${vchAmt} Vouchers`);
+        const defaultDesc = parts.length > 0 ? parts.join(', ') : 'Credit';
+        const noteDesc = notes && notes.trim() ? notes.trim() : `Custom adjustment: ${defaultDesc}`;
+
         if (rcAmt > 0) await logTransaction(targetMgrId, seasonId, 'coin', rcAmt, type, noteDesc);
         if (rtAmt > 0) await logTransaction(targetMgrId, seasonId, 'token', rtAmt, type, noteDesc);
         if (vchAmt > 0) await logTransaction(targetMgrId, seasonId, 'voucher', vchAmt, type, noteDesc);
@@ -4224,7 +4244,12 @@ export async function applyBulkCustomAdjustment(
           WHERE manager_id = $2 AND season_id = $3
         `, [rcAmt, targetMgrId, seasonId]);
 
-        const noteDesc = notes || `Custom adjustment deduction (-${rcAmt} Coins)`;
+        const parts: string[] = [];
+        if (rcAmt > 0) parts.push(`-${rcAmt} Coins`);
+        if (rtAmt > 0) parts.push(`-${rtAmt} Tokens`);
+        if (vchAmt > 0) parts.push(`-${vchAmt} Vouchers`);
+        const defaultDesc = parts.length > 0 ? parts.join(', ') : 'Deduction';
+        const noteDesc = notes && notes.trim() ? notes.trim() : `Custom adjustment: ${defaultDesc}`;
         if (rcAmt > 0) await logTransaction(targetMgrId, seasonId, 'coin', -rcAmt, type, noteDesc);
         if (rtAmt > 0) await logTransaction(targetMgrId, seasonId, 'token', -rtAmt, type, noteDesc);
         if (vchAmt > 0) await logTransaction(targetMgrId, seasonId, 'voucher', -vchAmt, type, noteDesc);
