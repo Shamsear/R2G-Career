@@ -8215,7 +8215,33 @@ export async function updatePrimeFeeConfig(params: {
   }
 }
 
-export async function primePlayerForTeam(playerId: number, clubId?: number, tokenCost?: number, coinCost?: number) {
+export function formatPrimeValidity(
+  validity: string | number | undefined | null,
+  curSeasonNum: number,
+  isMidSeason: boolean = false
+): string {
+  if (!validity) {
+    const target = (Number(curSeasonNum) + (isMidSeason ? 0.5 : 0) + 1.0).toFixed(1);
+    return `Season ${target} (1 Season)`;
+  }
+
+  const vStr = String(validity).trim();
+  if (vStr.toLowerCase() === "permanent") {
+    return "Permanent";
+  }
+
+  const numVal = parseFloat(vStr);
+  if (!isNaN(numVal) && (vStr === String(numVal) || vStr === `${numVal}.0` || !isNaN(Number(vStr)))) {
+    const curBase = Number(curSeasonNum) + (isMidSeason ? 0.5 : 0);
+    const target = (curBase + numVal).toFixed(1);
+    const label = numVal === 0.5 ? "0.5 Season" : numVal === 1 ? "1 Season" : `${numVal} Seasons`;
+    return `Season ${target} (${label})`;
+  }
+
+  return vStr;
+}
+
+export async function primePlayerForTeam(playerId: number, clubId?: number, tokenCost?: number, coinCost?: number, validity?: string | number) {
   try {
     const pId = parseInt(playerId.toString(), 10);
     if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
@@ -8225,8 +8251,8 @@ export async function primePlayerForTeam(playerId: number, clubId?: number, toke
     `);
     const activeSeason = seasonRows[0] || { id: 1, season_number: 9, is_mid_season: false };
     const curSeasonNum = activeSeason.season_number || 9;
-    const nextSeasonNum = curSeasonNum + 1;
-    const validUntilStr = `season ${nextSeasonNum}.0 (1 Season)`;
+    const isMidSeason = !!activeSeason.is_mid_season;
+    const validUntilStr = formatPrimeValidity(validity, curSeasonNum, isMidSeason);
 
     let targetClubId = clubId ? parseInt(clubId.toString(), 10) : undefined;
     if (!targetClubId) {
@@ -8338,7 +8364,7 @@ export async function removePlayerPrime(playerId: number) {
   }
 }
 
-export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: number, clubId: number, tokenCost?: number, coinCost?: number) {
+export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: number, clubId: number, tokenCost?: number, coinCost?: number, validity?: string | number) {
   try {
     const fromId = parseInt(fromPlayerId.toString(), 10);
     const toId = parseInt(toPlayerId.toString(), 10);
@@ -8355,8 +8381,8 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
     `);
     const activeSeason = seasonRows[0] || { id: 1, season_number: 9, is_mid_season: false };
     const curSeasonNum = activeSeason.season_number || 9;
-    const nextSeasonNum = curSeasonNum + 1;
-    const defaultValidUntil = `season ${nextSeasonNum}.0 (1 Season)`;
+    const isMidSeason = !!activeSeason.is_mid_season;
+    const defaultValidUntil = formatPrimeValidity(undefined, curSeasonNum, isMidSeason);
 
     // Check if source player has Prime status
     const { rows: sourcePrimeRows } = await pool.query(`
@@ -8365,7 +8391,13 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
     if (sourcePrimeRows.length === 0) {
       return { success: false, error: "Source player does not have Prime status" };
     }
-    const validUntilStr = sourcePrimeRows[0].valid_until || defaultValidUntil;
+
+    let validUntilStr: string;
+    if (validity && String(validity).trim() !== "" && String(validity).toLowerCase() !== "keep") {
+      validUntilStr = formatPrimeValidity(validity, curSeasonNum, isMidSeason);
+    } else {
+      validUntilStr = sourcePrimeRows[0].valid_until || defaultValidUntil;
+    }
 
     // Check if destination player is already primed
     const { rows: destPrimeRows } = await pool.query(`
@@ -8459,6 +8491,45 @@ export async function transferPlayerPrime(fromPlayerId: number, toPlayerId: numb
     await pool.query('ROLLBACK').catch(() => {});
     console.error("Error transferring prime status:", err);
     return { success: false, error: err.message || "Failed to transfer prime status" };
+  }
+}
+
+export async function updatePlayerPrimeValidity(playerId: number, validity: string | number) {
+  try {
+    const pId = parseInt(playerId.toString(), 10);
+    if (isNaN(pId)) return { success: false, error: "Invalid Player ID" };
+
+    const { rows: primeRows } = await pool.query(`
+      SELECT * FROM player_seasonal_statuses WHERE player_id = $1 AND LOWER(status_type) = 'prime'
+    `, [pId]);
+    if (primeRows.length === 0) {
+      return { success: false, error: "Player does not have active Prime status" };
+    }
+
+    const { rows: seasonRows } = await pool.query(`
+      SELECT id, season_number, is_mid_season FROM seasons ORDER BY season_number DESC LIMIT 1
+    `);
+    const activeSeason = seasonRows[0] || { id: 1, season_number: 9, is_mid_season: false };
+    const curSeasonNum = activeSeason.season_number || 9;
+    const isMidSeason = !!activeSeason.is_mid_season;
+
+    const formattedValidity = formatPrimeValidity(validity, curSeasonNum, isMidSeason);
+
+    await pool.query(`
+      UPDATE player_seasonal_statuses 
+      SET valid_until = $1
+      WHERE player_id = $2 AND LOWER(status_type) = 'prime'
+    `, [formattedValidity, pId]);
+
+    const { rows: pRows } = await pool.query(`SELECT name FROM players WHERE id = $1`, [pId]);
+    const pName = pRows[0]?.name || `Player #${pId}`;
+
+    await logSoloAdminAction("UPDATE_PRIME_VALIDITY", { playerId: pId, playerName: pName, validUntil: formattedValidity });
+
+    return { success: true, validUntil: formattedValidity };
+  } catch (err: any) {
+    console.error("Error updating player prime validity:", err);
+    return { success: false, error: err.message || "Failed to update prime validity" };
   }
 }
 

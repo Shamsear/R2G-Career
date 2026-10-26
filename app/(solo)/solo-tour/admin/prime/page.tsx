@@ -13,6 +13,8 @@ import {
   primePlayerForTeam,
   transferPlayerPrime,
   removePlayerPrime,
+  updatePlayerPrimeValidity,
+  formatPrimeValidity,
   fetchPrimedPlayersList,
   fetchPrimeFeeConfig,
   updatePrimeFeeConfig,
@@ -68,11 +70,21 @@ export default function AdminPrimeManager() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [playerSearch, setPlayerSearch] = useState<string>("");
   const [rtCost, setRtCost] = useState<number>(50);
+  const [assignValidity, setAssignValidity] = useState<string>("1.0");
+  const [assignCustomValidity, setAssignCustomValidity] = useState<string>("");
 
   // Transfer Mode State
   const [transferSourcePlayerId, setTransferSourcePlayerId] = useState<string>("");
   const [transferDestPlayerId, setTransferDestPlayerId] = useState<string>("");
   const [transferRtCost, setTransferRtCost] = useState<number>(50);
+  const [transferValidity, setTransferValidity] = useState<string>("keep");
+  const [transferCustomValidity, setTransferCustomValidity] = useState<string>("");
+
+  // Edit Validity Modal State
+  const [editingPlayer, setEditingPlayer] = useState<any | null>(null);
+  const [editValidity, setEditValidity] = useState<string>("1.0");
+  const [editCustomValidity, setEditCustomValidity] = useState<string>("");
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -195,8 +207,21 @@ export default function AdminPrimeManager() {
     }
   };
 
+  const computePreview = (val: string, customText: string) => {
+    if (val === "keep") return "Keep source player's existing validity";
+    if (val === "custom") return customText.trim() ? customText.trim() : "(Enter custom text)";
+    const curNum = activeSeason?.season_number || 9;
+    const isMid = !!activeSeason?.is_mid_season;
+    return formatPrimeValidity(val, curNum, isMid);
+  };
+
   const handlePrimeSelected = async () => {
     if (selectedPlayerIds.length === 0) return showToast("No players selected!");
+
+    const finalVal = assignValidity === "custom" ? assignCustomValidity.trim() : assignValidity;
+    if (assignValidity === "custom" && !finalVal) {
+      return showToast("Please enter a custom validity string!");
+    }
 
     startTransition(async () => {
       try {
@@ -205,7 +230,13 @@ export default function AdminPrimeManager() {
         let lastError = "";
 
         for (const pId of selectedPlayerIds) {
-          const res = await primePlayerForTeam(pId, selectedClubId ? Number(selectedClubId) : undefined, rtCost);
+          const res = await primePlayerForTeam(
+            pId,
+            selectedClubId ? Number(selectedClubId) : undefined,
+            rtCost,
+            undefined,
+            finalVal
+          );
           if (res.success) {
             successCount++;
             if (res.validUntil) lastValidUntil = res.validUntil;
@@ -215,7 +246,7 @@ export default function AdminPrimeManager() {
         }
 
         if (successCount > 0) {
-          showToast(`Successfully Primed ${successCount} players for 1 Season! (${lastValidUntil})`);
+          showToast(`Successfully Primed ${successCount} player${successCount > 1 ? "s" : ""}! (${lastValidUntil})`);
           setSelectedPlayerIds([]);
           loadData();
         } else if (lastError) {
@@ -248,6 +279,57 @@ export default function AdminPrimeManager() {
     });
   };
 
+  const handleOpenEditValidity = (p: any) => {
+    setEditingPlayer(p);
+    const vStr = String(p.validUntil || "").toLowerCase();
+    if (vStr.includes("0.5") || vStr.includes("half")) {
+      setEditValidity("0.5");
+      setEditCustomValidity("");
+    } else if (vStr.includes("1.5")) {
+      setEditValidity("1.5");
+      setEditCustomValidity("");
+    } else if (vStr.includes("2 season") || vStr.includes("2.0")) {
+      setEditValidity("2.0");
+      setEditCustomValidity("");
+    } else if (vStr.includes("3 season") || vStr.includes("3.0")) {
+      setEditValidity("3.0");
+      setEditCustomValidity("");
+    } else if (vStr.includes("permanent")) {
+      setEditValidity("permanent");
+      setEditCustomValidity("");
+    } else if (vStr.includes("1 season") || vStr.includes("1.0")) {
+      setEditValidity("1.0");
+      setEditCustomValidity("");
+    } else {
+      setEditValidity("custom");
+      setEditCustomValidity(p.validUntil || "");
+    }
+  };
+
+  const handleSaveEditValidity = async () => {
+    if (!editingPlayer) return;
+    const finalVal = editValidity === "custom" ? editCustomValidity.trim() : editValidity;
+    if (editValidity === "custom" && !finalVal) {
+      return showToast("Please enter a valid validity text!");
+    }
+
+    try {
+      setIsSavingEdit(true);
+      const res = await updatePlayerPrimeValidity(editingPlayer.id, finalVal);
+      if (res.success) {
+        showToast(`Updated Prime validity for ${editingPlayer.name}: ${res.validUntil}`);
+        setEditingPlayer(null);
+        loadData();
+      } else {
+        showToast(res.error || "Failed to update validity.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Error updating Prime validity.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   // Transfer Mode: Source players (primed players belonging to the selected club)
   const transferSourcePlayers = useMemo(() => {
     if (!selectedClubId) return primedPlayers;
@@ -272,16 +354,26 @@ export default function AdminPrimeManager() {
     if (!transferDestPlayerId) return showToast("Please choose the target player to receive Prime!");
     if (transferSourcePlayerId === transferDestPlayerId) return showToast("Source and destination cannot be the same player!");
 
+    const finalVal = transferValidity === "keep"
+      ? undefined
+      : (transferValidity === "custom" ? transferCustomValidity.trim() : transferValidity);
+
+    if (transferValidity === "custom" && !finalVal) {
+      return showToast("Please enter a custom validity string!");
+    }
+
     startTransition(async () => {
       try {
         const res = await transferPlayerPrime(
           Number(transferSourcePlayerId),
           Number(transferDestPlayerId),
           Number(selectedClubId),
-          transferRtCost
+          transferRtCost,
+          undefined,
+          finalVal
         );
         if (res.success) {
-          showToast(`Prime transferred successfully for 1 Season! (${res.validUntil})`);
+          showToast(`Prime transferred successfully! (${res.validUntil})`);
           setTransferSourcePlayerId("");
           setTransferDestPlayerId("");
           loadData();
@@ -376,13 +468,13 @@ export default function AdminPrimeManager() {
         <div className="rws-page-hero" style={{ marginBottom: "1.5rem" }}>
           <div className="portal-page-badge" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)" }}>
             <i className="fa-solid fa-crown" />
-            1-Season Player Priming Console
+            Player Priming & Validity Console
           </div>
           <h1 className="rws-hero-title">
             BULK PRIME MANAGER
           </h1>
           <p className="rws-hero-sub">
-            Configure Prime upgrades for multiple team players at once. Select a franchise, choose target players, and commit the Prime status.
+            Configure Prime upgrades, transfers, and custom validity durations (0.5 season, 1 season, 2 seasons, permanent, etc.) for club players.
           </p>
         </div>
 
@@ -756,11 +848,83 @@ export default function AdminPrimeManager() {
                   </div>
                 </div>
 
-                {/* Step 3: RT Cost Configuration */}
+                {/* Step 3: Prime Duration / Validity Selection */}
+                <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.05)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                    <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                      <i className="fa-solid fa-hourglass-half" /> 3. Prime Duration / Validity
+                    </label>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-mono)" }}>
+                      Preview: <strong style={{ color: "#fbbf24" }}>{computePreview(assignValidity, assignCustomValidity)}</strong>
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {[
+                      { id: "0.5", label: "0.5 Season (Half)" },
+                      { id: "1.0", label: "1 Season" },
+                      { id: "1.5", label: "1.5 Seasons" },
+                      { id: "2.0", label: "2 Seasons" },
+                      { id: "3.0", label: "3 Seasons" },
+                      { id: "permanent", label: "Permanent" },
+                      { id: "custom", label: "Custom..." }
+                    ].map(opt => {
+                      const isSelected = assignValidity === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setAssignValidity(opt.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: isSelected ? "1px solid #eab308" : "1px solid rgba(255,255,255,0.1)",
+                            background: isSelected ? "rgba(234,179,8,0.2)" : "rgba(0,0,0,0.3)",
+                            color: isSelected ? "#facc15" : "rgba(255,255,255,0.7)",
+                            fontSize: "0.75rem",
+                            fontWeight: isSelected ? 700 : 500,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem" }} />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {assignValidity === "custom" && (
+                    <div style={{ marginTop: "10px" }}>
+                      <input
+                        type="text"
+                        placeholder="Enter custom validity text (e.g. Season 8.0, 4 Seasons, Tournament Winner)..."
+                        value={assignCustomValidity}
+                        onChange={(e) => setAssignCustomValidity(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          background: "rgba(0,0,0,0.5)",
+                          border: "1px solid rgba(234,179,8,0.4)",
+                          borderRadius: "6px",
+                          color: "#fff",
+                          fontSize: "0.82rem",
+                          outline: "none",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 4: RT Cost Configuration */}
                 <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-                      <i className="fa-solid fa-coins" /> 3. RT Deduction Cost Per Player
+                      <i className="fa-solid fa-coins" /> 4. RT Deduction Cost Per Player
                     </label>
                     <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-mono)" }}>
                       Total: <strong style={{ color: "#eab308" }}>{selectedPlayerIds.length * (Number(rtCost) || 0)} RT</strong>
@@ -931,11 +1095,84 @@ export default function AdminPrimeManager() {
                   )}
                 </div>
 
+                {/* Step 4: Transfer Prime Validity Selection */}
+                <div style={{ marginBottom: "1.25rem", padding: "12px 14px", background: "rgba(234,179,8,0.05)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                    <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                      <i className="fa-solid fa-hourglass-half" /> 4. Target Player Prime Validity
+                    </label>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-mono)" }}>
+                      Target: <strong style={{ color: "#fbbf24" }}>{computePreview(transferValidity, transferCustomValidity)}</strong>
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {[
+                      { id: "keep", label: "Keep Existing (Source)" },
+                      { id: "0.5", label: "0.5 Season (Half)" },
+                      { id: "1.0", label: "1 Season" },
+                      { id: "1.5", label: "1.5 Seasons" },
+                      { id: "2.0", label: "2 Seasons" },
+                      { id: "3.0", label: "3 Seasons" },
+                      { id: "permanent", label: "Permanent" },
+                      { id: "custom", label: "Custom..." }
+                    ].map(opt => {
+                      const isSelected = transferValidity === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTransferValidity(opt.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: isSelected ? "1px solid #eab308" : "1px solid rgba(255,255,255,0.1)",
+                            background: isSelected ? "rgba(234,179,8,0.2)" : "rgba(0,0,0,0.3)",
+                            color: isSelected ? "#facc15" : "rgba(255,255,255,0.7)",
+                            fontSize: "0.75rem",
+                            fontWeight: isSelected ? 700 : 500,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem" }} />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {transferValidity === "custom" && (
+                    <div style={{ marginTop: "10px" }}>
+                      <input
+                        type="text"
+                        placeholder="Enter custom validity text (e.g. Season 8.0, 4 Seasons, End of Phase 1)..."
+                        value={transferCustomValidity}
+                        onChange={(e) => setTransferCustomValidity(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          background: "rgba(0,0,0,0.5)",
+                          border: "1px solid rgba(234,179,8,0.4)",
+                          borderRadius: "6px",
+                          color: "#fff",
+                          fontSize: "0.82rem",
+                          outline: "none",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {/* RT Transfer Fee */}
                 <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-                      <i className="fa-solid fa-coins" /> 4. RT Transfer Fee
+                      <i className="fa-solid fa-coins" /> 5. RT Transfer Fee
                     </label>
                     <span style={{ fontSize: "0.75rem", color: "#eab308", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
                       {Number(transferRtCost) || 0} RT
@@ -1036,7 +1273,7 @@ export default function AdminPrimeManager() {
                 </span>
               </div>
               <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)" }}>
-                Duration: 1 Season
+                Configurable Validity Active
               </span>
             </div>
 
@@ -1084,19 +1321,61 @@ export default function AdminPrimeManager() {
                           <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600 }}>{p.clubName}</span>
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
-                          <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", background: "rgba(255,255,255,0.04)", padding: "3px 10px", borderRadius: "6px", color: "#fbbf24" }}>
-                            {p.validUntil}
-                          </span>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", background: "rgba(255,255,255,0.04)", padding: "3px 10px", borderRadius: "6px", color: "#fbbf24" }}>
+                              {p.validUntil}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditValidity(p)}
+                              title="Edit Prime Validity"
+                              style={{
+                                padding: "3px 7px",
+                                borderRadius: "5px",
+                                border: "1px solid rgba(234,179,8,0.3)",
+                                background: "rgba(234,179,8,0.1)",
+                                color: "#fbbf24",
+                                cursor: "pointer",
+                                fontSize: "0.7rem",
+                                display: "inline-flex",
+                                alignItems: "center"
+                              }}
+                            >
+                              <i className="fa-solid fa-pen-to-square" />
+                            </button>
+                          </div>
                         </td>
                         <td style={{ padding: "0.75rem 1.25rem", textAlign: "right" }}>
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePrime(p.id)}
-                            disabled={isPending}
-                            style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, transition: "all 0.2s" }}
-                          >
-                            Remove Prime
-                          </button>
+                          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditValidity(p)}
+                              disabled={isPending}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: "8px",
+                                border: "1px solid rgba(234,179,8,0.3)",
+                                background: "rgba(234,179,8,0.08)",
+                                color: "#fbbf24",
+                                cursor: "pointer",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px"
+                              }}
+                            >
+                              <i className="fa-solid fa-clock" /> Validity
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePrime(p.id)}
+                              disabled={isPending}
+                              style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, transition: "all 0.2s" }}
+                            >
+                              Remove Prime
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1107,6 +1386,196 @@ export default function AdminPrimeManager() {
           </div>
 
         </div>
+
+        {/* Edit Validity Modal */}
+        {mounted && editingPlayer && createPortal(
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.75)",
+              backdropFilter: "blur(6px)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1rem"
+            }}
+            onClick={() => !isSavingEdit && setEditingPlayer(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#18181b",
+                border: "1px solid rgba(234,179,8,0.3)",
+                borderRadius: "16px",
+                width: "100%",
+                maxWidth: "480px",
+                padding: "1.5rem",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.8)",
+                position: "relative"
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>
+                      Edit Prime Validity
+                    </h3>
+                  </div>
+                  <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: "rgba(255,255,255,0.6)" }}>
+                    Updating validity for <strong style={{ color: "#fff" }}>{editingPlayer.name}</strong> ({editingPlayer.position} · {editingPlayer.clubName})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlayer(null)}
+                  disabled={isSavingEdit}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "1.1rem", padding: "4px" }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              {/* Current Validity Display */}
+              <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>Current Validity:</span>
+                <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#fbbf24", fontFamily: "var(--font-mono)" }}>
+                  {editingPlayer.validUntil || "Not Set"}
+                </span>
+              </div>
+
+              {/* Target Validity Selector */}
+              <div style={{ marginBottom: "1rem" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, marginBottom: "8px" }}>
+                  Select New Validity Duration
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {[
+                    { id: "0.5", label: "0.5 Season (Half)" },
+                    { id: "1.0", label: "1 Season" },
+                    { id: "1.5", label: "1.5 Seasons" },
+                    { id: "2.0", label: "2 Seasons" },
+                    { id: "3.0", label: "3 Seasons" },
+                    { id: "permanent", label: "Permanent" },
+                    { id: "custom", label: "Custom..." }
+                  ].map(opt => {
+                    const isSelected = editValidity === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setEditValidity(opt.id)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          border: isSelected ? "1px solid #eab308" : "1px solid rgba(255,255,255,0.1)",
+                          background: isSelected ? "rgba(234,179,8,0.2)" : "rgba(0,0,0,0.3)",
+                          color: isSelected ? "#facc15" : "rgba(255,255,255,0.7)",
+                          fontSize: "0.78rem",
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}
+                      >
+                        {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem" }} />}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {editValidity === "custom" && (
+                  <div style={{ marginTop: "10px" }}>
+                    <input
+                      type="text"
+                      placeholder="Enter custom validity text (e.g. Season 8.0, 4 Seasons, End of Phase 1)..."
+                      value={editCustomValidity}
+                      onChange={(e) => setEditCustomValidity(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(234,179,8,0.4)",
+                        borderRadius: "6px",
+                        color: "#fff",
+                        fontSize: "0.85rem",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Live New Preview */}
+              <div style={{ padding: "10px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "8px", marginBottom: "1.25rem" }}>
+                <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", marginBottom: "2px" }}>
+                  Target New Validity Value
+                </div>
+                <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#fbbf24", fontFamily: "var(--font-mono)" }}>
+                  {computePreview(editValidity, editCustomValidity)}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlayer(null)}
+                  disabled={isSavingEdit}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditValidity}
+                  disabled={isSavingEdit}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #eab308, #ca8a04)",
+                    color: "#000",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <i className="fa-solid fa-circle-notch fa-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-check" /> Update Validity
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       </div>
     </div>
