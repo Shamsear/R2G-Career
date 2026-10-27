@@ -25,6 +25,7 @@ import {
   removePlayerPrime,
   updatePlayerPrimeValidity,
   formatPrimeValidity,
+  parsePrimeDurationInfo,
   fetchPrimedPlayersList,
   fetchAdminPlayersList,
   fetchRecentReversibleOperations,
@@ -770,6 +771,117 @@ export default function AuctionManager() {
     }
   };
 
+  // Active Primed Players Table Search & Pagination (Prime Tab)
+  const [primeTabSearch, setPrimeTabSearch] = useState<string>("");
+  const [primeTabClubFilter, setPrimeTabClubFilter] = useState<string>("all");
+  const [primeTabPage, setPrimeTabPage] = useState<number>(1);
+  const [primeTabPageSize, setPrimeTabPageSize] = useState<number>(10);
+
+  const filteredPrimeTabPlayers = useMemo(() => {
+    return primedPlayers.filter(p => {
+      if (primeTabClubFilter !== "all") {
+        if (String(p.clubId) !== primeTabClubFilter && p.clubName !== primeTabClubFilter) return false;
+      }
+      if (primeTabSearch.trim()) {
+        const q = primeTabSearch.toLowerCase().trim();
+        const matchName = (p.name || "").toLowerCase().includes(q);
+        const matchClub = (p.clubName || "").toLowerCase().includes(q);
+        const matchPos = (p.position || "").toLowerCase().includes(q);
+        const matchDur = (p.durationLabel || p.validUntil || "").toLowerCase().includes(q);
+        const matchExp = (p.expiryLabel || "").toLowerCase().includes(q);
+        return matchName || matchClub || matchPos || matchDur || matchExp;
+      }
+      return true;
+    });
+  }, [primedPlayers, primeTabClubFilter, primeTabSearch]);
+
+  const totalPrimeTabPages = primeTabPageSize === -1 ? 1 : Math.ceil(filteredPrimeTabPlayers.length / primeTabPageSize) || 1;
+  const paginatedPrimeTabPlayers = useMemo(() => {
+    if (primeTabPageSize === -1) return filteredPrimeTabPlayers;
+    const start = (primeTabPage - 1) * primeTabPageSize;
+    return filteredPrimeTabPlayers.slice(start, start + primeTabPageSize);
+  }, [filteredPrimeTabPlayers, primeTabPage, primeTabPageSize]);
+
+  const renderPrimeDurationBadge = (p: any) => {
+    const durInfo = parsePrimeDurationInfo(
+      p.validUntil,
+      activeSeason?.season_number || p.seasonNumber || 9,
+      !!activeSeason?.is_mid_season
+    );
+
+    const isPermanent = durInfo.durationLabel.toLowerCase().includes("permanent");
+    const isHalf = durInfo.durationLabel.includes("0.5") || durInfo.durationLabel.toLowerCase().includes("half");
+    const isMulti = durInfo.durationLabel.includes("2") || durInfo.durationLabel.includes("3");
+
+    const badgeBg = isPermanent
+      ? "rgba(168, 85, 247, 0.15)"
+      : isHalf
+      ? "rgba(56, 189, 248, 0.15)"
+      : isMulti
+      ? "rgba(34, 197, 94, 0.15)"
+      : "rgba(234, 179, 8, 0.15)";
+
+    const badgeColor = isPermanent
+      ? "#c084fc"
+      : isHalf
+      ? "#38bdf8"
+      : isMulti
+      ? "#4ade80"
+      : "#facc15";
+
+    const badgeBorder = isPermanent
+      ? "rgba(168, 85, 247, 0.3)"
+      : isHalf
+      ? "rgba(56, 189, 248, 0.3)"
+      : isMulti
+      ? "rgba(34, 197, 94, 0.3)"
+      : "rgba(234, 179, 8, 0.3)";
+
+    return (
+      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "2px 6px",
+            borderRadius: "5px",
+            background: badgeBg,
+            color: badgeColor,
+            border: `1px solid ${badgeBorder}`,
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            whiteSpace: "nowrap"
+          }}
+        >
+          <i
+            className={
+              isPermanent
+                ? "fa-solid fa-infinity"
+                : isHalf
+                ? "fa-solid fa-bolt"
+                : "fa-solid fa-hourglass-half"
+            }
+            style={{ fontSize: "0.6rem" }}
+          />
+          {durInfo.durationLabel}
+        </span>
+        {durInfo.expiryLabel && (
+          <span
+            style={{
+              fontSize: "0.65rem",
+              color: "rgba(255,255,255,0.5)",
+              fontFamily: "var(--font-mono)",
+              whiteSpace: "nowrap"
+            }}
+          >
+            {durInfo.expiryLabel}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const handleSavePrimeDefaultFees = async () => {
     try {
       setIsSavingPrimeFees(true);
@@ -835,22 +947,22 @@ export default function AuctionManager() {
   const handleOpenEditPrimeValidity = (p: any) => {
     setEditingPrimePlayer(p);
     const vStr = String(p.validUntil || "").toLowerCase();
-    if (vStr.includes("0.5") || vStr.includes("half")) {
+    if (vStr.includes("0.5") || vStr.includes("half") || vStr.endsWith("9.5")) {
       setEditPrimeValidity("0.5");
       setEditPrimeCustomValidity("");
-    } else if (vStr.includes("1.5")) {
+    } else if (vStr.includes("1.5") || vStr.endsWith("10.5")) {
       setEditPrimeValidity("1.5");
       setEditPrimeCustomValidity("");
-    } else if (vStr.includes("2 season") || vStr.includes("2.0")) {
+    } else if (vStr.includes("2 season") || vStr.includes("2.0") || vStr.endsWith("11.0")) {
       setEditPrimeValidity("2.0");
       setEditPrimeCustomValidity("");
-    } else if (vStr.includes("3 season") || vStr.includes("3.0")) {
+    } else if (vStr.includes("3 season") || vStr.includes("3.0") || vStr.endsWith("12.0")) {
       setEditPrimeValidity("3.0");
       setEditPrimeCustomValidity("");
     } else if (vStr.includes("permanent")) {
       setEditPrimeValidity("permanent");
       setEditPrimeCustomValidity("");
-    } else if (vStr.includes("1 season") || vStr.includes("1.0")) {
+    } else if (vStr.includes("1 season") || vStr.includes("1.0") || vStr.endsWith("10.0") || vStr === "1") {
       setEditPrimeValidity("1.0");
       setEditPrimeCustomValidity("");
     } else {
@@ -3681,21 +3793,87 @@ export default function AuctionManager() {
 
             {/* Right Column: List of Active Primed Players */}
             <div className="admin-card" style={{ padding: "1.5rem" }}>
-              <h3 style={{ fontSize: "1.02rem", color: "#fff", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "8px" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.02rem", color: "#fff", fontWeight: 700 }}>
                   <i className="fa-solid fa-crown" style={{ color: "#eab308" }} />
-                  Active Primed Players ({primedPlayers.length})
+                  Active Primed Players
+                  <span style={{ background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                    {primedPlayers.length}
+                  </span>
                 </span>
                 <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
                   Configurable Validity Active
                 </span>
-              </h3>
+              </div>
+
+              {/* Primed Players Filter Bar */}
+              <div style={{
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: "1rem",
+                padding: "8px 10px",
+                background: "rgba(0,0,0,0.25)",
+                borderRadius: "8px",
+                border: "1px solid rgba(255,255,255,0.05)"
+              }}>
+                <div style={{ position: "relative", flex: "1 1 180px", minWidth: "140px" }}>
+                  <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)", fontSize: "0.72rem" }} />
+                  <input
+                    type="text"
+                    placeholder="Search primed player, club..."
+                    value={primeTabSearch}
+                    onChange={(e) => { setPrimeTabSearch(e.target.value); setPrimeTabPage(1); }}
+                    style={{
+                      width: "100%",
+                      padding: "5px 24px 5px 28px",
+                      background: "rgba(0,0,0,0.35)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "6px",
+                      color: "#fff",
+                      fontSize: "0.75rem",
+                      outline: "none",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  {primeTabSearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setPrimeTabSearch(""); setPrimeTabPage(1); }}
+                      style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.7rem", padding: 0 }}
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={primeTabClubFilter}
+                  onChange={(e) => { setPrimeTabClubFilter(e.target.value); setPrimeTabPage(1); }}
+                  style={{
+                    padding: "5px 8px",
+                    background: "rgba(0,0,0,0.35)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "0.75rem",
+                    outline: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="all" style={{ background: "#18181b" }}>All Clubs</option>
+                  {clubs.map(c => (
+                    <option key={c.id} value={String(c.id)} style={{ background: "#18181b" }}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
 
               {loadingPrimeData ? (
                 <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)" }}>Loading primed players...</div>
-              ) : primedPlayers.length === 0 ? (
+              ) : filteredPrimeTabPlayers.length === 0 ? (
                 <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.82rem" }}>
-                  No players are currently Primed in the database.
+                  {primedPlayers.length === 0 ? "No players are currently Primed in the database." : "No Primed players match the search filters."}
                 </div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
@@ -3710,7 +3888,7 @@ export default function AuctionManager() {
                       </tr>
                     </thead>
                     <tbody>
-                      {primedPlayers.map((p) => {
+                      {paginatedPrimeTabPlayers.map((p) => {
                         const handleRemove = async () => {
                           if (!confirm("Are you sure you want to remove Prime status from this player?")) return;
                           startTransition(async () => {
@@ -3748,10 +3926,8 @@ export default function AuctionManager() {
                             <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-secondary)", fontWeight: 600 }}>{p.position}</td>
                             <td style={{ padding: "0.75rem 0.5rem", color: "#fff", fontWeight: 600 }}>{p.clubName}</td>
                             <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "#fbbf24" }}>
-                                  {p.validUntil}
-                                </span>
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
+                                {renderPrimeDurationBadge(p)}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditPrimeValidity(p)}
@@ -3794,6 +3970,85 @@ export default function AuctionManager() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Prime Tab Pagination Bar */}
+              {filteredPrimeTabPlayers.length > 0 && (
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  marginTop: "1rem",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  fontSize: "0.72rem"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      {primeTabPageSize === -1 ? 1 : Math.min((primeTabPage - 1) * primeTabPageSize + 1, filteredPrimeTabPlayers.length)} - {primeTabPageSize === -1 ? filteredPrimeTabPlayers.length : Math.min(primeTabPage * primeTabPageSize, filteredPrimeTabPlayers.length)} of {filteredPrimeTabPlayers.length}
+                    </span>
+                    <select
+                      value={primeTabPageSize}
+                      onChange={(e) => { setPrimeTabPageSize(Number(e.target.value)); setPrimeTabPage(1); }}
+                      style={{
+                        padding: "2px 6px",
+                        background: "rgba(0,0,0,0.35)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "4px",
+                        color: "var(--text-secondary)",
+                        fontSize: "0.7rem",
+                        outline: "none",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <option value={10} style={{ background: "#18181b" }}>10 / page</option>
+                      <option value={25} style={{ background: "#18181b" }}>25 / page</option>
+                      <option value={-1} style={{ background: "#18181b" }}>All</option>
+                    </select>
+                  </div>
+
+                  {primeTabPageSize !== -1 && totalPrimeTabPages > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <button
+                        type="button"
+                        disabled={primeTabPage <= 1}
+                        onClick={() => setPrimeTabPage(prev => Math.max(1, prev - 1))}
+                        style={{
+                          padding: "2px 8px",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "4px",
+                          color: primeTabPage <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
+                          cursor: primeTabPage <= 1 ? "default" : "pointer",
+                          fontSize: "0.7rem"
+                        }}
+                      >
+                        <i className="fa-solid fa-chevron-left" /> Prev
+                      </button>
+                      <span style={{ color: "#fbbf24", padding: "0 4px", fontFamily: "var(--font-mono)" }}>
+                        {primeTabPage} / {totalPrimeTabPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={primeTabPage >= totalPrimeTabPages}
+                        onClick={() => setPrimeTabPage(prev => Math.min(totalPrimeTabPages, prev + 1))}
+                        style={{
+                          padding: "2px 8px",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "4px",
+                          color: primeTabPage >= totalPrimeTabPages ? "rgba(255,255,255,0.2)" : "#fff",
+                          cursor: primeTabPage >= totalPrimeTabPages ? "default" : "pointer",
+                          fontSize: "0.7rem"
+                        }}
+                      >
+                        Next <i className="fa-solid fa-chevron-right" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3852,10 +4107,10 @@ export default function AuctionManager() {
                 </div>
 
                 <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Current Validity:</span>
-                  <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#fbbf24", fontFamily: "var(--font-mono)" }}>
-                    {editingPrimePlayer.validUntil || "Not Set"}
-                  </span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Current Duration & Status:</span>
+                  <div>
+                    {renderPrimeDurationBadge(editingPrimePlayer)}
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: "1rem" }}>

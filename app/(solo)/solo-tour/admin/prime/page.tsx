@@ -15,6 +15,7 @@ import {
   removePlayerPrime,
   updatePlayerPrimeValidity,
   formatPrimeValidity,
+  parsePrimeDurationInfo,
   fetchPrimedPlayersList,
   fetchPrimeFeeConfig,
   updatePrimeFeeConfig,
@@ -37,6 +38,17 @@ export default function AdminPrimeManager() {
   const [configUpgradeRt, setConfigUpgradeRt] = useState<number>(50);
   const [configTransferRt, setConfigTransferRt] = useState<number>(50);
   const [isSavingFees, setIsSavingFees] = useState<boolean>(false);
+
+  // Active Primed Players Table Search, Filter & Pagination
+  const [primedSearch, setPrimedSearch] = useState<string>("");
+  const [primedClubFilter, setPrimedClubFilter] = useState<string>("all");
+  const [primedDurationFilter, setPrimedDurationFilter] = useState<string>("all");
+  const [primedPage, setPrimedPage] = useState<number>(1);
+  const [primedPageSize, setPrimedPageSize] = useState<number>(10);
+
+  // Unprimed Players Checklist Pagination (Assign Mode)
+  const [checklistPage, setChecklistPage] = useState<number>(1);
+  const checklistPageSize = 12;
 
   // Mode: Assign new Prime vs Transfer existing Prime
   const [activeMode, setActiveMode] = useState<"assign" | "transfer">("assign");
@@ -188,6 +200,144 @@ export default function AdminPrimeManager() {
     });
   }, [allPlayers, selectedClubId, selectedClub, playerSearch, primedPlayers]);
 
+  // Reset checklist page on search / club change
+  useEffect(() => {
+    setChecklistPage(1);
+  }, [playerSearch, selectedClubId]);
+
+  const totalChecklistPages = Math.ceil(filteredPlayers.length / checklistPageSize) || 1;
+  const paginatedChecklistPlayers = useMemo(() => {
+    const start = (checklistPage - 1) * checklistPageSize;
+    return filteredPlayers.slice(start, start + checklistPageSize);
+  }, [filteredPlayers, checklistPage, checklistPageSize]);
+
+  // Filter primed players by search, club, and duration preset
+  const filteredPrimedPlayers = useMemo(() => {
+    return primedPlayers.filter((p) => {
+      // Club filter
+      if (primedClubFilter !== "all") {
+        if (String(p.clubId) !== primedClubFilter && p.clubName !== primedClubFilter) {
+          return false;
+        }
+      }
+
+      // Duration preset filter
+      if (primedDurationFilter !== "all") {
+        const dur = (p.durationLabel || p.validUntil || "").toLowerCase();
+        if (primedDurationFilter === "half" && !dur.includes("0.5") && !dur.includes("half")) return false;
+        if (primedDurationFilter === "1" && !dur.includes("1 season") && !dur.includes("1.0")) return false;
+        if (primedDurationFilter === "2+" && !dur.includes("2") && !dur.includes("3")) return false;
+        if (primedDurationFilter === "permanent" && !dur.includes("permanent")) return false;
+      }
+
+      // Search text
+      if (primedSearch.trim()) {
+        const q = primedSearch.toLowerCase().trim();
+        const matchName = (p.name || "").toLowerCase().includes(q);
+        const matchClub = (p.clubName || "").toLowerCase().includes(q);
+        const matchPos = (p.position || "").toLowerCase().includes(q);
+        const matchDur = (p.durationLabel || p.validUntil || "").toLowerCase().includes(q);
+        const matchExp = (p.expiryLabel || "").toLowerCase().includes(q);
+        return matchName || matchClub || matchPos || matchDur || matchExp;
+      }
+
+      return true;
+    });
+  }, [primedPlayers, primedClubFilter, primedDurationFilter, primedSearch]);
+
+  // Reset primed page to 1 on filter changes
+  useEffect(() => {
+    setPrimedPage(1);
+  }, [primedSearch, primedClubFilter, primedDurationFilter, primedPageSize]);
+
+  const totalPrimedPages = primedPageSize === -1 ? 1 : Math.ceil(filteredPrimedPlayers.length / primedPageSize) || 1;
+  const paginatedPrimedPlayers = useMemo(() => {
+    if (primedPageSize === -1) return filteredPrimedPlayers;
+    const start = (primedPage - 1) * primedPageSize;
+    return filteredPrimedPlayers.slice(start, start + primedPageSize);
+  }, [filteredPrimedPlayers, primedPage, primedPageSize]);
+
+  const renderPrimeDurationBadge = (p: any) => {
+    const durInfo = parsePrimeDurationInfo(
+      p.validUntil,
+      activeSeason?.season_number || p.seasonNumber || 9,
+      !!activeSeason?.is_mid_season
+    );
+
+    const isPermanent = durInfo.durationLabel.toLowerCase().includes("permanent");
+    const isHalf = durInfo.durationLabel.includes("0.5") || durInfo.durationLabel.toLowerCase().includes("half");
+    const isMulti = durInfo.durationLabel.includes("2") || durInfo.durationLabel.includes("3");
+
+    const badgeBg = isPermanent
+      ? "rgba(168, 85, 247, 0.15)"
+      : isHalf
+      ? "rgba(56, 189, 248, 0.15)"
+      : isMulti
+      ? "rgba(34, 197, 94, 0.15)"
+      : "rgba(234, 179, 8, 0.15)";
+
+    const badgeColor = isPermanent
+      ? "#c084fc"
+      : isHalf
+      ? "#38bdf8"
+      : isMulti
+      ? "#4ade80"
+      : "#facc15";
+
+    const badgeBorder = isPermanent
+      ? "rgba(168, 85, 247, 0.3)"
+      : isHalf
+      ? "rgba(56, 189, 248, 0.3)"
+      : isMulti
+      ? "rgba(34, 197, 94, 0.3)"
+      : "rgba(234, 179, 8, 0.3)";
+
+    return (
+      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            padding: "3px 8px",
+            borderRadius: "6px",
+            background: badgeBg,
+            color: badgeColor,
+            border: `1px solid ${badgeBorder}`,
+            fontSize: "0.74rem",
+            fontWeight: 700,
+            fontFamily: "var(--font-display)",
+            whiteSpace: "nowrap"
+          }}
+        >
+          <i
+            className={
+              isPermanent
+                ? "fa-solid fa-infinity"
+                : isHalf
+                ? "fa-solid fa-bolt"
+                : "fa-solid fa-hourglass-half"
+            }
+            style={{ fontSize: "0.65rem" }}
+          />
+          {durInfo.durationLabel}
+        </span>
+        {durInfo.expiryLabel && (
+          <span
+            style={{
+              fontSize: "0.68rem",
+              color: "rgba(255,255,255,0.55)",
+              fontFamily: "var(--font-mono)",
+              whiteSpace: "nowrap"
+            }}
+          >
+            {durInfo.expiryLabel}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const handleTogglePlayer = (playerId: number) => {
     setSelectedPlayerIds(prev =>
       prev.includes(playerId) ? prev.filter(id => id !== playerId) : [...prev, playerId]
@@ -246,7 +396,8 @@ export default function AdminPrimeManager() {
         }
 
         if (successCount > 0) {
-          showToast(`Successfully Primed ${successCount} player${successCount > 1 ? "s" : ""}! (${lastValidUntil})`);
+          const previewText = computePreview(assignValidity, assignCustomValidity);
+          showToast(`Successfully Primed ${successCount} player${successCount > 1 ? "s" : ""}! (${previewText})`);
           setSelectedPlayerIds([]);
           loadData();
         } else if (lastError) {
@@ -282,22 +433,22 @@ export default function AdminPrimeManager() {
   const handleOpenEditValidity = (p: any) => {
     setEditingPlayer(p);
     const vStr = String(p.validUntil || "").toLowerCase();
-    if (vStr.includes("0.5") || vStr.includes("half")) {
+    if (vStr.includes("0.5") || vStr.includes("half") || vStr.endsWith("9.5")) {
       setEditValidity("0.5");
       setEditCustomValidity("");
-    } else if (vStr.includes("1.5")) {
+    } else if (vStr.includes("1.5") || vStr.endsWith("10.5")) {
       setEditValidity("1.5");
       setEditCustomValidity("");
-    } else if (vStr.includes("2 season") || vStr.includes("2.0")) {
+    } else if (vStr.includes("2 season") || vStr.includes("2.0") || vStr.endsWith("11.0")) {
       setEditValidity("2.0");
       setEditCustomValidity("");
-    } else if (vStr.includes("3 season") || vStr.includes("3.0")) {
+    } else if (vStr.includes("3 season") || vStr.includes("3.0") || vStr.endsWith("12.0")) {
       setEditValidity("3.0");
       setEditCustomValidity("");
     } else if (vStr.includes("permanent")) {
       setEditValidity("permanent");
       setEditCustomValidity("");
-    } else if (vStr.includes("1 season") || vStr.includes("1.0")) {
+    } else if (vStr.includes("1 season") || vStr.includes("1.0") || vStr.endsWith("10.0") || vStr === "1") {
       setEditValidity("1.0");
       setEditCustomValidity("");
     } else {
@@ -810,7 +961,7 @@ export default function AdminPrimeManager() {
                         No players matching the filters.
                       </div>
                     ) : (
-                      filteredPlayers.map((p) => {
+                      paginatedChecklistPlayers.map((p) => {
                         const isChecked = selectedPlayerIds.includes(p.id);
                         return (
                           <div
@@ -846,6 +997,52 @@ export default function AdminPrimeManager() {
                       })
                     )}
                   </div>
+
+                  {/* Checklist Pagination Controls */}
+                  {filteredPlayers.length > checklistPageSize && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", padding: "4px 8px", background: "rgba(0,0,0,0.2)", borderRadius: "6px" }}>
+                      <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.5)" }}>
+                        {Math.min((checklistPage - 1) * checklistPageSize + 1, filteredPlayers.length)} - {Math.min(checklistPage * checklistPageSize, filteredPlayers.length)} of {filteredPlayers.length}
+                      </span>
+                      <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          disabled={checklistPage <= 1}
+                          onClick={() => setChecklistPage(prev => Math.max(1, prev - 1))}
+                          style={{
+                            padding: "2px 8px",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "4px",
+                            color: checklistPage <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
+                            fontSize: "0.68rem",
+                            cursor: checklistPage <= 1 ? "default" : "pointer"
+                          }}
+                        >
+                          <i className="fa-solid fa-chevron-left" /> Prev
+                        </button>
+                        <span style={{ fontSize: "0.7rem", color: "#fbbf24", padding: "0 4px", fontFamily: "var(--font-mono)" }}>
+                          {checklistPage} / {totalChecklistPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={checklistPage >= totalChecklistPages}
+                          onClick={() => setChecklistPage(prev => Math.min(totalChecklistPages, prev + 1))}
+                          style={{
+                            padding: "2px 8px",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "4px",
+                            color: checklistPage >= totalChecklistPages ? "rgba(255,255,255,0.2)" : "#fff",
+                            fontSize: "0.68rem",
+                            cursor: checklistPage >= totalChecklistPages ? "default" : "pointer"
+                          }}
+                        >
+                          Next <i className="fa-solid fa-chevron-right" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Step 3: Prime Duration / Validity Selection */}
@@ -1018,7 +1215,7 @@ export default function AdminPrimeManager() {
                     boxShadow: selectedPlayerIds.length > 0 ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
                   }}
                 >
-                  <i className="fa-solid fa-crown" style={{ marginRight: "6px" }} /> Prime Selected Players ({selectedPlayerIds.length})
+                  <i className="fa-solid fa-crown" style={{ marginRight: "6px" }} /> Prime Selected Players ({selectedPlayerIds.length}) · {computePreview(assignValidity, assignCustomValidity)}
                 </button>
               </>
             ) : (
@@ -1265,11 +1462,14 @@ export default function AdminPrimeManager() {
 
           {/* Right Column: Active Primed Players List */}
           <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
-            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <i className="fa-solid fa-crown" style={{ color: "#eab308", fontSize: "0.95rem" }} />
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>
-                  Active Primed Players ({primedPlayers.length})
+                  Active Primed Players
+                </span>
+                <span style={{ background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)", padding: "1px 7px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                  {primedPlayers.length}
                 </span>
               </div>
               <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)" }}>
@@ -1277,14 +1477,101 @@ export default function AdminPrimeManager() {
               </span>
             </div>
 
+            {/* Primed Players Filter Bar */}
+            <div style={{
+              padding: "0.75rem 1.25rem",
+              borderBottom: "1px solid rgba(255,255,255,0.05)",
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              alignItems: "center",
+              background: "rgba(0,0,0,0.2)"
+            }}>
+              {/* Search input */}
+              <div style={{ position: "relative", flex: "1 1 180px", minWidth: "150px" }}>
+                <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.35)", fontSize: "0.72rem" }} />
+                <input
+                  type="text"
+                  placeholder="Search primed player, club, position..."
+                  value={primedSearch}
+                  onChange={(e) => setPrimedSearch(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 26px 6px 28px",
+                    background: "rgba(0,0,0,0.35)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                    color: "#fff",
+                    fontSize: "0.78rem",
+                    outline: "none",
+                    boxSizing: "border-box"
+                  }}
+                />
+                {primedSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPrimedSearch("")}
+                    style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.72rem", padding: 0 }}
+                  >
+                    <i className="fa-solid fa-xmark" />
+                  </button>
+                )}
+              </div>
+
+              {/* Club Filter */}
+              <select
+                value={primedClubFilter}
+                onChange={(e) => setPrimedClubFilter(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  background: "rgba(0,0,0,0.4)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "0.78rem",
+                  outline: "none",
+                  cursor: "pointer"
+                }}
+              >
+                <option value="all" style={{ background: "#18181b" }}>All Clubs</option>
+                {clubs.map(c => (
+                  <option key={c.id} value={String(c.id)} style={{ background: "#18181b" }}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Duration Preset Filter */}
+              <select
+                value={primedDurationFilter}
+                onChange={(e) => setPrimedDurationFilter(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  background: "rgba(0,0,0,0.4)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  fontSize: "0.78rem",
+                  outline: "none",
+                  cursor: "pointer"
+                }}
+              >
+                <option value="all" style={{ background: "#18181b" }}>All Durations</option>
+                <option value="half" style={{ background: "#18181b" }}>0.5 Season (Half)</option>
+                <option value="1" style={{ background: "#18181b" }}>1 Season</option>
+                <option value="2+" style={{ background: "#18181b" }}>2+ Seasons</option>
+                <option value="permanent" style={{ background: "#18181b" }}>Permanent</option>
+              </select>
+            </div>
+
             {loading ? (
               <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.4)" }}>
                 Loading Primed players...
               </div>
-            ) : primedPlayers.length === 0 ? (
+            ) : filteredPrimedPlayers.length === 0 ? (
               <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.3)" }}>
                 <i className="fa-solid fa-crown" style={{ fontSize: "2rem", marginBottom: "1rem", display: "block", opacity: 0.2 }} />
-                No players are currently Primed.
+                {primedPlayers.length === 0 ? "No players are currently Primed." : "No Primed players match the selected filters."}
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
@@ -1299,7 +1586,7 @@ export default function AdminPrimeManager() {
                     </tr>
                   </thead>
                   <tbody>
-                    {primedPlayers.map((p) => (
+                    {paginatedPrimedPlayers.map((p) => (
                       <tr key={p.id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
                         <td style={{ padding: "0.75rem 1.25rem" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -1321,16 +1608,14 @@ export default function AdminPrimeManager() {
                           <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600 }}>{p.clubName}</span>
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", background: "rgba(255,255,255,0.04)", padding: "3px 10px", borderRadius: "6px", color: "#fbbf24" }}>
-                              {p.validUntil}
-                            </span>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+                            {renderPrimeDurationBadge(p)}
                             <button
                               type="button"
                               onClick={() => handleOpenEditValidity(p)}
                               title="Edit Prime Validity"
                               style={{
-                                padding: "3px 7px",
+                                padding: "4px 7px",
                                 borderRadius: "5px",
                                 border: "1px solid rgba(234,179,8,0.3)",
                                 background: "rgba(234,179,8,0.1)",
@@ -1381,6 +1666,127 @@ export default function AdminPrimeManager() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Controls Bar */}
+            {filteredPrimedPlayers.length > 0 && (
+              <div style={{
+                padding: "0.75rem 1.25rem",
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "10px",
+                background: "rgba(0,0,0,0.2)"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>
+                    Showing <strong style={{ color: "#fff" }}>{primedPageSize === -1 ? 1 : Math.min((primedPage - 1) * primedPageSize + 1, filteredPrimedPlayers.length)}</strong> - <strong style={{ color: "#fff" }}>{primedPageSize === -1 ? filteredPrimedPlayers.length : Math.min(primedPage * primedPageSize, filteredPrimedPlayers.length)}</strong> of <strong style={{ color: "#eab308" }}>{filteredPrimedPlayers.length}</strong>
+                    {filteredPrimedPlayers.length !== primedPlayers.length && (
+                      <span> (filtered from {primedPlayers.length})</span>
+                    )}
+                  </span>
+
+                  <select
+                    value={primedPageSize}
+                    onChange={(e) => setPrimedPageSize(Number(e.target.value))}
+                    style={{
+                      padding: "4px 8px",
+                      background: "rgba(0,0,0,0.4)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "6px",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: "0.72rem",
+                      outline: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <option value={10} style={{ background: "#18181b" }}>10 / page</option>
+                    <option value={25} style={{ background: "#18181b" }}>25 / page</option>
+                    <option value={50} style={{ background: "#18181b" }}>50 / page</option>
+                    <option value={-1} style={{ background: "#18181b" }}>Show All</option>
+                  </select>
+                </div>
+
+                {primedPageSize !== -1 && totalPrimedPages > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <button
+                      type="button"
+                      disabled={primedPage <= 1}
+                      onClick={() => setPrimedPage(1)}
+                      title="First Page"
+                      style={{
+                        padding: "4px 8px",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "5px",
+                        color: primedPage <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
+                        fontSize: "0.72rem",
+                        cursor: primedPage <= 1 ? "default" : "pointer"
+                      }}
+                    >
+                      <i className="fa-solid fa-angles-left" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={primedPage <= 1}
+                      onClick={() => setPrimedPage(prev => Math.max(1, prev - 1))}
+                      title="Previous Page"
+                      style={{
+                        padding: "4px 10px",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "5px",
+                        color: primedPage <= 1 ? "rgba(255,255,255,0.2)" : "#fff",
+                        fontSize: "0.72rem",
+                        cursor: primedPage <= 1 ? "default" : "pointer"
+                      }}
+                    >
+                      <i className="fa-solid fa-chevron-left" /> Prev
+                    </button>
+
+                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", padding: "0 6px", fontFamily: "var(--font-mono)" }}>
+                      Page <strong style={{ color: "#fbbf24" }}>{primedPage}</strong> of {totalPrimedPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={primedPage >= totalPrimedPages}
+                      onClick={() => setPrimedPage(prev => Math.min(totalPrimedPages, prev + 1))}
+                      title="Next Page"
+                      style={{
+                        padding: "4px 10px",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "5px",
+                        color: primedPage >= totalPrimedPages ? "rgba(255,255,255,0.2)" : "#fff",
+                        fontSize: "0.72rem",
+                        cursor: primedPage >= totalPrimedPages ? "default" : "pointer"
+                      }}
+                    >
+                      Next <i className="fa-solid fa-chevron-right" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={primedPage >= totalPrimedPages}
+                      onClick={() => setPrimedPage(totalPrimedPages)}
+                      title="Last Page"
+                      style={{
+                        padding: "4px 8px",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "5px",
+                        color: primedPage >= totalPrimedPages ? "rgba(255,255,255,0.2)" : "#fff",
+                        fontSize: "0.72rem",
+                        cursor: primedPage >= totalPrimedPages ? "default" : "pointer"
+                      }}
+                    >
+                      <i className="fa-solid fa-angles-right" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1441,10 +1847,10 @@ export default function AdminPrimeManager() {
 
               {/* Current Validity Display */}
               <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>Current Validity:</span>
-                <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#fbbf24", fontFamily: "var(--font-mono)" }}>
-                  {editingPlayer.validUntil || "Not Set"}
-                </span>
+                <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>Current Duration & Status:</span>
+                <div>
+                  {renderPrimeDurationBadge(editingPlayer)}
+                </div>
               </div>
 
               {/* Target Validity Selector */}
