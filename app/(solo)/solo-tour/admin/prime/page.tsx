@@ -602,12 +602,14 @@ export default function AdminPrimeManager() {
       <div className="portal-container" style={{ maxWidth: "1200px" }}>
         
         {/* Breadcrumbs */}
-        <div className="portal-breadcrumb" style={{ marginBottom: "1rem", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px", margin: 0 }}>
-            <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
+        <div className="prime-breadcrumb-bar">
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary prime-breadcrumb-btn">
+            <i className="fas fa-arrow-left" />
+            <span>Admin Console</span>
           </Link>
-          <Link href="/solo-tour/admin/auction" className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", margin: 0 }}>
-            <i className="fa-solid fa-gavel" style={{ marginRight: "6px" }} /> Auctions & Transfers
+          <Link href="/solo-tour/admin/auction" className="portal-btn btn-secondary prime-breadcrumb-btn">
+            <i className="fa-solid fa-gavel" />
+            <span>Auctions & Transfers</span>
           </Link>
         </div>
 
@@ -648,7 +650,7 @@ export default function AdminPrimeManager() {
             <div className="prime-fee-inputs-row">
               <div className="prime-fee-input-group">
                 <label>Default Upgrade:</label>
-                <div style={{ position: "relative", width: "95px" }}>
+                <div className="prime-fee-input-wrap">
                   <input
                     type="number"
                     min="0"
@@ -676,7 +678,7 @@ export default function AdminPrimeManager() {
 
               <div className="prime-fee-input-group">
                 <label>Default Transfer:</label>
-                <div style={{ position: "relative", width: "95px" }}>
+                <div className="prime-fee-input-wrap">
                   <input
                     type="number"
                     min="0"
