@@ -24,8 +24,6 @@ import {
   transferPlayerPrime,
   removePlayerPrime,
   updatePlayerPrimeValidity,
-  formatPrimeValidity,
-  parsePrimeDurationInfo,
   fetchPrimedPlayersList,
   fetchAdminPlayersList,
   fetchRecentReversibleOperations,
@@ -34,6 +32,7 @@ import {
   updatePrimeFeeConfig,
   type PrimeFeeConfig
 } from "@/utils/solo/serverActions";
+import { formatPrimeValidity, parsePrimeDurationInfo } from "@/utils/solo/primeUtils";
 
 function AdminClubDropdown({
   clubs,

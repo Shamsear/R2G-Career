@@ -14,13 +14,12 @@ import {
   transferPlayerPrime,
   removePlayerPrime,
   updatePlayerPrimeValidity,
-  formatPrimeValidity,
-  parsePrimeDurationInfo,
   fetchPrimedPlayersList,
   fetchPrimeFeeConfig,
   updatePrimeFeeConfig,
   type PrimeFeeConfig
 } from "@/utils/solo/serverActions";
+import { formatPrimeValidity, parsePrimeDurationInfo } from "@/utils/solo/primeUtils";
 
 export default function AdminPrimeManager() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
