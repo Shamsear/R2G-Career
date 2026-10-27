@@ -64,11 +64,8 @@ export default function AdminPrimeManager() {
   const updateClubPosition = () => {
     if (clubTriggerRef.current) {
       const rect = clubTriggerRef.current.getBoundingClientRect();
-      const targetWidth = rect.width;
-      let left = rect.left;
-      if (left + targetWidth > window.innerWidth - 10) {
-        left = Math.max(10, window.innerWidth - targetWidth - 10);
-      }
+      const targetWidth = Math.min(rect.width, window.innerWidth - 20);
+      let left = Math.max(10, Math.min(rect.left, window.innerWidth - targetWidth - 10));
       let top = rect.bottom + 6;
       if (top + 260 > window.innerHeight && rect.top > 260) {
         top = Math.max(10, rect.top - 266);
@@ -605,125 +602,104 @@ export default function AdminPrimeManager() {
       <div className="portal-container" style={{ maxWidth: "1200px" }}>
         
         {/* Breadcrumbs */}
-        <div className="portal-breadcrumb" style={{ marginBottom: "1rem" }}>
-          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px" }}>
+        <div className="portal-breadcrumb" style={{ marginBottom: "1rem", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          <Link href="/solo-tour/admin" className="portal-btn btn-secondary back-link-btn" style={{ fontSize: "0.8rem", padding: "6px 14px", margin: 0 }}>
             <i className="fas fa-arrow-left" style={{ marginRight: "6px" }} /> Back to Admin Console
           </Link>
-          <Link href="/solo-tour/admin/auction" className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", marginLeft: "8px" }}>
+          <Link href="/solo-tour/admin/auction" className="portal-btn btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 14px", margin: 0 }}>
             <i className="fa-solid fa-gavel" style={{ marginRight: "6px" }} /> Auctions & Transfers
           </Link>
         </div>
 
         {/* Hero Banner */}
-        <div className="rws-page-hero" style={{ marginBottom: "1.5rem" }}>
+        <div className="prime-hero-banner">
           <div className="portal-page-badge" style={{ background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)" }}>
             <i className="fa-solid fa-crown" />
             Player Priming & Validity Console
           </div>
-          <h1 className="rws-hero-title">
+          <h1 className="prime-hero-title">
             BULK PRIME MANAGER
           </h1>
-          <p className="rws-hero-sub">
+          <p className="prime-hero-sub">
             Configure Prime upgrades, transfers, and custom validity durations (0.5 season, 1 season, 2 seasons, permanent, etc.) for club players.
           </p>
         </div>
 
         {/* Persistent Prime Fee Configuration Card */}
-        <div style={{
-          background: "rgba(255, 255, 255, 0.02)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(234, 179, 8, 0.25)",
-          borderRadius: "14px",
-          padding: "1rem 1.4rem",
-          marginBottom: "1.75rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "1rem"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-            <div style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "10px",
-              background: "rgba(234, 179, 8, 0.15)",
-              border: "1px solid rgba(234, 179, 8, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#eab308",
-              fontSize: "1.1rem"
-            }}>
+        <div className="prime-fee-card">
+          <div className="prime-fee-header">
+            <div className="prime-fee-icon">
               <i className="fa-solid fa-sliders" />
             </div>
-            <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                Prime Fee Configuration
-                <span style={{ fontSize: "0.68rem", color: "#eab308", background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.25)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="prime-fee-title-row">
+                <span>Prime Fee Configuration</span>
+                <span className="prime-fee-db-badge">
                   SAVED IN DATABASE
                 </span>
               </div>
-              <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.78rem" }}>
+              <div className="prime-fee-sub">
                 Configurable default fees for Prime Upgrades and Transfers across all admin panels.
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>Default Upgrade:</span>
-              <div style={{ position: "relative", width: "95px" }}>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={configUpgradeRt}
-                  onChange={(e) => setConfigUpgradeRt(Math.max(0, parseInt(e.target.value) || 0))}
-                  style={{
-                    width: "100%",
-                    padding: "7px 28px 7px 10px",
-                    background: "rgba(0,0,0,0.4)",
-                    border: "1px solid rgba(234, 179, 8, 0.3)",
-                    borderRadius: "6px",
-                    color: "#eab308",
-                    fontWeight: 700,
-                    fontSize: "0.85rem",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "0.68rem", color: "#eab308", fontWeight: 700 }}>
-                  RT
-                </span>
+          <div className="prime-fee-controls">
+            <div className="prime-fee-inputs-row">
+              <div className="prime-fee-input-group">
+                <label>Default Upgrade:</label>
+                <div style={{ position: "relative", width: "95px" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={configUpgradeRt}
+                    onChange={(e) => setConfigUpgradeRt(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{
+                      width: "100%",
+                      padding: "7px 28px 7px 10px",
+                      background: "rgba(0,0,0,0.4)",
+                      border: "1px solid rgba(234, 179, 8, 0.3)",
+                      borderRadius: "6px",
+                      color: "#eab308",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  <span className="prime-fee-unit">
+                    RT
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>Default Transfer:</span>
-              <div style={{ position: "relative", width: "95px" }}>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={configTransferRt}
-                  onChange={(e) => setConfigTransferRt(Math.max(0, parseInt(e.target.value) || 0))}
-                  style={{
-                    width: "100%",
-                    padding: "7px 28px 7px 10px",
-                    background: "rgba(0,0,0,0.4)",
-                    border: "1px solid rgba(234, 179, 8, 0.3)",
-                    borderRadius: "6px",
-                    color: "#eab308",
-                    fontWeight: 700,
-                    fontSize: "0.85rem",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontSize: "0.68rem", color: "#eab308", fontWeight: 700 }}>
-                  RT
-                </span>
+              <div className="prime-fee-input-group">
+                <label>Default Transfer:</label>
+                <div style={{ position: "relative", width: "95px" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={configTransferRt}
+                    onChange={(e) => setConfigTransferRt(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{
+                      width: "100%",
+                      padding: "7px 28px 7px 10px",
+                      background: "rgba(0,0,0,0.4)",
+                      border: "1px solid rgba(234, 179, 8, 0.3)",
+                      borderRadius: "6px",
+                      color: "#eab308",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                  <span className="prime-fee-unit">
+                    RT
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -731,22 +707,8 @@ export default function AdminPrimeManager() {
               type="button"
               onClick={handleSaveDefaultFees}
               disabled={isSavingFees}
-              style={{
-                padding: "8px 16px",
-                background: "linear-gradient(135deg, #eab308, #ca8a04)",
-                border: "none",
-                borderRadius: "8px",
-                color: "#000",
-                fontWeight: 700,
-                fontSize: "0.8rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 10px rgba(234,179,8,0.2)",
-                opacity: isSavingFees ? 0.6 : 1,
-                transition: "all 0.2s"
-              }}
+              className="prime-fee-save-btn"
+              style={{ opacity: isSavingFees ? 0.6 : 1 }}
             >
               <i className="fa-solid fa-floppy-disk" /> {isSavingFees ? "Saving..." : "Save Default Fees"}
             </button>
@@ -757,13 +719,13 @@ export default function AdminPrimeManager() {
         <div className="bulk-grid-2col">
           
           {/* Left Column: Selector Form & Player Checklist */}
-          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "16px", padding: "1.75rem", minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+          <div className="prime-column-card">
+            <div className="prime-console-header">
               <h3 style={{ fontSize: "1.05rem", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font-display)" }}>
                 <i className="fa-solid fa-square-plus" style={{ color: "#eab308" }} />
                 Prime Player Console
               </h3>
-              <div style={{ display: "flex", background: "rgba(0,0,0,0.4)", borderRadius: "8px", padding: "3px", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="prime-mode-toggle">
                 <button
                   type="button"
                   onClick={() => setActiveMode("assign")}
@@ -829,7 +791,7 @@ export default function AdminPrimeManager() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
                   {selectedClub && (
-                    <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)", padding: "2px 6px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                    <span className="prime-trigger-wallet-badge" style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)", padding: "2px 6px", borderRadius: "4px", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                       🪙 {Number(selectedClub.coins || 0).toLocaleString()} | 🟡 {selectedClub.tokens || 0} RT
                     </span>
                   )}
@@ -838,12 +800,12 @@ export default function AdminPrimeManager() {
               </div>
 
               {selectedClub && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(234,179,8,0.04)", border: "1px solid rgba(234,179,8,0.15)", borderRadius: "8px", padding: "8px 12px", marginTop: "8px" }}>
+                <div className="prime-club-wallet-summary">
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <i className="fa-solid fa-wallet" style={{ color: "#eab308", fontSize: "0.85rem" }} />
                     <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.7)" }}>Club Wallet:</span>
                   </div>
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.72rem", color: "#eab308", background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.25)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
                       🪙 {Number(selectedClub.coins || 0).toLocaleString()} Coins
                     </span>
@@ -1046,7 +1008,7 @@ export default function AdminPrimeManager() {
 
                 {/* Step 3: Prime Duration / Validity Selection */}
                 <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.05)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-step-header">
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
                       <i className="fa-solid fa-hourglass-half" /> 3. Prime Duration / Validity
                     </label>
@@ -1055,7 +1017,7 @@ export default function AdminPrimeManager() {
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-validity-preset-grid">
                     {[
                       { id: "0.5", label: "0.5 Season (Half)" },
                       { id: "1.0", label: "1 Season" },
@@ -1071,19 +1033,12 @@ export default function AdminPrimeManager() {
                           key={opt.id}
                           type="button"
                           onClick={() => setAssignValidity(opt.id)}
+                          className="prime-validity-preset-btn"
                           style={{
-                            padding: "6px 12px",
-                            borderRadius: "6px",
                             border: isSelected ? "1px solid #eab308" : "1px solid rgba(255,255,255,0.1)",
                             background: isSelected ? "rgba(234,179,8,0.2)" : "rgba(0,0,0,0.3)",
                             color: isSelected ? "#facc15" : "rgba(255,255,255,0.7)",
-                            fontSize: "0.75rem",
-                            fontWeight: isSelected ? 700 : 500,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px"
+                            fontWeight: isSelected ? 700 : 500
                           }}
                         >
                           {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem" }} />}
@@ -1118,7 +1073,7 @@ export default function AdminPrimeManager() {
 
                 {/* Step 4: RT Cost Configuration */}
                 <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <div className="prime-step-header">
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
                       <i className="fa-solid fa-coins" /> 4. RT Deduction Cost Per Player
                     </label>
@@ -1153,17 +1108,17 @@ export default function AdminPrimeManager() {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-cost-footer">
                     <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
                       Deducted from the manager's R2G Token wallet. (Current default: <strong style={{ color: "#eab308" }}>{feeConfig.upgradeRtCost} RT</strong>)
                     </div>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <div className="prime-cost-footer-btns">
                       <button
                         type="button"
                         onClick={handleSaveUpgradeAsDefault}
                         title="Save this cost as the persistent system default fee"
                         style={{
-                          padding: "3px 8px",
+                          padding: "4px 9px",
                           fontSize: "0.68rem",
                           fontWeight: 700,
                           background: "rgba(234,179,8,0.15)",
@@ -1184,7 +1139,7 @@ export default function AdminPrimeManager() {
                           onClick={() => setRtCost(feeConfig.upgradeRtCost)}
                           title="Reset to configured default"
                           style={{
-                            padding: "3px 8px",
+                            padding: "4px 9px",
                             fontSize: "0.68rem",
                             fontWeight: 600,
                             background: "rgba(255,255,255,0.06)",
@@ -1206,15 +1161,19 @@ export default function AdminPrimeManager() {
                   type="button"
                   onClick={handlePrimeSelected}
                   disabled={isPending || selectedPlayerIds.length === 0}
+                  className="prime-submit-btn"
                   style={{
-                    width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
-                    fontWeight: 700, fontSize: "0.85rem", fontFamily: "var(--font-display)", textTransform: "uppercase",
-                    background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
-                    opacity: isPending || selectedPlayerIds.length === 0 ? 0.5 : 1, transition: "all 0.25s ease",
+                    opacity: isPending || selectedPlayerIds.length === 0 ? 0.5 : 1,
                     boxShadow: selectedPlayerIds.length > 0 ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
                   }}
                 >
-                  <i className="fa-solid fa-crown" style={{ marginRight: "6px" }} /> Prime Selected Players ({selectedPlayerIds.length}) · {computePreview(assignValidity, assignCustomValidity)}
+                  <div className="prime-submit-btn-title">
+                    <i className="fa-solid fa-crown" />
+                    <span>Prime Selected Players ({selectedPlayerIds.length})</span>
+                  </div>
+                  <div className="prime-submit-btn-sub">
+                    Duration: {computePreview(assignValidity, assignCustomValidity)}
+                  </div>
                 </button>
               </>
             ) : (
@@ -1293,7 +1252,7 @@ export default function AdminPrimeManager() {
 
                 {/* Step 4: Transfer Prime Validity Selection */}
                 <div style={{ marginBottom: "1.25rem", padding: "12px 14px", background: "rgba(234,179,8,0.05)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-step-header">
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
                       <i className="fa-solid fa-hourglass-half" /> 4. Target Player Prime Validity
                     </label>
@@ -1302,7 +1261,7 @@ export default function AdminPrimeManager() {
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-validity-preset-grid">
                     {[
                       { id: "keep", label: "Keep Existing (Source)" },
                       { id: "0.5", label: "0.5 Season (Half)" },
@@ -1319,19 +1278,12 @@ export default function AdminPrimeManager() {
                           key={opt.id}
                           type="button"
                           onClick={() => setTransferValidity(opt.id)}
+                          className="prime-validity-preset-btn"
                           style={{
-                            padding: "6px 12px",
-                            borderRadius: "6px",
                             border: isSelected ? "1px solid #eab308" : "1px solid rgba(255,255,255,0.1)",
                             background: isSelected ? "rgba(234,179,8,0.2)" : "rgba(0,0,0,0.3)",
                             color: isSelected ? "#facc15" : "rgba(255,255,255,0.7)",
-                            fontSize: "0.75rem",
-                            fontWeight: isSelected ? 700 : 500,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px"
+                            fontWeight: isSelected ? 700 : 500
                           }}
                         >
                           {isSelected && <i className="fa-solid fa-check" style={{ fontSize: "0.7rem" }} />}
@@ -1366,7 +1318,7 @@ export default function AdminPrimeManager() {
 
                 {/* RT Transfer Fee */}
                 <div style={{ marginBottom: "1.5rem", padding: "12px 14px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <div className="prime-step-header">
                     <label style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#eab308", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
                       <i className="fa-solid fa-coins" /> 5. RT Transfer Fee
                     </label>
@@ -1391,17 +1343,17 @@ export default function AdminPrimeManager() {
                       RT
                     </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", flexWrap: "wrap", gap: "6px" }}>
+                  <div className="prime-cost-footer">
                     <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)" }}>
                       Deducted from the manager's R2G Token wallet to reassign Prime status. (Default: <strong style={{ color: "#eab308" }}>{feeConfig.transferRtCost} RT</strong>)
                     </div>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <div className="prime-cost-footer-btns">
                       <button
                         type="button"
                         onClick={handleSaveTransferAsDefault}
                         title="Save this fee as the persistent system default fee"
                         style={{
-                          padding: "3px 8px",
+                          padding: "4px 9px",
                           fontSize: "0.68rem",
                           fontWeight: 700,
                           background: "rgba(234,179,8,0.15)",
@@ -1422,7 +1374,7 @@ export default function AdminPrimeManager() {
                           onClick={() => setTransferRtCost(feeConfig.transferRtCost)}
                           title="Reset to configured default"
                           style={{
-                            padding: "3px 8px",
+                            padding: "4px 9px",
                             fontSize: "0.68rem",
                             fontWeight: 600,
                             background: "rgba(255,255,255,0.06)",
@@ -1444,24 +1396,27 @@ export default function AdminPrimeManager() {
                   type="button"
                   onClick={handleTransferPrime}
                   disabled={isPending || !selectedClubId || !transferSourcePlayerId || !transferDestPlayerId}
+                  className="prime-submit-btn"
                   style={{
-                    width: "100%", padding: "12px 20px", borderRadius: "10px", border: "none", cursor: "pointer",
-                    fontWeight: 700, fontSize: "0.85rem", fontFamily: "var(--font-display)", textTransform: "uppercase",
-                    background: "linear-gradient(135deg, #eab308, #ca8a04)", color: "#000",
                     opacity: isPending || !selectedClubId || !transferSourcePlayerId || !transferDestPlayerId ? 0.5 : 1,
-                    transition: "all 0.25s ease",
                     boxShadow: selectedClubId && transferSourcePlayerId && transferDestPlayerId ? "0 4px 20px rgba(234,179,8,0.2)" : "none"
                   }}
                 >
-                  <i className="fa-solid fa-repeat" style={{ marginRight: "6px" }} /> Transfer Prime Status ({transferRtCost} RT)
+                  <div className="prime-submit-btn-title">
+                    <i className="fa-solid fa-repeat" />
+                    <span>Transfer Prime Status ({transferRtCost} RT)</span>
+                  </div>
+                  <div className="prime-submit-btn-sub">
+                    Validity: {computePreview(transferValidity, transferCustomValidity)}
+                  </div>
                 </button>
               </div>
             )}
           </div>
 
           {/* Right Column: Active Primed Players List */}
-          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden", minWidth: 0 }}>
-            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+          <div className="prime-column-card-right">
+            <div className="prime-right-header">
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <i className="fa-solid fa-crown" style={{ color: "#eab308", fontSize: "0.95rem" }} />
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>
@@ -1477,17 +1432,9 @@ export default function AdminPrimeManager() {
             </div>
 
             {/* Primed Players Filter Bar */}
-            <div style={{
-              padding: "0.75rem 1.25rem",
-              borderBottom: "1px solid rgba(255,255,255,0.05)",
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-              alignItems: "center",
-              background: "rgba(0,0,0,0.2)"
-            }}>
+            <div className="prime-filter-bar">
               {/* Search input */}
-              <div style={{ position: "relative", flex: "1 1 180px", minWidth: "150px" }}>
+              <div className="prime-filter-search">
                 <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.35)", fontSize: "0.72rem" }} />
                 <input
                   type="text"
@@ -1496,7 +1443,7 @@ export default function AdminPrimeManager() {
                   onChange={(e) => setPrimedSearch(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "6px 26px 6px 28px",
+                    padding: "7px 26px 7px 28px",
                     background: "rgba(0,0,0,0.35)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "6px",
@@ -1517,50 +1464,34 @@ export default function AdminPrimeManager() {
                 )}
               </div>
 
-              {/* Club Filter */}
-              <select
-                value={primedClubFilter}
-                onChange={(e) => setPrimedClubFilter(e.target.value)}
-                style={{
-                  padding: "6px 10px",
-                  background: "rgba(0,0,0,0.4)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "6px",
-                  color: "#fff",
-                  fontSize: "0.78rem",
-                  outline: "none",
-                  cursor: "pointer"
-                }}
-              >
-                <option value="all" style={{ background: "#18181b" }}>All Clubs</option>
-                {clubs.map(c => (
-                  <option key={c.id} value={String(c.id)} style={{ background: "#18181b" }}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="prime-filter-selects-row">
+                {/* Club Filter */}
+                <select
+                  value={primedClubFilter}
+                  onChange={(e) => setPrimedClubFilter(e.target.value)}
+                  className="prime-filter-select"
+                >
+                  <option value="all" style={{ background: "#18181b" }}>All Clubs</option>
+                  {clubs.map(c => (
+                    <option key={c.id} value={String(c.id)} style={{ background: "#18181b" }}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
 
-              {/* Duration Preset Filter */}
-              <select
-                value={primedDurationFilter}
-                onChange={(e) => setPrimedDurationFilter(e.target.value)}
-                style={{
-                  padding: "6px 10px",
-                  background: "rgba(0,0,0,0.4)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "6px",
-                  color: "#fff",
-                  fontSize: "0.78rem",
-                  outline: "none",
-                  cursor: "pointer"
-                }}
-              >
-                <option value="all" style={{ background: "#18181b" }}>All Durations</option>
-                <option value="half" style={{ background: "#18181b" }}>0.5 Season (Half)</option>
-                <option value="1" style={{ background: "#18181b" }}>1 Season</option>
-                <option value="2+" style={{ background: "#18181b" }}>2+ Seasons</option>
-                <option value="permanent" style={{ background: "#18181b" }}>Permanent</option>
-              </select>
+                {/* Duration Preset Filter */}
+                <select
+                  value={primedDurationFilter}
+                  onChange={(e) => setPrimedDurationFilter(e.target.value)}
+                  className="prime-filter-select"
+                >
+                  <option value="all" style={{ background: "#18181b" }}>All Durations</option>
+                  <option value="half" style={{ background: "#18181b" }}>0.5 Season (Half)</option>
+                  <option value="1" style={{ background: "#18181b" }}>1 Season</option>
+                  <option value="2+" style={{ background: "#18181b" }}>2+ Seasons</option>
+                  <option value="permanent" style={{ background: "#18181b" }}>Permanent</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
@@ -1673,33 +1604,30 @@ export default function AdminPrimeManager() {
                 <div className="primed-mobile-cards">
                   {paginatedPrimedPlayers.map((p) => (
                     <div key={p.id} className="primed-player-card">
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-                          {p.imagePath ? (
-                            <img src={p.imagePath} alt="" style={{ width: "38px", height: "38px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                          ) : (
-                            <div style={{ width: "38px", height: "38px", borderRadius: "50%", background: "rgba(234,179,8,0.2)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 700, flexShrink: 0 }}>
-                              {p.name.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {p.name}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "0.62rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, textTransform: "uppercase" }}>
-                                PRIME
-                              </span>
-                              <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)" }}>
-                                {p.position}
-                              </span>
-                            </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                        {p.imagePath ? (
+                          <img src={p.imagePath} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(234,179,8,0.2)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: 700, flexShrink: 0 }}>
+                            {p.name.slice(0, 2).toUpperCase()}
                           </div>
-                        </div>
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600, fontSize: "0.78rem" }}>
-                            {p.clubName}
-                          </span>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.92rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.name}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "0.62rem", background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, textTransform: "uppercase" }}>
+                              PRIME
+                            </span>
+                            <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
+                              {p.position}
+                            </span>
+                            <span style={{ fontSize: "0.72rem", color: p.clubName !== "Free Agent" ? "#38bdf8" : "rgba(255,255,255,0.4)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                              <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem" }} />
+                              {p.clubName}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -1707,26 +1635,8 @@ export default function AdminPrimeManager() {
                         <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 600 }}>
                           Duration
                         </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div>
                           {renderPrimeDurationBadge(p)}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditValidity(p)}
-                            title="Edit Prime Validity"
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: "6px",
-                              border: "1px solid rgba(234,179,8,0.3)",
-                              background: "rgba(234,179,8,0.1)",
-                              color: "#fbbf24",
-                              cursor: "pointer",
-                              fontSize: "0.72rem",
-                              display: "inline-flex",
-                              alignItems: "center"
-                            }}
-                          >
-                            <i className="fa-solid fa-pen-to-square" />
-                          </button>
                         </div>
                       </div>
 
@@ -1784,37 +1694,19 @@ export default function AdminPrimeManager() {
 
             {/* Pagination Controls Bar */}
             {filteredPrimedPlayers.length > 0 && (
-              <div style={{
-                padding: "0.75rem 1.25rem",
-                borderTop: "1px solid rgba(255,255,255,0.06)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "10px",
-                background: "rgba(0,0,0,0.2)"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div className="prime-pagination-bar">
+                <div className="prime-pagination-info">
                   <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>
                     Showing <strong style={{ color: "#fff" }}>{primedPageSize === -1 ? 1 : Math.min((primedPage - 1) * primedPageSize + 1, filteredPrimedPlayers.length)}</strong> - <strong style={{ color: "#fff" }}>{primedPageSize === -1 ? filteredPrimedPlayers.length : Math.min(primedPage * primedPageSize, filteredPrimedPlayers.length)}</strong> of <strong style={{ color: "#eab308" }}>{filteredPrimedPlayers.length}</strong>
                     {filteredPrimedPlayers.length !== primedPlayers.length && (
-                      <span> (filtered from {primedPlayers.length})</span>
+                      <span className="prime-pagination-filtered"> (filtered from {primedPlayers.length})</span>
                     )}
                   </span>
 
                   <select
                     value={primedPageSize}
                     onChange={(e) => setPrimedPageSize(Number(e.target.value))}
-                    style={{
-                      padding: "4px 8px",
-                      background: "rgba(0,0,0,0.4)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "6px",
-                      color: "rgba(255,255,255,0.8)",
-                      fontSize: "0.72rem",
-                      outline: "none",
-                      cursor: "pointer"
-                    }}
+                    className="prime-pagesize-select"
                   >
                     <option value={10} style={{ background: "#18181b" }}>10 / page</option>
                     <option value={25} style={{ background: "#18181b" }}>25 / page</option>
@@ -1824,7 +1716,7 @@ export default function AdminPrimeManager() {
                 </div>
 
                 {primedPageSize !== -1 && totalPrimedPages > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                  <div className="prime-pagination-controls">
                     <button
                       type="button"
                       disabled={primedPage <= 1}
@@ -1909,31 +1801,12 @@ export default function AdminPrimeManager() {
         {/* Edit Validity Modal */}
         {mounted && editingPlayer && createPortal(
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.75)",
-              backdropFilter: "blur(6px)",
-              zIndex: 999999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "1rem"
-            }}
+            className="prime-modal-overlay"
             onClick={() => !isSavingEdit && setEditingPlayer(null)}
           >
             <div
+              className="prime-modal-dialog"
               onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "#18181b",
-                border: "1px solid rgba(234,179,8,0.3)",
-                borderRadius: "16px",
-                width: "100%",
-                maxWidth: "480px",
-                padding: "1.5rem",
-                boxShadow: "0 20px 50px rgba(0,0,0,0.8)",
-                position: "relative"
-              }}
             >
               {/* Modal Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>

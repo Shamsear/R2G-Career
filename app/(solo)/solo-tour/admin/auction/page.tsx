@@ -3995,48 +3995,31 @@ export default function AuctionManager() {
 
                       return (
                         <div key={p.id} className="primed-player-card">
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-                              {p.imagePath ? (
-                                <img src={p.imagePath} alt="" style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0 }}>
-                                  {p.name.slice(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-                                  <span style={{ fontSize: "0.6rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>PRIME</span>
-                                  <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{p.position}</span>
-                                </div>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                            {p.imagePath ? (
+                              <img src={p.imagePath} alt="" style={{ width: "38px", height: "38px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                            ) : (
+                              <div style={{ width: "38px", height: "38px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 700, flexShrink: 0 }}>
+                                {p.name.slice(0, 2).toUpperCase()}
                               </div>
-                            </div>
-                            <div style={{ textAlign: "right", flexShrink: 0 }}>
-                              <span style={{ color: "#fff", fontWeight: 600, fontSize: "0.78rem" }}>{p.clubName}</span>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.88rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px", flexWrap: "wrap" }}>
+                                <span style={{ fontSize: "0.6rem", background: "rgba(234,179,8,0.15)", color: "#eab308", border: "1px solid rgba(234,179,8,0.3)", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>PRIME</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 600 }}>{p.position}</span>
+                                <span style={{ fontSize: "0.72rem", color: "#38bdf8", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                  <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.65rem" }} />
+                                  {p.clubName}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", padding: "8px 10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
                             <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", fontWeight: 600 }}>Duration</span>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <div>
                               {renderPrimeDurationBadge(p)}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditPrimeValidity(p)}
-                                title="Edit validity / duration"
-                                style={{
-                                  padding: "2px 6px",
-                                  borderRadius: "4px",
-                                  border: "1px solid rgba(234,179,8,0.3)",
-                                  background: "rgba(234,179,8,0.1)",
-                                  color: "#fbbf24",
-                                  cursor: "pointer",
-                                  fontSize: "0.68rem"
-                                }}
-                              >
-                                <i className="fa-solid fa-pen-to-square" />
-                              </button>
                             </div>
                           </div>
 
