@@ -3875,101 +3875,193 @@ export default function AuctionManager() {
                   {primedPlayers.length === 0 ? "No players are currently Primed in the database." : "No Primed players match the search filters."}
                 </div>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                    <thead>
-                      <tr style={{ color: "var(--text-secondary)", fontSize: "0.68rem", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Player</th>
-                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Position</th>
-                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Franchise / Club</th>
-                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>Prime Duration</th>
-                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedPrimeTabPlayers.map((p) => {
-                        const handleRemove = async () => {
-                          if (!confirm("Are you sure you want to remove Prime status from this player?")) return;
-                          startTransition(async () => {
-                            try {
-                              const res = await removePlayerPrime(p.id);
-                              if (res.success) {
-                                showToast("Prime status removed!");
-                                loadPrimeData();
-                              } else {
-                                showToast(res.error || "Failed to remove status");
+                <>
+                  {/* Desktop View: Full Table */}
+                  <div className="primed-desktop-table" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                      <thead>
+                        <tr style={{ color: "var(--text-secondary)", fontSize: "0.68rem", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                          <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Player</th>
+                          <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Position</th>
+                          <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Franchise / Club</th>
+                          <th style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>Prime Duration</th>
+                          <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedPrimeTabPlayers.map((p) => {
+                          const handleRemove = async () => {
+                            if (!confirm("Are you sure you want to remove Prime status from this player?")) return;
+                            startTransition(async () => {
+                              try {
+                                const res = await removePlayerPrime(p.id);
+                                if (res.success) {
+                                  showToast("Prime status removed!");
+                                  loadPrimeData();
+                                } else {
+                                  showToast(res.error || "Failed to remove status");
+                                }
+                              } catch {
+                                showToast("Error removing status");
                               }
-                            } catch {
-                              showToast("Error removing status");
-                            }
-                          });
-                        };
+                            });
+                          };
 
-                        return (
-                          <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                            <td style={{ padding: "0.75rem 0.5rem" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                {p.imagePath ? (
-                                  <img src={p.imagePath} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} />
-                                ) : (
-                                  <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700 }}>
-                                    {p.name.slice(0, 2).toUpperCase()}
+                          return (
+                            <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                              <td style={{ padding: "0.75rem 0.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                  {p.imagePath ? (
+                                    <img src={p.imagePath} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} />
+                                  ) : (
+                                    <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700 }}>
+                                      {p.name.slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.8rem" }}>{p.name}</div>
+                                    <span style={{ fontSize: "0.6rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>PRIME</span>
                                   </div>
-                                )}
-                                <div>
-                                  <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.8rem" }}>{p.name}</div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-secondary)", fontWeight: 600 }}>{p.position}</td>
+                              <td style={{ padding: "0.75rem 0.5rem", color: "#fff", fontWeight: 600 }}>{p.clubName}</td>
+                              <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
+                                  {renderPrimeDurationBadge(p)}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditPrimeValidity(p)}
+                                    title="Edit validity / duration"
+                                    style={{
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      border: "1px solid rgba(234,179,8,0.3)",
+                                      background: "rgba(234,179,8,0.1)",
+                                      color: "#fbbf24",
+                                      cursor: "pointer",
+                                      fontSize: "0.68rem"
+                                    }}
+                                  >
+                                    <i className="fa-solid fa-pen-to-square" />
+                                  </button>
+                                </div>
+                              </td>
+                              <td style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
+                                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px" }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditPrimeValidity(p)}
+                                    style={{ padding: "4px 8px", borderRadius: "6px", border: "1px solid rgba(234,179,8,0.3)", background: "rgba(234,179,8,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}
+                                  >
+                                    <i className="fa-solid fa-clock" /> Validity
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleRemove}
+                                    disabled={isPending}
+                                    style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile View: Clean Card Layout for small devices */}
+                  <div className="primed-mobile-cards">
+                    {paginatedPrimeTabPlayers.map((p) => {
+                      const handleRemove = async () => {
+                        if (!confirm("Are you sure you want to remove Prime status from this player?")) return;
+                        startTransition(async () => {
+                          try {
+                            const res = await removePlayerPrime(p.id);
+                            if (res.success) {
+                              showToast("Prime status removed!");
+                              loadPrimeData();
+                            } else {
+                              showToast(res.error || "Failed to remove status");
+                            }
+                          } catch {
+                            showToast("Error removing status");
+                          }
+                        });
+                      };
+
+                      return (
+                        <div key={p.id} className="primed-player-card">
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                              {p.imagePath ? (
+                                <img src={p.imagePath} alt="" style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(234,179,8,0.15)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0 }}>
+                                  {p.name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ color: "#fff", fontWeight: 700, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
                                   <span style={{ fontSize: "0.6rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 5px", borderRadius: "4px", fontWeight: 700 }}>PRIME</span>
+                                  <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>{p.position}</span>
                                 </div>
                               </div>
-                            </td>
-                            <td style={{ padding: "0.75rem 0.5rem", color: "var(--text-secondary)", fontWeight: 600 }}>{p.position}</td>
-                            <td style={{ padding: "0.75rem 0.5rem", color: "#fff", fontWeight: 600 }}>{p.clubName}</td>
-                            <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
-                                {renderPrimeDurationBadge(p)}
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditPrimeValidity(p)}
-                                  title="Edit validity / duration"
-                                  style={{
-                                    padding: "2px 6px",
-                                    borderRadius: "4px",
-                                    border: "1px solid rgba(234,179,8,0.3)",
-                                    background: "rgba(234,179,8,0.1)",
-                                    color: "#fbbf24",
-                                    cursor: "pointer",
-                                    fontSize: "0.68rem"
-                                  }}
-                                >
-                                  <i className="fa-solid fa-pen-to-square" />
-                                </button>
-                              </div>
-                            </td>
-                            <td style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
-                              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px" }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditPrimeValidity(p)}
-                                  style={{ padding: "4px 8px", borderRadius: "6px", border: "1px solid rgba(234,179,8,0.3)", background: "rgba(234,179,8,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}
-                                >
-                                  <i className="fa-solid fa-clock" /> Validity
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleRemove}
-                                  disabled={isPending}
-                                  style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              <span style={{ color: "#fff", fontWeight: 600, fontSize: "0.78rem" }}>{p.clubName}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", padding: "8px 10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                            <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", fontWeight: 600 }}>Duration</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              {renderPrimeDurationBadge(p)}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditPrimeValidity(p)}
+                                title="Edit validity / duration"
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  border: "1px solid rgba(234,179,8,0.3)",
+                                  background: "rgba(234,179,8,0.1)",
+                                  color: "#fbbf24",
+                                  cursor: "pointer",
+                                  fontSize: "0.68rem"
+                                }}
+                              >
+                                <i className="fa-solid fa-pen-to-square" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPrimeValidity(p)}
+                              style={{ flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(234,179,8,0.3)", background: "rgba(234,179,8,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}
+                            >
+                              <i className="fa-solid fa-clock" /> Validity
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRemove}
+                              disabled={isPending}
+                              style={{ flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}
+                            >
+                              <i className="fa-solid fa-trash-can" /> Remove
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
 
               {/* Prime Tab Pagination Bar */}

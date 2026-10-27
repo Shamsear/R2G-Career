@@ -8511,17 +8511,35 @@ export async function updatePlayerPrimeValidity(playerId: number, validity: stri
 export async function fetchPrimedPlayersList() {
   try {
     const { rows } = await pool.query(`
+      WITH latest_statuses AS (
+        SELECT DISTINCT ON (pss.player_id)
+          pss.id as status_id,
+          pss.player_id,
+          pss.status_type,
+          pss.valid_until,
+          pss.season_id
+        FROM player_seasonal_statuses pss
+        WHERE LOWER(pss.status_type) = 'prime'
+        ORDER BY pss.player_id, pss.season_id DESC NULLS LAST, pss.id DESC
+      ),
+      latest_contracts AS (
+        SELECT DISTINCT ON (pc.player_id)
+          pc.player_id,
+          pc.current_club_id
+        FROM player_contracts pc
+        WHERE LOWER(pc.status) = 'active' OR pc.status IS NULL
+        ORDER BY pc.player_id, pc.season_id DESC NULLS LAST, pc.id DESC
+      )
       SELECT 
         p.id, p.name, p.position, p.card_type as star, p.base_value as value, p.image_path as imagepath,
         c.id as club_id, c.name as club_name, c.logo_path as club_logo,
-        pss.status_type, pss.valid_until, pss.season_id,
-        s.season_number
-      FROM player_seasonal_statuses pss
-      JOIN players p ON pss.player_id = p.id
-      LEFT JOIN player_contracts pc ON p.id = pc.player_id AND (LOWER(pc.status) = 'active' OR pc.status IS NULL)
-      LEFT JOIN clubs c ON pc.current_club_id = c.id
-      LEFT JOIN seasons s ON pss.season_id = s.id
-      WHERE LOWER(pss.status_type) = 'prime'
+        ls.status_type, ls.valid_until, ls.season_id,
+        COALESCE(s.season_number, 9) as season_number
+      FROM latest_statuses ls
+      JOIN players p ON ls.player_id = p.id
+      LEFT JOIN latest_contracts lc ON p.id = lc.player_id
+      LEFT JOIN clubs c ON lc.current_club_id = c.id
+      LEFT JOIN seasons s ON ls.season_id = s.id
       ORDER BY p.name ASC
     `);
 

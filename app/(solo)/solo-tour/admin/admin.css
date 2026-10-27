@@ -1449,3 +1449,55 @@ select option,
 
 
 
+
+
+/* ─── Bulk Prime Responsive Cards and 2-Col Grid ─────────────────── */
+.bulk-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.primed-desktop-table {
+  display: block;
+}
+
+.primed-mobile-cards {
+  display: none;
+}
+
+.primed-player-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.primed-player-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(234, 179, 8, 0.25);
+}
+
+@media (max-width: 900px) {
+  .bulk-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .primed-desktop-table {
+    display: none !important;
+  }
+  .primed-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+}

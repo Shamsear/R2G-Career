@@ -754,10 +754,10 @@ export default function AdminPrimeManager() {
         </div>
 
         {/* Console layout */}
-        <div className="bulk-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "start" }}>
+        <div className="bulk-grid-2col">
           
           {/* Left Column: Selector Form & Player Checklist */}
-          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "16px", padding: "1.75rem" }}>
+          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "16px", padding: "1.75rem", minWidth: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <h3 style={{ fontSize: "1.05rem", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font-display)" }}>
                 <i className="fa-solid fa-square-plus" style={{ color: "#eab308" }} />
@@ -1460,7 +1460,7 @@ export default function AdminPrimeManager() {
           </div>
 
           {/* Right Column: Active Primed Players List */}
-          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden" }}>
+          <div style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px", overflow: "hidden", minWidth: 0 }}>
             <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <i className="fa-solid fa-crown" style={{ color: "#eab308", fontSize: "0.95rem" }} />
@@ -1573,99 +1573,213 @@ export default function AdminPrimeManager() {
                 {primedPlayers.length === 0 ? "No players are currently Primed." : "No Primed players match the selected filters."}
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                  <thead>
-                    <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      <th style={{ padding: "0.75rem 1.25rem", textAlign: "left" }}>Player</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Position</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Club / Team</th>
-                      <th style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>Prime Duration</th>
-                      <th style={{ padding: "0.75rem 1.25rem", textAlign: "right" }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedPrimedPlayers.map((p) => (
-                      <tr key={p.id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
-                        <td style={{ padding: "0.75rem 1.25rem" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                            {p.imagePath ? (
-                              <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
-                            ) : (
-                              <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(234,179,8,0.2)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700 }}>
-                                {p.name.slice(0,2).toUpperCase()}
+              <>
+                {/* Desktop View: Full Table */}
+                <div className="primed-desktop-table" style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        <th style={{ padding: "0.75rem 1.25rem", textAlign: "left" }}>Player</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Position</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "left" }}>Club / Team</th>
+                        <th style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>Prime Duration</th>
+                        <th style={{ padding: "0.75rem 1.25rem", textAlign: "right" }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPrimedPlayers.map((p) => (
+                        <tr key={p.id} style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+                          <td style={{ padding: "0.75rem 1.25rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                              {p.imagePath ? (
+                                <img src={p.imagePath} alt="" style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(234,179,8,0.2)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700 }}>
+                                  {p.name.slice(0,2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div style={{ fontWeight: 700, color: "#fff" }}>{p.name}</div>
+                                <span style={{ fontSize: "0.62rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, textTransform: "uppercase" }}>PRIME</span>
                               </div>
-                            )}
-                            <div>
-                              <div style={{ fontWeight: 700, color: "#fff" }}>{p.name}</div>
-                              <span style={{ fontSize: "0.62rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, textTransform: "uppercase" }}>PRIME</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{p.position}</td>
+                          <td style={{ padding: "0.75rem 0.5rem" }}>
+                            <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600 }}>{p.clubName}</span>
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+                              {renderPrimeDurationBadge(p)}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditValidity(p)}
+                                title="Edit Prime Validity"
+                                style={{
+                                  padding: "4px 7px",
+                                  borderRadius: "5px",
+                                  border: "1px solid rgba(234,179,8,0.3)",
+                                  background: "rgba(234,179,8,0.1)",
+                                  color: "#fbbf24",
+                                  cursor: "pointer",
+                                  fontSize: "0.7rem",
+                                  display: "inline-flex",
+                                  alignItems: "center"
+                                }}
+                              >
+                                <i className="fa-solid fa-pen-to-square" />
+                              </button>
+                            </div>
+                          </td>
+                          <td style={{ padding: "0.75rem 1.25rem", textAlign: "right" }}>
+                            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditValidity(p)}
+                                disabled={isPending}
+                                style={{
+                                  padding: "6px 12px",
+                                  borderRadius: "8px",
+                                  border: "1px solid rgba(234,179,8,0.3)",
+                                  background: "rgba(234,179,8,0.08)",
+                                  color: "#fbbf24",
+                                  cursor: "pointer",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px"
+                                }}
+                              >
+                                <i className="fa-solid fa-clock" /> Validity
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePrime(p.id)}
+                                disabled={isPending}
+                                style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, transition: "all 0.2s" }}
+                              >
+                                Remove Prime
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View: Clean Card Layout for small devices */}
+                <div className="primed-mobile-cards">
+                  {paginatedPrimedPlayers.map((p) => (
+                    <div key={p.id} className="primed-player-card">
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                          {p.imagePath ? (
+                            <img src={p.imagePath} alt="" style={{ width: "38px", height: "38px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                          ) : (
+                            <div style={{ width: "38px", height: "38px", borderRadius: "50%", background: "rgba(234,179,8,0.2)", color: "#eab308", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 700, flexShrink: 0 }}>
+                              {p.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {p.name}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "0.62rem", background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "1px 6px", borderRadius: "4px", fontWeight: 700, textTransform: "uppercase" }}>
+                                PRIME
+                              </span>
+                              <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)" }}>
+                                {p.position}
+                              </span>
                             </div>
                           </div>
-                        </td>
-                        <td style={{ padding: "0.75rem 0.5rem", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{p.position}</td>
-                        <td style={{ padding: "0.75rem 0.5rem" }}>
-                          <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600 }}>{p.clubName}</span>
-                        </td>
-                        <td style={{ padding: "0.75rem 0.5rem", textAlign: "center" }}>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
-                            {renderPrimeDurationBadge(p)}
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditValidity(p)}
-                              title="Edit Prime Validity"
-                              style={{
-                                padding: "4px 7px",
-                                borderRadius: "5px",
-                                border: "1px solid rgba(234,179,8,0.3)",
-                                background: "rgba(234,179,8,0.1)",
-                                color: "#fbbf24",
-                                cursor: "pointer",
-                                fontSize: "0.7rem",
-                                display: "inline-flex",
-                                alignItems: "center"
-                              }}
-                            >
-                              <i className="fa-solid fa-pen-to-square" />
-                            </button>
-                          </div>
-                        </td>
-                        <td style={{ padding: "0.75rem 1.25rem", textAlign: "right" }}>
-                          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px" }}>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditValidity(p)}
-                              disabled={isPending}
-                              style={{
-                                padding: "6px 12px",
-                                borderRadius: "8px",
-                                border: "1px solid rgba(234,179,8,0.3)",
-                                background: "rgba(234,179,8,0.08)",
-                                color: "#fbbf24",
-                                cursor: "pointer",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px"
-                              }}
-                            >
-                              <i className="fa-solid fa-clock" /> Validity
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePrime(p.id)}
-                              disabled={isPending}
-                              style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, transition: "all 0.2s" }}
-                            >
-                              Remove Prime
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <span style={{ color: p.clubName !== "Free Agent" ? "#fff" : "rgba(255,255,255,0.4)", fontWeight: 600, fontSize: "0.78rem" }}>
+                            {p.clubName}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 600 }}>
+                          Duration
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          {renderPrimeDurationBadge(p)}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditValidity(p)}
+                            title="Edit Prime Validity"
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              border: "1px solid rgba(234,179,8,0.3)",
+                              background: "rgba(234,179,8,0.1)",
+                              color: "#fbbf24",
+                              cursor: "pointer",
+                              fontSize: "0.72rem",
+                              display: "inline-flex",
+                              alignItems: "center"
+                            }}
+                          >
+                            <i className="fa-solid fa-pen-to-square" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditValidity(p)}
+                          disabled={isPending}
+                          style={{
+                            flex: 1,
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(234,179,8,0.3)",
+                            background: "rgba(234,179,8,0.08)",
+                            color: "#fbbf24",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "5px"
+                          }}
+                        >
+                          <i className="fa-solid fa-clock" /> Validity
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePrime(p.id)}
+                          disabled={isPending}
+                          style={{
+                            flex: 1,
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(239,68,68,0.3)",
+                            background: "rgba(239,68,68,0.1)",
+                            color: "#f87171",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "5px"
+                          }}
+                        >
+                          <i className="fa-solid fa-trash-can" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* Pagination Controls Bar */}
