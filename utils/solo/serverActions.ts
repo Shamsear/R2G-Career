@@ -6416,15 +6416,14 @@ export async function revertSoloOperation(operationId: number) {
       if (prev.id) {
         await pool.query(`
           UPDATE player_contracts
-          SET status = $1,
-              expire_season = $2,
-              current_club_id = $3,
-              signed_value = $4,
-              salary = $5,
-              start_season = $6
-          WHERE id = $7
+          SET status = 'active',
+              expire_season = $1,
+              current_club_id = $2,
+              signed_value = $3,
+              salary = $4,
+              start_season = $5
+          WHERE id = $6
         `, [
-          prev.status || 'active',
           prev.expire_season,
           prev.current_club_id,
           prev.signed_value,
@@ -6435,7 +6434,7 @@ export async function revertSoloOperation(operationId: number) {
       } else if (prev.player_id && prev.current_club_id) {
         await pool.query(`
           INSERT INTO player_contracts (player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
         `, [
           prev.player_id,
           seasonId,
@@ -6443,8 +6442,7 @@ export async function revertSoloOperation(operationId: number) {
           prev.signed_value,
           prev.salary,
           prev.start_season,
-          prev.expire_season,
-          prev.status || 'active'
+          prev.expire_season
         ]);
       }
     }
@@ -6680,18 +6678,23 @@ export async function executeTransferSale(clubId: number, playerId: number, pric
     await logTransaction(targetBuyingManagerId, seasonId, 'coin', -price, 'transfer_buy', `Transfer buy: bought ${pName} from ${sellingClubName} for ${price} Coins`);
 
     // 6. Deactivate old contract and retrieve the expire_season
-    const currentSeasonStr = seasonNumber.toString();
     const { rows: oldContractRows } = await pool.query(`
-      UPDATE player_contracts 
-      SET status = 'inactive', expire_season = $1
-      WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
-      RETURNING expire_season
-    `, [currentSeasonStr, playerId, targetSellingClubId, seasonId]);
+      SELECT expire_season, signed_value
+      FROM player_contracts 
+      WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+    `, [playerId, targetSellingClubId, seasonId]);
 
     if (oldContractRows.length === 0) {
       throw new Error("Active contract for the player not found.");
     }
     const expireSeason = oldContractRows[0].expire_season;
+
+    const currentSeasonStr = seasonNumber.toString();
+    await pool.query(`
+      UPDATE player_contracts 
+      SET status = 'inactive', expire_season = $1
+      WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
+    `, [currentSeasonStr, playerId, targetSellingClubId, seasonId]);
 
     // 7. Insert new active contract for buying club carrying over expire_season
     const cleanExpire = (expireSeason || '').replace(/[^\d.]/g, '');
@@ -6760,20 +6763,28 @@ export async function executeBulkTransfers(transfers: { sellingClubId: number; p
 
       transferSummaries.push(`${pName}: ${sellingClubName} → ${buyingClubName} (${price}c)`);
 
-      // 3. Snapshot and deactivate old contract
-      const currentSeasonStr = seasonNumber.toString();
-      const { rows: oldContractRows } = await pool.query(`
-        UPDATE player_contracts 
-        SET status = 'inactive', expire_season = $1
-        WHERE player_id = $2 AND current_club_id = $3 AND LOWER(status) = 'active' AND season_id = $4
-        RETURNING id, player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status
-      `, [currentSeasonStr, playerId, targetSellClubId, seasonId]);
+      // 3. Snapshot active contract before deactivation
+      const { rows: oldActiveRows } = await pool.query(`
+        SELECT id, player_id, season_id, current_club_id, signed_value, salary, start_season, expire_season, status
+        FROM player_contracts
+        WHERE player_id = $1 AND current_club_id = $2 AND LOWER(status) = 'active' AND season_id = $3
+      `, [playerId, targetSellClubId, seasonId]);
 
-      if (oldContractRows.length === 0) {
+      if (oldActiveRows.length === 0) {
         throw new Error(`Active contract for ${pName} not found at selling club.`);
       }
-      const oldContract = oldContractRows[0];
-      restoredContracts.push(oldContract);
+      const oldContract = oldActiveRows[0];
+      restoredContracts.push({
+        ...oldContract,
+        status: 'active'
+      });
+
+      const currentSeasonStr = seasonNumber.toString();
+      await pool.query(`
+        UPDATE player_contracts 
+        SET status = 'inactive', expire_season = $1
+        WHERE id = $2
+      `, [currentSeasonStr, oldContract.id]);
 
       const expireSeason = oldContract.expire_season;
       const prevSignedValue = Number(oldContract.signed_value) || 0;
