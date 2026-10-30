@@ -546,7 +546,44 @@ export default function ManagerDetail() {
                                         const typeClass = player.player_type ? player.player_type.replace(/[^a-zA-Z0-9]/g, '-') : '';
                                         return (
                                             <div key={i} className="player-card">
-                                                <div className={`player-position position-${player.position}`}>{player.position}</div>
+                                                <div className="player-avatar-box" style={{ position: "relative", width: "58px", height: "58px", margin: "0 auto 8px auto", flexShrink: 0 }}>
+                                                    <img
+                                                        src={player.imagePath || `/assets/images/players/${player.id}.png`}
+                                                        alt={player.player_name}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            borderRadius: "50%",
+                                                            objectFit: "cover",
+                                                            border: player.isPrime ? "2px solid #fbbf24" : "1px solid rgba(255,255,255,0.15)",
+                                                            boxShadow: player.isPrime ? "0 0 12px rgba(251, 191, 36, 0.35)" : "none",
+                                                            display: "block"
+                                                        }}
+                                                        onError={(e: any) => {
+                                                            e.currentTarget.onerror = null;
+                                                            e.currentTarget.src = "/assets/images/players/default.png";
+                                                        }}
+                                                    />
+                                                    <div 
+                                                        className={`player-position position-${player.position}`}
+                                                        style={{
+                                                            position: "absolute",
+                                                            bottom: "-4px",
+                                                            right: "-4px",
+                                                            width: "22px",
+                                                            height: "22px",
+                                                            fontSize: "0.62rem",
+                                                            fontWeight: 800,
+                                                            borderRadius: "6px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            boxShadow: "0 2px 6px rgba(0,0,0,0.5)"
+                                                        }}
+                                                    >
+                                                        {player.position}
+                                                    </div>
+                                                </div>
                                                 <div className="player-info">
                                                     <div className="player-name" title={player.player_name}>
                                                         <span>{player.player_name}</span>
@@ -562,16 +599,22 @@ export default function ManagerDetail() {
                                                                     fontSize: "0.62rem",
                                                                     fontWeight: 800,
                                                                     letterSpacing: "0.04em",
-                                                                    padding: "1px 6px",
+                                                                    padding: "2px 7px",
                                                                     borderRadius: "9999px",
                                                                     display: "inline-flex",
                                                                     alignItems: "center",
-                                                                    gap: "3px",
+                                                                    gap: "4px",
                                                                     marginLeft: "6px",
-                                                                    textTransform: "uppercase"
+                                                                    textTransform: "uppercase",
+                                                                    whiteSpace: "nowrap"
                                                                 }}
                                                             >
                                                                 <i className="fa-solid fa-crown" style={{ fontSize: "0.58rem" }} /> PRIME
+                                                                {player.valid_until && (
+                                                                    <span style={{ opacity: 0.9, fontWeight: 700, marginLeft: "2px" }}>
+                                                                        &bull; {player.valid_until}
+                                                                    </span>
+                                                                )}
                                                             </span>
                                                         )}
                                                         {player.player_type && (

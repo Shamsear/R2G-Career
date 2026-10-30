@@ -450,9 +450,15 @@ export async function fetchManagerByName(name: string) {
                 pss.valid_until
             FROM players p
             JOIN player_contracts pc ON p.id = pc.player_id
-            LEFT JOIN player_seasonal_statuses pss ON p.id = pss.player_id 
-                AND LOWER(pss.status_type) = 'prime' 
-                AND pss.season_id = pc.season_id
+            LEFT JOIN (
+              SELECT DISTINCT ON (pss.player_id)
+                pss.player_id,
+                pss.status_type,
+                pss.valid_until
+              FROM player_seasonal_statuses pss
+              WHERE LOWER(pss.status_type) = 'prime'
+              ORDER BY pss.player_id, pss.season_id DESC NULLS LAST, pss.id DESC
+            ) pss ON p.id = pss.player_id
             WHERE pc.current_club_id = $1 
               AND LOWER(pc.status) = 'active'
               AND pc.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
@@ -779,7 +785,7 @@ export async function fetchManagerByName(name: string) {
                     start_season: p.start_season,
                     expire_season: p.expire_season,
                     player_type: p.star || '3-star-standard',
-                    imagePath: resolvePlayerImageUrl(p.imagepath, p.id),
+                    imagePath: resolvePlayerImageUrl(p.imagepath || p.image_path || (p as any).imagePath, p.id),
                     isPrime: !!(p.tier_status && p.tier_status.toLowerCase() === 'prime'),
                     tier_status: p.tier_status || null,
                     valid_until: p.valid_until || null

@@ -1583,7 +1583,7 @@ export default function AuctionManager() {
         </div>
 
         {/* Tab Selector */}
-        <div className="tab-menu" style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "8px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+        <div className="tab-menu" style={{ display: "flex", gap: "8px", marginBottom: "1.5rem", flexWrap: "wrap", justifyContent: "center" }}>
           <button className={`portal-btn ${activeTab === 'auction' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('auction')}>
             <i className="fa-solid fa-gavel" /> Player Auction
           </button>
@@ -1600,7 +1600,7 @@ export default function AuctionManager() {
             <i className="fa-solid fa-calendar-minus" /> Season Releases
           </button>
           <button className={`portal-btn ${activeTab === 'prime' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('prime')}>
-            <i className="fa-solid fa-crown" /> Prime Player (1 Season)
+            <i className="fa-solid fa-crown" /> Prime Player
           </button>
           <button className={`portal-btn ${activeTab === 'history' ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0, whiteSpace: "nowrap" }} onClick={() => setActiveTab('history')}>
             <i className="fa-solid fa-clock-rotate-left" /> History & Revert

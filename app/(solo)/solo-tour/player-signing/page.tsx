@@ -616,34 +616,6 @@ function PlayerSigningContent() {
                             <span style={{ fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
                               {player.name}
                             </span>
-                            {player.isPrime && (
-                              <span
-                                style={{
-                                  background: "linear-gradient(135deg, rgba(234, 179, 8, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%)",
-                                  color: "#fbbf24",
-                                  border: "1px solid rgba(251, 191, 36, 0.5)",
-                                  padding: "2px 7px",
-                                  borderRadius: "4px",
-                                  fontSize: "0.66rem",
-                                  fontWeight: 800,
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "4px",
-                                  boxShadow: "0 0 8px rgba(245, 158, 11, 0.2)",
-                                  letterSpacing: "0.5px",
-                                  whiteSpace: "nowrap",
-                                  flexShrink: 0
-                                }}
-                                title={player.validUntil ? `Prime Tier (Valid until ${player.validUntil})` : "Prime Tier"}
-                              >
-                                <i className="fa-solid fa-crown" style={{ fontSize: "0.62rem" }} /> PRIME
-                                {player.validUntil && (
-                                  <span style={{ fontSize: "0.62rem", opacity: 0.85, fontWeight: 600, marginLeft: "2px" }}>
-                                    &bull; {player.validUntil}
-                                  </span>
-                                )}
-                              </span>
-                            )}
                           </div>
                         </div>
                       </td>

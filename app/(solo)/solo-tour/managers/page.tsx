@@ -118,16 +118,6 @@ export default function Managers() {
           <p className="portal-subtitle">
             Inspect active team tacticians, overall ratings, total club values, and trophy records.
           </p>
-          <div className="onedrive-link" style={{ marginTop: "0.75rem" }}>
-            <a
-              href="https://1drv.ms/x/s!Al82cgGcN1PEpn6612xvHz2ksboe?e=4fx0yz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="portal-btn btn-secondary"
-            >
-              <i className="fas fa-table" /> View Manager Data Ledger
-            </a>
-          </div>
         </div>
 
         {/* Search */}
