@@ -1257,13 +1257,17 @@ export default function AuctionManager() {
       price: sellPrice,
       expireSeason: sellSelectedPlayer.expireSeason,
     }]);
-    showToast(`${sellSelectedPlayer.name} â-- ${buyingClub?.name} added to queue!`);
+    showToast(`${sellSelectedPlayer.name} → ${buyingClub?.name} added to queue! Scroll down to execute.`);
     // Reset player + buying club but keep selling club so user can add another from same club
     setSellSelectedPlayer(null);
     setSellBuyingClubId("");
     setSellPrice(80);
     setSellBuyingDDOpen(false);
     setSellBuyingDDSearch("");
+
+    setTimeout(() => {
+      document.getElementById("transfer-queue-section")?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
   };
 
   const handleExecuteBulkTransfers = () => {
@@ -1485,11 +1489,15 @@ export default function AuctionManager() {
     }
 
     setBulkSwaps(prev => [...prev, newDeal]);
-    showToast("Swap deal added to queue!");
+    showToast("Swap deal added to queue! Scroll down to execute.");
 
     setSwapPlayerAId("");
     setSwapPlayerBId("");
     setSwapAdjustmentAtoB(0);
+
+    setTimeout(() => {
+      document.getElementById("swap-queue-section")?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
   };
 
   const handleExecuteBulkSwaps = (e: React.FormEvent) => {
@@ -1910,7 +1918,56 @@ export default function AuctionManager() {
           <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-shuffle" /> Transfer Squad Players</h2>
 
-            {/* â-€â-€ Selling Club â-€â-€ */}
+            {/* Top notification banner when transfers are queued */}
+            {bulkTransfers.length > 0 && (
+              <div style={{
+                background: "rgba(34, 197, 94, 0.1)",
+                border: "1px solid rgba(34, 197, 94, 0.35)",
+                borderRadius: "10px",
+                padding: "10px 14px",
+                marginBottom: "1.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                flexWrap: "wrap"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", fontSize: "1rem" }} />
+                  <div>
+                    <span style={{ fontSize: "0.85rem", color: "#fff", fontWeight: 700 }}>
+                      {bulkTransfers.length} Transfer{bulkTransfers.length > 1 ? "s" : ""} in Queue
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block" }}>
+                      Staged and waiting to be applied. Scroll down or click below to finalize.
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "0.78rem" }}
+                    onClick={() => {
+                      document.getElementById("transfer-queue-section")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  >
+                    <i className="fa-solid fa-arrow-down" /> View Queue
+                  </button>
+                  <button
+                    type="button"
+                    className="portal-btn btn-primary"
+                    style={{ padding: "6px 14px", fontSize: "0.78rem", background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
+                    onClick={handleExecuteBulkTransfers}
+                    disabled={isPending}
+                  >
+                    <i className="fa-solid fa-check" /> Execute All Now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Selling Club ── */}
             <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
               <div className="sub-card-title">Selling Club</div>
               <div className="admin-form-group">
@@ -2056,7 +2113,7 @@ export default function AuctionManager() {
               )}
             </div>
 
-            {/* â-€â-€ Deal Builder (shows only when player is selected) â-€â-€ */}
+            {/* ── Deal Builder (shows only when player is selected) ── */}
             {sellSelectedPlayer && (
               <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Buying Club &amp; Price</div>
@@ -2124,12 +2181,26 @@ export default function AuctionManager() {
               </div>
             )}
 
-            {/* â-€â-€ Transfer Queue â-€â-€ */}
+            {/* ── Transfer Queue ── */}
             {bulkTransfers.length > 0 && (
-              <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff", marginBottom: "1.25rem" }}>
-                  Queued Transfers ({bulkTransfers.length})
-                </h3>
+              <div id="transfer-queue-section" style={{ marginTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "10px" }}>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <i className="fa-solid fa-list-check" style={{ color: "#22c55e" }} />
+                    Queued Transfers ({bulkTransfers.length})
+                  </h3>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "4px 10px", fontSize: "0.75rem", color: "#ef4444", borderColor: "rgba(239,68,68,0.3)" }}
+                    onClick={() => setBulkTransfers([])}
+                  >
+                    <i className="fa-solid fa-trash" /> Clear Queue
+                  </button>
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 0, marginBottom: "1.25rem" }}>
+                  These transfers are staged in your admin queue. Click <strong>Execute &amp; Apply All Transfers</strong> below to finalize the contracts and coin transfers in the database.
+                </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
                   {bulkTransfers.map((t, idx) => (
                     <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "15px", flexWrap: "wrap" }}>
@@ -2164,8 +2235,14 @@ export default function AuctionManager() {
                   ))}
                 </div>
                 <div className="admin-btn-row">
-                  <button type="button" className="portal-btn btn-primary" onClick={handleExecuteBulkTransfers} disabled={isPending}>
-                    <i className="fa-solid fa-check" /> Execute All {bulkTransfers.length} Transfer{bulkTransfers.length > 1 ? "s" : ""}
+                  <button
+                    type="button"
+                    className="portal-btn btn-primary"
+                    onClick={handleExecuteBulkTransfers}
+                    disabled={isPending}
+                    style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", padding: "10px 22px", fontSize: "0.9rem", fontWeight: 700 }}
+                  >
+                    <i className="fa-solid fa-check" /> Execute &amp; Apply All {bulkTransfers.length} Transfer{bulkTransfers.length > 1 ? "s" : ""}
                   </button>
                 </div>
               </div>
@@ -2423,6 +2500,56 @@ export default function AuctionManager() {
         {activeTab === 'swap' && (
           <div className="admin-card" style={{ overflow: "visible" }}>
             <h2 className="admin-card-title"><i className="fa-solid fa-rotate" /> Execute Player Swap Deal</h2>
+
+            {/* Top notification banner when swap deals are queued */}
+            {bulkSwaps.length > 0 && (
+              <div style={{
+                background: "rgba(34, 197, 94, 0.1)",
+                border: "1px solid rgba(34, 197, 94, 0.35)",
+                borderRadius: "10px",
+                padding: "10px 14px",
+                marginBottom: "1.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                flexWrap: "wrap"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-circle-check" style={{ color: "#22c55e", fontSize: "1rem" }} />
+                  <div>
+                    <span style={{ fontSize: "0.85rem", color: "#fff", fontWeight: 700 }}>
+                      {bulkSwaps.length} Swap Deal{bulkSwaps.length > 1 ? "s" : ""} in Queue
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block" }}>
+                      Staged and waiting to be applied. Scroll down or click below to finalize.
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "0.78rem" }}
+                    onClick={() => {
+                      document.getElementById("swap-queue-section")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  >
+                    <i className="fa-solid fa-arrow-down" /> View Queue
+                  </button>
+                  <button
+                    type="button"
+                    className="portal-btn btn-primary"
+                    style={{ padding: "6px 14px", fontSize: "0.78rem", background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
+                    onClick={handleExecuteBulkSwaps}
+                    disabled={isPending}
+                  >
+                    <i className="fa-solid fa-check" /> Execute All Now
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={addSwapToQueue}>
               <div className="sub-card" style={{ marginBottom: "1rem", overflow: "visible" }}>
                 <div className="sub-card-title">Club A Setup</div>
@@ -2692,10 +2819,24 @@ export default function AuctionManager() {
             </form>
 
             {bulkSwaps.length > 0 && (
-              <div style={{ marginTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fff", marginBottom: "1.25rem" }}>
-                  Queued Swap Deals ({bulkSwaps.length})
-                </h3>
+              <div id="swap-queue-section" style={{ marginTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "10px" }}>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <i className="fa-solid fa-list-check" style={{ color: "#22c55e" }} />
+                    Queued Swap Deals ({bulkSwaps.length})
+                  </h3>
+                  <button
+                    type="button"
+                    className="portal-btn btn-secondary"
+                    style={{ padding: "4px 10px", fontSize: "0.78rem", color: "#ef4444", borderColor: "rgba(239,68,68,0.3)" }}
+                    onClick={() => setBulkSwaps([])}
+                  >
+                    <i className="fa-solid fa-trash" /> Clear Queue
+                  </button>
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 0, marginBottom: "1.25rem" }}>
+                  These swap deals are staged in your admin queue. Click <strong>Execute &amp; Apply All Swaps</strong> below to finalize the player swaps and coin adjustments in the database.
+                </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1.5rem" }}>
                   {bulkSwaps.map((deal, idx) => (
                     <div
@@ -2708,7 +2849,8 @@ export default function AuctionManager() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        gap: "15px"
+                        gap: "15px",
+                        flexWrap: "wrap"
                       }}
                     >
                       <div style={{ flex: 1 }}>
@@ -2738,8 +2880,14 @@ export default function AuctionManager() {
                   ))}
                 </div>
                 <div className="admin-btn-row">
-                  <button type="button" className="portal-btn btn-primary" onClick={handleExecuteBulkSwaps} disabled={isPending}>
-                    Execute All Swap Deals
+                  <button
+                    type="button"
+                    className="portal-btn btn-primary"
+                    onClick={handleExecuteBulkSwaps}
+                    disabled={isPending}
+                    style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", padding: "10px 22px", fontSize: "0.9rem", fontWeight: 700 }}
+                  >
+                    <i className="fa-solid fa-check" /> Execute &amp; Apply All {bulkSwaps.length} Swap Deal{bulkSwaps.length > 1 ? "s" : ""}
                   </button>
                 </div>
               </div>
