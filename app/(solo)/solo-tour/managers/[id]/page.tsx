@@ -310,6 +310,17 @@ export default function ManagerDetail() {
                                         <i className="fas fa-medal" style={{ color: "#38bdf8" }}></i>
                                         <span>{manager.r2g_token_balance || 0} RT</span>
                                     </div>
+                                    <div 
+                                        className="badge clickable"
+                                        onClick={() => {
+                                            setSelectedCurrency('voucher');
+                                            setActiveTab('wallet');
+                                        }}
+                                        title="Click to view Voucher transactions"
+                                    >
+                                        <i className="fas fa-ticket" style={{ color: "#ec4899" }}></i>
+                                        <span>{manager.r2g_voucher_balance || 0} Vouchers</span>
+                                    </div>
                                     <Link 
                                         href={`/members/${encodeURIComponent(manager.r2g_id || manager.id)}`}
                                         className="badge clickable unified-badge"
