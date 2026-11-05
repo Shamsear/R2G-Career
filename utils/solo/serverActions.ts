@@ -3252,82 +3252,91 @@ async function recalculateManagerSeasonStatsInTransaction(
   tournamentId: number,
   seasonId: number
 ) {
-  // Get all managers (via clubs) in this tournament
-  const { rows: clubRows } = await db.query(`
-    SELECT ts.club_id, c.manager_id
-    FROM tournament_standings ts
-    JOIN clubs c ON ts.club_id = c.id
-    WHERE ts.tournament_id = $1
-  `, [tournamentId]);
+  // Get all managers and their clubs in this season
+  const { rows: seasonManagers } = await db.query(`
+    SELECT 
+      m.id as manager_id,
+      COALESCE(ms.club_id, mw.current_club_id) as club_id
+    FROM managers m
+    LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = $1
+    LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = $1
+    WHERE ms.season_id = $1 OR mw.season_id = $1
+  `, [seasonId]);
 
-  if (clubRows.length === 0) return;
+  if (seasonManagers.length === 0) return;
 
-  // Get all played fixtures for this tournament
+  // Build map of clubId -> managerId
+  const clubToManagerMap = new Map<number, number>();
+  for (const sm of seasonManagers) {
+    if (sm.club_id) clubToManagerMap.set(Number(sm.club_id), Number(sm.manager_id));
+  }
+
+  // Get all played fixtures across solo tournaments for this season
   const { rows: fixtureRows } = await db.query(`
-    SELECT home_club_id, away_club_id, home_score, away_score, match_status
-    FROM fixtures
-    WHERE tournament_id = $1
-      AND home_score IS NOT NULL
-      AND away_score IS NOT NULL
-      AND match_status != 'void'
-  `, [tournamentId]);
+    SELECT f.home_club_id, f.away_club_id, f.home_score, f.away_score, f.match_status
+    FROM fixtures f
+    JOIN tournaments t ON f.tournament_id = t.id
+    WHERE (f.season_id = $1 OR t.season_id = $1)
+      AND t.tournament_type = 'solo'
+      AND f.home_score IS NOT NULL
+      AND f.away_score IS NOT NULL
+      AND f.match_status != 'void'
+  `, [seasonId]);
 
-  // Build stats per club
+  // Build stats per manager
   const statsMap: Record<number, { mp: number; w: number; d: number; l: number; gf: number; ga: number; cs: number }> = {};
-  for (const { club_id } of clubRows) {
-    statsMap[club_id] = { mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0 };
+  for (const sm of seasonManagers) {
+    statsMap[Number(sm.manager_id)] = { mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0 };
   }
 
   for (const f of fixtureRows) {
-    const home = f.home_club_id;
-    const away = f.away_club_id;
+    const homeMgr = clubToManagerMap.get(Number(f.home_club_id)) ?? Number(f.home_club_id);
+    const awayMgr = clubToManagerMap.get(Number(f.away_club_id)) ?? Number(f.away_club_id);
     const hs = Number(f.home_score);
     const as_ = Number(f.away_score);
     const isWalkover = f.match_status === 'wo_home' || f.match_status === 'wo_away';
 
-    if (statsMap[home] !== undefined) {
-      statsMap[home].mp += 1;
+    if (statsMap[homeMgr] !== undefined) {
+      statsMap[homeMgr].mp += 1;
       // Only count goals/clean sheets for actual played matches, not walkovers
       if (!isWalkover) {
-        statsMap[home].gf += hs;
-        statsMap[home].ga += as_;
-        if (as_ === 0) statsMap[home].cs += 1;
+        statsMap[homeMgr].gf += hs;
+        statsMap[homeMgr].ga += as_;
+        if (as_ === 0) statsMap[homeMgr].cs += 1;
       }
       // Always count wins/draws/losses regardless of walkover
-      if (hs > as_) statsMap[home].w += 1;
-      else if (hs === as_) statsMap[home].d += 1;
-      else statsMap[home].l += 1;
+      if (hs > as_) statsMap[homeMgr].w += 1;
+      else if (hs === as_) statsMap[homeMgr].d += 1;
+      else statsMap[homeMgr].l += 1;
     }
-    if (statsMap[away] !== undefined) {
-      statsMap[away].mp += 1;
+
+    if (statsMap[awayMgr] !== undefined) {
+      statsMap[awayMgr].mp += 1;
       // Only count goals/clean sheets for actual played matches, not walkovers
       if (!isWalkover) {
-        statsMap[away].gf += as_;
-        statsMap[away].ga += hs;
-        if (hs === 0) statsMap[away].cs += 1;
+        statsMap[awayMgr].gf += as_;
+        statsMap[awayMgr].ga += hs;
+        if (hs === 0) statsMap[awayMgr].cs += 1;
       }
       // Always count wins/draws/losses regardless of walkover
-      if (as_ > hs) statsMap[away].w += 1;
-      else if (as_ === hs) statsMap[away].d += 1;
-      else statsMap[away].l += 1;
+      if (as_ > hs) statsMap[awayMgr].w += 1;
+      else if (as_ === hs) statsMap[awayMgr].d += 1;
+      else statsMap[awayMgr].l += 1;
     }
   }
 
-  // For each club, find manager and update manager_seasons
-  for (const { club_id, manager_id } of clubRows) {
-    if (!manager_id) continue;
-    const s = statsMap[club_id];
-    if (!s) continue;
-
+  // Update manager_seasons
+  for (const [mgrIdStr, s] of Object.entries(statsMap)) {
+    const managerId = parseInt(mgrIdStr, 10);
     const { rowCount } = await db.query(`
       UPDATE manager_seasons
       SET matches_played = $1, wins = $2, draws = $3, losses = $4,
           goals_scored = $5, goals_conceded = $6, clean_sheets = $7
       WHERE manager_id = $8 AND season_id = $9
-    `, [s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs, manager_id, seasonId]);
+    `, [s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs, managerId, seasonId]);
 
     if (rowCount === 0) {
-      // Insert if no record yet
+      const clubId = seasonManagers.find(sm => Number(sm.manager_id) === managerId)?.club_id || null;
       await db.query(`
         INSERT INTO manager_seasons (manager_id, season_id, club_id, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, team_income, team_expense, team_profit)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 0, 0)
@@ -3336,7 +3345,7 @@ async function recalculateManagerSeasonStatsInTransaction(
             wins = EXCLUDED.wins, draws = EXCLUDED.draws, losses = EXCLUDED.losses,
             goals_scored = EXCLUDED.goals_scored, goals_conceded = EXCLUDED.goals_conceded,
             clean_sheets = EXCLUDED.clean_sheets
-      `, [manager_id, seasonId, club_id, s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs]);
+      `, [managerId, seasonId, clubId, s.mp, s.w, s.d, s.l, s.gf, s.ga, s.cs]);
     }
   }
 }
