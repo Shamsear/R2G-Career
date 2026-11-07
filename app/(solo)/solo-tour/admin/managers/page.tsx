@@ -531,9 +531,20 @@ export default function ClubsManager() {
           
           {/* Left Column: Clubs list cards */}
           <div className="financial-sidebar">
-            <button className="portal-btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={clearForm}>
-              <i className="fa-solid fa-circle-plus" /> Register New Manager
-            </button>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button className="portal-btn btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={clearForm}>
+                <i className="fa-solid fa-circle-plus" /> New Manager
+              </button>
+              <Link
+                href="/solo-tour/admin/financial-ops?mode=grid"
+                className="portal-btn btn-secondary"
+                style={{ padding: "6px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
+                title="Open Bulk Wallet Grid Entry"
+              >
+                <i className="fa-solid fa-table-cells" style={{ color: "#34d399" }} />
+                Bulk Wallets
+              </Link>
+            </div>
             
             {/* Search Bar */}
             <div style={{ position: "relative", marginBottom: "0.25rem" }}>
@@ -915,8 +926,19 @@ export default function ClubsManager() {
                 {/* 3. Wallet & Performance Card */}
                 {clubForm.isActive && (
                   <div className="sub-card">
-                    <div className="sub-card-title">
-                      <i className="fa-solid fa-wallet" /> 3. Wallet & Performance Override
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
+                      <div className="sub-card-title" style={{ margin: 0 }}>
+                        <i className="fa-solid fa-wallet" /> 3. Wallet &amp; Performance Override
+                      </div>
+                      <Link
+                        href="/solo-tour/admin/financial-ops?mode=grid"
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "4px 10px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        title="Enter wallets for all teams in bulk"
+                      >
+                        <i className="fa-solid fa-table-cells" style={{ color: "#34d399" }} />
+                        Bulk Wallet Grid Entry &rarr;
+                      </Link>
                     </div>
                     
                     <div className="currency-input-container">

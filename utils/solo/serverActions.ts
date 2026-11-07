@@ -4298,6 +4298,149 @@ export async function applyBulkCustomAdjustment(
   }
 }
 
+export interface BatchWalletItemAdjustment {
+  managerId: string | number;
+  clubId?: string | number;
+  clubName?: string;
+  rc: number;      // positive for credit, negative for debit
+  rt: number;      // positive for credit, negative for debit
+  voucher: number; // positive for credit, negative for debit
+  notes?: string;
+}
+
+export async function applyBatchItemizedAdjustments(
+  items: BatchWalletItemAdjustment[],
+  seasonId: string | number,
+  globalNotes?: string
+) {
+  try {
+    await pool.query('BEGIN');
+    
+    const validItems = (items || []).filter(item => {
+      const rc = Math.round(Number(item.rc) || 0);
+      const rt = Math.round(Number(item.rt) || 0);
+      const voucher = Math.round(Number(item.voucher) || 0);
+      return rc !== 0 || rt !== 0 || voucher !== 0;
+    });
+
+    if (validItems.length === 0) {
+      throw new Error("No adjustments specified to apply.");
+    }
+
+    let processedCount = 0;
+    let totalRcChange = 0;
+    let totalRtChange = 0;
+    let totalVoucherChange = 0;
+    const processedClubs: { id: number; clubName?: string; rc: number; rt: number; voucher: number }[] = [];
+
+    for (const item of validItems) {
+      const { managerId: targetMgrId, clubId } = await resolveClubAndManager(item.managerId, seasonId, 'manager');
+      if (!targetMgrId) continue;
+
+      const rc = Math.round(Number(item.rc) || 0);
+      const rt = Math.round(Number(item.rt) || 0);
+      const voucher = Math.round(Number(item.voucher) || 0);
+      const noteDesc = (item.notes && item.notes.trim()) 
+        ? item.notes.trim() 
+        : (globalNotes && globalNotes.trim()) 
+          ? globalNotes.trim() 
+          : 'Bulk wallet adjustment';
+
+      // 1. Ensure wallet exists
+      const { rows: walletRows } = await pool.query(`
+        SELECT r2g_coin_balance, r2g_token_balance, r2g_voucher_balance
+        FROM manager_wallets
+        WHERE manager_id = $1 AND season_id = $2
+      `, [targetMgrId, seasonId]);
+
+      if (walletRows.length === 0) {
+        await pool.query(`
+          INSERT INTO manager_wallets (manager_id, season_id, current_club_id, r2g_coin_balance, r2g_token_balance, r2g_voucher_balance, overall_rating, star_rating)
+          VALUES ($1, $2, $3, $4, $5, $6, 80, 3)
+        `, [targetMgrId, seasonId, clubId || null, Math.max(0, rc), Math.max(0, rt), Math.max(0, voucher)]);
+      } else {
+        await pool.query(`
+          UPDATE manager_wallets 
+          SET r2g_coin_balance = r2g_coin_balance + $1,
+              r2g_token_balance = r2g_token_balance + $2,
+              r2g_voucher_balance = r2g_voucher_balance + $3
+          WHERE manager_id = $4 AND season_id = $5
+        `, [rc, rt, voucher, targetMgrId, seasonId]);
+      }
+
+      // 2. Update manager_seasons for financial tracking
+      if (rc !== 0) {
+        if (rc > 0) {
+          await pool.query(`
+            UPDATE manager_seasons
+            SET team_income = team_income + $1,
+                team_profit = team_profit + $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [rc, targetMgrId, seasonId]);
+        } else {
+          await pool.query(`
+            UPDATE manager_seasons
+            SET team_expense = team_expense + $1,
+                team_profit = team_profit - $1
+            WHERE manager_id = $2 AND season_id = $3
+          `, [Math.abs(rc), targetMgrId, seasonId]);
+        }
+      }
+
+      // 3. Log transactions
+      if (rc !== 0) {
+        await logTransaction(targetMgrId, seasonId, 'coin', rc, rc > 0 ? 'bulk_credit' : 'bulk_debit', noteDesc);
+      }
+      if (rt !== 0) {
+        await logTransaction(targetMgrId, seasonId, 'token', rt, rt > 0 ? 'bulk_credit' : 'bulk_debit', noteDesc);
+      }
+      if (voucher !== 0) {
+        await logTransaction(targetMgrId, seasonId, 'voucher', voucher, voucher > 0 ? 'bulk_credit' : 'bulk_debit', noteDesc);
+      }
+
+      processedCount++;
+      totalRcChange += rc;
+      totalRtChange += rt;
+      totalVoucherChange += voucher;
+      processedClubs.push({
+        id: targetMgrId,
+        clubName: item.clubName,
+        rc,
+        rt,
+        voucher
+      });
+    }
+
+    try {
+      const adminUsername = await getCurrentAdminUsername();
+      await logSoloAdminAction('bulk_itemized_wallet_adjustment', {
+        admin_username: adminUsername,
+        count: processedCount,
+        total_rc: totalRcChange,
+        total_rt: totalRtChange,
+        total_voucher: totalVoucherChange,
+        global_notes: globalNotes,
+        summary: processedClubs
+      });
+    } catch (logErr) {
+      console.error("Error logging admin action for bulk itemized adjustment:", logErr);
+    }
+
+    await pool.query('COMMIT');
+    return {
+      success: true,
+      count: processedCount,
+      totalRc: totalRcChange,
+      totalRt: totalRtChange,
+      totalVoucher: totalVoucherChange
+    };
+  } catch (e: any) {
+    await pool.query('ROLLBACK');
+    console.error("Error applying batch itemized adjustments:", e);
+    throw new Error(e.message || "Failed to process bulk wallet adjustments");
+  }
+}
+
 export async function fetchRecentWalletTransactions(options?: {
   seasonId?: number | string;
   managerId?: number | string;

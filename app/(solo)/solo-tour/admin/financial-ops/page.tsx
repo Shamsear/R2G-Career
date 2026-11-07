@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import "../../../../portal.css";
 import "../admin.css";
@@ -14,6 +14,7 @@ import {
   applyTemplateAdjustment,
   applyCustomAdjustment,
   applyBulkCustomAdjustment,
+  applyBatchItemizedAdjustments,
   fetchRecentWalletTransactions,
   processTournamentMatchBonuses,
   fetchTournamentPositionRewardsPreview,
@@ -50,10 +51,23 @@ export default function FinancialOperations() {
   const [seasonPreviewList, setSeasonPreviewList] = useState<any[]>([]);
 
   // Multi-team / batch override states
-  const [targetMode, setTargetMode] = useState<"single" | "bulk">("single");
+  const [targetMode, setTargetMode] = useState<"grid" | "single" | "bulk">("grid");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
   const [bulkClubSearch, setBulkClubSearch] = useState("");
   const [operationType, setOperationType] = useState<"credit" | "debit">("credit");
+
+  // Bulk Grid Entry states
+  const [gridEntries, setGridEntries] = useState<Record<string, { rc: string; rt: string; voucher: string; notes: string }>>({});
+  const [gridSearch, setGridSearch] = useState("");
+  const [gridFilter, setGridFilter] = useState<"all" | "modified" | "unmodified">("all");
+  const [gridGlobalNotes, setGridGlobalNotes] = useState("");
+  const [gridFillRc, setGridFillRc] = useState<string>("");
+  const [gridFillRt, setGridFillRt] = useState<string>("");
+  const [gridFillVoucher, setGridFillVoucher] = useState<string>("");
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteRawText, setPasteRawText] = useState("");
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Recent Wallet Transactions Ledger states
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -107,6 +121,13 @@ export default function FinancialOperations() {
 
   useEffect(() => {
     loadData();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get("mode");
+      if (modeParam === "single" || modeParam === "bulk" || modeParam === "grid") {
+        setTargetMode(modeParam);
+      }
+    }
   }, []);
 
   const handleProcessSalaries = () => {
@@ -258,6 +279,261 @@ export default function FinancialOperations() {
         loadSeasonPreview(selectedSeasonTourneyId);
       } catch (err: any) {
         showToast("❌ Error disbursing season rewards: " + err.message);
+      }
+    });
+  };
+
+  // Grid Handlers & Computations
+  const handleGridRowChange = (mgrId: string, field: "rc" | "rt" | "voucher" | "notes", val: string) => {
+    setGridEntries(prev => ({
+      ...prev,
+      [mgrId]: {
+        rc: field === "rc" ? val : (prev[mgrId]?.rc ?? ""),
+        rt: field === "rt" ? val : (prev[mgrId]?.rt ?? ""),
+        voucher: field === "voucher" ? val : (prev[mgrId]?.voucher ?? ""),
+        notes: field === "notes" ? val : (prev[mgrId]?.notes ?? "")
+      }
+    }));
+  };
+
+  const handleClearGridRow = (mgrId: string) => {
+    setGridEntries(prev => {
+      const next = { ...prev };
+      delete next[mgrId];
+      return next;
+    });
+  };
+
+  const handleClearAllGrid = () => {
+    if (Object.keys(gridEntries).length > 0) {
+      if (!confirm("Are you sure you want to clear all entered wallet adjustments in the table?")) return;
+    }
+    setGridEntries({});
+  };
+
+  const filteredGridClubs = useMemo(() => {
+    return clubs.filter(c => {
+      const q = gridSearch.trim().toLowerCase();
+      const matchesSearch = !q ||
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.manager || "").toLowerCase().includes(q) ||
+        (c.r2g_id || "").toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      const idStr = String(c.manager_id || c.id);
+      const entry = gridEntries[idStr];
+      const isModified = entry && (
+        (parseInt(entry.rc) || 0) !== 0 ||
+        (parseInt(entry.rt) || 0) !== 0 ||
+        (parseInt(entry.voucher) || 0) !== 0 ||
+        (entry.notes && entry.notes.trim() !== "")
+      );
+
+      if (gridFilter === "modified") return isModified;
+      if (gridFilter === "unmodified") return !isModified;
+      return true;
+    });
+  }, [clubs, gridSearch, gridFilter, gridEntries]);
+
+  const handleApplyFillAll = (overwrite: boolean = true) => {
+    const rcVal = gridFillRc.trim();
+    const rtVal = gridFillRt.trim();
+    const vchVal = gridFillVoucher.trim();
+
+    if (!rcVal && !rtVal && !vchVal) {
+      showToast("Enter a value for Coins, Tokens, or Vouchers to fill!");
+      return;
+    }
+
+    setGridEntries(prev => {
+      const next = { ...prev };
+      for (const c of filteredGridClubs) {
+        const idStr = String(c.manager_id || c.id);
+        const existing = next[idStr] || { rc: "", rt: "", voucher: "", notes: "" };
+        next[idStr] = {
+          rc: (overwrite || !existing.rc) && rcVal ? rcVal : existing.rc,
+          rt: (overwrite || !existing.rt) && rtVal ? rtVal : existing.rt,
+          voucher: (overwrite || !existing.voucher) && vchVal ? vchVal : existing.voucher,
+          notes: existing.notes || ""
+        };
+      }
+      return next;
+    });
+    showToast(`Filled ${filteredGridClubs.length} teams!`);
+  };
+
+  const handleParsePastedData = () => {
+    if (!pasteRawText.trim()) {
+      setPasteFeedback("Please paste some text first.");
+      return;
+    }
+
+    const lines = pasteRawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      setPasteFeedback("No non-empty lines found.");
+      return;
+    }
+
+    let matchedCount = 0;
+    const newEntries: Record<string, { rc: string; rt: string; voucher: string; notes: string }> = { ...gridEntries };
+    const isPureNumberList = lines.every(l => /^[+-]?\d+$/.test(l.replace(/,/g, "").trim()));
+
+    if (isPureNumberList) {
+      lines.forEach((line, idx) => {
+        if (idx < filteredGridClubs.length) {
+          const c = filteredGridClubs[idx];
+          const idStr = String(c.manager_id || c.id);
+          const val = line.replace(/,/g, "").trim();
+          newEntries[idStr] = {
+            rc: val,
+            rt: newEntries[idStr]?.rt || "",
+            voucher: newEntries[idStr]?.voucher || "",
+            notes: newEntries[idStr]?.notes || ""
+          };
+          matchedCount++;
+        }
+      });
+    } else {
+      for (const line of lines) {
+        let parts = line.includes("\t")
+          ? line.split("\t")
+          : line.includes(",")
+            ? line.split(",")
+            : line.includes(":")
+              ? line.split(":")
+              : line.split(/\s{2,}/);
+
+        if (parts.length === 1) {
+          const spaceTokens = line.split(/\s+/);
+          let numStartIndex = spaceTokens.length;
+          for (let i = spaceTokens.length - 1; i >= 0; i--) {
+            if (/^[+-]?\d+$/.test(spaceTokens[i])) {
+              numStartIndex = i;
+            } else {
+              break;
+            }
+          }
+          if (numStartIndex < spaceTokens.length) {
+            const clubPart = spaceTokens.slice(0, numStartIndex).join(" ");
+            const numParts = spaceTokens.slice(numStartIndex);
+            parts = [clubPart, ...numParts];
+          }
+        }
+
+        if (parts.length >= 2) {
+          const clubQuery = parts[0].trim().toLowerCase();
+          const found = clubs.find(c => {
+            const cName = (c.name || "").toLowerCase();
+            const mMgr = (c.manager || "").toLowerCase();
+            const r2g = (c.r2g_id || "").toLowerCase();
+            return cName === clubQuery || cName.includes(clubQuery) || clubQuery.includes(cName) ||
+                   mMgr === clubQuery || mMgr.includes(clubQuery) ||
+                   (r2g && (r2g === clubQuery || r2g.includes(clubQuery)));
+          });
+
+          if (found) {
+            const idStr = String(found.manager_id || found.id);
+            const rcVal = parts[1] ? parts[1].replace(/[^0-9+-]/g, "") : "";
+            const rtVal = parts[2] ? parts[2].replace(/[^0-9+-]/g, "") : "";
+            const vchVal = parts[3] ? parts[3].replace(/[^0-9+-]/g, "") : "";
+            const noteVal = parts[4] ? parts[4].trim() : "";
+
+            newEntries[idStr] = {
+              rc: rcVal || newEntries[idStr]?.rc || "",
+              rt: rtVal || newEntries[idStr]?.rt || "",
+              voucher: vchVal || newEntries[idStr]?.voucher || "",
+              notes: noteVal || newEntries[idStr]?.notes || ""
+            };
+            matchedCount++;
+          }
+        }
+      }
+    }
+
+    setGridEntries(newEntries);
+    if (matchedCount > 0) {
+      setPasteFeedback(`Success! Matched & updated ${matchedCount} teams.`);
+      setTimeout(() => {
+        setShowPasteModal(false);
+        setPasteFeedback(null);
+        setPasteRawText("");
+        showToast(`Imported wallet entries for ${matchedCount} teams!`);
+      }, 1000);
+    } else {
+      setPasteFeedback("No clubs could be matched from the pasted text. Check club names or try pasting format: 'Club Name, Coins, Tokens, Vouchers'.");
+    }
+  };
+
+  const modifiedGridItems = useMemo(() => {
+    const items: {
+      managerId: string;
+      club: any;
+      rc: number;
+      rt: number;
+      voucher: number;
+      notes: string;
+    }[] = [];
+
+    for (const c of clubs) {
+      const idStr = String(c.manager_id || c.id);
+      const entry = gridEntries[idStr];
+      if (!entry) continue;
+
+      const rc = parseInt(entry.rc) || 0;
+      const rt = parseInt(entry.rt) || 0;
+      const voucher = parseInt(entry.voucher) || 0;
+
+      if (rc !== 0 || rt !== 0 || voucher !== 0 || (entry.notes && entry.notes.trim() !== "")) {
+        items.push({
+          managerId: idStr,
+          club: c,
+          rc,
+          rt,
+          voucher,
+          notes: entry.notes || ""
+        });
+      }
+    }
+    return items;
+  }, [clubs, gridEntries]);
+
+  const totalGridCoins = useMemo(() => modifiedGridItems.reduce((acc, it) => acc + it.rc, 0), [modifiedGridItems]);
+  const totalGridTokens = useMemo(() => modifiedGridItems.reduce((acc, it) => acc + it.rt, 0), [modifiedGridItems]);
+  const totalGridVouchers = useMemo(() => modifiedGridItems.reduce((acc, it) => acc + it.voucher, 0), [modifiedGridItems]);
+
+  const handleExecuteBatchAdjustments = () => {
+    if (modifiedGridItems.length === 0) {
+      showToast("No adjustments entered yet! Enter coins, tokens, or vouchers for at least one team.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const itemsToSubmit = modifiedGridItems.map(it => ({
+          managerId: it.managerId,
+          clubId: it.club.club_id || it.club.id,
+          clubName: it.club.name,
+          rc: it.rc,
+          rt: it.rt,
+          voucher: it.voucher,
+          notes: it.notes
+        }));
+
+        const res = await applyBatchItemizedAdjustments(
+          itemsToSubmit,
+          activeSeason?.id || 6,
+          gridGlobalNotes
+        );
+
+        showToast(`✅ Successfully applied wallet adjustments to ${res.count} teams!`);
+        setShowConfirmModal(false);
+        setGridEntries({});
+        setGridGlobalNotes("");
+        loadData();
+        loadTransactions();
+      } catch (err: any) {
+        showToast("❌ Error: " + (err.message || "Failed to process bulk adjustments"));
       }
     });
   };
@@ -559,6 +835,26 @@ export default function FinancialOperations() {
               <div style={{ display: "flex", gap: "6px", background: "rgba(0,0,0,0.3)", padding: "3px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
                 <button
                   type="button"
+                  onClick={() => setTargetMode("grid")}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: "7px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    border: "none",
+                    background: targetMode === "grid" ? "rgba(16,185,129,0.3)" : "transparent",
+                    color: targetMode === "grid" ? "#34d399" : "rgba(255,255,255,0.6)",
+                    boxShadow: targetMode === "grid" ? "0 2px 8px rgba(16,185,129,0.3)" : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <i className="fa-solid fa-table-cells" /> Bulk Grid Entry {modifiedGridItems.length > 0 && `(${modifiedGridItems.length})`}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setTargetMode("single")}
                   style={{
                     padding: "6px 14px",
@@ -595,16 +891,489 @@ export default function FinancialOperations() {
                     gap: "6px"
                   }}
                 >
-                  <i className="fa-solid fa-users" /> Multiple Teams ({selectedManagerIds.length})
+                  <i className="fa-solid fa-users" /> Uniform Batch ({selectedManagerIds.length})
                 </button>
               </div>
             </div>
 
             <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1.25rem" }}>
-              Award (+) or deduct (-) custom amounts of <strong>Coins (RC)</strong>, <strong>Tokens (RT)</strong>, or <strong>Vouchers</strong> for one specific team or across multiple teams at once. All operations are strictly logged with audit trails.
+              {targetMode === "grid"
+                ? "Enter custom wallet adjustments (Coins, Tokens, Vouchers) across all registered clubs simultaneously in an itemized spreadsheet grid, with live balance previews, paste import, and instant batch execution."
+                : "Award (+) or deduct (-) custom amounts of Coins (RC), Tokens (RT), or Vouchers for one specific team or across multiple teams at once. All operations are strictly logged with audit trails."}
             </p>
 
-            {/* Target Selection View */}
+            {targetMode === "grid" ? (
+              <div>
+                {/* Grid Toolbar: Search, Filters, Tools */}
+                <div style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "14px", marginBottom: "1.25rem" }}>
+                  {/* Row 1: Search, Filter Tabs, Import Button, Clear Button */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "240px", flexWrap: "wrap" }}>
+                      <div style={{ position: "relative", width: "100%", maxWidth: "260px" }}>
+                        <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }} />
+                        <input
+                          type="text"
+                          placeholder="Filter clubs or managers..."
+                          value={gridSearch}
+                          onChange={(e) => setGridSearch(e.target.value)}
+                          className="admin-input"
+                          style={{ paddingLeft: "30px", fontSize: "0.8rem", borderRadius: "8px" }}
+                        />
+                        {gridSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setGridSearch("")}
+                            style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
+                          >
+                            <i className="fa-solid fa-xmark" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter tabs: All, Modified, Unmodified */}
+                      <div style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.04)", padding: "2px", borderRadius: "8px" }}>
+                        <button
+                          type="button"
+                          onClick={() => setGridFilter("all")}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: "6px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            border: "none",
+                            background: gridFilter === "all" ? "rgba(255,255,255,0.15)" : "transparent",
+                            color: gridFilter === "all" ? "#fff" : "rgba(255,255,255,0.6)"
+                          }}
+                        >
+                          All ({clubs.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGridFilter("modified")}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: "6px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            border: "none",
+                            background: gridFilter === "modified" ? "rgba(16,185,129,0.25)" : "transparent",
+                            color: gridFilter === "modified" ? "#34d399" : "rgba(255,255,255,0.6)"
+                          }}
+                        >
+                          Modified ({modifiedGridItems.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGridFilter("unmodified")}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: "6px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            border: "none",
+                            background: gridFilter === "unmodified" ? "rgba(255,255,255,0.15)" : "transparent",
+                            color: gridFilter === "unmodified" ? "#fff" : "rgba(255,255,255,0.6)"
+                          }}
+                        >
+                          Unmodified ({clubs.length - modifiedGridItems.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Smart Tools: Paste Import & Clear */}
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPasteRawText("");
+                          setPasteFeedback(null);
+                          setShowPasteModal(true);
+                        }}
+                        className="portal-btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "0.75rem", borderRadius: "8px", display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <i className="fa-solid fa-file-import" style={{ color: "#38bdf8" }} />
+                        Paste / Import Data
+                      </button>
+
+                      {modifiedGridItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllGrid}
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "6px 12px", fontSize: "0.75rem", borderRadius: "8px", display: "flex", alignItems: "center", gap: "6px", color: "#f87171" }}
+                        >
+                          <i className="fa-solid fa-trash-can" />
+                          Clear All ({modifiedGridItems.length})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Quick Fill Tools bar */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", paddingTop: "10px", borderTop: "1px dashed rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <i className="fa-solid fa-wand-magic-sparkles" style={{ color: "#c084fc" }} /> Quick Fill {filteredGridClubs.length} Teams:
+                      </span>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                        <input
+                          type="number"
+                          placeholder="Coins"
+                          value={gridFillRc}
+                          onChange={(e) => setGridFillRc(e.target.value)}
+                          className="admin-input"
+                          style={{ width: "85px", padding: "5px 8px", fontSize: "0.75rem", borderRadius: "6px", color: "#fbbf24" }}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Tokens"
+                          value={gridFillRt}
+                          onChange={(e) => setGridFillRt(e.target.value)}
+                          className="admin-input"
+                          style={{ width: "75px", padding: "5px 8px", fontSize: "0.75rem", borderRadius: "6px", color: "#38bdf8" }}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Vouchers"
+                          value={gridFillVoucher}
+                          onChange={(e) => setGridFillVoucher(e.target.value)}
+                          className="admin-input"
+                          style={{ width: "75px", padding: "5px 8px", fontSize: "0.75rem", borderRadius: "6px", color: "#c084fc" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFillAll(true)}
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "5px 10px", fontSize: "0.72rem", borderRadius: "6px" }}
+                          title="Fills all currently visible clubs with these values"
+                        >
+                          Fill All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFillAll(false)}
+                          className="portal-btn btn-secondary"
+                          style={{ padding: "5px 10px", fontSize: "0.72rem", borderRadius: "6px" }}
+                          title="Fills only clubs that currently have empty entries"
+                        >
+                          Fill Empty
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Batch note / audit description */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: "260px", maxWidth: "420px" }}>
+                      <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>Audit Reason:</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Matchday bonus, tournament reward..."
+                        value={gridGlobalNotes}
+                        onChange={(e) => setGridGlobalNotes(e.target.value)}
+                        className="admin-input"
+                        style={{ padding: "5px 10px", fontSize: "0.75rem", borderRadius: "6px", width: "100%" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* The Itemized Grid Table */}
+                <div style={{ overflowX: "auto", background: "rgba(0,0,0,0.2)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "1.25rem" }}>
+                  <table style={{ width: "100%", minWidth: "920px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
+                        <th style={{ padding: "10px 14px", width: "40px" }}>#</th>
+                        <th style={{ padding: "10px 14px", width: "230px" }}>Club &amp; Manager</th>
+                        <th style={{ padding: "10px 14px", width: "180px" }}>Current Balance</th>
+                        <th style={{ padding: "10px 14px", width: "140px" }}>
+                          <i className="fa-solid fa-coins" style={{ color: "#fbbf24", marginRight: "4px" }} />
+                          Coins (+/-)
+                        </th>
+                        <th style={{ padding: "10px 14px", width: "120px" }}>
+                          <i className="fa-solid fa-star" style={{ color: "#38bdf8", marginRight: "4px" }} />
+                          Tokens (+/-)
+                        </th>
+                        <th style={{ padding: "10px 14px", width: "120px" }}>
+                          <i className="fa-solid fa-ticket" style={{ color: "#c084fc", marginRight: "4px" }} />
+                          Vouchers (+/-)
+                        </th>
+                        <th style={{ padding: "10px 14px", width: "180px" }}>Projected Balances</th>
+                        <th style={{ padding: "10px 14px" }}>Note (Optional)</th>
+                        <th style={{ padding: "10px 14px", width: "50px", textAlign: "center" }}>Clear</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredGridClubs.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ padding: "2.5rem 1rem", textAlign: "center", color: "var(--text-secondary)" }}>
+                            <i className="fa-solid fa-inbox" style={{ fontSize: "1.5rem", display: "block", marginBottom: "8px", opacity: 0.4 }} />
+                            No clubs match your current search or filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredGridClubs.map((c, idx) => {
+                          const idStr = String(c.manager_id || c.id);
+                          const entry = gridEntries[idStr] || { rc: "", rt: "", voucher: "", notes: "" };
+                          
+                          const curCoins = Number(c.coins) || 0;
+                          const curTokens = Number(c.tokens) || 0;
+                          const curVouchers = Number(c.vouchers) || 0;
+
+                          const rcDelta = parseInt(entry.rc) || 0;
+                          const rtDelta = parseInt(entry.rt) || 0;
+                          const vchDelta = parseInt(entry.voucher) || 0;
+
+                          const isModified = rcDelta !== 0 || rtDelta !== 0 || vchDelta !== 0 || !!(entry.notes && entry.notes.trim());
+
+                          const newCoins = curCoins + rcDelta;
+                          const newTokens = curTokens + rtDelta;
+                          const newVouchers = curVouchers + vchDelta;
+
+                          return (
+                            <tr
+                              key={idStr}
+                              style={{
+                                borderBottom: "1px solid rgba(255,255,255,0.05)",
+                                background: isModified ? "rgba(16,185,129,0.04)" : "transparent",
+                                transition: "background 0.15s ease"
+                              }}
+                            >
+                              <td style={{ padding: "10px 14px", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem" }}>
+                                {idx + 1}
+                              </td>
+                              <td style={{ padding: "10px 14px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                  {c.image || c.logo_path ? (
+                                    <img src={c.image || c.logo_path} alt="" style={{ width: "26px", height: "26px", objectFit: "contain" }} />
+                                  ) : (
+                                    <i className="fa-solid fa-shield-halved" style={{ fontSize: "1.1rem", opacity: 0.4 }} />
+                                  )}
+                                  <div style={{ minWidth: 0, overflow: "hidden" }}>
+                                    <div style={{ fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {c.name}
+                                    </div>
+                                    <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                                      {c.manager} {c.r2g_id && <span style={{ opacity: 0.7 }}>({c.r2g_id})</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "10px 14px" }}>
+                                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", fontSize: "0.75rem" }}>
+                                  <span style={{ color: "#fbbf24", background: "rgba(251,191,36,0.1)", padding: "2px 6px", borderRadius: "4px" }} title="Coins">
+                                    <i className="fa-solid fa-coins" style={{ marginRight: "3px" }} />{curCoins}
+                                  </span>
+                                  <span style={{ color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "2px 6px", borderRadius: "4px" }} title="Tokens">
+                                    <i className="fa-solid fa-star" style={{ marginRight: "3px" }} />{curTokens}
+                                  </span>
+                                  <span style={{ color: "#c084fc", background: "rgba(192,132,252,0.1)", padding: "2px 6px", borderRadius: "4px" }} title="Vouchers">
+                                    <i className="fa-solid fa-ticket" style={{ marginRight: "3px" }} />{curVouchers}
+                                  </span>
+                                </div>
+                              </td>
+                              <td style={{ padding: "8px 14px" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={entry.rc}
+                                    onChange={(e) => handleGridRowChange(idStr, "rc", e.target.value)}
+                                    className="admin-input"
+                                    style={{
+                                      padding: "6px 8px",
+                                      fontSize: "0.85rem",
+                                      fontWeight: 700,
+                                      borderRadius: "6px",
+                                      color: rcDelta > 0 ? "#34d399" : rcDelta < 0 ? "#f87171" : "#fbbf24",
+                                      background: isModified && rcDelta !== 0 ? "rgba(251,191,36,0.08)" : undefined
+                                    }}
+                                  />
+                                  <div style={{ display: "flex", gap: "3px" }}>
+                                    {[50, 100].map(amt => (
+                                      <button
+                                        key={amt}
+                                        type="button"
+                                        onClick={() => handleGridRowChange(idStr, "rc", String((parseInt(entry.rc) || 0) + amt))}
+                                        style={{ padding: "1px 5px", fontSize: "0.65rem", borderRadius: "3px", border: "1px solid rgba(251,191,36,0.2)", background: "rgba(251,191,36,0.05)", color: "#fbbf24", cursor: "pointer" }}
+                                      >
+                                        +{amt}
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleGridRowChange(idStr, "rc", String((parseInt(entry.rc) || 0) - 50))}
+                                      style={{ padding: "1px 5px", fontSize: "0.65rem", borderRadius: "3px", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.05)", color: "#f87171", cursor: "pointer" }}
+                                    >
+                                      -50
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "8px 14px" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={entry.rt}
+                                    onChange={(e) => handleGridRowChange(idStr, "rt", e.target.value)}
+                                    className="admin-input"
+                                    style={{
+                                      padding: "6px 8px",
+                                      fontSize: "0.85rem",
+                                      fontWeight: 700,
+                                      borderRadius: "6px",
+                                      color: rtDelta > 0 ? "#34d399" : rtDelta < 0 ? "#f87171" : "#38bdf8",
+                                      background: isModified && rtDelta !== 0 ? "rgba(56,189,248,0.08)" : undefined
+                                    }}
+                                  />
+                                  <div style={{ display: "flex", gap: "3px" }}>
+                                    {[1, 5].map(amt => (
+                                      <button
+                                        key={amt}
+                                        type="button"
+                                        onClick={() => handleGridRowChange(idStr, "rt", String((parseInt(entry.rt) || 0) + amt))}
+                                        style={{ padding: "1px 5px", fontSize: "0.65rem", borderRadius: "3px", border: "1px solid rgba(56,189,248,0.2)", background: "rgba(56,189,248,0.05)", color: "#38bdf8", cursor: "pointer" }}
+                                      >
+                                        +{amt}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "8px 14px" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={entry.voucher}
+                                    onChange={(e) => handleGridRowChange(idStr, "voucher", e.target.value)}
+                                    className="admin-input"
+                                    style={{
+                                      padding: "6px 8px",
+                                      fontSize: "0.85rem",
+                                      fontWeight: 700,
+                                      borderRadius: "6px",
+                                      color: vchDelta > 0 ? "#34d399" : vchDelta < 0 ? "#f87171" : "#c084fc",
+                                      background: isModified && vchDelta !== 0 ? "rgba(192,132,252,0.08)" : undefined
+                                    }}
+                                  />
+                                  <div style={{ display: "flex", gap: "3px" }}>
+                                    {[1, 2].map(amt => (
+                                      <button
+                                        key={amt}
+                                        type="button"
+                                        onClick={() => handleGridRowChange(idStr, "voucher", String((parseInt(entry.voucher) || 0) + amt))}
+                                        style={{ padding: "1px 5px", fontSize: "0.65rem", borderRadius: "3px", border: "1px solid rgba(192,132,252,0.2)", background: "rgba(192,132,252,0.05)", color: "#c084fc", cursor: "pointer" }}
+                                      >
+                                        +{amt}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "10px 14px" }}>
+                                {isModified ? (
+                                  <div style={{ fontSize: "0.74rem", display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    {rcDelta !== 0 && (
+                                      <span style={{ color: rcDelta > 0 ? "#34d399" : "#f87171" }}>
+                                        Coins: {curCoins} &rarr; <strong>{newCoins}</strong> ({rcDelta > 0 ? `+${rcDelta}` : rcDelta})
+                                      </span>
+                                    )}
+                                    {rtDelta !== 0 && (
+                                      <span style={{ color: rtDelta > 0 ? "#34d399" : "#f87171" }}>
+                                        Tokens: {curTokens} &rarr; <strong>{newTokens}</strong> ({rtDelta > 0 ? `+${rtDelta}` : rtDelta})
+                                      </span>
+                                    )}
+                                    {vchDelta !== 0 && (
+                                      <span style={{ color: vchDelta > 0 ? "#34d399" : "#f87171" }}>
+                                        Voucher: {curVouchers} &rarr; <strong>{newVouchers}</strong> ({vchDelta > 0 ? `+${vchDelta}` : vchDelta})
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)" }}>No change</span>
+                                )}
+                              </td>
+                              <td style={{ padding: "8px 14px" }}>
+                                <input
+                                  type="text"
+                                  placeholder={gridGlobalNotes || "Row note..."}
+                                  value={entry.notes}
+                                  onChange={(e) => handleGridRowChange(idStr, "notes", e.target.value)}
+                                  className="admin-input"
+                                  style={{ padding: "6px 8px", fontSize: "0.75rem", borderRadius: "6px", width: "100%", minWidth: "120px" }}
+                                />
+                              </td>
+                              <td style={{ padding: "8px 14px", textAlign: "center" }}>
+                                {isModified && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleClearGridRow(idStr)}
+                                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.85rem", padding: "4px" }}
+                                    title="Clear row adjustments"
+                                  >
+                                    <i className="fa-solid fa-rotate-left" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bottom Batch Summary & Action Bar */}
+                <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "14px" }}>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#fff" }}>
+                      Batch Summary:
+                    </div>
+                    <span style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(255,255,255,0.06)", fontSize: "0.78rem", fontWeight: 700, color: modifiedGridItems.length > 0 ? "#34d399" : "rgba(255,255,255,0.5)" }}>
+                      <i className="fa-solid fa-shield-halved" style={{ marginRight: "5px" }} />
+                      {modifiedGridItems.length} Teams Modified
+                    </span>
+                    <span style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(251,191,36,0.1)", fontSize: "0.78rem", fontWeight: 700, color: "#fbbf24" }}>
+                      <i className="fa-solid fa-coins" style={{ marginRight: "5px" }} />
+                      Net Coins: {totalGridCoins >= 0 ? `+${totalGridCoins}` : totalGridCoins} RC
+                    </span>
+                    <span style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(56,189,248,0.1)", fontSize: "0.78rem", fontWeight: 700, color: "#38bdf8" }}>
+                      <i className="fa-solid fa-star" style={{ marginRight: "5px" }} />
+                      Net Tokens: {totalGridTokens >= 0 ? `+${totalGridTokens}` : totalGridTokens} RT
+                    </span>
+                    <span style={{ padding: "4px 10px", borderRadius: "6px", background: "rgba(192,132,252,0.1)", fontSize: "0.78rem", fontWeight: 700, color: "#c084fc" }}>
+                      <i className="fa-solid fa-ticket" style={{ marginRight: "5px" }} />
+                      Net Vouchers: {totalGridVouchers >= 0 ? `+${totalGridVouchers}` : totalGridVouchers}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmModal(true)}
+                    disabled={isPending || modifiedGridItems.length === 0}
+                    className="portal-btn btn-primary"
+                    style={{
+                      padding: "10px 24px",
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                      boxShadow: modifiedGridItems.length > 0 ? "0 4px 15px rgba(16,185,129,0.3)" : "none",
+                      opacity: modifiedGridItems.length === 0 ? 0.5 : 1,
+                      cursor: modifiedGridItems.length === 0 ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: "6px" }} />
+                    Review &amp; Apply Batch Adjustments ({modifiedGridItems.length})
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* Target Selection View */}
             {targetMode === "bulk" ? (
               <div style={{ background: "rgba(0,0,0,0.22)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: "12px", padding: "1rem", marginBottom: "1.25rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem", flexWrap: "wrap", gap: "10px" }}>
@@ -1006,6 +1775,8 @@ export default function FinancialOperations() {
                 </div>
               );
             })()}
+            </div>
+            )}
 
           </div>
 
@@ -1186,6 +1957,193 @@ export default function FinancialOperations() {
           </div>
 
         </div>
+
+        {/* Modal 1: Confirmation Review Modal */}
+        {showConfirmModal && (
+          <div className="prime-modal-overlay" style={{ zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+            <div className="prime-modal-dialog" style={{ maxWidth: "620px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "0.75rem" }}>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#fff", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-shield-check" style={{ color: "#34d399" }} /> Confirm Bulk Wallet Adjustments
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: "1.1rem" }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px", marginBottom: "1.25rem" }}>
+                <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: "10px", padding: "12px", marginBottom: "1rem", fontSize: "0.8rem", color: "#d1fae5", lineHeight: "1.5" }}>
+                  You are about to execute wallet updates for <strong>{modifiedGridItems.length} clubs</strong> in a single atomic database transaction.
+                  Audit trail entries will be recorded in the wallet transactions ledger.
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "1rem", fontSize: "0.8rem" }}>
+                  <div style={{ background: "rgba(255,255,255,0.03)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span style={{ color: "var(--text-secondary)", display: "block", fontSize: "0.72rem" }}>Global Reason:</span>
+                    <strong style={{ color: "#fff" }}>{gridGlobalNotes || "Bulk wallet adjustment"}</strong>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span style={{ color: "var(--text-secondary)", display: "block", fontSize: "0.72rem" }}>Net Total Changes:</span>
+                    <strong style={{ color: "#34d399" }}>
+                      {totalGridCoins >= 0 ? `+${totalGridCoins}` : totalGridCoins} RC, {totalGridTokens >= 0 ? `+${totalGridTokens}` : totalGridTokens} RT, {totalGridVouchers >= 0 ? `+${totalGridVouchers}` : totalGridVouchers} Vouchers
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "6px", textTransform: "uppercase" }}>
+                  Affected Clubs ({modifiedGridItems.length}):
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "240px", overflowY: "auto", background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  {modifiedGridItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        background: "rgba(255,255,255,0.02)",
+                        fontSize: "0.8rem"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {item.club.image || item.club.logo_path ? (
+                          <img src={item.club.image || item.club.logo_path} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+                        ) : (
+                          <i className="fa-solid fa-shield-halved" style={{ fontSize: "0.8rem", opacity: 0.4 }} />
+                        )}
+                        <span style={{ fontWeight: 600, color: "#fff" }}>{item.club.name}</span>
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>({item.club.manager})</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "6px", fontSize: "0.75rem", fontWeight: 700 }}>
+                        {item.rc !== 0 && (
+                          <span style={{ color: item.rc > 0 ? "#34d399" : "#f87171" }}>
+                            {item.rc > 0 ? `+${item.rc}` : item.rc} RC
+                          </span>
+                        )}
+                        {item.rt !== 0 && (
+                          <span style={{ color: item.rt > 0 ? "#38bdf8" : "#f87171" }}>
+                            {item.rt > 0 ? `+${item.rt}` : item.rt} RT
+                          </span>
+                        )}
+                        {item.voucher !== 0 && (
+                          <span style={{ color: item.voucher > 0 ? "#c084fc" : "#f87171" }}>
+                            {item.voucher > 0 ? `+${item.voucher}` : item.voucher} Vch
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="portal-btn btn-secondary"
+                  disabled={isPending}
+                >
+                  Back to Editing
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchAdjustments}
+                  className="portal-btn btn-primary"
+                  disabled={isPending}
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", padding: "10px 20px" }}
+                >
+                  {isPending ? (
+                    <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: "6px" }} /> Processing All Updates...</>
+                  ) : (
+                    <><i className="fa-solid fa-check-double" style={{ marginRight: "6px" }} /> Confirm &amp; Execute ({modifiedGridItems.length} Teams)</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal 2: Smart Paste / CSV Import Modal */}
+        {showPasteModal && (
+          <div className="prime-modal-overlay" style={{ zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+            <div className="prime-modal-dialog" style={{ maxWidth: "560px", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "0.75rem" }}>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#fff", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i className="fa-solid fa-file-import" style={{ color: "#38bdf8" }} /> Paste / Import Wallet Data
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowPasteModal(false)}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: "1.1rem" }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.75rem", lineHeight: "1.4" }}>
+                Paste rows copied from <strong>Excel</strong>, <strong>Google Sheets</strong>, or plain text. Supported formats:
+              </p>
+              <ul style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", margin: "0 0 1rem 1.25rem", padding: 0, lineHeight: "1.6" }}>
+                <li><code>Club Name, Coins, Tokens, Vouchers</code> (e.g. <code>Arsenal, 150, 5, 1</code>)</li>
+                <li><code>Club Name 150</code> or <code>Club Name: 150</code> (matches club and sets Coins)</li>
+                <li>Tab-separated columns pasted directly from an Excel/Sheets row</li>
+                <li>Or a column of numbers (<code>150</code>, <code>120</code>...) to fill in row order</li>
+              </ul>
+
+              <textarea
+                rows={8}
+                className="admin-input"
+                placeholder={`Arsenal, 150, 5, 1\nChelsea, 100, 2, 0\nLiverpool, 80, 0, 0`}
+                value={pasteRawText}
+                onChange={(e) => {
+                  setPasteRawText(e.target.value);
+                  setPasteFeedback(null);
+                }}
+                style={{ fontFamily: "monospace", fontSize: "0.82rem", resize: "vertical", marginBottom: "1rem" }}
+              />
+
+              {pasteFeedback && (
+                <div style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  marginBottom: "1rem",
+                  fontSize: "0.8rem",
+                  background: pasteFeedback.startsWith("Success") ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                  color: pasteFeedback.startsWith("Success") ? "#34d399" : "#f87171",
+                  border: `1px solid ${pasteFeedback.startsWith("Success") ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`
+                }}>
+                  {pasteFeedback}
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPasteModal(false)}
+                  className="portal-btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleParsePastedData}
+                  className="portal-btn btn-primary"
+                  style={{ background: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)" }}
+                >
+                  <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: "6px" }} />
+                  Parse &amp; Fill Table
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
