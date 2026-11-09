@@ -145,6 +145,95 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   const manualMap = new Map<string, number>();
   manualMedals.forEach(m => manualMap.set(m.medal_key, m.level));
 
+  // 5. Fetch Master of the Week (MOTW) wins from prediction leagues
+  let predictionMotwWins: any[] = [];
+  try {
+    const { rows: motwRows } = await pool.query(`
+      WITH weekly_scores AS (
+        SELECT 
+          ps.season_id,
+          pd.week_number,
+          ps.member_id,
+          SUM(ps.points) as total_points,
+          RANK() OVER (PARTITION BY ps.season_id, pd.week_number ORDER BY SUM(ps.points) DESC) as rnk
+        FROM prediction_scores ps
+        JOIN prediction_days pd ON ps.season_id = pd.season_id AND ps.day_number = pd.day_number
+        GROUP BY ps.season_id, pd.week_number, ps.member_id
+      ),
+      completed_weeks AS (
+        SELECT 
+          season_id, 
+          week_number
+        FROM prediction_days
+        GROUP BY season_id, week_number
+        HAVING COUNT(*) = COUNT(*) FILTER (WHERE is_completed = true) AND COUNT(*) > 0
+      )
+      SELECT 
+        ws.season_id,
+        ws.week_number,
+        psec.name as season_name,
+        ws.total_points
+      FROM weekly_scores ws
+      JOIN completed_weeks cw ON ws.season_id = cw.season_id AND ws.week_number = cw.week_number
+      JOIN prediction_seasons psec ON ws.season_id = psec.id
+      WHERE ws.rnk = 1 AND ws.total_points > 0 AND ws.member_id = $1
+      ORDER BY ws.season_id, ws.week_number
+    `, [managerId]);
+    predictionMotwWins = motwRows;
+  } catch (err) {
+    console.error(`Error fetching prediction MOTW wins for manager ${managerId}:`, err);
+  }
+
+  // 6. Fetch completed prediction seasons standings
+  let predictionSeasonFinishes: any[] = [];
+  try {
+    const { rows: pSeasonRows } = await pool.query(`
+      WITH season_totals AS (
+        SELECT 
+          ps.season_id,
+          ps.member_id,
+          SUM(ps.points) as total_points,
+          RANK() OVER (PARTITION BY ps.season_id ORDER BY SUM(ps.points) DESC) as rnk
+        FROM prediction_scores ps
+        JOIN prediction_seasons psec ON ps.season_id = psec.id
+        WHERE psec.status = 'completed' OR (
+          psec.total_days > 0 AND (
+            SELECT COUNT(*) FROM prediction_days pd 
+            WHERE pd.season_id = psec.id AND pd.is_completed = true
+          ) >= psec.total_days
+        )
+        GROUP BY ps.season_id, ps.member_id
+      )
+      SELECT 
+        st.season_id,
+        st.rnk,
+        st.total_points,
+        psec.name as season_name,
+        psec.season_number
+      FROM season_totals st
+      JOIN prediction_seasons psec ON st.season_id = psec.id
+      WHERE st.member_id = $1
+    `, [managerId]);
+    predictionSeasonFinishes = pSeasonRows;
+  } catch (err) {
+    console.error(`Error fetching prediction season finishes for manager ${managerId}:`, err);
+  }
+
+  // 7. Fetch awards from player_awards table for this manager or their managed clubs
+  let directPlayerAwards: any[] = [];
+  try {
+    const clubIdStrs = clubIds.map((c: any) => c.toString());
+    const { rows: paRows } = await pool.query(`
+      SELECT * FROM player_awards 
+      WHERE player_id = $1::text 
+         OR ($2::text[] IS NOT NULL AND array_length($2::text[], 1) > 0 AND player_id = ANY($2::text[]))
+      ORDER BY season_id ASC, id ASC
+    `, [managerId.toString(), clubIdStrs]);
+    directPlayerAwards = paRows;
+  } catch (err) {
+    console.error(`Error fetching player_awards for manager ${managerId}:`, err);
+  }
+
   // --- STATS ACCUMULATION ---
   let totalMatches = 0;
   let totalWins = 0;
@@ -231,8 +320,14 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
         }
         if (lower.includes("ballon d'or") || (lower.includes('ballon') && !lower.includes('nominee'))) ballonDorWinnerCount++;
         if (lower.includes('r2g best') || (lower.includes('best') && !lower.includes('defender') && !lower.includes('goalkeeper') && !lower.includes('glove'))) r2gBestCount++;
-        if (lower.includes('master of the week') || lower.includes('master of week') || lower.includes('motw')) masterOfWeekCount++;
-        if (lower.includes('champion of prediction') || lower.includes('prediction champion') || lower.includes('fantasy champion')) predictionChampionCount++;
+        if (lower.includes('champion of prediction') || lower.includes('prediction champion') || lower.includes('fantasy champion') || (lower.includes('master of prediction') && lower.includes('champion'))) {
+          predictionChampionCount++;
+          top5FantasyCount++;
+          top10FantasyCount++;
+          top15FantasyCount++;
+        } else if (lower.includes('master of the week') || lower.includes('master of week') || lower.includes('motw') || lower.includes('master of prediction')) {
+          masterOfWeekCount++;
+        }
         if (lower.includes('player of the season') || lower.includes('pots')) playerOfSeasonTeamCount++;
         if (lower.includes('player of the day') || lower.includes('potd')) playerOfDayTeamCount++;
         if (lower.includes('player of the week') || lower.includes('potw')) playerOfWeekTeamCount++;
@@ -298,6 +393,99 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       if (s.fantasy_rank <= 10) top10FantasyCount++;
       if (s.fantasy_rank <= 5) top5FantasyCount++;
       if (s.fantasy_rank === 1) predictionChampionCount++;
+    }
+  });
+
+  // Process Weekly Master of the Week (MOTW) wins from prediction league
+  predictionMotwWins.forEach(w => {
+    masterOfWeekCount++;
+    totalRankAwards++;
+    const label = `Master of the Week - Week ${w.week_number} (${w.season_name})`;
+    if (!awardsList.includes(label)) {
+      awardsList.push(label);
+    }
+  });
+
+  // Process Completed Prediction Seasons finishes
+  predictionSeasonFinishes.forEach(sf => {
+    const rankNum = Number(sf.rnk);
+    if (rankNum === 1) {
+      predictionChampionCount++;
+      top5FantasyCount++;
+      top10FantasyCount++;
+      top15FantasyCount++;
+      totalRankAwards++;
+      const label = `Champion of Prediction (${sf.season_name})`;
+      if (!awardsList.includes(label)) {
+        awardsList.push(label);
+      }
+    } else if (rankNum <= 5) {
+      top5FantasyCount++;
+      top10FantasyCount++;
+      top15FantasyCount++;
+    } else if (rankNum <= 10) {
+      top10FantasyCount++;
+      top15FantasyCount++;
+    } else if (rankNum <= 15) {
+      top15FantasyCount++;
+    }
+  });
+
+  // Process manual/admin entries from player_awards table
+  directPlayerAwards.forEach(pa => {
+    const awardType = (pa.award_type || '').toLowerCase();
+    const pos = (pa.award_position || 'Winner').toLowerCase();
+    const isWinner = pos.includes('winner') || pos.includes('1st') || !pos.includes('nominee');
+    const label = `${pa.award_type}${pa.award_position && !pa.award_position.toLowerCase().includes('winner') ? ` (${pa.award_position})` : ''} (Season ${pa.season_id})`;
+
+    if (!awardsList.includes(label)) {
+      awardsList.push(label);
+    }
+
+    if (awardType.includes('prediction') || awardType.includes('master of week') || awardType.includes('master of the week') || awardType.includes('motw')) {
+      if (awardType.includes('champion') || pos.includes('champion')) {
+        if (isWinner) {
+          predictionChampionCount++;
+          top5FantasyCount++;
+          top10FantasyCount++;
+          top15FantasyCount++;
+          totalRankAwards++;
+        }
+      } else if (awardType.includes('top 5') || awardType.includes('top5')) {
+        top5FantasyCount++;
+        top10FantasyCount++;
+        top15FantasyCount++;
+      } else if (awardType.includes('top 10') || awardType.includes('top10')) {
+        top10FantasyCount++;
+        top15FantasyCount++;
+      } else if (awardType.includes('top 15') || awardType.includes('top15')) {
+        top15FantasyCount++;
+      } else {
+        if (isWinner) {
+          masterOfWeekCount++;
+          totalRankAwards++;
+        }
+      }
+    } else {
+      if (awardType.includes('boot') && isWinner) goldBootCount++;
+      if (awardType.includes('glove') && isWinner) goldGloveCount++;
+      if (awardType.includes('ball') && !awardType.includes('best') && !awardType.includes('nominee') && isWinner) goldBallCount++;
+      if (awardType.includes('best defender') && isWinner) bestDefenderCount++;
+      if (awardType.includes('maldini') && isWinner) maldiniTrophyCount++;
+      if ((awardType.includes('gerd') || awardType.includes('muller') || awardType.includes('müller')) && isWinner) gerdMullerCount++;
+      if (awardType.includes('yashin') && isWinner) yashinTrophyCount++;
+      if (awardType.includes('star player') && isWinner) starPlayerCount++;
+
+      if (pos.includes('nominee')) {
+        if (awardType.includes('ballon')) ballonDorNomineeCount++;
+      } else if (isWinner) {
+        if (awardType.includes("ballon d'or") || awardType.includes('ballon')) ballonDorWinnerCount++;
+        if (awardType.includes('r2g best') || (awardType.includes('best') && !awardType.includes('defender') && !awardType.includes('goalkeeper') && !awardType.includes('glove'))) r2gBestCount++;
+        if (awardType.includes('player of the season') || awardType.includes('pots')) playerOfSeasonTeamCount++;
+        if (awardType.includes('player of the day') || awardType.includes('potd')) playerOfDayTeamCount++;
+        if (awardType.includes('player of the week') || awardType.includes('potw')) playerOfWeekTeamCount++;
+        totalRankAwards++;
+      }
     }
   });
 
