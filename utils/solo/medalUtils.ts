@@ -132,6 +132,7 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
         AND f.home_score IS NOT NULL
         AND f.away_score IS NOT NULL
+        AND (f.match_status IS NULL OR f.match_status != 'void')
       ORDER BY f.season_id ASC, f.round_number ASC
     `, [clubIds]);
     fixtures = rows;
@@ -512,6 +513,7 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
   const currentCsStreaks: Record<string, number> = {};
   const currentSpecialUnbeatenStreaks: Record<string, number> = {};
   const currentTeamTourUnbeatenStreaks: Record<string, number> = {};
+  const rwsTournaments = new Set<string>();
 
   fixtures.forEach(f => {
     const isHome = clubIds.includes(f.home_club_id);
@@ -592,7 +594,27 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       }
     }
 
-    if (type === 'rws') rwsParticipations++;
+    if (type === 'rws') {
+      rwsParticipations++;
+      rwsTournaments.add(tourId);
+    }
+
+    // Non-solo tournament fixtures (special, rws, etc.) accumulate into career totals
+    if (type !== 'solo') {
+      totalMatches++;
+      if (scoreSelf > scoreOpp) {
+        totalWins++;
+      } else if (scoreSelf === scoreOpp) {
+        totalDraws++;
+      } else {
+        totalLosses++;
+      }
+      totalGoals += scoreSelf;
+      totalConceded += scoreOpp;
+      if (scoreOpp === 0) {
+        totalCs++;
+      }
+    }
   });
 
   // Calculate medals list
@@ -661,7 +683,7 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
         case 'ballon_dor_nominee': stat = ballonDorNomineeCount; break;
         case 'claim_r2g_best': stat = r2gBestCount; break;
         case 'claim_career_ucl': stat = uclChampionCount; break;
-        case 'participate_rws': stat = rwsParticipations > 0 ? 1 : 0; break;
+        case 'participate_rws': stat = rwsTournaments.size; break;
         case 'claim_trophy_career': stat = trophyCareerCount; break;
         case 'claim_trophy_any_tour': stat = trophyAnyCount; break;
         case 'claim_trophy_together': stat = trophyTogetherCount; break;
