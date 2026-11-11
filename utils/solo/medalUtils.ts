@@ -108,48 +108,24 @@ export function calculateLevelFromExp(totalExp: number): number {
 }
 
 export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) {
-  // 1. Fetch historical seasons
-  const { rows: history } = await pool.query(
-    `SELECT * FROM manager_seasons WHERE manager_id = $1`,
-    [managerId]
-  );
-
-  // 2. Fetch clubs managed
-  const { rows: clubHistory } = await pool.query(`
-    SELECT DISTINCT club_id FROM manager_seasons WHERE manager_id = $1 AND club_id IS NOT NULL
-    UNION
-    SELECT DISTINCT current_club_id as club_id FROM manager_wallets WHERE manager_id = $1 AND current_club_id IS NOT NULL
-  `, [managerId]);
-  const clubIds = clubHistory.map(row => row.club_id).filter(id => id !== null);
-
-  // 3. Fetch fixtures for matches / streak calculations
-  let fixtures: any[] = [];
-  if (clubIds.length > 0) {
-    const { rows } = await pool.query(`
-      SELECT f.*, t.tournament_type 
-      FROM fixtures f
-      JOIN tournaments t ON f.tournament_id = t.id
-      WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
-        AND f.home_score IS NOT NULL
-        AND f.away_score IS NOT NULL
-        AND (f.match_status IS NULL OR f.match_status != 'void')
-      ORDER BY f.season_id ASC, f.round_number ASC
-    `, [clubIds]);
-    fixtures = rows;
-  }
-
-  // 4. Fetch manual medal updates/overrides
-  const { rows: manualMedals } = await pool.query(
-    `SELECT medal_key, level FROM manager_medals WHERE manager_id = $1`,
-    [managerId]
-  );
-  const manualMap = new Map<string, number>();
-  manualMedals.forEach(m => manualMap.set(m.medal_key, m.level));
-
-  // 5. Fetch Master of the Week (MOTW) wins from prediction leagues
-  let predictionMotwWins: any[] = [];
-  try {
-    const { rows: motwRows } = await pool.query(`
+  // 1, 2, 4, 5, 6, 6b, and stored EXP run in parallel (all depend only on managerId)
+  const [
+    historyRes,
+    clubHistoryRes,
+    manualMedalsRes,
+    predictionMotwWins,
+    predictionSeasonFinishes,
+    predictionDaysScored,
+    mgrRes
+  ] = await Promise.all([
+    pool.query(`SELECT * FROM manager_seasons WHERE manager_id = $1`, [managerId]),
+    pool.query(`
+      SELECT DISTINCT club_id FROM manager_seasons WHERE manager_id = $1 AND club_id IS NOT NULL
+      UNION
+      SELECT DISTINCT current_club_id as club_id FROM manager_wallets WHERE manager_id = $1 AND current_club_id IS NOT NULL
+    `, [managerId]),
+    pool.query(`SELECT medal_key, level FROM manager_medals WHERE manager_id = $1`, [managerId]),
+    pool.query(`
       WITH weekly_scores AS (
         SELECT 
           ps.season_id,
@@ -179,16 +155,11 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       JOIN prediction_seasons psec ON ws.season_id = psec.id
       WHERE ws.rnk = 1 AND ws.total_points > 0 AND ws.member_id = $1
       ORDER BY ws.season_id, ws.week_number
-    `, [managerId]);
-    predictionMotwWins = motwRows;
-  } catch (err) {
-    console.error(`Error fetching prediction MOTW wins for manager ${managerId}:`, err);
-  }
-
-  // 6. Fetch completed prediction seasons standings
-  let predictionSeasonFinishes: any[] = [];
-  try {
-    const { rows: pSeasonRows } = await pool.query(`
+    `, [managerId]).then(r => r.rows).catch(err => {
+      console.error(`Error fetching prediction MOTW wins for manager ${managerId}:`, err);
+      return [] as any[];
+    }),
+    pool.query(`
       WITH season_totals AS (
         SELECT 
           ps.season_id,
@@ -214,26 +185,53 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       FROM season_totals st
       JOIN prediction_seasons psec ON st.season_id = psec.id
       WHERE st.member_id = $1
-    `, [managerId]);
-    predictionSeasonFinishes = pSeasonRows;
-  } catch (err) {
-    console.error(`Error fetching prediction season finishes for manager ${managerId}:`, err);
-  }
+    `, [managerId]).then(r => r.rows).catch(err => {
+      console.error(`Error fetching prediction season finishes for manager ${managerId}:`, err);
+      return [] as any[];
+    }),
+    pool.query(`
+      SELECT COUNT(*)::int as count
+      FROM prediction_scores ps
+      JOIN prediction_days pd ON ps.season_id = pd.season_id AND ps.day_number = pd.day_number
+      WHERE ps.member_id = $1 AND ps.points > 0
+    `, [managerId]).then(r => Number(r.rows[0]?.count) || 0).catch(err => {
+      console.error(`Error fetching prediction days scored for manager ${managerId}:`, err);
+      return 0;
+    }),
+    pool.query('SELECT COALESCE(normal_exp, 0) as normal_exp FROM managers WHERE id = $1', [managerId])
+  ]);
 
-  // 7. Fetch awards from player_awards table for this manager or their managed clubs
-  let directPlayerAwards: any[] = [];
-  try {
-    const clubIdStrs = clubIds.map((c: any) => c.toString());
-    const { rows: paRows } = await pool.query(`
+  const history = historyRes.rows;
+  const clubIds = clubHistoryRes.rows.map(row => row.club_id).filter(id => id !== null);
+  const manualMap = new Map<string, number>();
+  manualMedalsRes.rows.forEach(m => manualMap.set(m.medal_key, m.level));
+  const storedNormalExp = mgrRes.rows.length > 0 ? Number(mgrRes.rows[0].normal_exp) : 0;
+
+  // 3 & 7. Fetch fixtures and player_awards in parallel (both depend on clubIds)
+  const clubIdStrs = clubIds.map((c: any) => c.toString());
+  const [fixtures, directPlayerAwards] = await Promise.all([
+    clubIds.length > 0
+      ? pool.query(`
+          SELECT f.*, t.tournament_type 
+          FROM fixtures f
+          JOIN tournaments t ON f.tournament_id = t.id
+          WHERE (f.home_club_id = ANY($1) OR f.away_club_id = ANY($1))
+            AND f.home_score IS NOT NULL
+            AND f.away_score IS NOT NULL
+            AND (f.match_status IS NULL OR f.match_status != 'void')
+          ORDER BY f.season_id ASC, f.round_number ASC
+        `, [clubIds]).then(r => r.rows)
+      : Promise.resolve([] as any[]),
+    pool.query(`
       SELECT * FROM player_awards 
       WHERE player_id = $1::text 
          OR ($2::text[] IS NOT NULL AND array_length($2::text[], 1) > 0 AND player_id = ANY($2::text[]))
       ORDER BY season_id ASC, id ASC
-    `, [managerId.toString(), clubIdStrs]);
-    directPlayerAwards = paRows;
-  } catch (err) {
-    console.error(`Error fetching player_awards for manager ${managerId}:`, err);
-  }
+    `, [managerId.toString(), clubIdStrs]).then(r => r.rows).catch(err => {
+      console.error(`Error fetching player_awards for manager ${managerId}:`, err);
+      return [] as any[];
+    })
+  ]);
 
   // --- STATS ACCUMULATION ---
   let totalMatches = 0;
@@ -792,10 +790,9 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
 
   // Calculate Stored vs Calculated Normal EXP
   // Match: 25, Win: 40, Draw: 20, Lose: 10, Goal: 5, CS: 10
-  const calculatedNormalExp = (totalMatches * 25) + (totalWins * 40) + (totalDraws * 20) + (totalLosses * 10) + (totalGoals * 5) + (totalCs * 10);
-  
-  const { rows: mgrRows } = await pool.query('SELECT COALESCE(normal_exp, 0) as normal_exp FROM managers WHERE id = $1', [managerId]);
-  const storedNormalExp = mgrRows.length > 0 ? Number(mgrRows[0].normal_exp) : 0;
+  // Prediction Day Participation: 5 EXP per day scored
+  const predictionExp = predictionDaysScored * 5;
+  const calculatedNormalExp = (totalMatches * 25) + (totalWins * 40) + (totalDraws * 20) + (totalLosses * 10) + (totalGoals * 5) + (totalCs * 10) + predictionExp;
   const normalExp = Math.max(storedNormalExp, calculatedNormalExp);
 
   const totalExp = normalExp + totalMedalExp;
@@ -810,7 +807,10 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
 
   return {
     normalExp,
+    storedNormalExp,
     calculatedNormalExp,
+    predictionExp,
+    predictionDaysScored,
     medalExp: totalMedalExp,
     totalExp,
     level,
@@ -833,9 +833,113 @@ export async function fetchManagerMedalsAndLevel(managerId: number, pool: Pool) 
       losses: totalLosses,
       goals: totalGoals,
       conceded: totalConceded,
-      cs: totalCs
+      cs: totalCs,
+      predictionDaysScored
     }
   };
+}
+
+export async function syncManagerMedalsAndExp(
+  managerId: number,
+  pool: Pool,
+  options?: {
+    syncMedals?: boolean;
+    auditType?: string;
+    auditMessage?: string | ((stats: Awaited<ReturnType<typeof fetchManagerMedalsAndLevel>>) => string | null);
+    onlyLogIfExpChanged?: boolean;
+  }
+) {
+  const stats = await fetchManagerMedalsAndLevel(managerId, pool);
+  const expChanged = stats.calculatedNormalExp !== stats.storedNormalExp;
+  const shouldSyncMedals = options?.syncMedals !== false;
+
+  const writeOps: Promise<any>[] = [];
+
+  if (expChanged || shouldSyncMedals) {
+    writeOps.push(
+      pool.query(
+        `UPDATE managers SET normal_exp = $1 WHERE id = $2`,
+        [stats.calculatedNormalExp, managerId]
+      )
+    );
+  }
+
+  if (shouldSyncMedals) {
+    const positiveMedals = stats.medals.filter((m) => m.level > 0);
+    const zeroMedalKeys = stats.medals.filter((m) => m.level <= 0).map((m) => m.key);
+
+    if (positiveMedals.length > 0) {
+      writeOps.push(
+        pool.query(
+          `INSERT INTO manager_medals (manager_id, medal_key, level)
+           SELECT $1, k, l
+           FROM UNNEST($2::text[], $3::int[]) AS t(k, l)
+           ON CONFLICT (manager_id, medal_key)
+           DO UPDATE SET level = EXCLUDED.level`,
+          [managerId, positiveMedals.map((m) => m.key), positiveMedals.map((m) => m.level)]
+        )
+      );
+    }
+
+    if (zeroMedalKeys.length > 0) {
+      writeOps.push(
+        pool.query(
+          `DELETE FROM manager_medals
+           WHERE manager_id = $1 AND medal_key = ANY($2::text[])`,
+          [managerId, zeroMedalKeys]
+        )
+      );
+    }
+  }
+
+  if (writeOps.length > 0) {
+    await Promise.all(writeOps);
+  }
+
+  const rawMessage = typeof options?.auditMessage === 'function'
+    ? options.auditMessage(stats)
+    : options?.auditMessage;
+
+  if (rawMessage && (!options?.onlyLogIfExpChanged || expChanged)) {
+    await pool.query(
+      `INSERT INTO medal_audit_logs (manager_id, action_type, details)
+       VALUES ($1, $2, $3)`,
+      [managerId, options?.auditType || 'alignment', rawMessage]
+    ).catch((err) => {
+      console.error(`Error logging medal audit for manager ${managerId}:`, err);
+    });
+  }
+
+  return stats;
+}
+
+export async function syncManagersMedalsAndExpBatch(
+  managerIds: number[],
+  pool: Pool,
+  options?: {
+    syncMedals?: boolean;
+    batchSize?: number;
+    auditType?: string;
+    auditMessage?: string | ((stats: Awaited<ReturnType<typeof fetchManagerMedalsAndLevel>>) => string | null);
+    onlyLogIfExpChanged?: boolean;
+  }
+) {
+  const uniqueIds = Array.from(new Set(managerIds.map(Number).filter((id) => !isNaN(id) && id > 0)));
+  const batchSize = Math.max(1, options?.batchSize || 6);
+  const results: Array<{ managerId: number; stats: Awaited<ReturnType<typeof fetchManagerMedalsAndLevel>> }> = [];
+
+  for (let i = 0; i < uniqueIds.length; i += batchSize) {
+    const chunk = uniqueIds.slice(i, i + batchSize);
+    const chunkResults = await Promise.all(
+      chunk.map(async (managerId) => ({
+        managerId,
+        stats: await syncManagerMedalsAndExp(managerId, pool, options)
+      }))
+    );
+    results.push(...chunkResults);
+  }
+
+  return results;
 }
 
 export function getLeagueName(level: number): string {

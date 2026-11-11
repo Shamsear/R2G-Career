@@ -8068,39 +8068,12 @@ export async function fetchManagersAlignment() {
 
 export async function alignManagerStatsAndMedals(managerId: number) {
   try {
-    const { fetchManagerMedalsAndLevel } = await import('./medalUtils');
-    const stats = await fetchManagerMedalsAndLevel(managerId, pool as any);
-
-    // Update normal_exp in DB
-    await pool.query(`
-      UPDATE managers 
-      SET normal_exp = $1 
-      WHERE id = $2
-    `, [stats.calculatedNormalExp, managerId]);
-
-    // Backfill medals
-    for (const medal of stats.medals) {
-      if (medal.level > 0) {
-        await pool.query(`
-          INSERT INTO manager_medals (manager_id, medal_key, level)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (manager_id, medal_key)
-          DO UPDATE SET level = EXCLUDED.level
-        `, [managerId, medal.key, medal.level]);
-      } else {
-        await pool.query(`
-          DELETE FROM manager_medals
-          WHERE manager_id = $1 AND medal_key = $2
-        `, [managerId, medal.key]);
-      }
-    }
-
-    // Write audit log
-    await pool.query(
-      `INSERT INTO medal_audit_logs (manager_id, action_type, details)
-       VALUES ($1, 'alignment', $2)`,
-      [managerId, `Admin alignment: Backfilled and aligned normal_exp to ${stats.calculatedNormalExp} EXP and processed all medals.`]
-    );
+    const { syncManagerMedalsAndExp } = await import('./medalUtils');
+    await syncManagerMedalsAndExp(managerId, pool as any, {
+      syncMedals: true,
+      auditType: 'alignment',
+      auditMessage: (stats) => `Admin alignment: Backfilled and aligned normal_exp to ${stats.calculatedNormalExp} EXP and processed all medals.`
+    });
 
     return { success: true };
   } catch (e) {
@@ -8112,9 +8085,17 @@ export async function alignManagerStatsAndMedals(managerId: number) {
 export async function alignAllManagersStatsAndMedals() {
   try {
     const { rows: managers } = await pool.query(`SELECT id FROM managers`);
-    for (const m of managers) {
-      await alignManagerStatsAndMedals(m.id);
-    }
+    const { syncManagersMedalsAndExpBatch } = await import('./medalUtils');
+    await syncManagersMedalsAndExpBatch(
+      managers.map((m) => m.id),
+      pool as any,
+      {
+        syncMedals: true,
+        batchSize: 6,
+        auditType: 'alignment',
+        auditMessage: (stats) => `Admin alignment: Backfilled and aligned normal_exp to ${stats.calculatedNormalExp} EXP and processed all medals.`
+      }
+    );
     return { success: true, count: managers.length };
   } catch (e) {
     console.error("Error aligning all managers:", e);

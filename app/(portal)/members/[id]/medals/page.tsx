@@ -28,7 +28,7 @@ interface MedalLevelItem {
 
 interface LedgerEntry {
   id: string;
-  source: 'MATCH_WON' | 'GOAL_SCORED' | 'MATCH_PLAYED' | 'BADGE_UNLOCKED';
+  source: 'MATCH_WON' | 'GOAL_SCORED' | 'MATCH_PLAYED' | 'BADGE_UNLOCKED' | 'PREDICTION_DAY';
   description: string;
   xp: number;
   date: string;
@@ -360,6 +360,17 @@ export default function MemberMedalsPage() {
       description: `Career fixture participation milestone (${i} Played)`,
       xp: 100,
       date: new Date(Date.now() - (ledgerCounter * 12 * 3600 * 1000)).toLocaleDateString('en-GB')
+    });
+  }
+
+  const predictionDaysCount = Number(medalInfo.predictionDaysScored) || 0;
+  if (predictionDaysCount > 0) {
+    ledgerEntries.push({
+      id: `xp-prediction-${ledgerCounter++}`,
+      source: 'PREDICTION_DAY',
+      description: `Master of Prediction participation (${predictionDaysCount} scored day${predictionDaysCount === 1 ? '' : 's'} × 5 XP)`,
+      xp: Number(medalInfo.predictionExp) || predictionDaysCount * 5,
+      date: new Date().toLocaleDateString('en-GB')
     });
   }
 
@@ -761,6 +772,10 @@ export default function MemberMedalsPage() {
                           pillBorder = '#fbbf24';
                           pillText = '#fbbf24';
                           pillBg = 'rgba(251,191,36,0.04)';
+                        } else if (entry.source === 'PREDICTION_DAY') {
+                          pillBorder = '#a855f7';
+                          pillText = '#c084fc';
+                          pillBg = 'rgba(168,85,247,0.06)';
                         }
 
                         return (

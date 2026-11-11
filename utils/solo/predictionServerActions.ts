@@ -2,6 +2,7 @@
 
 import { Pool } from 'pg';
 import { getCurrentAdminUsername, logSoloAdminAction } from './serverActions';
+import { syncManagersMedalsAndExpBatch } from './medalUtils';
 
 const connectionString = process.env.SOLO_DATABASE_URL || process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 
@@ -397,11 +398,39 @@ export async function updatePredictionSeasonSettings(
       `, [seasonId, d, w, `Day ${d} (Week ${w})`]);
     }
 
-    // If totalDays is reduced, remove extra days > totalDays
+    const shouldSyncSeason =
+      status !== current.status ||
+      Number(totalDays) !== Number(current.total_days) ||
+      Number(daysPerWeek) !== Number(current.days_per_week);
+
+    const affectedMembersRes = shouldSyncSeason
+      ? await pool.query(`SELECT DISTINCT member_id FROM prediction_scores WHERE season_id = $1`, [seasonId])
+      : { rows: [] as any[] };
+
+    // If totalDays is reduced, remove extra days and orphan scores > totalDays
     await pool.query(`
       DELETE FROM prediction_days
       WHERE season_id = $1 AND day_number > $2
     `, [seasonId, totalDays]);
+
+    await pool.query(`
+      DELETE FROM prediction_scores
+      WHERE season_id = $1 AND day_number > $2
+    `, [seasonId, totalDays]);
+
+    if (shouldSyncSeason && affectedMembersRes.rows.length > 0) {
+      await syncManagersMedalsAndExpBatch(
+        affectedMembersRes.rows.map((r: any) => Number(r.member_id)),
+        pool,
+        {
+          syncMedals: true,
+          batchSize: 6,
+          onlyLogIfExpChanged: true,
+          auditType: 'prediction_sync',
+          auditMessage: (stats) => `Synced prediction settings update for Season ${seasonId}: Normal EXP now ${stats.calculatedNormalExp} EXP.`
+        }
+      );
+    }
 
     await logSoloAdminAction('UPDATE_PREDICTION_SEASON_SETTINGS', {
       season_id: seasonId,
@@ -498,11 +527,22 @@ export async function savePredictionDayScores(
   try {
     const admin = await getCurrentAdminUsername();
 
-    // Fetch season for days_per_week
-    const { rows: sRows } = await pool.query(`SELECT days_per_week, total_days FROM prediction_seasons WHERE id = $1`, [seasonId]);
+    // Fetch season config + previous day/score snapshot before updating
+    const [{ rows: sRows }, { rows: prevDayRows }, { rows: prevScoreRows }] = await Promise.all([
+      pool.query(`SELECT days_per_week, total_days FROM prediction_seasons WHERE id = $1`, [seasonId]),
+      pool.query(`SELECT is_completed FROM prediction_days WHERE season_id = $1 AND day_number = $2 LIMIT 1`, [seasonId, dayNumber]),
+      pool.query(`SELECT member_id, points FROM prediction_scores WHERE season_id = $1 AND day_number = $2`, [seasonId, dayNumber])
+    ]);
+
     const daysPerWeek = sRows[0]?.days_per_week || 6;
     const totalDays = sRows[0]?.total_days || 36;
     const weekNumber = Math.ceil(dayNumber / daysPerWeek);
+    const wasDayCompleted = Boolean(prevDayRows[0]?.is_completed);
+
+    const prevScoreMap = new Map<number, number>();
+    for (const r of prevScoreRows) {
+      prevScoreMap.set(Number(r.member_id), Number(r.points) || 0);
+    }
 
     // 1. Update day info
     if (dayInfo) {
@@ -540,12 +580,26 @@ export async function savePredictionDayScores(
       }
     }
 
-    // 2. Batch upsert scores
+    // Deduplicate scores by member_id (preserving last entry)
+    const dedupedScoreMap = new Map<number, { member_id: number; points: number; notes: string | null }>();
     for (const score of scores) {
-      const points = Number(score.points) || 0;
+      const mId = Number(score.member_id);
+      if (!isNaN(mId) && mId > 0) {
+        dedupedScoreMap.set(mId, {
+          member_id: mId,
+          points: Number(score.points) || 0,
+          notes: score.notes || null
+        });
+      }
+    }
+    const dedupedScores = Array.from(dedupedScoreMap.values());
+
+    // 2. Batch upsert scores in a single query
+    if (dedupedScores.length > 0) {
       await pool.query(`
         INSERT INTO prediction_scores (season_id, day_number, week_number, member_id, points, notes, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+        SELECT $1, $2, $3, u.member_id, u.points, u.notes, CURRENT_TIMESTAMP
+        FROM UNNEST($4::int[], $5::numeric[], $6::text[]) AS u(member_id, points, notes)
         ON CONFLICT (season_id, day_number, member_id)
         DO UPDATE SET 
           points = EXCLUDED.points,
@@ -556,17 +610,63 @@ export async function savePredictionDayScores(
         seasonId,
         dayNumber,
         weekNumber,
-        score.member_id,
-        points,
-        score.notes || null
+        dedupedScores.map((s) => s.member_id),
+        dedupedScores.map((s) => s.points),
+        dedupedScores.map((s) => s.notes)
       ]);
+    }
+
+    // 3. Synchronize Normal EXP (+5 per scored day) and Prediction Medals automatically
+    const isNowCompleted = dayInfo
+      ? (dayInfo.is_completed !== undefined ? Boolean(dayInfo.is_completed) : false)
+      : wasDayCompleted;
+
+    const expChangedMemberIds: number[] = [];
+    let anyScoreValueChanged = false;
+
+    for (const s of dedupedScores) {
+      const prevPts = prevScoreMap.get(s.member_id) ?? 0;
+      if (prevPts !== s.points) {
+        anyScoreValueChanged = true;
+      }
+      if ((prevPts > 0) !== (s.points > 0)) {
+        expChangedMemberIds.push(s.member_id);
+      }
+    }
+
+    const shouldSyncMedals = (wasDayCompleted !== isNowCompleted) || (isNowCompleted && anyScoreValueChanged);
+
+    if (shouldSyncMedals) {
+      const { rows: seasonMembers } = await pool.query(
+        `SELECT DISTINCT member_id FROM prediction_scores WHERE season_id = $1`,
+        [seasonId]
+      );
+      const allAffectedIds = [
+        ...seasonMembers.map((r: any) => Number(r.member_id)),
+        ...dedupedScores.map((s) => s.member_id)
+      ];
+      await syncManagersMedalsAndExpBatch(allAffectedIds, pool, {
+        syncMedals: true,
+        batchSize: 6,
+        onlyLogIfExpChanged: true,
+        auditType: 'prediction_accrual',
+        auditMessage: (stats) => `Synced Prediction Day ${dayNumber} (Season ${seasonId}): Normal EXP updated to ${stats.calculatedNormalExp} EXP (${stats.predictionDaysScored} scored days × 5).`
+      });
+    } else if (expChangedMemberIds.length > 0) {
+      await syncManagersMedalsAndExpBatch(expChangedMemberIds, pool, {
+        syncMedals: false,
+        batchSize: 6,
+        onlyLogIfExpChanged: true,
+        auditType: 'prediction_accrual',
+        auditMessage: (stats) => `Synced Prediction Day ${dayNumber} participation (Season ${seasonId}): Normal EXP updated to ${stats.calculatedNormalExp} EXP (${stats.predictionDaysScored} scored days × 5).`
+      });
     }
 
     await logSoloAdminAction('SAVE_PREDICTION_SCORES', {
       season_id: seasonId,
       day_number: dayNumber,
       week_number: weekNumber,
-      updated_members_count: scores.length,
+      updated_members_count: dedupedScores.length,
       is_completed: dayInfo?.is_completed,
       admin
     });
@@ -864,13 +964,25 @@ export async function createNextSeasonQuickAction(previousSeasonId?: number) {
     const nextSeasonNum = (Number(maxRows[0]?.max_num) || 0) + 1;
     const nextSeasonName = `Master of Prediction - Season ${nextSeasonNum}`;
 
-    // 2. If previousSeasonId provided, complete it
+    // 2. If previousSeasonId provided, complete it and sync season-end prediction medals
     if (previousSeasonId) {
       await pool.query(`
         UPDATE prediction_seasons
         SET status = 'completed', updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
       `, [previousSeasonId]);
+
+      const { rows: prevMembers } = await pool.query(
+        `SELECT DISTINCT member_id FROM prediction_scores WHERE season_id = $1`,
+        [previousSeasonId]
+      );
+      if (prevMembers.length > 0) {
+        await syncManagersMedalsAndExpBatch(
+          prevMembers.map((r: any) => Number(r.member_id)),
+          pool,
+          { syncMedals: true, batchSize: 6 }
+        );
+      }
     }
 
     // 3. Create the new 36-day season
@@ -912,7 +1024,24 @@ export async function createNextSeasonQuickAction(previousSeasonId?: number) {
 export async function deletePredictionSeason(seasonId: number) {
   try {
     const admin = await getCurrentAdminUsername();
+    const { rows: affectedMembers } = await pool.query(
+      `SELECT DISTINCT member_id FROM prediction_scores WHERE season_id = $1`,
+      [seasonId]
+    );
     await pool.query(`DELETE FROM prediction_seasons WHERE id = $1`, [seasonId]);
+    if (affectedMembers.length > 0) {
+      await syncManagersMedalsAndExpBatch(
+        affectedMembers.map((r: any) => Number(r.member_id)),
+        pool,
+        {
+          syncMedals: true,
+          batchSize: 6,
+          onlyLogIfExpChanged: true,
+          auditType: 'prediction_sync',
+          auditMessage: (stats) => `Synced after deleting Prediction Season ${seasonId}: Normal EXP now ${stats.calculatedNormalExp} EXP.`
+        }
+      );
+    }
     await logSoloAdminAction('DELETE_PREDICTION_SEASON', { season_id: seasonId, admin });
     return { success: true };
   } catch (error: any) {
