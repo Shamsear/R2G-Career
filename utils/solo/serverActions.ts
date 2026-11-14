@@ -1146,8 +1146,8 @@ export async function fetchSelectedCandidates(tournamentName: string) {
         }
 
         const { rows: result } = await pool.query(`
-            SELECT DISTINCT ON (c.id)
-                COALESCE(c.id, m.id) as id, c.name as club_name, c.logo_path,
+            SELECT DISTINCT ON (tt.club_id)
+                COALESCE(c.id, tt.club_id) as id, COALESCE(c.name, m.name) as club_name, c.logo_path,
                 m.id as manager_id, m.name as manager_name, m.avatar_path, m.r2g_id as manager_r2g_id,
                 tt.selection_status, tt.custom_team_name, tt.use_existing_club, tt.custom_logo_path,
                 mw.overall_rating,
@@ -1196,7 +1196,7 @@ export async function fetchSelectedCandidates(tournamentName: string) {
                 GROUP BY m_id
             ) f_stats ON tt.club_id = f_stats.m_id
             WHERE tt.tournament_name = $1
-            ORDER BY c.id, ms.id DESC
+            ORDER BY tt.club_id, ms.id DESC
         `, [tournamentName, tournamentId]);
 
         return result.map((row: any) => {
@@ -7984,7 +7984,7 @@ export async function fetchAllClubs() {
              COALESCE(mw.r2g_voucher_balance, 0) as vouchers
       FROM clubs c
       LEFT JOIN manager_seasons ms ON c.id = ms.club_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-      LEFT JOIN manager_wallets mw ON COALESCE(ms.manager_id, c.id) = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+      LEFT JOIN manager_wallets mw ON (c.id = mw.current_club_id OR ms.manager_id = mw.manager_id) AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
       ORDER BY c.name ASC
     `);
     return rows;
