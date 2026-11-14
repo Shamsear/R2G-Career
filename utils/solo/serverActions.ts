@@ -1051,10 +1051,10 @@ export async function fetchManagerRanking() {
 export async function fetchRegisteredClubs(includeInactive: boolean = false) {
     try {
         const queryStr = includeInactive 
-          ? `SELECT COALESCE(c.id, ms.club_id, mw.current_club_id, m.id) as id,
+          ? `SELECT c.id,
                     c.id as club_id,
                     m.id as manager_id,
-                    COALESCE(c.name, m.name) as name, 
+                    c.name as name, 
                     m.name as manager, 
                     m.r2g_id, 
                     c.logo_path as image, 
@@ -1062,14 +1062,15 @@ export async function fetchRegisteredClubs(includeInactive: boolean = false) {
                     COALESCE(mw.r2g_coin_balance, 0) as coins, 
                     COALESCE(mw.r2g_token_balance, 0) as tokens, 
                     COALESCE(mw.r2g_voucher_balance, 0) as vouchers
-             FROM managers m 
-             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN clubs c ON COALESCE(ms.club_id, mw.current_club_id, m.id) = c.id`
-          : `SELECT COALESCE(c.id, ms.club_id, mw.current_club_id, m.id) as id,
+             FROM clubs c
+             LEFT JOIN manager_seasons ms ON c.id = ms.club_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN manager_wallets mw ON (c.id = mw.current_club_id OR ms.manager_id = mw.manager_id) AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN managers m ON COALESCE(ms.manager_id, mw.manager_id) = m.id
+             ORDER BY c.name ASC`
+          : `SELECT c.id,
                     c.id as club_id,
                     m.id as manager_id,
-                    COALESCE(c.name, m.name) as name, 
+                    c.name as name, 
                     m.name as manager, 
                     m.r2g_id, 
                     c.logo_path as image, 
@@ -1077,11 +1078,12 @@ export async function fetchRegisteredClubs(includeInactive: boolean = false) {
                     COALESCE(mw.r2g_coin_balance, 0) as coins, 
                     COALESCE(mw.r2g_token_balance, 0) as tokens, 
                     COALESCE(mw.r2g_voucher_balance, 0) as vouchers
-             FROM managers m 
-             LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
-             LEFT JOIN clubs c ON COALESCE(ms.club_id, mw.current_club_id, m.id) = c.id
-             WHERE m.is_active IS NOT FALSE`;
+             FROM clubs c
+             LEFT JOIN manager_seasons ms ON c.id = ms.club_id AND ms.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN manager_wallets mw ON (c.id = mw.current_club_id OR ms.manager_id = mw.manager_id) AND mw.season_id = (SELECT id FROM seasons WHERE is_active = true LIMIT 1)
+             LEFT JOIN managers m ON COALESCE(ms.manager_id, mw.manager_id) = m.id
+             WHERE (m.id IS NULL OR m.is_active IS NOT FALSE)
+             ORDER BY c.name ASC`;
         const { rows: result } = await pool.query(queryStr);
         return result;
     } catch (e) { console.error(e); return []; }
@@ -9169,10 +9171,10 @@ export async function rejectTransferRequest(requestId: number, reason?: string) 
 export async function fetchRegisteredClubsForSeason(seasonId: string | number) {
   try {
     const { rows } = await pool.query(`
-      SELECT COALESCE(c.id, ms.club_id, m.id) as id,
+      SELECT c.id,
              c.id as club_id,
              m.id as manager_id,
-             COALESCE(c.name, m.name) as name, 
+             c.name as name, 
              m.name as manager, 
              m.r2g_id, 
              c.logo_path as image, 
@@ -9180,11 +9182,12 @@ export async function fetchRegisteredClubsForSeason(seasonId: string | number) {
              COALESCE(mw.r2g_coin_balance, 0) as coins, 
              COALESCE(mw.r2g_token_balance, 0) as tokens, 
              COALESCE(mw.r2g_voucher_balance, 0) as vouchers
-      FROM managers m
-      JOIN manager_seasons ms ON m.id = ms.manager_id
-      LEFT JOIN clubs c ON ms.club_id = c.id
-      LEFT JOIN manager_wallets mw ON m.id = mw.manager_id AND mw.season_id = $1
-      WHERE ms.season_id = $1 AND m.is_active IS NOT FALSE
+      FROM clubs c
+      LEFT JOIN manager_seasons ms ON c.id = ms.club_id AND ms.season_id = $1
+      LEFT JOIN manager_wallets mw ON (c.id = mw.current_club_id OR ms.manager_id = mw.manager_id) AND mw.season_id = $1
+      LEFT JOIN managers m ON COALESCE(ms.manager_id, mw.manager_id) = m.id
+      WHERE (m.id IS NULL OR m.is_active IS NOT FALSE)
+      ORDER BY c.name ASC
     `, [seasonId.toString()]);
     if (rows.length === 0) {
       return fetchRegisteredClubs(false);

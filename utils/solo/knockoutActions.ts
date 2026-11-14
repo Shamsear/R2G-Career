@@ -570,10 +570,11 @@ export async function getEligibleTeamsForKnockout(
           ORDER BY ts.points DESC, ts.goal_difference DESC, ts.goals_for DESC
         ) as overall_position
       FROM tournament_standings ts
-      JOIN managers m ON m.id = ts.club_id
       JOIN tournaments t ON t.id = ts.tournament_id
-      LEFT JOIN manager_seasons ms ON m.id = ms.manager_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
-      LEFT JOIN clubs c ON COALESCE(ms.club_id, m.id) = c.id
+      LEFT JOIN clubs c ON ts.club_id = c.id
+      LEFT JOIN manager_seasons ms ON ts.club_id = ms.club_id AND ms.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN manager_wallets mw ON ts.club_id = mw.current_club_id AND mw.season_id = COALESCE(t.season_id, (SELECT id FROM seasons WHERE is_active = true LIMIT 1))
+      LEFT JOIN managers m ON (COALESCE(ms.manager_id, mw.manager_id) = m.id OR (c.id IS NULL AND ts.club_id = m.id))
       LEFT JOIN tournament_teams tt ON tt.tournament_name = t.name AND tt.club_id = ts.club_id
       WHERE ts.tournament_id = $1
       ORDER BY overall_position`,
